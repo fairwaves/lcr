@@ -1,0 +1,37 @@
+
+
+make asterisk call implementation
+
+interface.conf neu
+
+mixer abspecken
+
+call recording
+
+call zu mehreren extensions
+
+
+
+
+
+
+
+
+
+
+
+old stuff....
+
+NOTE: check CENTREX
+
+durchstellen mit disconnect
+durchstellen mit keypad
+ruf bei CFP gibt besetzt, wenn teilnehmer intern besetzt ist.
+short ring
+sleep relaxed
+auto pick
+alarm clock (timer)
+sonderwahlton
+facility: diversion, 3pty, ...
+
+

@@ -1,0 +1,161 @@
+call state messages between epoint and port, call and endpoint objects:
+-----------------------------------------------------------------------
+
+MESSAGE_SETUP
+- a new call is set up
+
+MESSAGE_MORE
+- more digits are needed
+
+MESSAGE_PROCEEDING
+- call proceeds, no more digits needed
+
+MESSAGE_ALERTING
+- call alerts, no more digits needed
+
+MESSAGE_CONNECT
+- call connects
+
+MESSAGE_DISCONNECT
+- call disconnects, but not yet released
+
+MESSAGE_RELEASE
+- call has been released
+
+* other messages like dialing information, notifications and others
+  are processed by the objects and can cause other internal states to change
+  but will not change any call state. objects may analyze the given information
+  and process call state message. (e.g MESSAGE_DISCONNECT when dialing a wrong
+  number)
+
+
+states of port object:
+----------------------
+
+PORT_STATE_IDLE
+- port is just created, no setup yet
+PORT_STATE_IN_SETUP
+- a setup was received from isdn stack
+PORT_STATE_OUT_SETUP
+- a setup was sent to isdn stack
+PORT_STATE_IN_MORE
+- the endpoint object requires more digits to complete the call
+PORT_STATE_OUT_MORE
+- the port object requires more digits to complete the call
+PORT_STATE_IN_PROCEEDING
+- the incoming call proceeds, no more digits needed
+PORT_STATE_OUT_PROCEEDING
+- the outgoing call proceeds, no more digits needed
+PORT_STATE_IN_ALERTING
+- the incoming call alerts, no more digits needed
+PORT_STATE_OUT_ALERTING
+- the outgoing call alerts, no more digits needed
+PORT_STATE_CONNECT
+- the call is active
+PORT_STATE_IN_DISCONNECT
+- the call is disconnected from the incoming side
+PORT_STATE_OUT_DISCONNECT
+- the call is disconnected from the outgoing side
+PORT_STATE_RELEASE
+- the call is released, the port object waits for the l3-process to terminate
+
+
+states of endpoint object:
+--------------------------
+
+EPOINT_STATE_IDLE
+- endpoint is just created, no setup yet
+EPOINT_STATE_OUT_SETUP
+- a setup was received from call object
+EPOINT_STATE_IN_MORE
+- the port object requires more digits to complete the call
+EPOINT_STATE_OUT_MORE
+- the call object requires more digits to complete the call
+EPOINT_STATE_IN_PROCEEDING
+- the incoming call proceeds, no more digits needed
+EPOINT_STATE_OUT_PROCEEDING
+- the outgoing call proceeds, no more digits needed
+EPOINT_STATE_IN_ALERTING
+- the incoming call alerts, no more digits needed
+EPOINT_STATE_OUT_ALERTING
+- the outgoing call alerts, no more digits needed
+EPOINT_STATE_CONNECT
+- the call is active
+EPOINT_STATE_IN_DISCONNECT
+- the incoming call is disconnected
+EPOINT_STATE_OUT_DISCONNECT
+- the outgoing call is disconnected
+
+
+states of call:
+---------------
+
+there are no call states.
+
+
+procedure of messages between port and endpoint objects:
+--------------------------------------------------------
+
+INCOMING CALL (port->endpoint)
+- the endpoint object is created by the port object.
+- a MESSAGE_SETUP is sent as the first message port->endpoint.
+  the port goes into PORT_STATE_IN_SETUP state.
+  the endpoint goes into EPOINT_STATE_IN_MORE state or any other state after
+  processing the given dialing information.
+- the endpoint MUST now respond with MESSAGE_MORE, MESSAGE_PROCEEDING,
+  MESSAGE_ALERTING, MESSAGE_CONNECT, MESSAGE_DISCONNECT.
+  the endpoint goes into the appropiate EPOINT_STATE_IN_* state.
+  the port goes into the appropiate PORT_STATE_IN_* state.
+
+OUTGOING CALL (endpoint->port)
+- the port object is created by the endpoint object.
+- a MESSAGE_SETUP is sent as the first message endpoint->port.
+  the endpoint goes into EPOINT_STATE_OUT_SETUP state.
+  the port goes into PORT_STATE_OUT_SETUP state.
+- the port may now respond with MESSAGE_MORE, MESSAGE_PROCEEDING,
+  MESSAGE_ALERTING, MESSAGE_CONNECT, MESSAGE_DISCONNECT.
+  the port goes into the appropiate PORT_STATE_OUT_* state.
+  the endpoint goes into the appropiate EPOINT_STATE_OUT_* state.
+
+DISCONNECTING CALL (endpoint->port)
+- the endpoint may disconnect the call at any state, except IDLE.
+  it sends MESSAGE_DISCONNECT.
+  the endpoint goes into EPOINT_STATE_OUT_DISCONNECT state.
+  the port goes into PORT_STATE_OUT_DISCONNECT state.
+
+DISCONNECTING CALL (port->endpoint)
+- the port may disconnect the call at any state, except IDLE.
+  it sends MESSAGE_DISCONNECT.
+  the port goes into PORT_STATE_IN_DISCONNECT state.
+  the endpoint goes into EPOINT_STATE_IN_DISCONNECT state.
+
+RELEASING CALL (port->endpoint, endpoint->port)
+- at any state, this message is possible
+  the object sends MESSAGE_RELEASE, the port will terminate soon.
+  the receiving object will unlink the relation to the sending object.
+
+
+procedure of messages between endpoint and call objects:
+
+CALL PROCEEDING (endpoint->call, call->endpoint)
+- any message will be sent to the call and transfered to the other end
+- any message will be received from the endpoint coming from the other end
+- if more than two endpoints are connected in one call, the messages are
+  blocked.
+- if only one endpoint exists after creation, the call will create another
+  endpoint and delivers the MESSAGE_SETUP
+
+CALL RELEASE (endpoint->call, call->endpoint)
+- the endpoint sends MESSAGE_RELEASE in order to be removed from the call.
+  the endpoint will soon terminate.
+  the call will remove the endpoint and if there is only one endpoint left,
+  it will send a MESSAGE_RELEASE to the endpoint and will release itself.
+
+
+DISCONNECT and RELEASE
+----------------------
+
+the endpoint may receive MESSAGE_RELEASE from a call but may NOT send it
+to the port. the port MUST get a MESSAGE_DISCONNECT instead. 
+ 
+

@@ -1,0 +1,341 @@
+
+Read the documentation at ./doc/ and visit http://isdn.jolly.de.
+
+
+Changes in Version 20021228 
+- first release
+
+Changes in Version 20030111 (buggy and unuseable)
+- support dtmf for callback and dtmf dialing mode (dial through via dtmf)
+- bug fixes
+- dialing improvement: dialing h323 now possible with port and alias
+- other stuff
+- new Makefile: make install will now install binaries and data on your system
+
+Changes in Version 20030118 (buggy and unuseable)
+- information exchange between isdn/h323-ports, endpoints and calls are messages now
+  previousely using direct calls with pointers were dangerous
+- removed bug since 200301011, which caued h323 calls to deadlock
+
+Changes in Version 20030120
+- login function
+- callback authentication
+- h323 audio bug. no h323 audio transmission sice version 20030111
+- some other bug fixes
+
+Changes in Version 20030206 (first beta release 1.0)
+- callerid (CLIP/COLP) is now processed correctly with all features
+- hold sound and active/inactive notification
+- CD notification
+- many callerid display function
+- bug fixes
+- documentation as word document (partly done)
+- Note: This week I have my vakation, so there is no response to any question in the mailing list.
+
+Changes in Version 1.0 
+- first release
+- finished the first version of the documentation
+- new style internet page with documentation in html
+- all enities (port, endpoint, call) are now c++ objects, rather than structures
+- tones may now be played and recorded using wave (8bit mono, 16bit mono, 16bit stereo) or law (alwa/ulaw mono)
+- fixed corruption in wave-file creation
+- now call forwad (cfb, cfnr) is implemented and working
+- an answering machine with playback function is implemented.
+- lots of bug fixes
+
+Changes in Version 1.1
+- option to fetch tones into memory, causing faster access, then from hard disk
+- Memory is now locked using mlockall(), to prevent paging which causes jitter and interruption.
+- Answering machine now works with keypad information.
+- callback on internal port, if hangup with call on hold.
+- A pocket calcularor with simple terms (*, /, +, -) and floating point is added.
+- If a calls had more than two endpoints, any message has been ignored.
+  This caused not to receive the retreive notification, which caused the hold
+  music to continue to play.
+- minor buf fixes
+- Disconnect/release "causes" are now processed by priority, if a multipoint call is made.
+
+Changes in Version 1.2
+- bugfix: dialing of vbox-caller now works.
+- bugfix: minor answering machine announcement bug
+- fixed compiling error: h323_con.cpp (p_type not declared)  thanx arne!
+- added include definition for kernel api in Makefile. Hope it works...
+- fix: dummyid is used for external calls when no caller id is available. the
+  dummy id is transmitted as restricted id. if the police is called, it will
+  see the dummyid rather than the pbx line id. this is used on forwarded calls
+  when the caller id is not available.
+- doc: added a simple instruction to build a cross over cable.
+
+Changes in Version 2.0pre
+- NEW ISDN DRIVER SUPPORT (Forget the HiSax, now use 'mISDN'.)
+- NEW KERNEL REALTIME MODULE (mISDN_dsp.o)
+- NEW NT-MODE LIBRARY SUPPORT (now MULTIPOINT!!!)
+- NEW TE-MODE STACK SUPPORT
+- support of call suspension and retrieval (switch between calls)
+- call waiting on internal phone (calls when no bchannel is available)
+- doc: Now headlines are moved to the next page if they are at the bottom of a
+  page.
+- vbox: minor speech syntax bugfix
+- up to 50 (compiler flag) dialed numbers can be recalled.
+- up to 50 (compiler flag) received calls are listed and can be replied.
+- Dialing informations are now queued by endpoint until port has received 
+  setup acknowledge on the outgoing connection.
+- Starting PBX without parameter gives a list of options.
+- Query option for listing available ports/cards.
+- CNIP (calling name) Some Simens switches and telephones support this.
+- Extensions no have names.
+- Timeouts can now be specified for different call states on ISDN phones.
+- Tones/Announcements can now be overridden at different call states.
+- isdn.cpp is completely reworked.
+- Tones/Announcements can be played externally, if supported by the external
+  line.
+- Commandline parameters must be given on startup of pbx.
+- query option to check out the current isdn cards and protocolls.
+- Debug flags can now be used to speciallize the debug output.
+- vbox: Recorded calls can now be sent as attached sound file via email, or
+  just a notifaction mail without sound file can be sent.
+- PBX now runs with highest prio (99) to get as much cpu as possible.
+- CPU scheduler now runs PBX4Linux as real time process.
+- Internal calls now use internal extension number as caller id.
+- Rework of hold/conference.
+- New option to allow an incoming h323-call to be connected at ringing state.
+- New codecs supported with h323 (speex and law)
+- COLP now works with h323
+- Answering machine now delays to avoid the dtmf tone when start recording
+- Answering machine now adds the beep behind the announcement file.
+- keypad facility dialing option
+- Conference now really works using call hold feature in conjunction with
+  keypad feature
+- Picking of an incoming call on isdn now really works.
+- picking of a call forwarded to vbox
+- I fixed a bug that did not queue the dialed digits correctly before getting
+  an external connecting.
+- Logfiles of calls now show the correct year.
+- Callback now rejects if no password is given or the given extension doesn't
+  exist.
+- Incoming H.323 calls may now instantly connect using a special option.
+- H323 compiles faster, because the H323 includes are only used for the H323
+  code part.
+- Using 'curses' for a state debugging. The current state of all instances
+  is displayed on the screen including calls, endpoints and ports.
+- manny, manny more things that I forgot
+
+Changes in Version 2.0
+- fixed memory leak
+- fixed COLP bug
+- finally SUSPEND/RESUME (call parking), resume is allowed from any ISDN-port
+- some CRITICAL bugfixes
+- Fixed and reworked sample counting when playing tones. Now fast wind and
+  rewind works correctly. Also 8-bit recording can be played back now.
+  I hope it works now without problems.
+- An internal phone without caller id will now be rejected rather than
+  treated as an extenal call.
+- Fixed bug in rejecting an external call.
+- Corrected handeling of 'inbandpatterns'.
+- Data calls will not enable DTMF detection.
+- Data calls will not use any audio transmission from user space.
+- Forward to VBOX only if call is an audio call.
+- Fixed library bug, that caused not to process keypad-information during
+  setup message.
+- Fixed a 'release_complete' bug.
+- Debug information now have the correct month.
+- Fixed bug of wave-playback of voicebox recoding, caused by rework of the
+  audio routines. It caused a SEGMENTATION FAULT!
+- Using threads now to send email and using libcrypto.
+- Introducing encryption of external calls using Blowfish.
+- Key exchange using RSA.
+- Fixed a bug in dialing H323-IP with numerical digits.
+- Fixed a bug that causes endpoint, which receives audio data, to crash when
+  no port is related to it.
+- Fixed a bug that did not release endpoint, when it receives a disconnect
+  if it has no port (parked).
+- Fixed a channel assignment bug when retrieving call. (second B-channel)
+- Now COLP with H.323 works. No more crash!
+- Park attribute was not set, which caused a crash.
+- Conference now works correctly with dsp-module.
+- Fixed a serious NT-mode process handling problem. (crash after some calls)
+- Added log file which is also displayed on the 'state' screen.
+- * Happy new year 2004 *
+
+Changes in Version 2.1
+- Fixed a bug that caused not to reply external calls (also VBOX).
+- 'genrc' now supports loading HFC-4S, HFC-8S and HFC-E1 drivers
+- Outgoing setup now expires after 8 seconds!
+- Fixed a bug that causes mISDNuser to crash during cleanup.
+- Fixed memory bug, thanx Paul!
+- hfc-4s/8s driver support (mISDN)
+- Improvement of isdn audio processing, hardware support.
+- Fixed diplay callerid bug "anonymousunknown anon"
+- Added more stable malloc (calloc) / free handling
+
+Changes in Version 2.2
+- PRI proof (2 MBit interface support when using HFC-E1)
+- Fixed data call bug
+- Improved display of PRI channels
+- Now VBOX playback says "no messages" if the last message has been deleted
+  and will not play the last but one, unless the "previous" button has been
+  pressed.
+
+Changes in Version 2.3
+- Fixed HFC_MULTI driver activation problem (HW_RESET was not implemented)
+- Fixed login prefix bug. Thanx Karsten V.
+- MISDN: better layer 2 check
+- Now facility informations are transfered during call to terminal
+  (finally advice of charge is displayed) MUST BE ENABLED BY SETTINGS!
+- Fixed 'reply' dialing bug, that caused a crash. Thanx Karsten V.
+- Added L1 activation for NT-Mode. Fixed problems with inactive links.
+- Fixed a bug that caused subsequent data calls after a data call. Thanx JC.
+- mISDN: layer 1 now works correct with E1 cards.
+
+Changes in Version 2.4
+- Fixed parallel ringing to multiple external numbers.
+- Fixed login again (was still buggy).
+
+Changes in Version 2.5
+- Fixed callback bug. (International numbers were not detected.)
+- Fixed typos (mostly "incomming") - thanx Lars.
+- Fixed vbox-email bug - thanx Martin. (and also the compiler error)
+- Fixed compiler bug, that caused compiling without crypto lib to fail.
+- Fixed some mISDN crash problems.
+- Now it should also compile with the original CVS tree.
+- Fixed hfc_multi unloading bug - thanx Karsten!
+- Now disabling DSP_MODULE really causes DSP to be disabled.
+- Now disabling real time scheduling really works.
+- mISDNuser (CVS) now compiles with the mISDN (CVS)
+- Adding the outdial prefix to the caller ID is now possible.
+- Fixed bug that caused echo test not to work.
+- And finally hardware echo now works on HFC 4s/8s/E1 (hfc_multi)
+  For echo dial 993 (Test + 3) for standard configuration.
+- Added new hfc_multi vendor IDs including "Beronet Cards".
+
+Changes in Version 2.6
+- Fixed hookflash bug in conjunction with prefix. Thanx Tobias!
+- Fixed cleanup bug when loading of ISDN driver failed.
+- Fixed mISDN bug that caused cards not to be found, if loaded in different
+  order as found by kernel.
+- Fixed a bug that causes a segfault when a phone disconnects while
+  parallel ringing multiple phones/ports.
+- Added capability for Point-To-Point in NT mode, including PRI.
+- Added L1 link control for NT mode.
+- Fixed bug in hfc_multi and mISDN driver that caused mISDN not to work
+  with kernel > 2.6.7.
+- Fixed a but when detecting different cards with hfc_multi.
+- Fixed timer bug that caused timers of multiple NT ports not to work
+  correctly.
+
+Changes in Version 2.7
+- Fixed lots of bugs.
+- Now receive stream from mISDN is disabled when not needed.
+- Added NT mode support for incomming "SETUP_ACKNOWLEDGE".
+
+Changes in Version 3.0
+- Advanced routing capability to replace the numbering_*.conf
+  (Don't worry, internal and external numbering is a feature of the routing
+  capability and is easy to convert.)
+- Now correct cause location is generated and handled.
+- New cause display feature. Location is displayed with the cause number.
+- Many source cleanups.
+- New interface (Unix socket) to administrate. Status informations are now
+  viewable without restarting PBX. Even may processes may view status info.
+  Starting / stopping state debugging, doesn't require to restart PBX.
+- Status information now has selectable details.
+- Better structure for debugging functions and better logging. (code)
+- Dialing may also be done via command line interface.
+- Now internel/external dialtone and ringing depends on internal/external call.
+- Now endpoints (partys) can be released via command line (admin tool).
+- Watchdog "pbxwatch" to automatically restart and even debug PBX4Linux.
+- Removed problem with uninitialized variable in ISDNPort object causing to
+  crash. It did not happen very often.(only after some hundred/thousand calls)
+- HFC-E1 cards did not correctly synchronize to external lines.
+- dsp.o now allocates only one timeslot per call, as expected.
+- mISDNuser now correctly connects PRI calls.
+- PRI improvements and bugfixes.
+- Support for conference rooms.
+- Voice box is now able to play announcement before connecting the call.
+  A special feature on the external line is required to send audio before
+  answering the call.
+- It is now possible to include seconds (time) in the connect message. This
+  might not be supported by all telephones, so it is an optional feature.
+- Moved open and close of recording audio to the "Port" class, where it
+  belongs. The mixer will be more performant this way.
+- Notify is now supported by mISDN and also correctly handled and queued
+  by PBX.
+- Fixed bug that caused not to free broadcast process IDs in certain cases.
+  This would cause calls to internal phones (from extern or intern) not to
+  work after a while.
+- Added HFC-S USB to 'genrc' tool.
+- printisdn now shows corret month.
+
+Changes in Version 3.0-fix1
+- Rule for changing the forwarding now works. Enter "pbx rules forward" for
+  description. Also the example in "defaults/route.conf" is corrected.
+- Forking now forks twice and suppresses debug output. Closing of shell is
+  possible.
+
+Changes in Version 3.0-fix2
+- Fixed memory leak bug in pbxadmin that caused to eat all memory and make it
+  stop.
+- Fixed audio handling that cause forking calls to be mute. (Parallel
+  forwarding causes calls to fork to multiple destinations.)
+
+Changes in Version 3.0-fix3
+- Added "nopassword" parameter for login action.
+- Fixed bolean condition bug.
+- pbxadmin will not exit if terminal size changes.
+
+Changes in Version 3.1
+- Internal structure changed. "Endpoints" and "applications" are now two
+  linked classes. The code is now reusable for other projects than
+  "PBX4Linux". (No added features!)
+- Some source cleanups.
+- Now keypad must be enabled for each extension if required. (settings)
+- Removed a new bug that caused remotely parked/holded calls not to be removed
+  from conference. The conference got disturbed by park/hold sound from
+  remote.
+- Removed bug that caused printing of unset pointers.
+
+Changes in Version 3.2
+- PBX now works with mqueue branch. This is the latest CVS source:
+  * HFCmulti is ported
+  * HFC-PCI is ported
+  * DSP is ported
+  * nt-mode lib (libi4l) is ported
+  * source is now SMP (multiple processors or hyperthreading) save.
+- Fixed bug that caused not to record if annoucement is missing
+- A prefix may be specified with callback for predefined dialing after
+  callback.
+- Now b-channels are displayed more compressed on admin tool.
+
+Changes in Version 3.3
+- * te-mode works
+- * te-mode layer 1 and layer 2 control works (SHORTMESSAGE)
+
+Changes in Version 3.3-fix2
+- OpenH323 midas release compiles
+- Fixed bug in MESSAGE_NOTIFY which cases display information not to dliver.
+- OpenH323 midas release works currently only with law-codecs
+- Dixed some dial string parsing for Openh323.
+
+Changes in Version 3.3-fix3
+- Rework of kernel audio briding. Much faster (less delay), dynamically
+  handles jitter. Ready for future RTP / ISDNoIP modules.
+
+Changes in Version 3.4
+- Removed DSP_MODULE switch, because it will be essential for PBX operation.
+- Fixed pbxadmin offset bug.
+- Added special feature "efi" to announce caller's ID. You call, and it tells
+  your caller ID. (if available) Sample set is not complete!
+- Now caller ID and type can be given for external call rule.
+- Now caller ID and type can be given for changing caller ID.
+- Removed a display bug in pbxadmin, that caused busy channels to be omitted.
+- Fixed layer 2 handling bug.
+- Increased performance of pbx-status screen. Many interfaces/calls caused
+  lock up of machine.
+- Timeout condition seems to work now.
+- Timeout action seems to work now.
+
+What you might expect in later versions
+  -> ISDN over IP (proprietary solution)
+  -> OPAL, with a new interface between user space audio and kernel space audio (SIP / H323)
+  -> (maybe later) Kernel space RTP that makes VoIP reeeeeeeeeeeeally fast!
+
