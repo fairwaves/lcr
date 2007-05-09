@@ -36,6 +36,7 @@ enum { /* messages */
 	ADMIN_CALL_DISCONNECT,
 	ADMIN_CALL_RELEASE,
 	ADMIN_CALL_NOTIFY,
+	ADMIN_MESSAGE,
 };
 
 struct admin_response_cmd {
@@ -118,6 +119,12 @@ struct admin_call {
 };
 
 struct admin_message {
+	int		type; /* type of message */
+	unsigned long	ref; /* reference to individual endpoints */
+	union parameter	param; /* parameter union */
+};
+
+struct admin_message {
 	int message; /* type of admin message */
 	union u {
 		struct admin_response_cmd	x;
@@ -127,6 +134,7 @@ struct admin_message {
 		struct admin_response_epoint	e;
 		struct admin_response_call	c;
 		struct admin_call		call;
+		struct admin_message		message;
 	} u;
 };
 

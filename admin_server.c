@@ -912,6 +912,12 @@ int admin_handle(void)
 			if (admin_state(&admin->response) < 0)
 			{
 				PERROR("Failed to create state response for socket %d.\n", admin->sock);
+				goto response_error;
+			}
+			case ADMIN_REQUEST_MESSAGE:
+			if (admin_message(&admin->response) < 0)
+			{
+				PERROR("Failed to create message response for socket %d.\n", admin->sock);
 				response_error:
 				*adminp = admin->next;
 				free_connection(admin);

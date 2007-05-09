@@ -550,12 +550,11 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		return;
 	}
 
-	/* external incoming calls will not process any audio data unless
-	 * the call is connected OR inbandpattern feature is enabled.
+	/* calls will not process any audio data unless
+	 * the call is connected OR tones feature is enabled.
 	 */
-	if (p_type==PORT_TYPE_DSS1_TE_IN
-	 && p_state!=PORT_STATE_CONNECT
-	 && !options.inbandpattern)
+	if (p_state!=PORT_STATE_CONNECT
+	 && !p_m_mISDNport->is_tones)
 		return;
 
 #if 0
@@ -1388,7 +1387,7 @@ int mISDN_handler(void)
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDN_port_open(int port, int ptp)
+struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
 {
 	int ret;
 	unsigned char buff[1025];
@@ -1564,6 +1563,11 @@ struct mISDNport *mISDN_port_open(int port, int ptp)
 	{
 		PDEBUG(DEBUG_ISDN, "Port is point-to-point.\n");
 		mISDNport->ptp = ptp = 1;
+		if (ptmp && nt)
+		{
+			PDEBUG(DEBUG_ISDN, "Port is forced to point-to-multipoint.\n");
+			mISDNport->ptp = ptp = 0;
+		}
 	}
 	i = 0;
 	while(i < stinf->childcnt)

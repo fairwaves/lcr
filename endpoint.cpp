@@ -43,6 +43,7 @@ Endpoint::Endpoint(int port_id, int call_id)
 {
 	class Port *port;
 	class Endpoint **epointpointer;
+	int earlyb = 0;
 
 	/* epoint structure */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Allocating enpoint %d and connecting it with:%s%s\n", epoint_serial, epoint_serial, (port_id)?" ioport":"", (call_id)?" call":"");
@@ -66,10 +67,14 @@ Endpoint::Endpoint(int port_id, int call_id)
 	{
 		port = find_port_id(port_id);
 		if (port)
-		if (!portlist_new(port_id, port->p_type))
 		{
-			PERROR("no mem for portlist, exitting...\n");
-			exit(-1);
+			if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
+				earlyb = port->mISDNport->is_earlyb;
+			if (!portlist_new(port_id, port->p_type, earlyb))
+			{
+				PERROR("no mem for portlist, exitting...\n");
+				exit(-1);
+			}
 		}
 	}
 	ep_call_id = call_id;
@@ -140,7 +145,7 @@ Endpoint::~Endpoint(void)
 
 /* create new portlist relation
  */
-struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type)
+struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type, int earlyb)
 {
 	struct port_list *portlist, **portlistpointer;
 
@@ -165,6 +170,7 @@ struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type)
 	/* link to call or port */
 	portlist->port_id = port_id;
 	portlist->port_type = port_type;
+	portlist->earlyb = earlyb;
 
 	return(portlist);
 }

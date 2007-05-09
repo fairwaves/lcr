@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -127,8 +127,7 @@ enum { /* isdnsignal */
 /* call-info structure CALLER */
 struct caller_info {
 	char id[32];			/* id of caller (user number) */
-	char voip[64];			/* URI of voip (or gateway) */
-	char intern[32];		/* internal id */
+	char extension[32];		/* internal id */
 	char name[16];
 	int isdn_port;			/* internal/external port (if call is isdn) */
 	char interface[32];		/* interface name the call was from */
@@ -221,7 +220,7 @@ struct useruser_info {
 
 /* call-info structure SETUP */ 
 struct message_setup {
-	int isdn_port; /* card number 1...n (only on calls from internal isdn port) */
+	int isdn_port; /* card number 1...n (only on calls from isdn port) */
 	int port_type; /* type of port (only required if message is port -> epoint) */
 	int dtmf; /* used to enabled dtmf dialing at setup state */
 	int partyline; /* if set, call will be a conference room */
@@ -341,7 +340,7 @@ enum { /* messages between entities */
 	MESSAGE_RESUME,		/* resume port */
 
 	MESSAGE_CHANNEL,	/* set status of audio path to endpoint (to call, audio is also set) */
-	MESSAGE_REMOTE_AUDIO,	/* tell remote to set audio status */
+//	MESSAGE_REMOTE_AUDIO,	/* tell remote to set audio status */
 	MESSAGE_PATTERN,	/* pattern information tones available */
 	MESSAGE_NOPATTERN,	/* pattern information tones unavailable */
 	MESSAGE_CRYPT,		/* encryption message */
@@ -375,7 +374,7 @@ enum { /* messages between entities */
 	"MESSAGE_SUSPEND", \
 	"MESSAGE_RESUME", \
 	"MESSAGE_CHANNEL", \
-	"MESSAGE_REMOTE_AUDIO", \
+/*	"MESSAGE_REMOTE_AUDIO",*/ \
 	"MESSAGE_PATTERN", \
 	"MESSAGE_NOPATTERN", \
 	"MESSAGE_CRYPT", \

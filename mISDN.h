@@ -36,6 +36,8 @@ struct mISDNport {
 	int use; /* counts the number of port that uses this port */
 	int ntmode; /* is TRUE if port is nt mode */
 	int pri; /* is TRUE if port is a primary rate interface */
+	int is_tones; /* TRUE if tones are sent outside connect state */
+	int is_earlyb; /* TRUE if tones are received outside connect state */
 	int upper_id; /* id to transfer data down */
 	int lower_id; /* id to transfer data up */
 	int d_stid;

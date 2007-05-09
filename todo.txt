@@ -1,19 +1,28 @@
 
+define and change dsp conference ids
 
 make asterisk call implementation
 
-interface.conf neu
+new interface.conf
 
-mixer abspecken
+reduce mixer
 
 call recording
 
-call zu mehreren extensions
+call to multiple endpoints (extensions)
 
+trace with layers and filters
+ - layer 1 and 2 state changes and messages
+ - layer 3 isdn trace, process ids
+ - messages between port, endpoint and call
+ - port hunt and channel selection
+ - dialing / routing
+ - application process (action)
+ - bchannel control (tones, dsp, filter, activation/deactivation)
 
+sip raus, h323 raus
 
-
-
+avoid disconnect-collision (release if disconnect from both sides)
 
 
 

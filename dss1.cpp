@@ -36,7 +36,7 @@ extern "C" {
  */
 Pdss1::Pdss1(int type, mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive) : PmISDN(type, mISDNport, portname, settings, channel, exclusive)
 {
-	p_callerinfo.itype = INFO_ITYPE_ISDN;
+	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN:INFO_ITYPE_ISDN_EXTENSION;
 	p_m_d_ntmode = mISDNport->ntmode;
 	p_m_d_l3id = 0;
 	p_m_d_ces = -1;
@@ -399,6 +399,22 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	class Endpoint *epoint;
 	struct message *message;
 
+	/* if blocked, release call */
+	if (p_m_mISDNport->ifport->block)
+	{
+		RELEASE_COMPLETE_t *release_complete;
+
+		printlog("---  port#%d is blocked.\n", mISDNport->ifport->portnum);
+		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
+		isdn_show_send_message(CC_RELEASE_COMPLETE | REQUEST, dmsg);
+		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 27); /* temporary unavailable */
+		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
+		new_state(PORT_STATE_RELEASE);
+		p_m_delete = 1;
+		return;
+	}
+	
 	/* caller information */
 	dec_ie_calling_pn(setup->CALLING_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, &screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
 	switch (present)
@@ -590,7 +606,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 	}
 
-	/* channel_id */ jolly todo
+	/* channel_id */
 	dec_ie_channel_id(setup->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	if (exclusive<0)
 		exclusive = 0;
@@ -598,6 +614,12 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		PDEBUG(DEBUG_BCHANNEL, "- no channel is given by the network, causing to fail, since CW is not possible for external lines\n");
 	if (channel <= 0) /* not given, no channel, whatever.. */
 		channel = CHANNEL_ANY; /* any channel */
+	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) // of out chan..
+	{
+		printlog("---  port#%d all channels are used/reserved.\n", ifport->portnum);
+		ret = -34; // no channel
+		goto no_channel;
+	}
 	if (channel == CHANNE_ANY)
 	{
 		PDEBUG(DEBUG_BCHANNEL, "- any channel is assumed from the %s, so we need to return the a channel from our list\n", (p_m_d_ntmode)?"user":"network");
@@ -618,7 +640,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 					if (mISDNport->b_port[i] == NULL)
 					{
 						channel = i+1+(i>=15);
-						//printlog("%3d  port#%d position %d selecting free channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
+						printlog("---  port#%d no channel given, so selecting free channel %d\n", ifport->portnum, channel);
 						break;
 					}
 					i++;
@@ -634,108 +656,123 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 				if (mISDNport->b_port[i] == NULL)
 				{
 					channel = selchannel->channel;
-					//printlog("%3d  port#%d position %d selecting given channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
+					printlog("---  port#%d no channel given, so selecting channel %d from list\n", ifport->portnum, channel);
 					break;
 				}
 				break;
 			}
 			if (channel)
 				break; /* found channel */
-			//printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
 			selchannel = selchannel->next;
 		}
 		if (!channel)
 		{
+			printlog("---  port#%d no channel found.\n", ifport->portnum);
 			ret = -34; // no channel
 			goto no_channel;
 		}
+		goto use_channel;
 	}
 	if (channel > 0)
+	{
 		/* check for given channel in selection list */
 		selchannel = ifport->channel_in;
 		while(selchannel)
 		{
 			if (selchannel->channel == channel || selchannel->channel == CHANNEL_FREE)
 				break;
-			//printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
 			selchannel = selchannel->next;
 		}
 		if (!selchannel)
 			channel = 0;
 
+		/* exclusive channel requests must be in the list */
 		if (exclusive)
 		{
 			if (!channel)
 			{
 				PDEBUG(DEBUG_BCHANNEL, "- exclusive channel %d is selected, but not in list of incomming channel.\n", channel);
+				printlog("---  port#%d channel %d given exclusively, it is accepted.\n", ifport->portnum, channel);
 				ret = 6; // unacceptable
 				goto no_channel;
 			}
 			PDEBUG(DEBUG_BCHANNEL, "- exclusive channel %d is selected, as in list of incomming channels.\n", channel);
-		} else
+			i = selchannel->channel-1-(selchannel->channel>=17);
+			if (mISDNport->b_port[i] == NULL)
+			{
+				printlog("---  port#%d channel %d given exclusively, it is accepted and free.\n", ifport->portnum, channel);
+				goto use_channel;
+			}
+			printlog("---  port#%d channel %d given exclusively, it is accepted, but busy.\n", ifport->portnum, channel);
+			ret = 6; // unacceptable
+			goto no_channel;
+		}
+
+		/* requested channels in list will be used */
 		if (channel)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "- channel %d given, found in list.\n", channel);
 			i = selchannel->channel-1-(selchannel->channel>=17);
 			if (mISDNport->b_port[i] == NULL)
 			{
+				printlog("---  port#%d channel %d given, it is accepted and free.\n", ifport->portnum, channel);
 				goto use_channel;
 			}
-			goto inuse_search_differnt;
-		} else
+		}
+
+		/* if channel is not available or not in list, it must be searched */
+		PDEBUG(DEBUG_BCHANNEL, "- channel %d given, but not in list of incomming channels.\n", channel);
+
+		/* check for first free channel in list */
+		channel = 0;
+		selchannel = ifport->channel_in;
+		while(selchannel)
 		{
-			inuse_search_different:
-			PDEBUG(DEBUG_BCHANNEL, "- channel %d given, but not in list of incomming channels.\n", channel);
-
-			/* check for first free channel in list */
-			selchannel = ifport->channel_in;
-			while(selchannel)
+			switch(selchannel->channel)
 			{
-				switch(selchannel->channel)
+				case CHANNEL_FREE: /* free channel */
+				if (mISDNport->b_inuse >= mISDNport->b_num)
+					break; /* all channel in use or reserverd */
+				/* find channel */
+				i = 0;
+				while(i < mISDNport->b_num)
 				{
-					case CHANNEL_FREE: /* free channel */
-					if (mISDNport->b_inuse >= mISDNport->b_num)
-						break; /* all channel in use or reserverd */
-					/* find channel */
-					i = 0;
-					while(i < mISDNport->b_num)
-					{
-						if (mISDNport->b_port[i] == NULL)
-						{
-							channel = i+1+(i>=15);
-							//printlog("%3d  port#%d position %d selecting free channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
-							break;
-						}
-						i++;
-					}
-					break;
-
-					default:
-					if (selchannel->channel<1 || selchannel->channel==16)
-						break; /* invalid channels */
-					i = selchannel->channel-1-(selchannel->channel>=17);
-					if (i >= mISDNport->b_num)
-						break; /* channel not in port */
 					if (mISDNport->b_port[i] == NULL)
 					{
-						channel = selchannel->channel;
-						//printlog("%3d  port#%d position %d selecting given channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
+						channel = i+1+(i>=15);
+						printlog("---  port#%d requested channel was not in list, so using free channel %d from list.\n", ifport->portnum, channel);
 						break;
 					}
+					i++;
+				}
+				break;
+
+				default:
+				if (selchannel->channel<1 || selchannel->channel==16)
+					break; /* invalid channels */
+				i = selchannel->channel-1-(selchannel->channel>=17);
+				if (i >= mISDNport->b_num)
+					break; /* channel not in port */
+				if (mISDNport->b_port[i] == NULL)
+				{
+					channel = selchannel->channel;
+					printlog("---  port#%d requested channel was not in list, so using free channel %d from list.\n", ifport->portnum, channel);
 					break;
 				}
-				if (channel)
-					break; /* found channel */
-				//printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
-				selchannel = selchannel->next;
+				break;
 			}
-			if (!channel)
-			{
-				ret = 6; // unacceptable
-				goto no_channel;
-			}
+			if (channel)
+				break; /* found channel */
+			selchannel = selchannel->next;
 		}
-channel wählen
+		if (!channel)
+		{
+			printlog("---  port#%d no channel found.\n", ifport->portnum);
+			ret = 6; // unacceptable
+			goto no_channel;
+		}
+	}
+
 	/* open channel */
 	use_channel:
 	ret = seize_bchannel(channel, 1);
@@ -754,7 +791,9 @@ channel wählen
 		p_m_delete = 1;
 		return;
 	}
-	PDEBUG(DEBUG_BCHANNEL, "- channel is available, we selected channel %d.\n", ret);
+	PDEBUG(DEBUG_BCHANNEL, "- channel is available, we open channel %d.\n", ret);
+	bchannel_activate(p_m_mISDNport, p_m_b_index);
+
 	/* create endpoint */
 	if (p_epointlist)
 	{
@@ -800,6 +839,7 @@ channel wählen
 		PDEBUG(DEBUG_ISDN, "Pdss1(%s) nt-mode gives us new l3id via setup ind: 0x%x\n", p_name, p_m_d_l3id);
 	}
 
+	/* send setup message to endpoit */
 	PDEBUG(DEBUG_ISDN, "Pdss1(%s) setup: %s->%s\n", p_name, p_callerinfo.id, p_dialinginfo.number);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
@@ -1161,13 +1201,13 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	if (cause < 0)
 		cause = 16;
 
-	/* release if we are internal, since internal TEs don't send tones */
-	if (p_m_d_ntmode) // || !options.inbandpattern)
+	/* release if we are remote sends us no tones */
+	if (p_m_mISDNport->is_earlyb)
 	{
 		RELEASE_t *release;
 		msg_t *dmsg;
 
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) send release because internal phone disconnects OR inbandpatterns are not enabled.\n", p_name);
+		PDEBUG(DEBUG_ISDN, "Pdss1(%s) send release because remote disconnects AND provides no patterns (earlyb).\n", p_name);
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, dinfo, sizeof(RELEASE_t), p_m_d_ntmode);
 		isdn_show_send_message(CC_RELEASE | REQUEST, dmsg);
 		release = (RELEASE_t *)(dmsg->data + headerlen);
@@ -1620,6 +1660,16 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	struct message *message;
 	int ret;
 
+	/* if blocked, release call */
+	if (p_m_mISDNport->ifport->block)
+	{
+		RELEASE_COMPLETE_t *release_complete;
+
+		printlog("---  port#%d is blocked.\n", mISDNport->ifport->portnum);
+		ret = -27;
+		goto reject;
+	}
+
 	/* call id */
 	dec_ie_call_id(resume->CALL_ID, (Q931_info_t *)((unsigned long)data+headerlen), callid, &len);
 	if (len<0) len = 0;
@@ -1675,7 +1725,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		PERROR("no memory for epointlist\n");
 		exit(-1);
 	}
-	if (!(epoint->portlist_new(p_serial, p_type)))
+	if (!(epoint->portlist_new(p_serial, p_type, p_m_mISDNport->is_earlyb)))
 	{
 		PERROR("no memory for portlist\n");
 		exit(-1);
@@ -2099,6 +2149,18 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	int i;
 	struct epoint_list *epointlist;
 
+	/* release if port is blocked */
+	if (p_m_mISDNport->ifport->block)
+	{
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = 27; // temp. unavail.
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		new_state(PORT_STATE_RELEASE);
+		p_m_delete = 1;
+		return;
+	}
+
 	/* copy setup infos to port */
 	memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
 	memcpy(&p_dialinginfo, &param->setup.dialinginfo, sizeof(p_dialinginfo));
@@ -2513,7 +2575,7 @@ void Pdss1::message_overlap(unsigned long epoint_id, int message_id, union param
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_d_ntmode || options.inbandpattern)
+	if (p_m_mISDNport->is_tones)
 		enc_ie_progress(&setup_acknowledge->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -2538,7 +2600,7 @@ void Pdss1::message_proceeding(unsigned long epoint_id, int message_id, union pa
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_d_ntmode || options.inbandpattern)
+	if (p_m_mISDNport->is_tones)
 		enc_ie_progress(&proceeding->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -2583,7 +2645,7 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_d_ntmode || options.inbandpattern)
+	if (p_m_mISDNport->is_tones)
 		enc_ie_progress(&alerting->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -2727,8 +2789,8 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	struct message *message;
 	char *p = NULL;
 
-	/* we reject during incoming setup when we have no inbandpatterns. also if we are in outgoing setup state */
-	if ((!p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP && !options.inbandpattern)
+	/* we reject during incoming setup when we have no tones. also if we are in outgoing setup state */
+	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->is_tones)
 	 || p_state==PORT_STATE_OUT_SETUP)
 	{
 		/* sending release to endpoint */
@@ -2781,7 +2843,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_d_ntmode || options.inbandpattern)
+	if (p_m_mISDNport->is_tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
 	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
@@ -2875,7 +2937,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_d_ntmode || options.inbandpattern)
+	if (p_m_mISDNport->is_tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
 	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);

@@ -39,7 +39,6 @@ struct options options = {
 	5060, 5,			/* SIP port, maxqueue */
 	0,				/* dtmf detection on */
 	"",				/* dummy caller id */
-	0,				/* inband patterns on external calls */
 	0,				/* use tones by dsp.o */
 	0,				/* by default use priority 0 */
 	"pbx@jolly.de"			/* source mail adress */
@@ -414,13 +413,6 @@ int read_options(void)
 			SCPY(options.dummyid, param);
 
 			PDEBUG(DEBUG_CONFIG, "dummy caller id\n", param);
-		} else
-		if (!strcmp(option,"inbandpattern"))
-		{
-			if (!strcasecmp(param, "yes"))
-				options.inbandpattern = 1;
-
-			PDEBUG(DEBUG_CONFIG, "inband pattern = %s\n", (options.inbandpattern)?"yes":"no");
 		} else
 		if (!strcmp(option,"dsptones"))
 		{

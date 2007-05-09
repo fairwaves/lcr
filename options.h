@@ -46,7 +46,6 @@ struct options {
 	int	sip_maxqueue;
 	int	nodtmf;			/* use dtmf detection */
 	char	dummyid[32];		/* caller id for external calls if not available */
-	int	inbandpattern;		/* inband patterns on external calls */
 	int	dsptones;		/* tones will be generated via dsp.o 1=american 2=ger */
 	int	schedule;		/* run process in realtime @ given priority */
 	char	email[128];		/* source email address */

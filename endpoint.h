@@ -15,6 +15,7 @@ struct port_list {
 	struct port_list	*next;
 	unsigned long		port_id;
 	int			port_type;
+	int			early_b; /* if patterns are available */
 };
 
 /* structure of an Enpoint */

@@ -52,7 +52,6 @@ struct interface_port {
 	int			channel_force; /* forces channel by protocol */
 	struct select_channel	*out_select; /* list of channels to select */
 	struct select_channel	*in_select; /* the same for incoming channels */
-//	int			open; /* set if port is opened */
 	int			block; /* set if interface is blocked */
 };
 

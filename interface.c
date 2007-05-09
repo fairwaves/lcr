@@ -158,6 +158,11 @@ static int inter_ptp(struct interface *interface, char *filename, int line, char
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
+	if (interface->ifport->ptmp)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' previously ptmp was given.\n", filename, line, parameter);
+		return(-1);
+	}
 	/* goto end of chain */
 	ifport = interface->ifport;
 	while(ifport->next)
@@ -169,6 +174,34 @@ static int inter_ptp(struct interface *interface, char *filename, int line, char
 		return(-1);
 	}
 	ifport->ptp = 1;
+	return(0);
+}
+static int inter_ptmp(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	if (interface->ifport->ptp)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' previously ptp was given.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	/* add value */
+	if (value[0])
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
+		return(-1);
+	}
+	ifport->ptmp = 1;
 	return(0);
 }
 static int inter_tones(struct interface *interface, char *filename, int line, char *parameter, char *value)
@@ -641,6 +674,11 @@ struct interface_param interface_param[] = {
 	"This is required on NT-mode ports that are multipoint by default.\n"
 	"This parameter must follow a 'port' parameter."},
 
+	{"ptmp", &inter_ptmp, "",
+	"The given port above is opened as point-to-multipoint.\n"
+	"This is required on PRI NT-mode ports that are point-to-point by default.\n"
+	"This parameter must follow a 'port' parameter."},
+
 	{"channel_out", &inter_channel_out, "[force,][<number>][,...][,free][,any][,no]",
 	"Channel selection list for all outgoing calls to the interface.\n"
 	"A free channels is searched in order of appearance.\n"
@@ -1010,15 +1048,29 @@ void relink_interfaces(void)
 			if (!ifport->mISDNport)
 			{
 				/* open new port */
-				mISDNport = mISDNport_open(ifport->portnum, ifport->ptp);
+				mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp);
 				if (mISDNport)
 				{
 					ifport->mISDNport = mISDNport;
 					mISDNport->ifport = ifport;
 				}
 			}
-			if (ifport->mISDNport && !ifport->selchannel)
-				default_selchannel(ifport);
+			if (ifport->mISDNport)
+			{
+				/* default channel selection list */
+				if (!ifport->selchannel)
+					default_selchannel(ifport);
+				/* default is_tones */
+				if (ifport->interface->is_tones)
+					ifport->mISDNport->is_tones = (ifport->interface->is_tones==IS_YES);
+				else
+					ifport->mISDNport->is_tones = (ifport->mISDNport->ntmode)?1:0;
+				/* default is_earlyb */
+				if (ifport->interface->is_earlyb)
+					ifport->mISDNport->is_earlyb = (ifport->interface->is_earlyb==IS_YES);
+				else
+					ifport->mISDNport->is_earlyb = (ifport->mISDNport->ntmode)?0:1;
+			}
 		}
 		interface = interface->next;
 	}

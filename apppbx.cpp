@@ -279,8 +279,10 @@ void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *n
 	if (*present != INFO_PRESENT_RESTRICTED)
 		return;
 
-	/* external ports receive no restricted caller id */
-	if (port_type==PORT_TYPE_DSS1_TE_IN || port_type==PORT_TYPE_DSS1_TE_OUT)
+	/* only extensions are restricted */
+	if (!intern)
+		return;
+	if (!intern[0])
 		return;
 
 	/* if we enabled anonymouse ignore */
@@ -631,7 +633,7 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	/* see if port is available */
 	if (!ifport->mISDNport)
 	{
-		printlog("%3d  port#%d position %d is not available, skipping.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+		printlog("%3d  port#%d position %d is not available, skipping.\n", ea_endpoint->ep_serial, ifport->portnum, index);
 		goto portbusy;
 	}
 	mISDNport = ifport->mISDNport;
@@ -641,14 +643,14 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	/* see if port is administratively blocked */
 	if (ifport->block)
 	{
-		printlog("%3d  port#%d position %d is administratively blocked, skipping.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+		printlog("%3d  port#%d position %d is administratively blocked, skipping.\n", ea_endpoint->ep_serial, ifport->portnum, index);
 		goto portbusy;
 	}
 
 	/* see if link is up */
 	if (mISDNport->ptp && !mISDNport->l2link)
 	{
-		printlog("%3d  port#%d position %d is ptp but layer 2 is down.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+		printlog("%3d  port#%d position %d is ptp but layer 2 is down.\n", ea_endpoint->ep_serial, ifport->portnum, index);
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is PTP with L2 down\n", ea_endpoint->ep_serial);
 		goto portbusy;
 	}
@@ -670,7 +672,7 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 				if (mISDNport->b_port[i] == NULL)
 				{
 					*channel = i+1+(i>=15);
-					printlog("%3d  port#%d position %d selecting free channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
+					printlog("%3d  port#%d position %d selecting free channel %d\n", ea_endpoint->ep_serial, ifport->portnum, index, *channel);
 					break;
 				}
 				i++;
@@ -682,12 +684,12 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			{
 				break; /* all channel in use or reserverd */
 			}
-			printlog("%3d  port#%d position %d using with 'any channel'\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+			printlog("%3d  port#%d position %d using with 'any channel'\n", ea_endpoint->ep_serial, ifport->portnum, index);
 			*channel = SEL_CHANNEL_ANY;
 			break;
 
 			case CHANNEL_NO: /* call waiting */
-			printlog("%3d  port#%d position %d using with 'no channel'\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+			printlog("%3d  port#%d position %d using with 'no channel'\n", ea_endpoint->ep_serial, ifport->portnum, index);
 			*channel = SEL_CHANNEL_NO;
 			break;
 
@@ -700,14 +702,13 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			if (mISDNport->b_port[i] == NULL)
 			{
 				*channel = selchannel->channel;
-				printlog("%3d  port#%d position %d selecting given channel %d\n", ea_endpoint->ep_serial, ifport_start->portnum, index, *channel);
+				printlog("%3d  port#%d position %d selecting given channel %d\n", ea_endpoint->ep_serial, ifport->portnum, index, *channel);
 				break;
 			}
 			break;
 		}
 		if (*channel)
 			break; /* found channel */
-		printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
 		selchannel = selchannel->next;
 	}
 
@@ -725,6 +726,8 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 		
 		return(mISDNport);
 	}
+
+	printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport->portnum, index);
 
 	portbusy:
 	/* go next port, until all ports are checked */
@@ -921,10 +924,10 @@ void EndpointAppPBX::out_setup(void)
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			SCPY(dialinginfo.number, e_dialinginfo.number);
-			dialinginfo.itype = INFO_ITYPE_INTERN;
+			dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			/* create port_list relation */
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->is_earlyb);
 			if (!portlist)
 			{
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -995,6 +998,7 @@ void EndpointAppPBX::out_setup(void)
 		while(*p)
 		{
 			/* only if vbox should be dialed, and terminal is given */
+			earlyb = 0;
 			if (!strcmp(p, "vbox") && e_terminal[0])
 			{
 				/* go to the end of p */
@@ -1069,6 +1073,7 @@ void EndpointAppPBX::out_setup(void)
 					/* creating EXTERNAL port*/
 					SPRINT(portname, "%s-%d-out", mISDNport->interface_name, mISDNport->portnum);
 					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings);
+					earlyb = mISDNport->is_earlyb;
 				} else
 				{
 					port = NULL;
@@ -1086,7 +1091,7 @@ void EndpointAppPBX::out_setup(void)
 			SCPY(dialinginfo.number, cfp);
 			dialinginfo.itype = INFO_ITYPE_EXTERN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, earlyb);
 			if (!portlist)
 			{
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1149,7 +1154,7 @@ void EndpointAppPBX::out_setup(void)
 		SCPY(dialinginfo.number, e_dialinginfo.number);
 		dialinginfo.itype = INFO_ITYPE_H323;
 		dialinginfo.ntype = e_dialinginfo.ntype;
-		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type);
+		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, 0);
 		if (!portlist)
 		{
 			PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1191,7 +1196,7 @@ void EndpointAppPBX::out_setup(void)
 		SCPY(dialinginfo.number, e_dialinginfo.number);
 		dialinginfo.itype = INFO_ITYPE_SIP;
 		dialinginfo.ntype = e_dialinginfo.ntype;
-		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type);
+		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, 0);
 		if (!portlist)
 		{
 			PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1295,7 +1300,7 @@ void EndpointAppPBX::out_setup(void)
 			SCPY(dialinginfo.number, number);
 			dialinginfo.itype = INFO_ITYPE_EXTERN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->is_earlyb);
 			if (!portlist)
 			{
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1583,26 +1588,43 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	e_dtmf = param->setup.dtmf;
 
 	/* check where the call is from */
-	if ((param->setup.port_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
+	if (e_callerinfo.interface[0])
 	{
 		interface = interface_first;
 		while(interface)
 		{
-			if (param->setup.isdn_port>=0 && param->setup.isdn_port<(int)sizeof(interface->ports))
+			if (!strcmp(e_callerinfo.interface, interface->name))
 			{
-				if (interface->ports[param->setup.isdn_port])
-					break;
+				break;
 			}
 			interface = interface->next;
 		}
 		if (interface)
 		{
+			/* check for MSN numbers, use first MSN if no match */
+			msn1 = NULL;
+			ifmsn = interface->ifmsn;
+			while(ifmns)
+			{
+				if (!msn1)
+					msn1 = ifmns->msn;
+				if (!strcmp(ifmns->mns, e_callerinfo.id))
+				{
+					break;
+				}
+				ifmsn = ifmsn->next;
+			}
+	if (!ifmns && mns1) // not in list, first msn given
+		SCPY(p_callerinfo.id, msn1);
+		
 			/* interface is known */
 			if (interface->iftype==IF_INTERN)
 			{
+	
 				/* interface is internal */
 				if (interface->extensions[0])
 				{
+		hier denken
 					/* extensions are assigned to interface */
 					p = interface->extensions;
 					extension1[0] = '\0';
@@ -2025,7 +2047,7 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 		e_dialing_queue[0] = '\0';
 	}
 	/* check if pattern is available */
-	if (!ea_endpoint->ep_portlist->next && portlist->port_type==PORT_TYPE_DSS1_TE_OUT) /* one port_list relation and outgoing external*/
+	if (!ea_endpoint->ep_portlist->next && portlist->earlyb) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2038,7 +2060,7 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 	} else
 	{
 		/* indicate no patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
 		message_put(message);
 
 		/* disconnect audio, if not already */
@@ -2069,7 +2091,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 		);
 	e_state = EPOINT_STATE_OUT_PROCEEDING;
 	/* check if pattern is availatle */
-	if (!ea_endpoint->ep_portlist->next && (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and outgoing external*/
+	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2082,7 +2104,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 	} else
 	{
 		/* indicate no patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
 		message_put(message);
 
 		/* disconnect audio, if not already */
@@ -2112,7 +2134,7 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 		);
 	new_state(EPOINT_STATE_OUT_ALERTING);
 	/* check if pattern is available */
-	if (!ea_endpoint->ep_portlist->next && (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and outgoing external*/
+	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2193,8 +2215,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	SCPY(e_terminal_interface, e_connectinfo.interfaces);
 
 	/* for internal and am calls, we get the extension's id */
-	/* also for hidden calls to extension */
-	if (portlist->port_type==PORT_TYPE_DSS1_NT_OUT || portlist->port_type==PORT_TYPE_VBOX_OUT || e_ext.colp==COLP_HIDE)
+	if (portlist->port_type==PORT_TYPE_VBOX_OUT || e_ext.colp==COLP_HIDE)
 	{
 		SCPY(e_connectinfo.id, e_ext.callerid);
 		SCPY(e_connectinfo.intern, e_terminal);
@@ -2468,8 +2489,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 		int haspatterns = 0;
 		/* check if pattern is available */
 		if (ea_endpoint->ep_portlist)
-		if (!ea_endpoint->ep_portlist->next)
-		if ((ea_endpoint->ep_portlist->port_type==PORT_TYPE_DSS1_TE_OUT) || (ea_endpoint->ep_portlist->port_type==PORT_TYPE_DSS1_TE_IN))
+		if (!ea_endpoint->ep_portlist->next && ea_endpoint->ep_portlist->earlyb)
 #warning wie ist das bei einem asterisk, gibts auch tones?
 		if (callpbx_countrelations(ea_endpoint->ep_call_id)==2 // we must count relations, in order not to disturb the conference ; NOTE: 
 		 && message_type != MESSAGE_RELEASE) // if we release, we are done
@@ -3624,10 +3644,11 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_CONNECT;
 			message_put(message);
-			/* tell remote epoint to connect audio also, because we like to hear the patterns */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_REMOTE_AUDIO);
-			message->param.channel = CHANNEL_STATE_CONNECT;
-			message_put(message);
+//			/* tell remote epoint to connect audio also, because we like to hear the patterns */
+//			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_REMOTE_AUDIO);
+//			message->param.channel = CHANNEL_STATE_CONNECT;
+//			message_put(message);
+// patterns are available, remote already connected audio
 		}
 		break;
 
@@ -3645,6 +3666,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		}
 		break;
 
+#if 0
 		/* CALL (dunno at the moment) */
 		case MESSAGE_REMOTE_AUDIO:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
@@ -3652,6 +3674,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		message->param.channel = param->channel;
 		message_put(message);
 		break;
+#endif
 
 		/* CALL sends a notify message */
 		case MESSAGE_NOTIFY:
@@ -3974,7 +3997,7 @@ void EndpointAppPBX::join_call(void)
 			if (other_port) /* port still exists */
 			{
 				if (other_port->p_type==PORT_TYPE_DSS1_NT_OUT
-				 || other_port->p_type==PORT_TYPE_DSS1_NT_IN) /* port is internal isdn */
+				 || other_port->p_type==PORT_TYPE_DSS1_NT_IN) /* port is isdn nt-mode */
 				{
 					other_pdss1 = (class Pdss1 *)other_port;
 					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of type isdn! comparing our portnum=%d with other's portnum=%d hold=%s ces=%d\n", ea_endpoint->ep_serial, our_pdss1->p_m_mISDNport->portnum, other_pdss1->p_m_mISDNport->portnum, (other_pdss1->p_m_hold)?"YES":"NO", other_pdss1->p_m_d_ces);
