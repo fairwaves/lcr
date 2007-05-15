@@ -120,7 +120,7 @@ enum { /* diversion types */
 enum { /* isdnsignal */
 	mISDNSIGNAL_VOLUME,
 	mISDNSIGNAL_CONF,
-	mISDNSIGNAL_NODATA,		/* no data required */
+	mISDNSIGNAL_CALLDATA,		/* data required by call instance */
 	mISDNSIGNAL_ECHO,
 };
 
@@ -151,7 +151,7 @@ struct dialing_info {
 struct connect_info {
 	char id[32];			/* id of caller (user number) */
 	char voip[64];			/* URI of voip (or gateway) */
-	char intern[32];		/* internal id */
+	char extension[32];		/* internal id */
 	char name[16];
 	int isdn_port;			/* internal/external port (if call is isdn) */
 	char interfaces[128];		/* interfaces for extenal calls */
@@ -241,7 +241,6 @@ struct park_info {
 struct param_data {
 	unsigned char data[512]; /* audio/hdlc data */
 	int len; /* audio/hdlc data */
-	int compressed; /* 0 for law-data, 1 for 16-bit data */
 	unsigned long port_id; /* to identify the source of this data */
 	int port_type; /* type of the source's port  */
 };
@@ -266,7 +265,7 @@ struct param_mISDNsignal {
 	int rxvol;
 	int txvol;
 	int conf;
-	int nodata;
+	int calldata;
 	int tone;
 	int echo;
 };

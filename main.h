@@ -40,8 +40,6 @@ void _printerror(const char *function, int line, const char *fmt, ...);
 #define DEBUG_BCHANNEL 	0x0008
 #define DEBUG_PORT 	0x0100
 #define DEBUG_ISDN 	0x0110
-#define DEBUG_OPAL	0x0120 
-#define DEBUG_H323	0x0130 
 //#define DEBUG_KNOCK	0x0140
 #define DEBUG_VBOX	0x0180
 #define DEBUG_EPOINT 	0x0200
@@ -60,30 +58,17 @@ void _printerror(const char *function, int line, const char *fmt, ...);
  */
 #define DEBUG_LOG	0x7fff
 
-/* audio buffer for mixer and recording.
- * all partys within a call (most time two endpoints) write audio data to the buffer. this is used because
- * the buffer experience jitter. if the buffer is too small, jitter will cause drops and gaps.
- * if the buffer is too large, the delay is large. 768 is a good value to start with.
+/* 
+ * transmit interval for tones and announcements (or samples of all kind)
+ * 
  */
-#ifdef VOIP
-#warning to be removed soon
-#endif
-#define PORT_BUFFER	768
+#define ISDN_TRANSMIT	128
 
-/* keep this 0 for minimum delay */
-#ifdef VOIP
-#warning to be removed soon
-#endif
+/*
+ * preload transmit buffer to avoid gaps at the beginning due to jitter
+ * keep this 0 for minimum delay
+ */
 #define ISDN_PRELOAD	0
-
-/* the jitterlimit specifies the number of samples received too fast, before
- * it recognizes a stalling process.
- * but should NOT be less 256.
- */
-#ifdef VOIP
-#warning to be removed soon
-#endif
-#define ISDN_JITTERLIMIT 512	/* maximum samples received before dropping */
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */
@@ -118,28 +103,6 @@ void _printerror(const char *function, int line, const char *fmt, ...);
  #define BUDETECT	;
 #endif
 
-#ifdef H323
-#define VOIP
-#ifdef OPAL
-#error    It is not allowed to use H323 and OPAL. Please disable H323, because it is included in OPAL.
-#endif
-#endif
-#ifdef OPAL
-#define VOIP
-#endif
-
-#ifdef H323INCLUDE
-#define NO_VIDEO_CAPTURE
-//#include <vector>
-//#include <string>
-#include <ptlib.h>
-#include <h225.h>
-#include <h323.h>
-#include <h323pdu.h>
-#include <h323caps.h>
-#include <q931.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -158,7 +121,6 @@ extern "C" {
 #include "save.h"
 #include "options.h"
 #include "interface.h"
-#include "h323conf.h"
 #include "extension.h"
 #include "message.h"
 #include "endpoint.h"
@@ -168,12 +130,6 @@ extern "C" {
 #include "port.h"
 #include "mISDN.h"
 #include "dss1.h"
-#ifdef H323
-#include "h323.h"
-#endif
-#ifdef OPAL
-#include "opal.h"
-#endif
 #include "vbox.h"
 #include "call.h"
 #include "callpbx.h"
@@ -191,12 +147,4 @@ extern struct timeval now_tv;
 extern struct timezone now_tz;
 
 
-#ifdef H323INCLUDE
-#include "h323_ep.h"
-#include "h323_con.h"
-#include "h323_chan.h"
-
-extern PMutex mutex_h323; // mutual exclude for synchroniszing threads 
-extern H323_ep *h323_ep;
-#endif
 

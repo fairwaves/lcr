@@ -713,24 +713,6 @@ int read_extension(struct extension *ext, char *number)
 				PDEBUG(DEBUG_CONFIG, "given display_int param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_voip"))
-		{
-			i=0;
-			while(ext_yesno[i])
-			{
-				if (!strcasecmp(param,ext_yesno[i]))
-					break;
-				i++;
-			}
-			if (ext_yesno[i])
-			{
-				ext->display_voip = i;
-				PDEBUG(DEBUG_CONFIG, "display voip %s\n", ext_yesno[i]);
-			} else
-			{
-				PDEBUG(DEBUG_CONFIG, "given display_voip param unknown: %s\n", param);
-			}
-		} else
 		if (!strcmp(option,"display_fake"))
 		{
 			i=0;
@@ -1292,10 +1274,6 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# Display internal caller ids using display override (yes or no)\n");
 	fprintf(fp,"# example: \"200 (int)\"\n");
 	fprintf(fp,"display_int     %s\n\n",(ext->display_int)?"yes":"no");
-
-	fprintf(fp,"# Display H323 caller ids using display override (yes or no)\n");
-	fprintf(fp,"# example: \"15551212 jolly@192.168.0.3\"\n");
-	fprintf(fp,"display_voip    %s\n\n",(ext->display_voip)?"yes":"no");
 
 	fprintf(fp,"# Display if calls are anonymous using display override (yes or no)\n");
 	fprintf(fp,"# This makes only sense if the anon-ignore feature is enabled.\n");

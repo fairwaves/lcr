@@ -276,6 +276,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 /*
  * read from tone, check size
  * the len must be the number of samples, NOT for the bytes to read!!
+ * the data returned is law-code
  */
 int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed long *left, int speed)
 {
@@ -319,15 +320,29 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 		break;
 
 		case CODEC_MONO:
-		l = read(fh, buffer, len<<1); /* as is */
-		if (l>0)
-			l = l>>1;
+			signed short buffer16[len], *buf16 = buffer16;
+			signed long sample;
+			int i = 0;
+			l = read(fh, buf16, len<<1);
+			if (l>0)
+			{
+				l = l>>1;
+				while(i < l)
+				{
+					sample = *buf16++;
+					if (sample < -32767)
+						sample = -32767;
+					if (sample > 32767)
+						sample = 32767;
+					*buffer++ = audio_s16_to_law[sample & 0xffff];
+					i++;
+				}
+			}
 		break;
 
 		case CODEC_STEREO:
 		{
 			signed short buffer32[len<<1], *buf32 = buffer32;
-			signed short *buf16 = (signed short *)buffer;
 			signed long sample;
 			int i = 0;
 			l = read(fh, buf32, len<<2);
@@ -341,7 +356,7 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 						sample = -32767;
 					if (sample > 32767)
 						sample = 32767;
-					*buf16++ = sample;
+					*buffer++ = audio_s16_to_law[sample & 0xffff];
 					i++;
 				}
 			}
@@ -351,14 +366,13 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 		case CODEC_8BIT:
 		{
 			unsigned char buffer8[len], *buf8 = buffer8;
-			signed short *buf16 = (signed short *)buffer;
 			int i = 0;
 			l = read(fh, buf8, len);
 			if (l>0)
 			{
 				while(i < l)
 				{
-					*buf16++ = (((*buf8++) << 8) - 0x8000) & 0xffff;
+					*buffer++ = audio_s16_to_law[(((*buf8++)<<8)-0x8000) & 0xffff];
 					i++;
 				}
 			}
@@ -366,7 +380,7 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 		break;
 
 		default:
-		PERROR("codec %d is not specified or supported, exitting...\n", codec);
+		PERROR("codec %d is not supported, exitting...\n", codec);
 		exit(-1);
 	}
 
@@ -420,7 +434,7 @@ int fetch_tones(void)
 	char filename[256], name[256];
 	int fh;
 	int tone_codec;
-	signed long tone_size, tone_left, real_size;
+	signed long tone_size, tone_left;
 	unsigned long memory = 0;
 	int samples = 0;
 
@@ -515,32 +529,8 @@ int fetch_tones(void)
 				continue;
 			}
 
-			/* real size */
-			switch(tone_codec)
-			{
-				case CODEC_LAW:
-				real_size = tone_size;
-				break;
-
-				case CODEC_MONO:
-				real_size = tone_size << 1;
-				break;
-
-				case CODEC_STEREO:
-				real_size = tone_size << 1;
-				break;
-
-				case CODEC_8BIT:
-				real_size = tone_size << 1;
-				break;
-
-				default:
-				PERROR("codec %d is not specified or supported, exitting...\n", tone_codec);
-				exit(-1);
-			}
-
 			/* allocate tone */
-			*tonesettone_nextpointer = (struct tonesettone *)calloc(1, sizeof(struct tonesettone)+real_size);
+			*tonesettone_nextpointer = (struct tonesettone *)calloc(1, sizeof(struct tonesettone)+tone_size);
 			if (*toneset_nextpointer == NULL)
 			{
 				PERROR("No memory for tone set: '%s'\n",p);
@@ -550,8 +540,8 @@ int fetch_tones(void)
 			}
 			memuse++;
 //printf("tone:%s, %ld bytes\n", name, tone_size);
-			memset(*tonesettone_nextpointer, 0 , sizeof(struct tonesettone)+real_size);
-			memory += sizeof(struct tonesettone)+real_size;
+			memset(*tonesettone_nextpointer, 0 , sizeof(struct tonesettone)+tone_size);
+			memory += sizeof(struct tonesettone)+tone_size;
 			samples ++;
 
 			/* load tone */
@@ -629,7 +619,7 @@ void *open_tone_fetched(char *dir, char *file, int *codec, signed long *length, 
  * read from fetched tone, check size
  * the len must be the number of samples, NOT for the bytes to read!!
  */
-int read_tone_fetched(void **fetched, void *buffer, int codec, int len, signed long size, signed long *left, int speed)
+int read_tone_fetched(void **fetched, void *buffer, int len, signed long size, signed long *left, int speed)
 {
 	int l;
 //printf("left=%ld\n",*left);
@@ -643,24 +633,10 @@ int read_tone_fetched(void **fetched, void *buffer, int codec, int len, signed l
 
 	if (*left < len)
 		len = *left;
-	switch(codec)
-	{
-		case CODEC_LAW:
-		memcpy(buffer, *fetched, len);
-		*((char **)fetched) += len;
-		l = len;
-		break;
 
-		case CODEC_MONO:
-		memcpy(buffer, *fetched, len<<1);
-		*((char **)fetched) += len<<1;
-		l = len;
-		break;
-
-		default:
-		PERROR("codec %d is not specified or supported, exitting...\n", codec);
-		exit(-1);
-	}
+	memcpy(buffer, *fetched, len);
+	*((char **)fetched) += len;
+	l = len;
 
 	if (l>0 && left)
 		*left -= l;

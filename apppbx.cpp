@@ -146,6 +146,94 @@ void EndpointAppPBX::new_state(int state)
 }
 
 
+/* screen caller id
+ * out==0: incomming caller id, out==1: outgoing caller id
+ */
+void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *present)
+{
+	struct interface	*interface;
+
+	interface = interface_first;
+	while(interface)
+	{
+		if (!strcmp(e_callerinfo.interface, interface->name))
+		{
+			break;
+		}
+		interface = interface->next;
+	}
+add logging
+	if (interface)
+	{
+		/* screen incoming caller id */
+		if (!out)
+		{
+			/* check for MSN numbers, use first MSN if no match */
+			msn1 = NULL;
+			ifmsn = interface->ifmsn;
+			while(ifmns)
+			{
+				if (!msn1)
+					msn1 = ifmns->msn;
+				if (!strcmp(ifmns->mns, id))
+				{
+					break;
+				}
+				ifmsn = ifmsn->next;
+			}
+			if (!ifmns && mns1) // not in list, first msn given
+				UNCPY(id, msn1, idsize);
+			id[idsize-1] = '\0';
+		}
+	
+		/* check screen list */
+		if (out)
+			iscreen = interface->ifscreen_out;
+		else
+			iscreen = interface->ifscreen_in;
+		while (ifscreen)
+		{
+			if (ifcreen->match_type==-1 || ifscreen->match_type==*type)
+			if (ifcreen->match_present==-1 || ifscreen->match_present==*present)
+			{
+				if (strchr(ifcreen->match_id,'%'))
+				{
+					if (!strncmp(ifscreen->match_id, id, strchr(ifscreen->match_id,'%')-ifscreen->match_id))
+						break;
+				} else
+				{
+					if (!strcmp(ifscreen->match_id, id))
+						break;
+				}
+			}
+			ifscreen = ifscreen->next;
+		}
+		if (ifscreen) // match
+		{
+			if (ifscren->result_type != -1)
+				*type = ifscreen->result_type;
+			if (ifscren->result_present != -1)
+				*present = ifscreen->result_present;
+			if (strchr(ifscreen->match_id,'%'))
+			{
+				SCPY(suffix, strchr(ifscreen->match_id,'%') - ifscreen->match_id + id);
+				UNCPY(id, ifscreen->result_id);
+				id[idsize-1] = '\0';
+				if (strchr(ifscreen->result_id,'%'))
+				{
+					*strchr(ifscreen->result_id,'%') = '\0';
+					UNCAT(id, suffix, idsize);
+					id[idsize-1] = '\0';
+				}
+			} else
+			{
+				UNCPY(id, ifscreen->result_id, idsize);
+				id[idsize-1] = '\0';
+			}
+		}
+	}
+}
+
 /* release call and port (as specified)
  */
 void EndpointAppPBX::release(int release, int calllocation, int callcause, int portlocation, int portcause)
@@ -1138,91 +1226,6 @@ void EndpointAppPBX::out_setup(void)
 		}
 		break;
 
-#ifdef H323
-		/* *********************** h323 call */
-		case INFO_ITYPE_H323:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing H323: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.number);
-
-		/* alloc port */
-		if (!(port = new H323Port(PORT_TYPE_H323_OUT, "H323-out", &port_settings)))
-		{
-			PERROR("EPOINT(%d) no mem for port\n", ea_endpoint->ep_serial);
-			break;
-		}
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocated port %s\n", ea_endpoint->ep_serial, port->p_name);
-		memset(&dialinginfo, 0, sizeof(dialinginfo));
-		SCPY(dialinginfo.number, e_dialinginfo.number);
-		dialinginfo.itype = INFO_ITYPE_H323;
-		dialinginfo.ntype = e_dialinginfo.ntype;
-		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, 0);
-		if (!portlist)
-		{
-			PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
-			delete port;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
-			return;
-		}
-//printf("INTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.number);
-		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
-		memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
-		memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
-		memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
-		memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
-//terminal		SCPY(message->param.setup.from_terminal, e_terminal);
-//terminal		if (e_dialinginfo.number)
-//terminal			SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
-		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name);
-		apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, NULL, message->param.setup.redirinfo.voip, message->param.setup.redirinfo.intern, 0);
-		/* display callerid if desired for extension */
-		SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name));
-		message_put(message);
-		logmessage(message);
-		break;
-#endif
-#ifdef SIP
-		/* *********************** sip call */
-		case INFO_ITYPE_SIP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing SIP: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.number);
-
-		/* alloc port */
-		if (!(port = new Psip(PORT_TYPE_SIP_OUT, 0, 0, e_dialinginfo.number)))
-		{
-			PERROR("EPOINT(%d) no mem for port\n", ea_endpoint->ep_serial);
-			break;
-		}
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocated port %s\n", ea_endpoint->ep_serial, port->p_name);
-		memset(&dialinginfo, 0, sizeof(dialinginfo));
-		SCPY(dialinginfo.number, e_dialinginfo.number);
-		dialinginfo.itype = INFO_ITYPE_SIP;
-		dialinginfo.ntype = e_dialinginfo.ntype;
-		portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, 0);
-		if (!portlist)
-		{
-			PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
-			delete port;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
-			return;
-		}
-//printf("INTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.number);
-		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
-		memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
-		memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
-		memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
-		memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
-//terminal		SCPY(message->param.setup.from_terminal, e_terminal);
-//terminal		if (e_dialinginfo.number)
-//terminal			SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
-		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name);
-		apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, NULL, message->param.setup.redirinfo.voip, message->param.setup.redirinfo.intern, 0);
-		/* display callerid if desired for extension */
-		SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name));
-		message_put(message);
-		logmessage(message);
-		break;
-#endif
-
 		/* *********************** external call */
 		default:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing external: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.number);
@@ -1573,7 +1576,6 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 {
 	struct message		*message;
 	char			buffer[256];
-	struct interface	*interface;
 	char			extension[32];
 	char			extension1[32];
 	char			*p;
@@ -1587,100 +1589,20 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
 	e_dtmf = param->setup.dtmf;
 
-	/* check where the call is from */
+	/* screen by interface */
 	if (e_callerinfo.interface[0])
 	{
-		interface = interface_first;
-		while(interface)
-		{
-			if (!strcmp(e_callerinfo.interface, interface->name))
-			{
-				break;
-			}
-			interface = interface->next;
-		}
-		if (interface)
-		{
-			/* check for MSN numbers, use first MSN if no match */
-			msn1 = NULL;
-			ifmsn = interface->ifmsn;
-			while(ifmns)
-			{
-				if (!msn1)
-					msn1 = ifmns->msn;
-				if (!strcmp(ifmns->mns, e_callerinfo.id))
-				{
-					break;
-				}
-				ifmsn = ifmsn->next;
-			}
-	if (!ifmns && mns1) // not in list, first msn given
-		SCPY(p_callerinfo.id, msn1);
-		
-			/* interface is known */
-			if (interface->iftype==IF_INTERN)
-			{
-	
-				/* interface is internal */
-				if (interface->extensions[0])
-				{
-		hier denken
-					/* extensions are assigned to interface */
-					p = interface->extensions;
-					extension1[0] = '\0';
-					while(*p)
-					{
-						extension[0] = '\0';	
-						while(*p!=',' && *p!='\0')
-							SCCAT(extension, *p++);
-						if (*p == ',')
-							p++;
-						if (!extension1[0])
-							SCPY(extension1, extension);
-						if (!strcmp(extension, e_callerinfo.id))
-							break;
-						extension[0] = '\0'; /* NOTE: empty if we did not find */
-					}
-					if (extension[0])
-					{
-						/* id was found at extension's list */
-						e_callerinfo.itype = INFO_ITYPE_INTERN;
-						SCPY(e_callerinfo.intern, extension);
-					} else
-					if (extension1[0])
-					{
-						/* if was provided by default */
-						e_callerinfo.itype = INFO_ITYPE_INTERN;
-						printlog("%3d  endpoint INTERFACE Caller ID '%s' not in list for interface '%s', using first ID '%s'.\n", ea_endpoint->ep_serial, e_callerinfo.id, interface->name, extension1);
-						SCPY(e_callerinfo.intern, extension1);
-					}
-				} else
-				{
-					/* no extension given, so we use the caller id */
-					e_callerinfo.itype = INFO_ITYPE_INTERN;
-					SCPY(e_callerinfo.intern, e_callerinfo.id);
-				}
-			} else
-			{
-				/* interface is external */
-				e_callerinfo.intern[0] = '\0';
-			}
-		} else
-		{
-			/* interface is unknown */
-			message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
-			new_state(EPOINT_STATE_OUT_DISCONNECT);
-			set_tone(portlist, "cause_80"); /* pbx cause: extension not authorized */
-			e_terminal[0] = '\0'; /* no terminal */
-			return;
-		}
+		/* screen incoming caller id */
+		screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
 	}
+colp, outclip, outcolp
 
+	/* process extension */
 	if (e_callerinfo.itype == INFO_ITYPE_INTERN)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is internal\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is extension\n", ea_endpoint->ep_serial);
 		/* port makes call from extension */
-		SCPY(e_callerinfo.id, e_callerinfo.intern);
+		SCPY(e_callerinfo.intern, e_callerinfo.id);
 		SCPY(e_terminal, e_callerinfo.intern);
 		SCPY(e_terminal_interface, e_callerinfo.interface);
 	} else
@@ -1689,7 +1611,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	}
 	printlog("%3d  incoming %s='%s'%s%s%s%s dialing='%s'\n",
 		ea_endpoint->ep_serial,
-		(e_callerinfo.intern[0])?"SETUP from intern":"SETUP from extern",
+		(e_callerinfo.intern[0])?"SETUP from extension":"SETUP from extern",
 		(e_callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
 		(e_callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
 		(e_redirinfo.id[0])?"redirected='":"",
@@ -2204,6 +2126,13 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 	e_start = now;
 
+	/* screen by interface */
+	if (e_callerinfo.interface[0])
+	{
+		/* screen incoming caller id */
+		screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
+	}
+
 	/* screen connected name */
 	if (e_ext.name[0])
 		SCPY(e_connectinfo.name, e_ext.name);
@@ -2259,18 +2188,6 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 					SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.number, &e_connectinfo.ntype));
 					e_connectinfo.present = INFO_PRESENT_ALLOWED;
 				}
-			}
-			if (portlist->port_type==PORT_TYPE_H323_OUT) /* h323 extension answered */
-			{
-				SCPY(e_connectinfo.voip, port->p_dialinginfo.number);
-				e_connectinfo.present = INFO_PRESENT_ALLOWED;
-//				e_connectinfo.ntype = INFO_NTYPE_UNKNOWN;
-			}
-			if (portlist->port_type==PORT_TYPE_SIP_OUT) /* sip extension answered */
-			{
-				SCPY(e_connectinfo.voip, port->p_dialinginfo.number);
-				e_connectinfo.present = INFO_PRESENT_ALLOWED;
-//				e_connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
 		}
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
@@ -3172,6 +3089,14 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param, param, sizeof(union parameter));
+		/* screen by interface */
+		if (e_connectinfo.interface[0])
+		{
+			/* screen incoming caller id */
+			screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
+		}
+		memcpy(&message->param.connnectinfo, e_connectinfo);
+
 		/* screen clip if prefix is required */
 		if (e_terminal[0] && message->param.connectinfo.id[0] && e_ext.clip_prefix[0])
 		{
@@ -3179,19 +3104,23 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 			SCAT(message->param.connectinfo.id, numberrize_callerinfo(e_connectinfo.id,e_connectinfo.ntype));
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 		}
+
 		/* use internal caller id */
 		if (e_terminal[0] && e_connectinfo.intern[0] && (message->param.connectinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
 		{
 			SCPY(message->param.connectinfo.id, e_connectinfo.intern);
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 		}
+
 		/* handle restricted caller ids */
 		apply_callerid_restriction(e_ext.anon_ignore, portlist->port_type, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name);
 		/* display callerid if desired for extension */
 		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name));
+
 		/* use conp, if enabld */
 		if (!e_ext.centrex)
 			message->param.connectinfo.name[0] = '\0';
+
 		/* send connect */
 		message_put(message);
 		logmessage(message);
@@ -3415,6 +3344,13 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
+
+	/* screen by interface */
+	if (e_callerinfo.interface[0])
+	{
+		/* screen incoming caller id */
+		screen(1, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
+	}
 
 	/* process (voice over) data calls */
 	if (e_ext.datacall && e_capainfo.bearer_capa!=INFO_BC_SPEECH && e_capainfo.bearer_capa!=INFO_BC_AUDIO)
@@ -4262,32 +4198,6 @@ void EndpointAppPBX::logmessage(struct message *message)
 				(message->param.setup.redirinfo.id[0])?"'":"",
 				message->param.setup.dialinginfo.number,
 				pdss1->p_m_mISDNport->portnum
-				);
-		}
-		if (port->p_type == PORT_TYPE_H323_OUT)
-		{
-			printlog("%3d  outgoing SETUP from %s='%s'%s%s%s%s to h323='%s'\n",
-				ea_endpoint->ep_serial,
-				(message->param.setup.callerinfo.intern[0])?"intern":"extern",
-				(message->param.setup.callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-				(message->param.setup.callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-				(message->param.setup.redirinfo.id[0])?"redirected='":"",
-				message->param.setup.redirinfo.id,
-				(message->param.setup.redirinfo.id[0])?"'":"",
-				message->param.setup.dialinginfo.number
-				);
-		}
-		if (port->p_type == PORT_TYPE_SIP_OUT)
-		{
-			printlog("%3d  outgoing SETUP from %s='%s'%s%s%s%s to sip='%s'\n",
-				ea_endpoint->ep_serial,
-				(message->param.setup.callerinfo.intern[0])?"intern":"extern",
-				(message->param.setup.callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-				(message->param.setup.callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-				(message->param.setup.redirinfo.id[0])?"redirected='":"",
-				message->param.setup.redirinfo.id,
-				(message->param.setup.redirinfo.id[0])?"'":"",
-				message->param.setup.dialinginfo.number
 				);
 		}
 		if (port->p_type == PORT_TYPE_VBOX_OUT)

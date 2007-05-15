@@ -236,9 +236,6 @@ int admin_route(struct admin_queue **responsep)
 				case ACTION_EXTERNAL:
 				apppbx->e_action = &action_external;
 				break;
-				case ACTION_H323:
-				apppbx->e_action = &action_h323;
-				break;
 				case ACTION_CHAN:
 				apppbx->e_action = &action_chan;
 				break;

@@ -36,12 +36,8 @@ enum { /* how to parse text file during startup */
 };
 
 enum { /* what to check during runtime */
-#ifdef PBX
 	MATCH_EXTERN,
 	MATCH_INTERN,
-#endif
-	MATCH_H323,
-//	MATCH_IP,
 	MATCH_PORT,
 	MATCH_INTERFACE,
 	MATCH_CALLERID,
@@ -96,10 +92,8 @@ enum { /* how to parse text file during startup */
 #define PARAM_PROCEEDING	1LL
 #define PARAM_ALERTING		(1LL<<1)
 #define PARAM_CONNECT		(1LL<<2)
-#ifdef PBX
 #define PARAM_EXTENSION		(1LL<<3)
 #define PARAM_EXTENSIONS	(1LL<<4)
-#endif
 #define PARAM_PREFIX		(1LL<<5)
 #define PARAM_CAPA		(1LL<<6)
 #define PARAM_BMODE		(1LL<<7)
@@ -149,37 +143,36 @@ enum { /* how to parse text file during startup */
 #define	ACTION_EXTERNAL		0
 #define	ACTION_INTERNAL		1
 #define	ACTION_OUTDIAL		2
-#define	ACTION_H323		3
-#define	ACTION_CHAN		4
-#define	ACTION_VBOX_RECORD	5
-#define	ACTION_PARTYLINE	6
-#define	ACTION_LOGIN		7
-#define	ACTION_CALLERID		8
-#define	ACTION_CALLERIDNEXT	9
-#define	ACTION_FORWARD		10
-#define	ACTION_REDIAL		11
-#define	ACTION_REPLY		12
-#define	ACTION_POWERDIAL	13	
-#define	ACTION_CALLBACK		14
-#define	ACTION_ABBREV		15
-#define	ACTION_TEST		16
-#define	ACTION_PLAY		17
-#define	ACTION_VBOX_PLAY	18
-#define	ACTION_CALCULATOR	19
-#define	ACTION_TIMER		20
-#define	ACTION_GOTO		21
-#define	ACTION_MENU		22
-#define	ACTION_DISCONNECT	23
-#define	ACTION_HELP		24
-#define ACTION_DEFLECT		25
-#define ACTION_SETFORWARD	26
-#define ACTION_EXECUTE		27
-#define ACTION_FILE		28
-#define ACTION_PICK		29
-#define	ACTION_PASSWORD		30
-#define	ACTION_PASSWORD_WRITE	31
-#define	ACTION_NOTHING		32
-#define	ACTION_EFI		33
+#define	ACTION_CHAN		3
+#define	ACTION_VBOX_RECORD	4
+#define	ACTION_PARTYLINE	5
+#define	ACTION_LOGIN		6
+#define	ACTION_CALLERID		7
+#define	ACTION_CALLERIDNEXT	8
+#define	ACTION_FORWARD		9
+#define	ACTION_REDIAL		10
+#define	ACTION_REPLY		11
+#define	ACTION_POWERDIAL	12	
+#define	ACTION_CALLBACK		13
+#define	ACTION_ABBREV		14
+#define	ACTION_TEST		15
+#define	ACTION_PLAY		16
+#define	ACTION_VBOX_PLAY	17
+#define	ACTION_CALCULATOR	18
+#define	ACTION_TIMER		19
+#define	ACTION_GOTO		20
+#define	ACTION_MENU		21
+#define	ACTION_DISCONNECT	22
+#define	ACTION_HELP		23
+#define ACTION_DEFLECT		24
+#define ACTION_SETFORWARD	25
+#define ACTION_EXECUTE		26
+#define ACTION_FILE		27
+#define ACTION_PICK		28
+#define	ACTION_PASSWORD		29
+#define	ACTION_PASSWORD_WRITE	30
+#define	ACTION_NOTHING		31
+#define	ACTION_EFI		32
 
 struct route_cond { /* an item */
 	struct route_cond	*next;			/* next entry */
@@ -263,7 +256,6 @@ extern struct route_ruleset	*ruleset_first;
 extern struct route_ruleset	*ruleset_main;
 extern struct route_action	action_external;
 extern struct route_action	action_internal;
-extern struct route_action	action_h323;
 extern struct route_action	action_chan;
 extern struct route_action	action_vbox;
 extern struct route_action	action_partyline;

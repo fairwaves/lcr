@@ -101,8 +101,8 @@ class PmISDN : public Port
 	int p_m_tone;				/* current kernel space tone */
 	int p_m_rxoff;				/* rx from driver is disabled */
 	int p_m_nodata;				/* all parties within a conf are isdn ports, so pure bridging is possible */
-	int p_m_txmix;				/* mix tx with conference */
-	int p_m_txmix_on;			/* delay for turning back on after sending a binary message, must be signed */
+//	int p_m_txmix;				/* mix tx with conference */
+//	int p_m_txmix_on;			/* delay for turning back on after sending a binary message, must be signed */
 	int p_m_dtmf;				/* dtmf decoding is enabled */
 
 	int p_m_crypt;				/* encryption is enabled */

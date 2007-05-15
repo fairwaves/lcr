@@ -49,39 +49,6 @@ pthread_mutex_t mutexd; // debug output mutex
 pthread_mutex_t mutexl; // log output mutex
 pthread_mutex_t mutexe; // error output mutex
 
-#ifdef H323
-PMutex mutex_h323; // mutual exclude threads when using OpenH323
-#endif
-
-#ifdef VOIP
-class PBXMain : public PProcess
-{
-	PCLASSINFO(PBXMain, PProcess)
-  public:
-	PBXMain(void);
-	~PBXMain(void);
-	void Main();
-};
-
-PCREATE_PROCESS(PBXMain)
-
-PBXMain::PBXMain(void) : PProcess("Jolly", "LinuxPBX", 0, 1, AlphaCode, 1)
-{
-}
-
-PBXMain::~PBXMain(void)
-{
-}
-#endif
-
-#ifdef H323
-H323_ep *h323_ep = NULL;
-#endif
-#ifdef OPAL
-OpalManager *opal_mgr = NULL;
-#endif
-
-
 int memuse = 0;
 int mmemuse = 0;
 int cmemuse = 0;
@@ -277,15 +244,7 @@ int main(int argc, char *argv[])
 	GET_NOW();
 
 	/* show version */
-#ifdef OPAL
-	printf("\n** %s  Version %s (with OPAL)\n\n", NAME, VERSION_STRING);
-#else
- #ifdef H323
-	printf("\n** %s  Version %s (with H323)\n\n", NAME, VERSION_STRING);
- #else
 	printf("\n** %s  Version %s\n\n", NAME, VERSION_STRING);
- #endif
-#endif
 
 	/* show options */
 	if (ARGC <= 1)
@@ -485,39 +444,6 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 
-#ifdef OPAL
-	/* create OPAL manager */
-	opal_mgr = new PBXManager;
-	if (!opal_mgr)
-	{
-		fprintf(stderr, "Unable to create OPAL manager.\n");
-		goto free;
-	}
-	if (opal_mgr->Initialise())
-	{
-		todo thread kreieren...
-		opal_mgr->Main();
-	}
-
-#endif
-
-	
-#ifdef H323
-	// create h323 endpoint and initialize
-	h323_ep = new H323_ep();
-	if (!h323_ep)
-	{
-		fprintf(stderr, "Unable to create h323 endpoint.\n");
-		goto free;
-	}
-	if (h323_ep->Init() == FALSE)
-	{
-		fprintf(stderr, "Unable to init h323 endpoint.\n");
-		goto free;
-	}
-
-#endif
-
 	/* read interfaces and open ports */
 	if (!read_interfaces())
 	{
@@ -591,10 +517,6 @@ int main(int argc, char *argv[])
 	while(!quit)
 	{
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
-#ifdef H323
-		mutex_h323.Wait();
-		debug_prefix = 0;
-#endif
 		all_idle = 1;
 
 		/* handle mISDN messages from kernel */
@@ -801,12 +723,6 @@ BUDETECT
 		GET_NOW();
 #endif
 
-#ifdef H323
-		// NOTE: be carefull with this, don't do anything after unlocking except sleeping and locking!
-		debug_prefix = "h323";
-		mutex_h323.Signal();
-#endif
-
 		/* did we do nothing? so we wait to give time to other processes */
 		if (all_idle)
 		{
@@ -822,7 +738,6 @@ free:
 
 
 	/* set scheduler & priority
-	 * we must remove realtimeshed, because h323 may lock during exit
 	 */
 	if (options.schedule > 1)
 	{
@@ -840,9 +755,6 @@ free:
 	}
 
 	/* destroy objects */
-#ifdef H323
-	mutex_h323.Wait();
-#endif
 	debug_prefix = "free";
 
 	while(port_first)
@@ -879,37 +791,6 @@ free:
 	{
 		PDEBUG(DEBUG_MSG, "freed %d pending messages\n", i);
 	}
-
-#ifdef H323
-	mutex_h323.Signal();
-#endif
-
-#ifdef OPAL
-	/* destroy manager */
-	if (opal_mgr)
-	{
-		todo kill an den main-thread von opal und warten...
-		if (options.deb & DEBUG_OPAL)
-			printf("->now deleting opal manager\n");
-		delete opal_mgr;
-		if (options.deb & DEBUG_OPAL)
-			printf("->opal manager deleted\n");
-	}
-
-#endif
-
-#ifdef H323
-	/* destroy endpoint */
-	if (h323_ep)
-	{
-		if (options.deb & DEBUG_H323)
-			printf("->now deleting endpoint\n");
-		delete h323_ep;
-		if (options.deb & DEBUG_H323)
-			printf("->endpoint deleted\n");
-	}
-
-#endif
 
 	/* free tones */
 	if (toneset_first)

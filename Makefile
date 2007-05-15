@@ -9,9 +9,6 @@
 #*                                                                           **
 #*****************************************************************************/ 
 
-WITH-PBX = 42 # MUST BE SET for now
-#WITH-H323 = 42 # comment this out, if no h323 should be compiled
-#WITH-OPAL = 42 # NOT SUPPORTED YET
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 # note: check your location and the names of libraries.
 
@@ -19,12 +16,8 @@ WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 INSTALL_BIN = /usr/local/bin
 INSTALL_DATA = /usr/local/pbx
 
-# give locations for the libraries (comment out H323_LIB and PWLIB_LIB, if they are installed on the system)
+# give locations for the libraries
 LINUX_INCLUDE = -I/usr/src/linux/include
-H323_INCLUDE = -I/usr/local/include/openh323
-#H323_LIB = -L/usr/local/lib
-#PWLIB_INCLUDE = -I/usr/local/include/ptlib/unix
-#PWLIB_LIB = -L/usr/local/lib
 
 # give location of the mISDN libraries
 MISDNUSER_INCLUDE = -I../mISDNuser/include
@@ -46,28 +39,10 @@ GENRC = ./genrc
 GENEXT = ./genextension
 CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 CFLAGS += $(LINUX_INCLUDE) $(MISDNUSER_INCLUDE)
-ifdef WITH-PBX
-CFLAGS += -DPBX
-endif
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
 endif
-CFLAGS_OPAL = $(CFLAGS)
-CFLAGS_H323 = $(CFLAGS)
 LIBDIR += $(MISDNUSER_LIB)
-ifdef WITH-OPAL
-OPAL = opal.o opal_mgr.o opal_pbxep.o opal_pbxcon.o opal_pbxms.o
-CFLAGS += -DOPAL
-CFLAGS_OPAL += $(OPAL_INCLUDE) -DOPAL
-LIBDIR += $(OPAL_LIB)
-endif
-ifdef WITH-H323
-H323 = h323.o h323_ep.o h323_con.o h323_chan.o
-LIBS += -lh323_linux_x86_r -lpt_linux_x86_r -ldl
-CFLAGS += -DH323
-CFLAGS_H323 += $(H323_INCLUDE) $(PWLIB_INCLUDE) -DH323INCLUDE -DH323 -D_REENTRANT -DPBYTE_ORDER=PLITTLE_ENDIAN -DP_PTHREADS -DP_HAS_SEMAPHORES -DPHAS_TEMPLATES -DP_LINUX -DPTRACING
-LIBDIR += $(H323_LIB) $(PWLIB_LIB)
-endif
 ifdef WITH-CRYPTO
 LIBDIR += -L/usr/local/ssl/lib
 CFLAGS += -I/usr/local/ssl/include
@@ -92,7 +67,7 @@ all: $(PBXADMIN) $(PBX) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	@exit
 
 main.o: main.c *.h Makefile
-	$(CC) -c $(CFLAGS_H323) main.c -o main.o
+	$(CC) -c $(CFLAGS) main.c -o main.o
 
 message.o: message.c *.h Makefile
 	$(CC) -c $(CFLAGS) message.c -o message.o
@@ -102,9 +77,6 @@ options.o: options.c *.h Makefile
 
 interface.o: interface.c *.h Makefile
 	$(CC) -c $(CFLAGS) interface.c -o interface.o
-
-h323conf.o: h323conf.c *.h Makefile
-	$(CC) -c $(CFLAGS) h323conf.c -o h323conf.o
 
 extension.o: extension.c *.h Makefile
 	$(CC) -c $(CFLAGS) extension.c -o extension.o
@@ -184,18 +156,6 @@ tones.o: tones.c *.h Makefile
 crypt.o: crypt.cpp *.h Makefile
 	$(CC) -c $(CFLAGS) crypt.cpp -o crypt.o
 
-h323.o: h323.cpp *.h Makefile
-	$(CC) -c $(CFLAGS_H323) h323.cpp -o h323.o
-
-h323_ep.o: h323_ep.cpp *.h Makefile
-	$(CC) -c $(CFLAGS_H323) h323_ep.cpp -o h323_ep.o
-
-h323_chan.o: h323_chan.cpp *.h Makefile
-	$(CC) -c $(CFLAGS_H323) h323_chan.cpp -o h323_chan.o
-
-h323_con.o: h323_con.cpp *.h Makefile
-	$(CC) -c $(CFLAGS_H323) h323_con.cpp -o h323_con.o
-
 genext.o: genext.c *.h Makefile
 	$(CC) -c $(CFLAGS) genext.c -o genext.o
 
@@ -210,11 +170,9 @@ admin_server.o: admin_server.c *.h Makefile
 #	$(CC) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
 #	-o $(WIZZARD) 
 
-$(PBX):	$(H323) $(OPAL) \
-       	main.o \
+$(PBX): main.o \
 	options.o \
 	interface.o \
-	h323conf.o \
 	extension.o \
 	cause.o \
 	alawulaw.o \
@@ -237,11 +195,10 @@ $(PBX):	$(H323) $(OPAL) \
 	callpbx.o \
 	callchan.o \
 	admin_server.o
-	$(LD) $(LIBDIR) $(H323) $(OPAL) \
+	$(LD) $(LIBDIR) \
        	main.o \
 	options.o \
 	interface.o \
-	h323conf.o \
 	extension.o \
 	cause.o \
 	alawulaw.o \
@@ -318,9 +275,6 @@ install:
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(INSTALL_DATA)/numbering_ext.conf ; then \
 		echo "NOTE: numbering_ext.conf is obsolete, please use routing." ; fi
-	@if test -a $(INSTALL_DATA)/h323_gateway.conf ; then \
-		echo "NOTE: h323_gateway.conf already exists, not changed." ; else \
-		cp -v default/h323_gateway.conf $(INSTALL_DATA) ; fi
 	@if test -a $(INSTALL_DATA)/directory.list ; then \
 		echo "NOTE: directory.list already exists, not changed." ; else \
 		cp -v default/directory.list $(INSTALL_DATA) ; fi

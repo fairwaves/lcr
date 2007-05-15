@@ -62,9 +62,13 @@ int VBoxPort::handler(void)
 {
 	struct message	*message;
 	unsigned long	tosend;
-	signed short	buffer[128<<1];
+	signed short	buffer[128];
 	time_t		currenttime;
 	class Endpoint	*epoint;
+	int		ret;
+
+	if ((ret = Port::handler()))
+		return(ret);
 
 	if (p_vbox_record_start && p_vbox_record_limit)
 	{
@@ -98,7 +102,7 @@ int VBoxPort::handler(void)
 
 		/* wait for more */
 		if (tosend < 32)
-			return(0);
+			return(Port::handler());
 
 		/* too many samples, so we just process 128 bytes until the next call of handler() */
 		if (tosend > 128)
@@ -113,23 +117,7 @@ int VBoxPort::handler(void)
 		/* if announcement is currently played, send audio data */
 		if (p_vbox_announce_fh >=0)
 		{
-			/* read from announcement file */
-			switch(p_vbox_announce_codec)
-			{
-				case CODEC_LAW:
-				tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
-				break;
-				
-				case CODEC_MONO:
-				case CODEC_STEREO:
-				case CODEC_8BIT:
-				tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
-				break;
-				
-				default:
-				PERROR("correct codec not given.\n");
-				exit(-1);
-			}
+			tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
 			if (tosend <= 0)
 			{
 				/* end of file */
@@ -175,34 +163,12 @@ int VBoxPort::handler(void)
 				}
 			} else
 			{
-				switch(p_vbox_announce_codec)
-				{
-					case CODEC_LAW:
-					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-					message->param.data.compressed = 1;
-					message->param.data.port_type = p_type;
-					message->param.data.port_id = p_serial;
-					message->param.data.len = tosend;
-					memcpy(message->param.data.data, buffer, tosend);
-					message_put(message);
-					break;
-
-					case CODEC_MONO:
-					case CODEC_STEREO:
-					case CODEC_8BIT:
-					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-					message->param.data.compressed = 0;
-					message->param.data.port_type = p_type;
-					message->param.data.port_id = p_serial;
-					message->param.data.len = tosend<<1;
-					memcpy(message->param.data.data, buffer, tosend<<1);
-					message_put(message);
-					break;
-
-					default:
-					PERROR("correct announce_codec not given.\n");
-					exit(-1);
-				}
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
+				message->param.data.port_type = p_type;
+				message->param.data.port_id = p_serial;
+				message->param.data.len = tosend;
+				memcpy(message->param.data.data, buffer, tosend);
+				message_put(message);
 			}
 		}
 
@@ -221,15 +187,15 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 	char filename[256], *c;
 	class EndpointAppPBX *eapp;
 
+	if (Port::message_epoint(epoint_id, message_id, param))
+		return(1);
+
 	epoint = find_epoint_id(epoint_id);
 	if (!epoint)
 	{
 		PDEBUG(DEBUG_EPOINT|DEBUG_VBOX, "PORT(%s) no endpoint object found where the message is from.\n", p_name);
 		return(0);
 	}
-
-	if (Port::message_epoint(epoint_id, message_id, param))
-		return(1);
 
 	switch(message_id)
 	{

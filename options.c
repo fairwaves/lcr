@@ -31,12 +31,6 @@ struct options options = {
 	"tones_american",		/* directory of tones */
 	"",				/* directories of tones to fetch */
 	"extensions",			/* directory of extensions */
-	"",				/* h323 endpoint name */
-	0,				/* h323 ringconnect */
-	0,4, 0,2, 0, 0, 0, 0,4, 0,4, 0,64, /* h323 codecs to use */
-	0,"",1720,			/* allow incoming h323 calls */
-	0,"",				/* register with h323 gatekeeper */
-	5060, 5,			/* SIP port, maxqueue */
 	0,				/* dtmf detection on */
 	"",				/* dummy caller id */
 	0,				/* use tones by dsp.o */
@@ -57,9 +51,6 @@ int read_options(void)
 	char param[256];
 	unsigned int line,i;
 	char buffer[256];
-#ifdef H323
-	int codecpri = 0;
-#endif
 
 	SPRINT(filename, "%s/options.conf", INSTALL_DATA);
 
@@ -188,168 +179,6 @@ int read_options(void)
 			options.law = 'u';
 
 			PDEBUG(DEBUG_CONFIG, "isdn audio type: ulaw\n");
-		} else
-		if (!strcmp(option,"h323_name"))
-		{
-#ifdef H323
-			SCPY(options.h323_name, param);
-
-			PDEBUG(DEBUG_CONFIG, "H323 endpoint name: '%s'\n", param);
-#endif
-		} else
-		if (!strcmp(option,"h323_ringconnect"))
-		{
-#ifdef H323
-			options.h323_ringconnect = 1;
-
-			PDEBUG(DEBUG_CONFIG, "H323 ringconnect: enabled\n");
-#endif
-		} else
-		if (!strcmp(option,"h323_gsm"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_gsm_pri = codecpri;
-			options.h323_gsm_opt = atoi(param);
-			if (atoi(param)<1 && atoi(param)>7)
-			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be in range 1..7.\n",filename,line,option);
-				goto error;
-			}
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: GSM, MicrosoftGSM priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_g726"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_g726_pri = codecpri;
-			options.h323_g726_opt = atoi(param);
-			if (atoi(param)<2 && atoi(param)>5)
-			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be in range 2..5.\n",filename,line,option);
-				goto error;
-			}
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: G726 priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_g7231"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_g7231_pri = codecpri;
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: G7231 priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_g729a"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_g729a_pri = codecpri;
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: G729A priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_lpc10"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_lpc10_pri = codecpri;
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: LPC-10 priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_speex"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_speex_pri = codecpri;
-			options.h323_speex_opt = atoi(param);
-			if (atoi(param)<2 && atoi(param)>6)
-			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be in range 2..6.\n",filename,line,option);
-				goto error;
-			}
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: Speex priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_xspeex"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_xspeex_pri = codecpri;
-			options.h323_xspeex_opt = atoi(param);
-			if (atoi(param)<2 && atoi(param)>6)
-			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be in range 2..6.\n",filename,line,option);
-				goto error;
-			}
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: XiphSpeex priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_law"))
-		{
-#ifdef H323
-			codecpri ++;
-			options.h323_law_pri = codecpri;
-			options.h323_law_opt = atoi(param);
-			if (atoi(param)<10 && atoi(param)>240)
-			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be in range 10..240.\n",filename,line,option);
-				goto error;
-			}
-
-			PDEBUG(DEBUG_CONFIG, "H323 codec to use: Alaw, muLaw priority %d\n", codecpri);
-#endif
-		} else
-		if (!strcmp(option,"h323_icall"))
-		{
-#ifdef H323
-			options.h323_icall = 1;
-			SCPY(options.h323_icall_prefix, param);
-
-			PDEBUG(DEBUG_CONFIG, "process incoming H323 call with prefix '%s'\n", param);
-#endif
-		} else
-		if (!strcmp(option,"h323_port"))
-		{
-#ifdef H323
-			options.h323_port = atoi(param);
-
-			PDEBUG(DEBUG_CONFIG, "use port for incoming H323 calls: %d\n", atoi(param));
-#endif
-		} else
-		if (!strcmp(option,"sip_port"))
-		{
-#ifdef SIP
-			options.sip_port = atoi(param);
-
-			PDEBUG(DEBUG_CONFIG, "use port for incoming SIP calls: %d\n", atoi(param));
-#endif
-		} else
-		if (!strcmp(option,"sip_maxqueue"))
-		{
-#ifdef SIP
-			options.sip_maxqueue = atoi(param);
-
-			PDEBUG(DEBUG_CONFIG, "number of simultanious incoming sockets for SIP calls: %d\n", atoi(param));
-#endif
-		} else
-		if (!strcmp(option,"h323_gatekeeper"))
-		{
-#ifdef H323
-			options.h323_gatekeeper = 1;
-			if (param[0])
-			{
-				SCPY(options.h323_gatekeeper_host, param);
-			}
-			PDEBUG(DEBUG_CONFIG, "register with H323 gatekeeper (%s)\n", (param[0])?param:"automatically");
-#endif
 		} else
 		if (!strcmp(option,"tones_dir"))
 		{

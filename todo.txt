@@ -3,7 +3,7 @@ define and change dsp conference ids
 
 make asterisk call implementation
 
-new interface.conf
+new interface.conf (add remove ports by admin)
 
 reduce mixer
 
@@ -20,10 +20,9 @@ trace with layers and filters
  - application process (action)
  - bchannel control (tones, dsp, filter, activation/deactivation)
 
-sip raus, h323 raus
-
 avoid disconnect-collision (release if disconnect from both sides)
 
+display message during nothing/play
 
 
 

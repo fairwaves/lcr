@@ -141,6 +141,7 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 	}
 	SCPY(p_name, portname);
 	SCPY(p_tone_dir, p_settings.tones_dir); // just to be sure
+	p_clock = 0;
 	p_type = type;
 	p_serial = port_serial++;
 	p_debug_nothingtosend = 0;
@@ -262,25 +263,6 @@ void Port::new_state(int state)
 
 
 /*
- * find the port using h323 token
- */ 
-class Port *find_port_with_token(char *name)
-{
-	class Port *port = port_first;
-
-	while(port)
-	{
-//printf("comparing: '%s' with '%s'\n", name, p_name);
-		if ((port->p_type==PORT_TYPE_H323_IN || port->p_type==PORT_TYPE_H323_OUT) && !strcmp(port->p_name, name))
-			return(port);
-		port = port->next;
-	}
-
-	return(NULL);
-}
-
-
-/*
  * find the port with port_id
  */ 
 class Port *find_port_id(unsigned long port_id)
@@ -298,47 +280,6 @@ class Port *find_port_id(unsigned long port_id)
 	return(NULL);
 }
 
-#if 0
-/*
- * open the knock sound
- */
-void Port::set_knock(char *tones_dir_epoint)
-{
-	char filename[128], *tones_dir;
-
-	/* check if we have the epoint override the tones_dir of options.conf */
-	tones_dir = options.tones_dir;
-	if (tones_dir_epoint[0])
-	{
-		tones_dir = tones_dir_epoint;
-	}
-
-	if (p_knock_fh >= 0)
-	{
-		close(p_knock_fh);
-		p_knock_fh = -1;
-		fhuse--;
-	}
-	p_knock_fetched = NULL;
-
-	if ((p_knock_fetched=open_tone_fetched(tones_dir, "knock", &p_knock_codec, &p_knock_size, &p_knock_left)))
-	{
-		PDEBUG(DEBUG_PORT, "PORT(%s) opening fetched tone: %s\n", p_name, "knock");
-		return;
-	}
-
-	SPRINT(filename, "%s/%s/knock", INSTALL_DATA, tones_dir);
-	if ((p_knock_fh=open_tone(filename, &p_knock_codec, &p_knock_size, &p_knock_left)) >= 0)
-	{
-		PDEBUG(DEBUG_PORT, "PORT(%s) opening tone: %s\n", p_name, filename);
-		fhuse++;
-	} else
-	{
-		p_knock_fh = -1;
-	}
-}
-#endif
-
 
 /*
  * set echotest
@@ -347,6 +288,7 @@ void Port::set_echotest(int echotest)
 {
 	p_echotest = echotest;
 }
+
 
 /*
  * set the file in the tone directory with the given name
@@ -358,15 +300,6 @@ void Port::set_tone(char *dir, char *name)
 
 	if (name == NULL)
 		name = "";
-
-#if 0
-	/* knocking ? */
-	if (!strcmp(name, "knock"))
-	{
-		set_knock(tones_dir_epoint);
-		return;
-	}
-#endif
 
 	/* no counter, no eof, normal speed */
 	p_tone_counter = 0;
@@ -518,45 +451,6 @@ void Port::set_vbox_play(char *name, int offset)
 	/* seek */
 	if (p_tone_name[0])
 	{
-//printf("\n\n\n tone_codec = %d\n\n\n\n",p_tone_codec);
-#if 0
-		switch(p_tone_codec)
-		{
-			case CODEC_LAW:
-			case CODEC_8BIT:
-			lseek(p_tone_fh, offset*8000L, SEEK_SET);
-			size = p_tone_size / 8000L;
-			if (offset*8000L <= p_tone_left)
-				p_tone_left -= offset*8000L;
-			break;
-
-			case CODEC_MONO:
-			lseek(p_tone_fh, offset*16000L, SEEK_SET);
-			size = p_tone_size / 16000L;
-			if (offset*16000L <= p_tone_left)
-				p_tone_left -= offset*16000L;
-//printf("\n\n\n size = %d\n\n\n\n",size);
-			break;
-
-			case CODEC_STEREO:
-			lseek(p_tone_fh, offset*32000L, SEEK_SET);
-			size = p_tone_size / 32000L;
-			if (offset*32000L <= p_tone_left)
-				p_tone_left -= offset*32000L;
-			break;
-	
-			default:
-			PERROR("no codec specified! exitting...\n");
-			exit(-1);
-		}
-#else
-		lseek(p_tone_fh, offset*8000L, SEEK_SET);
-		size = p_tone_size / 8000L;
-		if (offset*8000L <= p_tone_left)
-			p_tone_left -= offset*8000L;
-#endif
-
-
 		/* send message with counter value */
 		if (p_tone_size>=0 && ACTIVE_EPOINT(p_epointlist))
 		{
@@ -578,274 +472,30 @@ void Port::set_vbox_speed(int speed)
 	p_tone_speed = speed;
 }
 
-/* write data to port's mixer buffer
- * it will be read by the port using read_audio
- * synchronisation is also done when writing is too fast and buffer is full
- * the mixer buffer will only mix what cannot be mixed by kernel mixer
- *
- * also write data to the record buffer. the record buffer will mix everything.
- */
-void Port::mixer(union parameter *param)
-{
-	struct mixer_relation *relation, **relationpointer;
-	int len;
-	unsigned char *data;
-	signed short *data_16;
-	int writep;
-	signed long *buffer, *record;
-	int must_mix = 1; /* set, if we need to mix (not done by kernel) */
-
-	/* we do not mix if we have audio from ourself but we need to record
-	 * unless we have a local echo enabled
-	 */
-	if (param->data.port_id==p_serial && !p_echotest)
-		must_mix = 0;
-
-	if ((param->data.port_type&PORT_CLASS_MASK)==PORT_CLASS_mISDN
-	 && (p_type&PORT_CLASS_MASK)==PORT_CLASS_mISDN)
-	{
-		must_mix = 0;
-	}
-	if (!p_record && !must_mix) /* if we do not record AND no need to mix */
-	{
-		return;
-	}
-
-	/* get the relation to the write pointer. if no relation exists
-	 * for the given source port, we create one.
-	 */
-	relation = p_mixer_rel;
-	relationpointer = &(p_mixer_rel);
-	if (!relation) /* there is no relation at all */
-	{
-		/* clear buffer to 0-volume and reset writep */
-		memset(p_mixer_buffer, 0, sizeof(p_mixer_buffer));
-		memset(p_record_buffer, 0, sizeof(p_record_buffer));
-		memset(p_stereo_buffer, 0, sizeof(p_stereo_buffer));
-	} else /* else because we do not need to run a 0-loop */
-	while(relation)
-	{
-		if (relation->port_id == param->data.port_id)
-			break;
-		relationpointer = &(relation->next);
-		relation = relation->next;
-	}
-	if (!relation)
-	{
-		relation = *relationpointer = (struct mixer_relation *)calloc(1, sizeof(struct mixer_relation));
-		if (!relation)
-		{
-			PERROR("fatal error: cannot alloc memory for port mixer relation\n");	
-			return; /* no mem */
-		}
-		pmemuse++;
-		memset(relation, 0, sizeof(struct mixer_relation));
-		relation->port_id = param->data.port_id;
-		/* put write buffer in front of read buffer */
-#ifndef BETTERDELAY
-		relation->mixer_writep = (p_mixer_readp+(PORT_BUFFER/2))%PORT_BUFFER;
-#else
-		relation->mixer_writep = p_mixer_readp;
-#endif
-#ifdef MIXER_DEBUG
-		PDEBUG(DEBUG_PORT, "PORT(%s) Adding new mixer relation from port #%d (readp=%d, writep=%d, PORT_BUFFER=%d).\n", p_name, param->data.port_id, p_mixer_readp, relation->mixer_writep, PORT_BUFFER);
-#endif
-	}
-
-	/* adding remote's audio data to our mixer_buffer / record_buffer */
-	len = param->data.len;
-	if (param->data.compressed == 0) /* in case of 16 bit data */
-		len >>= 1;
-	if (len>PORT_BUFFER)
-		PERROR("fatal error: audio data from remote port #%d is larger than mixer buffer %d>%d\n", param->data.port_id, len, PORT_BUFFER);
-	writep = relation->mixer_writep;
-	buffer = p_mixer_buffer;
-	record = p_record_buffer;
-	/* if stereo should be recorded */
-	if (param->data.port_id == p_serial)
-	if (p_record_type == CODEC_STEREO)
-		record = p_stereo_buffer;
-	/* NOTE: if read and write pointer are equal, the buffer is full */
-	if ((p_mixer_readp-writep+PORT_BUFFER)%PORT_BUFFER < len) /* we would overrun the read pointer */
-	{
-#ifdef MIXER_DEBUG
-		PERROR("PORT(%s) buffer overrun, source port #%d is sending too fast. (dropping %d samples)\n", p_name, param->data.port_id, len);
-#endif
-		// we do not resync since dropping causes slowing writepointer down anyway...
-		//relation->mixer_writep = (p_mixer_readp+(PORT_BUFFER/2))%PORT_BUFFER;
-		return;
-	}
-
-	if (!p_record && must_mix)
-	{
-		/* WE MUST MIX BUT DO NOT RECORD */
-		if (param->data.compressed)
-		{
-			/* compressed data */
-			data = param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-					buffer[writep++] += audio_law_to_s32[*(data++)];
-				writep = 0;
-			}
-			while(len--) /* write rest */
-				buffer[writep++] += audio_law_to_s32[*(data++)];
-		} else
-		{
-			/* uncompressed data */
-			data_16 = (signed short *)param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-					buffer[writep++] += *(data_16++);
-				writep = 0;
-			}
-			while(len--) /* write rest */
-				buffer[writep++] += *(data_16++);
-		}
-	} else /* else */
-	if (p_record && !must_mix)
-	{
-		/* WE MUST RECORD BUT DO NOT MIX */
-		if (param->data.compressed)
-		{
-			/* compressed data */
-			data = param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-					record[writep++] += audio_law_to_s32[*(data++)];
-				writep = 0;
-			}
-			while(len--) /* write rest */
-				record[writep++] += audio_law_to_s32[*(data++)];
-		} else
-		{
-			/* uncompressed data */
-			data_16 = (signed short *)param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-					record[writep++] += *(data_16++);
-				writep = 0;
-			}
-			while(len--) /* write rest */
-				record[writep++] += *(data_16++);
-		}
-	} else
-	{
-		/* WE MUST MIX AND MUST RECORD */
-		if (param->data.compressed)
-		{
-			/* compressed data */
-			data = param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-				{
-					buffer[writep] += audio_law_to_s32[*data];
-					record[writep++] += audio_law_to_s32[*(data++)];
-				}
-				writep = 0;
-			}
-			while(len--) /* write rest */
-			{
-				buffer[writep] += audio_law_to_s32[*data];
-				record[writep++] += audio_law_to_s32[*(data++)];
-			}
-		} else
-		{
-			/* uncompressed data */
-			data_16 = (signed short *)param->data.data;
-			if (len+writep >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+writep-PORT_BUFFER; /* rest to write in front of buffer */
-				while(writep < PORT_BUFFER) /* write till buffer end */
-				{
-					buffer[writep] += *data_16;
-					record[writep++] += *(data_16++);
-				}
-				writep = 0;
-			}
-			while(len--) /* write rest */
-			{
-				buffer[writep] += *data_16;
-				record[writep++] += *(data_16++);
-			}
-		}
-	}
-	relation->mixer_writep = writep; /* new write pointer */
-//	PDEBUG(DEBUG_PORT "written data len=%d port=%d (readp=%d, writep=%d, PORT_BUFFER=%d).\n", param->data.len, param->data.port_id, p_mixer_readp, relation->mixer_writep, PORT_BUFFER);
-}
-
-
 /*
  * read from the given file as specified in port_set_tone and return sample data
- * this data is mixed with the user space mixer (if anything mixed) and
- * filled into the buffer as many as given by length.
- * if compressed is true, the result in buffer is alaw/ulaw-compressed
- * otherwhise it is 16 bit audio. in this case the buffer size must be twice the lenght.
- * the length is the number of samples, not bytes in buffer!
  */
-int Port::read_audio(unsigned char *buffer, int length, int compressed)
+int Port::read_audio(unsigned char *buffer, int length)
 {
 	int l,len;
-	unsigned short temp_buffer[PORT_BUFFER]; /* buffer for up to 32 bit of data */
-	int codec_in; /* current codec to use */
-	unsigned char *buf_in8; /* buffer pointer for alaw/ulaw/8bit data */
-	signed short *buf_in16; /* buffer pointer for alaw/ulaw/8bit data */
-	signed short *buf_out16; /* buffer pointer for outgoing audio data */
-	signed long *mix_buffer, *mix_buffer2, sample; /* pointer to mixer buffer */
-	struct mixer_relation *relation, **relationpointer;
 	int readp;
-	int nodata=0; /* to detect 0-length files */
+	int nodata=0; /* to detect 0-length files and avoid endless reopen */
 	char filename[128];
-	signed short record_buffer[PORT_BUFFER<<1], *rec_buffer; /* buffer of recorded part which will be written (*2 for stereo) */
-	unsigned char *rec8_buffer; /* used to send 8-bit audio (wave-8bit, law) */
 	int tone_left_before; /* temp variable to determine the change in p_tone_left */
 
 	/* nothing */
 	if (length == 0)
 		return(0);
 
-	/* just in case, we get too much to do */
-	if (length > PORT_BUFFER-1)
-		length = PORT_BUFFER-1;
-
 	len = length;
-	buf_in8 = (unsigned char *)temp_buffer;
-	buf_in16 = (signed short *)temp_buffer;
-
 	codec_in = p_tone_codec;
 
 	/* if there is no tone set, use silence */
 	if (p_tone_name[0] == 0)
 	{
-		codec_in = CODEC_LAW;
 rest_is_silence:
-		switch(codec_in)
-		{
-			case CODEC_LAW:
-			memset(buf_in8, (options.law=='a')?0x2a:0xff, len); /* silence */
-			break;
-
-			case CODEC_MONO:
-			case CODEC_8BIT:
-			case CODEC_STEREO:
-			memset(buf_in16, 0, len<<1); /* silence */
-			break;
-
-			default:
-			PERROR("Software error: no codec during silence\n");
-			exit(-1);
-		}
-		goto mix_to_buffer;
+		memset(buffer, (options.law=='a')?0x2a:0xff, len); /* silence */
+		goto done;
 	}
 
 	/* if the file pointer is not open, we open it */
@@ -877,8 +527,6 @@ rest_is_silence:
 			}
 			fhuse++;
 		}
-		codec_in = p_tone_codec;
-//printf("\n\ncodec=%d\n\n\n", p_tone_codec);
 		PDEBUG(DEBUG_PORT, "PORT(%s) opening %stone: %s\n", p_name, p_tone_fetched?"fetched ":"", filename);
 	}
 
@@ -887,69 +535,19 @@ read_more:
 	tone_left_before = p_tone_left;
 	if (p_tone_fh >= 0)
 	{
-		switch(codec_in)
-		{
-			case CODEC_LAW:
-			l = read_tone(p_tone_fh, buf_in8, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in8 += l;
-			len -= l;
-			break;
-
-			case CODEC_8BIT:
-			l = read_tone(p_tone_fh, buf_in16, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in16 += l;
-			len -= l;
-			break;
-
-			case CODEC_MONO:
-			l = read_tone(p_tone_fh, buf_in16, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in16 += l;
-			len -= l;
-			break;
-
-			case CODEC_STEREO:
-			l = read_tone(p_tone_fh, buf_in16, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in16 += l;
-			len -= l;
-			break;
-
-			default:
-			PERROR("Software error: current tone reading has no codec\n");
-			exit(-1);
-		}
+		l = read_tone(p_tone_fh, buffer, p_tone_codec, len, p_tone_size, &p_tone_left, p_tone_speed);
+		if (l<0 || l>len) /* paranoia */
+			l=0;
+		buffer += l;
+		len -= l;
 	}
 	if (p_tone_fetched)
 	{
-		switch(codec_in)
-		{
-			case CODEC_LAW:
-			l = read_tone_fetched(&p_tone_fetched, buf_in8, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in8 += l;
-			len -= l;
-			break;
-
-			case CODEC_MONO:
-			l = read_tone_fetched(&p_tone_fetched, buf_in16, codec_in, len, p_tone_size, &p_tone_left, p_tone_speed);
-			if (l<0 || l>len) /* paranoia */
-				l=0;
-			buf_in16 += l;
-			len -= l;
-			break;
-
-			default:
-			PERROR("Software error: current tone reading has no codec\n");
-			exit(-1);
-		}
+		l = read_tone_fetched(&p_tone_fetched, buffer, len, p_tone_size, &p_tone_left, p_tone_speed);
+		if (l<0 || l>len) /* paranoia */
+			l=0;
+		buffer += l;
+		len -= l;
 	}
 
 	/* if counter is enabled, we check if we have a change */
@@ -968,7 +566,7 @@ read_more:
 	}
 
 	if (len==0)
-		goto mix_to_buffer;
+		goto done;
 
 	if (p_tone_fh >= 0)
 	{
@@ -1031,690 +629,23 @@ try_loop:
 		}
 		fhuse++;
 	}
-	codec_in = p_tone_codec;
 	nodata++;
 	PDEBUG(DEBUG_PORT, "PORT(%s) opening %stone: %s\n", p_name, p_tone_fetched?"fetched ":"", filename);
 
 	/* now we have opened the loop */
 	goto read_more;
 
-	/* **********
-	 * now we mix
-	 * we take the buffer content and mix the mixer_buffer to what we got
-	 */ 
-mix_to_buffer:
-	/* release all writepointer which will underrun, since writing of
-	 * remote port data is too slow
-	 */
-	relation = p_mixer_rel;
-	readp = p_mixer_readp;
-	relationpointer = &(p_mixer_rel);
-	while(relation) /* if no relation, this is skipped */
-	{
-		/* NOTE: if writep and readp are equal, the distance ist max
-		 * == PORT_BUFFER
-		 */
-		if (((relation->mixer_writep-readp-1+PORT_BUFFER)%PORT_BUFFER)+1 <= length) /* underrun */
-		{
-			/* remove port relation in order to resync.
-			 * this is also caused by ports which do not transmit
-			 * anymore.
-			 */
-#ifdef MIXER_DEBUG
-			PERROR("PORT(%s) Buffer underrun, source port is sending too slow or stopped sending, removing relation. (readp=%d, writep=%d, PORT_BUFFER=%d)\n", p_name, readp, relation->mixer_writep, PORT_BUFFER);
-#endif
-			
-			*relationpointer = relation->next;
-			memset(relation, 0, sizeof(struct mixer_relation));
-			free(relation);
-			pmemuse--;
-			relation = *relationpointer;
-			continue;
-		}
-		relationpointer = &(relation->next);
-		relation = relation->next;
-	}
-
-	/* if we do recording, we write the record data and the buffer data to the record fp and increment record_count */
-	if (p_record)
-	switch (p_record_type)
-	{
-		case CODEC_MONO:
-		/* convert from mixer to uncompressed 16 bit mono audio */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec_buffer = record_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec_buffer++) = sample;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec_buffer++) = sample;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length<<1), 1, p_record);
-				p_record_length = (length<<1) + p_record_length;
-			}
-			break;
-
-			case CODEC_LAW:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec_buffer = record_buffer;
-			buf_in8 = (unsigned char *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec_buffer++) = sample;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec_buffer++) = sample;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length<<1), 1, p_record);
-				p_record_length = (length<<1) + p_record_length;
-			}
-			break;
-
-		}
-		break;
-
-		case CODEC_STEREO:
-		/* convert from mixer to uncompressed 16 bit stereo audio */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			len = length;
-			mix_buffer = p_record_buffer;
-			mix_buffer2 = p_stereo_buffer;
-			rec_buffer = record_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec_buffer++) = sample;
-
-					*(rec_buffer++) = mix_buffer2[readp];
-					mix_buffer2[readp++] = 0;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec_buffer++) = sample;
-				*(rec_buffer++) = mix_buffer2[readp];
-				mix_buffer2[readp++] = 0;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length<<2), 1, p_record);
-				p_record_length = (length<<2) + p_record_length;
-			}
-			break;
-
-			case CODEC_LAW:
-			len = length;
-			mix_buffer = p_record_buffer;
-			mix_buffer2 = p_stereo_buffer;
-			rec_buffer = record_buffer;
-			buf_in8 = (unsigned char *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec_buffer++) = sample;
-
-					*(rec_buffer++) = mix_buffer2[readp];
-					mix_buffer2[readp++] = 0;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec_buffer++) = sample;
-				*(rec_buffer++) = mix_buffer2[readp];
-				mix_buffer2[readp++] = 0;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length<<2), 1, p_record);
-				p_record_length = (length<<2) + p_record_length;
-			}
-			break;
-		}
-		break;
-
-		case CODEC_8BIT:
-		/* convert from mixer to uncompressed 8 bit mono audio */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec8_buffer = (unsigned char *)record_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec8_buffer++) = (sample>>8)+0x80;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec8_buffer++) = (sample>>8)+0x80;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length), 1, p_record);
-				p_record_length = (length) + p_record_length;
-			}
-			break;
-
-			case CODEC_LAW:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec8_buffer = (unsigned char *)record_buffer;
-			buf_in8 = (unsigned char *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec8_buffer++) = (sample>>8)+0x80;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec8_buffer++) = (sample>>8)+0x80;
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length), 1, p_record);
-				p_record_length = (length) + p_record_length;
-			}
-			break;
-
-		}
-		break;
-
-		case CODEC_LAW:
-		case CODEC_OFF: /* if no codec is specified, the recorded data will be stored as LAW */
-		/* convert from mixer to law */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec8_buffer = (unsigned char *)record_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec8_buffer++) = audio_s16_to_law[sample & 0xffff];
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec8_buffer++) = audio_s16_to_law[sample & 0xffff];
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length), 1, p_record);
-				p_record_length = (length) + p_record_length;
-			}
-			break;
-
-			case CODEC_LAW:
-			len = length;
-			mix_buffer = p_record_buffer;
-			rec8_buffer = (unsigned char *)record_buffer;
-			buf_in8 = (unsigned char *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(rec8_buffer++) = audio_s16_to_law[sample & 0xffff];
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(rec8_buffer++) = audio_s16_to_law[sample & 0xffff];
-			}
-
-			/* restore (changed) read pointer for further use */
-			readp = p_mixer_readp;
-
-			/* now write the rec_buffer to the file */
-			if (p_record_skip)
-			{
-				p_record_skip -= length;
-				if (p_record_skip < 0)
-					p_record_skip = 0;
-			} else
-			{
-				fwrite(record_buffer, (length), 1, p_record);
-				p_record_length = (length) + p_record_length;
-			}
-			break;
-		}
-		break;
-	}
-
-	/* if we have no transmitting relation, we do not need read mixer */
-	if (!p_mixer_rel)
-	{	/* nothing mixed to(no rel), so we are just done */
-		if (compressed)
-		{
-			/* compress to law */
-			len = length;
-			buf_in8 = (unsigned char *)temp_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			buf_out16 = (signed short *)buffer;
-			switch(codec_in)
-			{
-				case CODEC_MONO:
-				case CODEC_STEREO:
-				case CODEC_8BIT:
-				while(len--)
-					*(buffer++) = audio_s16_to_law[*(buf_in16++) & 0xffff];
-				break;
-
-				case CODEC_LAW:
-				memcpy(buffer, temp_buffer, length);
-				break;
-
-				default:
-				PERROR("Software error: current tone for unmixed & uncompressed, has no codec\n");
-				exit(-1);
-			}
-		} else
-		{
-			/* uncompress law files */
-			len = length;
-			buf_in8 = (unsigned char *)temp_buffer;
-			buf_in16 = (signed short *)temp_buffer;
-			buf_out16 = (signed short *)buffer;
-			switch(codec_in)
-			{
-				case CODEC_MONO:
-				case CODEC_STEREO:
-				case CODEC_8BIT:
-				while(len--)
-					(*(buf_out16++)) = *(buf_in16++);
-				break;
-
-				case CODEC_LAW:
-				while(len--)
-					(*(buf_out16++)) = audio_law_to_s32[*(buf_in8++)];
-				break;
-
-				default:
-				PERROR("Software error: current tone for unmixed & uncompressed, has no codec\n");
-				exit(-1);
-			}
-		}
-		return(length);
-	}
-
-//	PDEBUG(DEBUG_PORT, "PORT(%s) mixing %d bytes. (readp=%d, PORT_BUFFER=%d)\n", p_name, length, readp, PORT_BUFFER);
-	/* now we got our stuff and we'll mix it baby */
-
-	len = length;
-	mix_buffer = p_mixer_buffer;
-	if (compressed)
-	{
-		/* convert from mixer to compressed law data */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			buf_in16 = (signed short *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(buffer++) = audio_s16_to_law[sample & 0xffff];
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(buffer++) = audio_s16_to_law[sample & 0xffff];
-			}
-			break;
-
-			case CODEC_LAW:
-			buf_in8 = (unsigned char *)temp_buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(buffer++) = audio_s16_to_law[sample & 0xffff];
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(buffer++) = audio_s16_to_law[sample & 0xffff];
-			}
-			break;
-
-			default:
-			PERROR("Software error: current tone for compressed data has no codec\n");
-			exit(-1);
-		}
-	} else
-	{
-		/* convert from mixer to uncompressed 16 bit audio */
-		switch(codec_in)
-		{
-			case CODEC_MONO:
-			case CODEC_STEREO:
-			case CODEC_8BIT:
-			buf_in16 = (signed short *)temp_buffer;
-			buf_out16 = (signed short *)buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+*(buf_in16++);
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(buf_out16++) = sample;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+*(buf_in16++);
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(buf_out16++) = sample;
-			}
-			break;
-
-			case CODEC_LAW:
-			buf_in8 = (unsigned char *)temp_buffer;
-			buf_out16 = (signed short *)buffer;
-			if (len+readp >= PORT_BUFFER) /* data hits the buffer end */
-			{
-				len = len+readp-PORT_BUFFER; /* rest to read from buffer start */
-				while(readp < PORT_BUFFER)
-				{	/* mix till buffer end */
-					sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-					mix_buffer[readp++] = 0;
-					if (sample < -32767)
-						sample = -32767;
-					if (sample > 32767)
-						sample = 32767;
-					*(buf_out16++) = sample;
-				}
-				readp = 0;
-			}
-			while(len--) /* write rest */
-			{	/* mix till buffer end */
-				sample = mix_buffer[readp]+audio_law_to_s32[*(buf_in8++)];
-				mix_buffer[readp++] = 0;
-				if (sample < -32767)
-					sample = -32767;
-				if (sample > 32767)
-					sample = 32767;
-				*(buf_out16++) = sample;
-			}
-			break;
-
-			default:
-			PERROR("Software error: current tone for uncompressed data has no codec\n");
-			exit(-1);
-		}
-	}
-
-	p_mixer_readp = readp; /* new read pointer */
-
+done:
 	return(length);
 }
 
 
-/* dummy handler */
+/* port handler:
+ * process transmission clock */
 int Port::handler(void)
 {
+	port
+
 	return(0);
 }
 

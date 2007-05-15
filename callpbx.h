@@ -63,13 +63,13 @@ class CallPBX : public Call
 	char c_dialed[1024];		/* dial string of (all) number(s) */
 	char c_todial[32];		/* overlap dialing (part not signalled yet) */
 	
-	int c_mixer;			/* mixer must be updated */
+	int c_updatebridge;		/* bridge must be updated */
 	struct call_relation *c_relation; /* list of endpoints that are related to the call */
 
 	int c_partyline;		/* if set, call is conference room */
 
-	void mixer(void);
-	void call_mixer(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param);
+	void bridge(void);
+	void bridge_data(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param);
 	void remove_relation(struct call_relation *relation);
 	struct call_relation *add_relation(void);
 	int out_setup(unsigned long epoint_id, int message, union parameter *param, char *newnumber);

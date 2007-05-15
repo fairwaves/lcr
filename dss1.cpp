@@ -459,6 +459,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 	}
 	p_callerinfo.isdn_port = p_m_portnum;
+	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);
 	/* dialing information */
 	dec_ie_called_pn(setup->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, (unsigned char *)p_dialinginfo.number, sizeof(p_dialinginfo.number));
 	dec_ie_keypad(setup->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
@@ -844,8 +845,6 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
 	message->param.setup.port_type = p_type;
-	p_callerinfo.isdn_port = p_m_portnum;
-	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);;
 	memcpy(&message->param.setup.dialinginfo, &p_dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.callerinfo, &p_callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.redirinfo, &p_redirinfo, sizeof(struct redir_info));
@@ -1162,6 +1161,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 	}
 	p_connectinfo.isdn_port = p_m_portnum;
+	SCPY(p_connectingo.interface, p_m_mISDNport->ifport->interface->name);
 #ifdef CENTREX
 	/* te-mode: CONP (connected name identification presentation) */
 	if (!p_m_d_ntmode)
@@ -2100,6 +2100,11 @@ void Pdss1::new_state(int state)
  */
 int Pdss1::handler(void)
 {
+	int ret;
+
+	if ((ret = Port::handler()))
+		return(ret);
+
 	/* handle destruction */
 	if (p_m_delete && p_m_d_l3id==0)
 	{
@@ -2108,7 +2113,7 @@ int Pdss1::handler(void)
 		return(-1);
 	}
 
-	return(PmISDN::handler());
+	return(0);
 }
 
 

@@ -20,16 +20,10 @@ struct route_ruleset	*ruleset_first;		/* first entry */
 struct route_ruleset	*ruleset_main;		/* pointer to main ruleset */
 
 struct cond_defs cond_defs[] = {
-#ifdef PBX
 	{ "extern",	MATCH_EXTERN,	COND_TYPE_NULL,
-	  "extern", "Matches if call is from external port."},
-	{ "intern",	MATCH_INTERN,	COND_TYPE_NULL,
-	  "intern", "Matches if call is from internal port."},
-#endif
-	{ "h323",	MATCH_H323,	COND_TYPE_NULL,
-	  "h323", "Matches if call is received via H.323."},
-//	{ "ip",		MATCH_IP,	COND_TYPE_IP,
-//	  "ip=<ip>[-<ip>|/<mask>][,...]", "Matches if caller matches given source IP address(es) / range(s) / block(s)."},
+	  "extern", "Matches if call is from external port (no extension)."},
+	{ "intern",	MATCH_INTERN,COND_TYPE_NULL,
+	  "intern", "Matches if call is from an extension."},
 	{ "port",	MATCH_PORT,	COND_TYPE_INTEGER,
 	  "port=<number>[-<number>][,...]", "Matches if call is received from given port(s). NOT INTERFACE!"},
 	{ "interface",	MATCH_INTERFACE,COND_TYPE_STRING,
@@ -111,14 +105,12 @@ struct param_defs param_defs[] = {
 	{ PARAM_CONNECT,
 	  "connect",	PARAM_TYPE_NULL,
 	  "connect", "Will complete the call before processing the action. Audio path for external calls will be established."},
-#ifdef PBX
 	{ PARAM_EXTENSION,
 	  "extension",	PARAM_TYPE_STRING,
 	  "extension=<digits>", "Give extension name (digits) to relate this action to."},
 	{ PARAM_EXTENSIONS,
 	  "extensions",	PARAM_TYPE_STRING,
 	  "extensions=<extension>[,<extension>[,...]]", "One or more extensions may be given."},
-#endif
 	{ PARAM_PREFIX,
 	  "prefix",	PARAM_TYPE_STRING,
 	  "prefix=<digits>", "Add prefix in front of the dialed number."},
@@ -170,11 +162,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_SAMPLE,
 	  "sample",	PARAM_TYPE_STRING,
 	  "sample=<file prefix>", "Filename of sample (current tone's dir) or full path to sample. ('.wav'/'.wave'/'.isdn' is added automatically."},
-#ifdef PBX
 	{ PARAM_ANNOUNCEMENT,
 	  "announcement",PARAM_TYPE_STRING,
 	  "announcement=<file prefix>", "Filename of announcement (inside vbox recording dir) or full path to sample. ('.wav'/'.wave'/'.isdn' is added automatically."},
-#endif
 	{ PARAM_RULESET,
 	  "ruleset",	PARAM_TYPE_STRING,
 	  "ruleset=<name>", "Ruleset to go to."},
@@ -229,11 +219,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_TIMEOUT,
 	  "timeout",	PARAM_TYPE_INTEGER,
 	  "timeout=<seconds>", "Timeout before continue with next action."},
-#ifdef PBX
 	{ PARAM_NOPASSWORD,
 	  "nopassword",	PARAM_TYPE_NULL,
 	  "nopassword", "Don't ask for password. Be sure to authenticate right via real caller ID."},
-#endif
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -250,10 +238,6 @@ struct action_defs action_defs[] = {
 	  "outdial",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_TIMEOUT,
 	  "Same as 'extern'"},
-	{ ACTION_H323,
-	  "h323",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_h323, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_PREFIX | PARAM_HOST | PARAM_PORT | PARAM_ADDRESS | PARAM_TIMEOUT,
-	  "Call is routed to H.323 host/gateway."},
 	{ ACTION_CHAN,
 	  "asterisk",	&EndpointAppPBX::action_init_chan, &EndpointAppPBX::action_dialing_chan, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_TIMEOUT,
@@ -2038,13 +2022,6 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					istrue = 1;	 
 				break;
 
-				case MATCH_H323:
-//	printf("\n\n\nport-type %x\n\n\n\n", ea_endpoint->ep_portlist->port_type);
-				if (ea_endpoint->ep_portlist)
-				if (ea_endpoint->ep_portlist->port_type == PORT_TYPE_H323_IN)
-					istrue = 1;	 
-				break;
-
 				case MATCH_PORT:
 				if (ea_endpoint->ep_portlist)
 				if ((ea_endpoint->ep_portlist->port_type & PORT_CLASS_mISDN_MASK) != PORT_CLASS_mISDN_DSS1)
@@ -2477,14 +2454,6 @@ struct route_action action_internal = {
 	NULL,
 	NULL,
 	ACTION_INTERNAL,
-	0,
-	0,
-};
-
-struct route_action action_h323 = {
-	NULL,
-	NULL,
-	ACTION_H323,
 	0,
 	0,
 };

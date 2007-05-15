@@ -24,12 +24,6 @@
 	/* te-mode */
 #define	PORT_TYPE_DSS1_TE_IN	0x0113
 #define	PORT_TYPE_DSS1_TE_OUT	0x0114
-	/* sip */
-#define	PORT_TYPE_SIP_IN	0x0121
-#define	PORT_TYPE_SIP_OUT	0x0122
-	/* h323 */
-#define	PORT_TYPE_H323_IN	0x0211
-#define	PORT_TYPE_H323_OUT	0x0212
 	/* answering machine */
 #define	PORT_TYPE_VBOX_OUT	0x0311
 
@@ -172,16 +166,6 @@ class Port
 	void set_vbox_play(char *name, int offset); /* sample of answ. */
 	void set_vbox_speed(int speed);	/* speed of answ. */
 
-	/* user space mixer buffer */
-	signed long p_mixer_buffer[PORT_BUFFER];	/* mixer buffer */
-	signed long p_record_buffer[PORT_BUFFER];	/* record buffer */
-	signed long p_stereo_buffer[PORT_BUFFER];	/* record buffer for stereo (user only) */
-	struct mixer_relation *p_mixer_rel;	/* list of mixer relations */
-	int p_mixer_readp;			/* read pointer in buffer */
-
-	/* methods */
-	void mixer(union parameter *param);
-	
 	/* identification */
 	unsigned long p_serial;			/* serial unique id of port */
 	char p_name[128];			/* name of port or token (h323) */

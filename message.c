@@ -19,10 +19,6 @@ MESSAGES
 struct message *message_first = NULL;
 struct message **messagepointer_end = &message_first;
 
-//#ifdef H323
-//PMutex mutex_message;
-//#endif
-
 /* creates a new message with the given attributes. the message must be filled then. after filling, the message_put must be called */
 struct message *message_create(int id_from, int id_to, int flow, int type)
 {
@@ -60,11 +56,6 @@ struct message *message_create(int id_from, int id_to, int flow, int type)
 /* attaches a message to the end of the message chain */
 void message_put(struct message *message)
 {
-	/* the mutex prevents from creating two messages at a time (h323 thread and main thread). */
-//#ifdef H323
-//	mutex_message.Wait();
-//#endif
-
 	if (message->id_to == 0)
 	{
 		PDEBUG(DEBUG_MSG, "message %s not written, because destination is 0.\n", messages_txt[message->type]);
@@ -77,10 +68,6 @@ void message_put(struct message *message)
 
 	*messagepointer_end = message;
 	messagepointer_end = &(message->next);
-
-//#ifdef H323
-//	mutex_message.Signal();
-//#endif
 }
 
 
@@ -89,16 +76,8 @@ struct message *message_get(void)
 {
 	struct message *message;
 
-	/* the mutex prevents from getting a message while creating a messages at a time (h323 thread and main thread). */
-//#ifdef H323
-//	mutex_message.Wait();
-//#endif
-
 	if (!message_first)
 	{
-//#ifdef H323
-//		mutex_message.Signal();
-//#endif
 		return(0);
 	}
 
@@ -106,10 +85,6 @@ struct message *message_get(void)
 	message_first = message->next;
 	if (!message_first)
 		messagepointer_end = &message_first;
-
-//#ifdef H323
-//	mutex_message.Signal();
-//#endif
 
 	if ((options.deb&DEBUG_MSG) && message->type != MESSAGE_DATA)
 		PDEBUG(DEBUG_MSG, "message %s reading from %ld to %ld (memory %x)\n", messages_txt[message->type], message->id_from, message->id_to, message);

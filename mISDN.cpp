@@ -60,15 +60,15 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_hold = 0;
 	p_m_txvol = p_m_rxvol = 0;
 	p_m_conf = 0;
+	p_m_txdata = 0;
 #warning set delay by routing parameter or interface config
 	p_m_delay = 0;
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
-	p_m_txmix = 0;
-	p_m_txmix_on = 0;
 	p_m_nodata = 1; /* may be 1, because call always notifies us */
 	p_m_dtmf = !options.nodtmf;
+	sollen wir daraus eine interface-option machen?:
 	p_m_timeout = 0;
 	p_m_timer = 0;
 #warning denke auch an die andere seite. also das setup sollte dies weitertragen
@@ -205,6 +205,11 @@ static void bchannel_activate(struct mISDNport *mISDNport, int i)
 		}
 
 		/* configure dsp features */
+		if (mISDNport->b_port[i]->p_m_txdata)
+		{
+			PDEBUG(DEBUG_BCHANNEL, "during activation, we set txdata to txdata=%d.\n", mISDNport->b_port[i]->p_m_txdata);
+			ph_control(mISDNport->b_addr[i], (mISDNport->b_port[i]->p_m_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF);
+		}
 		if (mISDNport->b_port[i]->p_m_delay)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "during activation, we set delay to delay=%d.\n", mISDNport->b_port[i]->p_m_delay);
@@ -241,11 +246,13 @@ static void bchannel_activate(struct mISDNport *mISDNport, int i)
 			PDEBUG(DEBUG_BCHANNEL, "during activation, we set rxoff to rxoff=%d.\n", mISDNport->b_port[i]->p_m_rxoff);
 			ph_control(mISDNport->b_addr[i], CMX_RECEIVE_OFF, 0);
 		}
+#if 0
 		if (mISDNport->b_port[i]->p_m_txmix)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "during activation, we set txmix to txmix=%d.\n", mISDNport->b_port[i]->p_m_txmix);
 			ph_control(mISDNport->b_addr[i], CMX_MIX_ON, 0);
 		}
+#endif
 		if (mISDNport->b_port[i]->p_m_dtmf)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "during activation, we set dtmf to dtmf=%d.\n", mISDNport->b_port[i]->p_m_dtmf);
@@ -287,6 +294,11 @@ static void bchannel_deactivate(struct mISDNport *mISDNport, int i)
 		{
 			if (mISDNport->b_port[i]->p_m_delay)
 			{
+				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset txdata from txdata=%d.\n", mISDNport->b_port[i]->p_m_txdata);
+				ph_control(mISDNport->b_addr[i], CMX_TXDATA_OFF, 0);
+			}
+			if (mISDNport->b_port[i]->p_m_delay)
+			{
 				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset delay from delay=%d.\n", mISDNport->b_port[i]->p_m_delay);
 				ph_control(mISDNport->b_addr[i], CMX_JITTER, 0);
 			}
@@ -320,11 +332,13 @@ static void bchannel_deactivate(struct mISDNport *mISDNport, int i)
 				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset rxoff from rxoff=%d.\n", mISDNport->b_port[i]->p_m_rxoff);
 				ph_control(mISDNport->b_addr[i], CMX_RECEIVE_ON, 0);
 			}
+#if 0
 			if (mISDNport->b_port[i]->p_m_txmix)
 			{
 				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset txmix from txmix=%d.\n", mISDNport->b_port[i]->p_m_txmix);
 				ph_control(mISDNport->b_addr[i], CMX_MIX_OFF, 0);
 			}
+#endif
 			if (mISDNport->b_port[i]->p_m_dtmf)
 			{
 				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset dtmf from dtmf=%d.\n", mISDNport->b_port[i]->p_m_dtmf);
@@ -641,6 +655,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	if (newlen>0 && (p_tone_fh>=0 || p_tone_fetched || !p_m_nodata || p_m_crypt_msg_loops))
 	{
 //printf("jolly: sending.... %d %d %d %d %d\n", newlen, p_tone_fh, p_tone_fetched, p_m_nodata, p_m_crypt_msg_loops);
+#if 0
 		if (p_m_txmix_on)
 		{
 			p_m_txmix_on -= newlen;
@@ -653,6 +668,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 					ph_control(p_m_b_addr, CMX_MIX_ON, 0);
 			}
 		}
+#endif 
 		if (p_m_crypt_msg_loops)
 		{
 			/* send pending message */
@@ -667,11 +683,13 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			{
 				p_m_crypt_msg_current = 0;
 				p_m_crypt_msg_loops--;
+#if 0
 // we need to disable rxmix some time after sending the loops...
 				if (!p_m_crypt_msg_loops && p_m_txmix)
 				{
 					p_m_txmix_on = 8000; /* one sec */
 				}
+#endif
 			}
 		}
 		frm->prim = frm->prim & 0xfffffffc | REQUEST; 
@@ -873,6 +891,16 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 //if (dddebug) PDEBUG(DEBUG_ISDN, "dddebug = %d\n", dddebug->type);
 		break;
 
+		case mISDNSIGNAL_CALLDATA:
+		if (p_m_calldata != param->mISDNsignal.calldata)
+		{
+			p_m_calldata = param->mISDNsignal.calldata;
+			PDEBUG(DEBUG_BCHANNEL, "we change to calldata=%d.\n", p_m_calldata);
+			auch senden
+		}
+		break;
+		
+#if 0
 		case mISDNSIGNAL_NODATA:
 		p_m_nodata = param->mISDNsignal.nodata;
 		if (p_m_txmix == p_m_nodata) /* txmix != !nodata */
@@ -884,6 +912,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 					ph_control(p_m_b_addr, p_m_txmix?CMX_MIX_ON:CMX_MIX_OFF, 0);
 		}
 		break;
+#endif
 
 #if 0
 		case mISDNSIGNAL_RXOFF:
@@ -963,12 +992,14 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 		}
 		p_m_crypt_msg_current = 0; /* reset */
 		p_m_crypt_msg_loops = 3; /* enable */
+#if 0
 		/* disable txmix, or we get corrupt data due to audio process */
 		if (p_m_txmix)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "for sending CR_MESSAGE_REQ, we reset txmix from txmix=%d.\n", p_m_txmix);
 			ph_control(p_m_b_addr, CMX_MIX_OFF, 0);
 		}
+#endif
 		break;
 
 		default:
@@ -1016,6 +1047,9 @@ int mISDN_handler(void)
 	msg_t *dmsg;
 	mISDNuser_head_t *hh;
 	int i;
+
+	if ((ret = Port::handler()))
+		return(ret);
 
 	/* the que avoids loopbacks when replying to stack after receiving
          * from stack. */

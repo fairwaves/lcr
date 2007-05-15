@@ -334,8 +334,4 @@ Changes in Version 3.4
 - Timeout condition seems to work now.
 - Timeout action seems to work now.
 
-What you might expect in later versions
-  -> ISDN over IP (proprietary solution)
-  -> OPAL, with a new interface between user space audio and kernel space audio (SIP / H323)
-  -> (maybe later) Kernel space RTP that makes VoIP reeeeeeeeeeeeally fast!
 

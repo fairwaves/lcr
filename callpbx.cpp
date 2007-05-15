@@ -255,7 +255,8 @@ CallPBX::CallPBX(class Endpoint *epoint) : Call(epoint)
 	c_caller_id[0] = '\0';
 	c_dialed[0] = '\0';
 	c_todial[0] = '\0';
-	c_mixer = 0;
+	c_pid = getpid();
+	c_updatebridge = 0;
 	c_partyline = 0;
 
 	/* initialize a relation only to the calling interface */
@@ -298,23 +299,26 @@ CallPBX::~CallPBX()
 }
 
 
-/* mixer sets the mixer of hisax bchannels
- * the mixer() will set the mixer for the hisax ports which is done
- * at kernel space. 
+/* bridge sets the audio flow of all bchannels assiociated to 'this' call
+ * also it changes and notifies active/hold/conference states
  */
-void CallPBX::mixer(void)
+void CallPBX::bridge(void)
 {
 	struct call_relation *relation;
 	struct message *message;
-	int numconnect, relations;
+	int numconnect = 0, relations = 0;
 	class Endpoint *epoint;
 	struct port_list *portlist;
 	class Port *port;
-	int nodata = 1;
+	int allmISDN = 0; // relations that are no mISDN
 
 	relation = c_relation;
 	while(relation)
 	{
+		/* count all relations */
+		relations++;
+
+		/* check for relation's objects */
 		epoint = find_epoint_id(relation->epoint_id);
 		if (!epoint)
 		{
@@ -325,7 +329,7 @@ void CallPBX::mixer(void)
 		portlist = epoint->ep_portlist;
 		if (!portlist)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation without interfaces.\n");
+			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation without port object.\n");
 //#warning testing: keep on hold until single audio stream available
 			relation->channel_state = CHANNEL_STATE_HOLD;
 			relation = relation->next;
@@ -342,38 +346,44 @@ void CallPBX::mixer(void)
 		port = find_port_id(portlist->port_id);
 		if (!port)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "software error: relation without existing port.\n");
+			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation without existing port object.\n");
 			relation = relation->next;
 			continue;
-		}
-		if (port->p_record)
-		{
-			PDEBUG(DEBUG_CALL|DEBUG_PORT, "mixer(): relation ep%d does recording, so we must get data from all members.\n", epoint->ep_serial);
-			if (nodata)
-			{
-				PDEBUG(DEBUG_CALL|DEBUG_PORT, "mixer(): at least one endpoint wants data.\n");
-				nodata = 0;
-			}
 		}
 		if ((port->p_type&PORT_CLASS_MASK)!=PORT_CLASS_mISDN)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation ep%d because it is not mISDN.\n", epoint->ep_serial);
-			if (nodata)
+			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation ep%d because it's port is not mISDN.\n", epoint->ep_serial);
+			if (allmISDN)
 			{
 				PDEBUG((DEBUG_CALL|DEBUG_PORT), "not all endpoints are mISDN.\n");
-				nodata = 0;
+				allmISDN = 0;
 			}
 			relation = relation->next;
 			continue;
 		}
-// remove unconnected parties from conference, also remove remotely disconnected parties so conference will not be disturbed.
+		relation = relation->next;
+	}
+
+	/* we notify all relations about rxdata. */
+	relation = c_relation;
+	while(relation)
+	{
+		/* count connected relations */
+		if ((relation->channel_state == CHANNEL_STATE_CONNECT)
+		 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
+		 && (relation->rx_state != NOTIFY_STATE_HOLD))
+			numconnect ++;
+
+		/* remove unconnected parties from conference, also remove remotely disconnected parties so conference will not be disturbed. */
 		if (relation->channel_state == CHANNEL_STATE_CONNECT
 		 && relation->rx_state != NOTIFY_STATE_HOLD
-		 && relation->rx_state != NOTIFY_STATE_SUSPEND)
+		 && relation->rx_state != NOTIFY_STATE_SUSPEND
+		 && relations>1 // no conf with on party
+		 && allmISDN) // no conf if any member is not mISDN
 		{
 			message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
-			message->param.mISDNsignal.conf = (c_serial<<1) + 1;
+			message->param.mISDNsignal.conf = c_serial<<16 | c_pid;
 			PDEBUG(DEBUG_CALL, "%s +on+ id: 0x%08x\n", port->p_name, message->param.mISDNsignal.conf);
 			message_put(message);
 		} else
@@ -384,41 +394,31 @@ void CallPBX::mixer(void)
 			PDEBUG(DEBUG_CALL, "%s +off+ id: 0x%08x\n", port->p_name, message->param.mISDNsignal.conf);
 			message_put(message);
 		}
-		relation = relation->next;
-	}
-	/* we notify all relations about rxdata. */
-	relation = c_relation;
-	while(relation)
-	{
+
+		/*
+		 * request data from endpoint/port if:
+		 * - two relations
+		 * - any without mISDN
+		 * in this case we bridge
+		 */
 		message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
-		message->param.mISDNsignal.message = mISDNSIGNAL_NODATA;
-		message->param.mISDNsignal.nodata = nodata;
-		PDEBUG(DEBUG_CALL, "call %d sets alldata on port %s to %d\n", c_serial, port->p_name, nodata);
+		message->param.mISDNsignal.message = mISDNSIGNAL_CALLDATA;
+		message->param.mISDNsignal.calldata = (relnum==2 && !allmISDN);
+		PDEBUG(DEBUG_CALL, "call %d sets 'calldata' on port %s to %d\n", c_serial, port->p_name, calldata);
 		message_put(message);
+
 		relation = relation->next;
 	}
 
-	/* count relations and states */
-	relation = c_relation;
-	numconnect = 0;
-	relations = 0;
-	while(relation) /* count audio-connected and active relations */
-	{
-		relations ++;
-		if ((relation->channel_state == CHANNEL_STATE_CONNECT)
-		 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
-		 && (relation->rx_state != NOTIFY_STATE_HOLD))
-			numconnect ++;
-		relation = relation->next;
-	}
-
-	if (relations==2 && !c_partyline) /* two people just exchange their states */
+	/* two people just exchange their states */
+	if (relations==2 && !c_partyline)
 	{
 		relation = c_relation;
 		relation->tx_state = notify_state_change(c_serial, relation->epoint_id, relation->tx_state, relation->next->rx_state);
 		relation->next->tx_state = notify_state_change(c_serial, relation->next->epoint_id, relation->next->tx_state, relation->rx_state);
 	} else
-	if ((relations==1 || numconnect==1) /*&& !c_partyline*/) /* one member in a call, so we put her on hold */
+	/* one member in a call, so we put her on hold */
+	if (relations==1 || numconnect==1)
 	{
 		relation = c_relation;
 		while(relation)
@@ -444,52 +444,45 @@ void CallPBX::mixer(void)
 	}
 }
 
-
-/* send audio data to endpoints which do not come from an endpoint connected
- * to an isdn port and do not go to an endpoint which is connected to an
- * isdn port. in this case the mixing cannot be done with kernel space
+/*
+ * bridging is only possible with two connected endpoints
  */
-void CallPBX::call_mixer(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param)
+void CallPBX::bridge_data(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param)
 {
 	struct call_relation *relation_to;
 	struct message *message;
 
+	/* if we are alone */
+	if (!c_relation->next)
+		return;
+
+	/* if we are more than two */
+	if (c_relation->next->next)
+		return;
+
 	/* skip if source endpoint has NOT audio mode CONNECT */
 	if (relation_from->channel_state != CHANNEL_STATE_CONNECT)
-	{
 		return;
-	}
 
-	/* loop all endpoints and skip the endpoint where the audio is from
-	 * so we do not get a loop (echo)
-	 */
+	/* get destination relation */
 	relation_to = c_relation;
-	while(relation_to)
+	if (relation_to == relation_from)
 	{
-		/* skip source endpoint */
-		if (relation_to->epoint_id == epoint_from)
-		{
-			relation_to = relation_to->next;
-			continue;
-		}
-
-		/* skip if destination endpoint has audio mode HOLD */
-		if (relation_to->channel_state != CHANNEL_STATE_CONNECT)
-		{
-			relation_to = relation_to->next;
-			continue;
-		}
-
-		/* now we may send our data to the endpoint where it
-		 * will be delivered to the port
-		 */
-//PDEBUG(DEBUG_CALL, "mixing from %d to %d\n", epoint_from, relation_to->epoint_id);
-		message = message_create(c_serial, relation_to->epoint_id, CALL_TO_EPOINT, MESSAGE_DATA);
-		memcpy(&message->param, param, sizeof(union parameter));
-		message_put(message);
-
+		/* oops, we are the first, so destination is: */
 		relation_to = relation_to->next;
 	}
+
+	/* skip if destomatopm endpoint has NOT audio mode CONNECT */
+	if (relation_to->channel_state != CHANNEL_STATE_CONNECT)
+		return;
+
+	/* now we may send our data to the endpoint where it
+	 * will be delivered to the port
+	 */
+//PDEBUG(DEBUG_CALL, "mixing from %d to %d\n", epoint_from, relation_to->epoint_id);
+	message = message_create(c_serial, relation_to->epoint_id, CALL_TO_EPOINT, MESSAGE_DATA);
+	memcpy(&message->param, param, sizeof(union parameter));
+	message_put(message);
 }
 
 
@@ -527,11 +520,11 @@ void CallPBX::release(unsigned long epoint_id, int hold, int location, int cause
 		return;
 	}
 
-	/* remove from mixer */
+	/* remove from bridge */
 	if (relation->channel_state != CHANNEL_STATE_HOLD)
 	{
 		relation->channel_state = CHANNEL_STATE_HOLD;
-		c_mixer = 1; /* update mixer flag */
+		c_updatebridge = 1; /* update bridge flag */
 	}
 
 	/* detach given interface */
@@ -738,7 +731,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		if (relation->channel_state != param->channel)
 		{
 			relation->channel_state = param->channel;
-			c_mixer = 1; /* update mixer flag */
+			c_updatebridge = 1; /* update bridge flag */
 			if (options.deb & DEBUG_CALL)
 				callpbx_debug(this, "Call::message_epoint{after setting new channel state}");
 		}
@@ -758,7 +751,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			if (new_state != relation->rx_state)
 			{
 				relation->rx_state = new_state;
-				c_mixer = 1;
+				c_updatebridge = 1;
 				if (options.deb & DEBUG_CALL)
 					callpbx_debug(this, "Call::message_epoint{after setting new rx state}");
 			}
@@ -782,8 +775,8 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 
 		/* audio data */
 		case MESSAGE_DATA:
-		/* now send audio data to all endpoints connected */
-		call_mixer(epoint_id, relation, param);
+		/* now send audio data to the other endpoint */
+		bridge_data(epoint_id, relation, param);
 		return;
 	}
 
@@ -795,7 +788,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		message = message_create(c_serial, epoint_id, CALL_TO_EPOINT, MESSAGE_CONNECT);
 		message->param.setup.partyline = c_partyline;
 		message_put(message);
-		c_mixer = 1; /* update mixer flag */
+		c_updatebridge = 1; /* update bridge flag */
 	}
 	if (c_partyline)
 	{
@@ -807,7 +800,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			message->param.disconnectinfo.cause = CAUSE_NORMAL;
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			message_put(message);
-//			c_mixer = 1; /* update mixer flag */
+//			c_updatebridge = 1; /* update bridge flag */
 			return;
 		}
 	}
@@ -880,11 +873,11 @@ int CallPBX::handler(void)
 //	int i, j;
 //	char *p;
 
-	/* the mixer must be updated */
-	if (c_mixer)
+	/* the bridge must be updated */
+	if (c_updatebridge)
 	{
-		mixer();
-		c_mixer = 0;
+		bridge();
+		c_updatebridge = 0;
 		return(1);
 	}
 
@@ -988,6 +981,6 @@ int CallPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 
 todo: beim release von einem relation_type_setup muss der cause gesammelt werden, bis keine weitere setup-relation mehr existiert
 beim letzten den collected cause senden
-mixer kann ruhig loslegen, das aber dokumentieren
-mixer überdenken: wer sendet, welche töne verfügbar sind, u.s.w
+bridge kann ruhig loslegen, das aber dokumentieren
+bridge überdenken: wer sendet, welche töne verfügbar sind, u.s.w
 

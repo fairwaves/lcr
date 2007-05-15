@@ -510,6 +510,8 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 	memuse++;
 	memset(ifscreen, 0, sizeof(struct interface_screen));
 #warning handle unchanged as unchanged!!
+	ifscreen->match_type = -1; /* unchecked */
+	ifscreen->match_present = -1; /* unchecked */
 	ifscreen->result_type = -1; /* unchanged */
 	ifscreen->result_present = -1; /* unchanged */
 	/* tail port */
@@ -554,7 +556,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			if (ifscreen->match_present != -1)
 			{
 				presenterror:
-				SPRINT(interface_error, "Error in %s (line %d): presentation type already set earlier.\n", filename, line, parameter);
+				SPRINT(interface_error, "Error in %s (line %d): presentation type already set earlier.\n", filename, line);
 				return(-1);
 			}
 			ifscreen->match_present = INFO_PRESENT_ALLOWED;
@@ -566,6 +568,15 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			ifscreen->match_present = INFO_PRESENT_RESTRICTED;
 		} else {
 			SCPY(ifscreen->match, el);
+			/* check for % at the end */
+			if (strchr(el, '%'))
+			{
+				if (strchr(el, '%') != el+len(el)-1)
+				{
+					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
+					return(-1);
+				}
+			}
 			break;
 		}
 	}
@@ -616,6 +627,15 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			ifscreen->result_present = INFO_PRESENT_RESTRICTED;
 		} else {
 			SCPY(ifscreen->result, el);
+			/* check for % at the end */
+			if (strchr(el, '%'))
+			{
+				if (strchr(el, '%') != el+len(el)-1)
+				{
+					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
+					return(-1);
+				}
+			}
 			break;
 		}
 	}
@@ -716,10 +736,13 @@ struct interface_param interface_param[] = {
 	"Adds an entry for outgoing calls to the caller ID screen list.\n"
 	"See 'screen-in' for help."},
 
+#if 0
+#warning todo: filter, also in the PmISDN object
 	{"filter", &inter_filter, "<filter> [parameters]",
 	"Adds/appends a filter. Filters are ordered in transmit direction.\n"
 	"gain <tx-volume> <rx-volume> - Changes volume (-8 .. 8)\n"
 	"blowfish <key> - Adds encryption. Key must be 4-56 bytes (8-112 hex characters."},
+#endif
 
 	{NULL, NULL, NULL, NULL}
 };
