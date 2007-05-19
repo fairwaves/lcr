@@ -91,6 +91,7 @@ class PmISDN : public Port
 	~PmISDN();
 	void bchannel_receive(iframe_t *frm);
 	int handler(void);
+	void transmit(unsigned char *buffer, int length);
 	int message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	void message_mISDNsignal(unsigned long epoint_id, int message_id, union parameter *param);
 	void message_crypt(unsigned long epoint_id, int message_id, union parameter *param);

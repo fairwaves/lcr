@@ -143,7 +143,8 @@ class Port
 	virtual int message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	virtual void set_echotest(int echotest);
 	virtual void set_tone(char *dir, char *name);
-	virtual int read_audio(unsigned char *buffer, int length, int compressed);
+	virtual int read_audio(unsigned char *buffer, int length);
+	virtual void transmit(unsigned char *buffer, int length);
 
 	struct port_settings p_settings;
 	

@@ -105,7 +105,8 @@ enum {
  */
 
 struct extension {
-	char name[16];
+	char number[32];	/* number of extension */
+	char name[32];
 	char prefix[32];
 	char next[32];		/* next number to dial when pickup (temp prefix) */
 	char alarm[32];

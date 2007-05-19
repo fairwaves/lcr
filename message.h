@@ -351,7 +351,6 @@ enum { /* messages between entities */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */
 	MESSAGE_TONE_COUNTER,	/* tone counter (for VBOX tone use) */
 	MESSAGE_TONE_EOF,	/* tone is end of file */
-	MESSAGE_VBOX_RECORD,	/* tell endpoint to start recording */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -383,7 +382,6 @@ enum { /* messages between entities */
 	"MESSAGE_VBOX_TONE", \
 	"MESSAGE_TONE_COUNTER", \
 	"MESSAGE_TONE_EOF", \
-	"MESSAGE_VBOX_RECORD", \
 };
 
 

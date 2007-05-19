@@ -58,17 +58,16 @@ void _printerror(const char *function, int line, const char *fmt, ...);
  */
 #define DEBUG_LOG	0x7fff
 
-/* 
- * transmit interval for tones and announcements (or samples of all kind)
- * 
- */
-#define ISDN_TRANSMIT	128
-
 /*
  * preload transmit buffer to avoid gaps at the beginning due to jitter
- * keep this 0 for minimum delay
+ * this is also the maximum load that will be kept in tx-buffer
  */
-#define ISDN_PRELOAD	0
+#define ISDN_PRELOAD	128 // 1024 samples
+
+/* 
+ * interval for refreshing transmit buffer
+ */
+#define ISDN_TRANSMIT	32 // 256 samples
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */

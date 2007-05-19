@@ -141,7 +141,8 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 	}
 	SCPY(p_name, portname);
 	SCPY(p_tone_dir, p_settings.tones_dir); // just to be sure
-	p_clock = 0;
+	p_last_tv_sec = 0;
+	p_last_tv_msec = 0;
 	p_type = type;
 	p_serial = port_serial++;
 	p_debug_nothingtosend = 0;
@@ -474,6 +475,7 @@ void Port::set_vbox_speed(int speed)
 
 /*
  * read from the given file as specified in port_set_tone and return sample data
+ * silence is appended if sample ends, but only the number of samples with tones are returned
  */
 int Port::read_audio(unsigned char *buffer, int length)
 {
@@ -636,7 +638,15 @@ try_loop:
 	goto read_more;
 
 done:
-	return(length);
+	return(length-len);
+}
+
+
+/*
+ * dummy for transmit function, since this must be inherited
+ */
+void Port::transmit(unsigned char *buffer, int length, int tonelength)
+{
 }
 
 
@@ -644,8 +654,6 @@ done:
  * process transmission clock */
 int Port::handler(void)
 {
-	port
-
 	return(0);
 }
 

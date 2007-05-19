@@ -2895,20 +2895,6 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 		port_resume(portlist, message_type, param);
 		break;
 
-		case MESSAGE_VBOX_RECORD:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received recording message from vbox.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
-		/* check if we are a terminal */
-		if (e_terminal[0] == '\0')
-			PERROR("Port(%d) cannot record because we are not a terminal\n", ea_endpoint->ep_serial);
-		else
-		{
-			port = find_port_id(portlist->port_id);
-			if (port)
-				port->open_record(e_ext.vbox_codec, 2, 0, e_terminal, e_ext.anon_ignore, e_ext.vbox_email, e_ext.vbox_email_file);
-		}
-		/* the recording is done to the vbox directory rather than to the recording directory (using vbox_codec) */
-		break;
-
 		default:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, message);
 	}

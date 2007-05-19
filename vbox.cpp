@@ -62,7 +62,7 @@ int VBoxPort::handler(void)
 {
 	struct message	*message;
 	unsigned long	tosend;
-	signed short	buffer[128];
+	unsigned char	buffer[ISDN_TRANSMIT<<3];
 	time_t		currenttime;
 	class Endpoint	*epoint;
 	int		ret;
@@ -91,88 +91,82 @@ int VBoxPort::handler(void)
 		}
 	}
 
+	/* set time the first time */
 	if (p_vbox_audio_start < 1)
 	{
-		/* set time the first time */
 		p_vbox_audio_start = now_d;
-	} else
-	{
-		/* calculate the number of bytes */
-		tosend = (unsigned long)((now_d-p_vbox_audio_start)*8000) - p_vbox_audio_transferred;
-
-		/* wait for more */
-		if (tosend < 32)
-			return(Port::handler());
-
-		/* too many samples, so we just process 128 bytes until the next call of handler() */
-		if (tosend > 128)
-			tosend = 128;
-
-		/* dummy read, to clock record buffer */
-		read_audio((unsigned char *)buffer, tosend, 0);
-
-		/* add the number of samples elapsed */
-		p_vbox_audio_transferred += tosend;
-
-		/* if announcement is currently played, send audio data */
-		if (p_vbox_announce_fh >=0)
-		{
-			tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
-			if (tosend <= 0)
-			{
-				/* end of file */
-				close(p_vbox_announce_fh);
-				p_vbox_announce_fh = -1;
-				fhuse--;
-
-				time(&currenttime);
-				p_vbox_record_start = currenttime;
-
-				/* connect if not already */
-				epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
-				if (epoint)
-				{
-					/* if we sent our announcement during ringing, we must now connect */
-					if (p_vbox_apppbx->e_ext.vbox_free)
-					{
-						/* send connect message */
-						message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
-						memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
-						message_put(message);
-						new_state(PORT_STATE_CONNECT);
-					}
-				}
-
-				/* start recording, if not already */
-				if (p_vbox_mode == VBOX_MODE_NORMAL)
-				{
-					/* send recording start message */
-					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_VBOX_RECORD);
-					message_put(message);
-				} else // else!!
-				if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT)
-				{
-					/* send release */
-					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
-					message->param.disconnectinfo.cause = 16;
-					message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-					message_put(message);
-					/* recording is close during destruction */
-					delete this;
-					return(-1); /* must return because port is gone */
-				}
-			} else
-			{
-				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-				message->param.data.port_type = p_type;
-				message->param.data.port_id = p_serial;
-				message->param.data.len = tosend;
-				memcpy(message->param.data.data, buffer, tosend);
-				message_put(message);
-			}
-		}
-
+		return(0);
 	}
+	
+	/* calculate the number of bytes */
+	tosend = (unsigned long)((now_d-p_vbox_audio_start)*8000) - p_vbox_audio_transferred;
+
+	/* wait for more */
+	if (tosend < sizeof(buffer))
+		return(0);
+	tosend = sizeof(buffer);
+
+	/* add the number of samples elapsed */
+	p_vbox_audio_transferred += tosend;
+
+	/* if announcement is currently played, send audio data */
+	if (p_vbox_announce_fh >=0)
+	{
+		tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
+		if (tosend <= 0)
+		{
+			/* end of file */
+			close(p_vbox_announce_fh);
+			p_vbox_announce_fh = -1;
+			fhuse--;
+
+			time(&currenttime);
+			p_vbox_record_start = currenttime;
+
+			/* connect if not already */
+			epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
+			if (epoint)
+			{
+				/* if we sent our announcement during ringing, we must now connect */
+				if (p_vbox_ext.vbox_free)
+				{
+					/* send connect message */
+					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
+					memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
+					message_put(message);
+					new_state(PORT_STATE_CONNECT);
+				}
+			}
+
+			/* start recording, if not already */
+			if (p_vbox_mode == VBOX_MODE_NORMAL)
+			{
+				/* send recording start message */
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_VBOX_RECORD);
+				message_put(message);
+			} else // else!!
+			if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT)
+			{
+				/* send release */
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+				message->param.disconnectinfo.cause = 16;
+				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+				message_put(message);
+				/* recording is close during destruction */
+				delete this;
+				return(-1); /* must return because port is gone */
+			}
+		} else
+		{
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
+			message->param.data.port_type = p_type;
+			message->param.data.port_id = p_serial;
+			message->param.data.len = tosend;
+			memcpy(message->param.data.data, buffer, tosend);
+			message_put(message);
+		}
+	}
+
         return(1);
 }
 
@@ -229,19 +223,18 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint, answer with connect */
 		/* get apppbx */
-		eapp = (class EndpointAppPBX *)(epoint->ep_app);
-		p_vbox_apppbx = eapp;
+		memcpy(&p_vbox_ext, ((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
 		/* extract optional announcement file */
 		if ((c = strchr(param->setup.dialinginfo.number, ',')))
 		{
 			if (c[1] == '/')
 				SPRINT(filename, c+1);
 			else
-				SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, p_vbox_apppbx->e_terminal);
+				SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, p_vbox_ext.number);
 			*c = '\0';
 		} else
 		{
-			SPRINT(filename, "%s/%s/%s/vbox/announcement", INSTALL_DATA, options.extensions_dir, p_vbox_apppbx->e_terminal);
+			SPRINT(filename, "%s/%s/%s/vbox/announcement", INSTALL_DATA, options.extensions_dir, p_vbox_ext.number);
 		}
 		PDEBUG(DEBUG_VBOX, "PORT(%s) vbox port received setup from '%s' to '%s'\n", p_name, param->setup.callerinfo.id, param->setup.dialinginfo.number);
 		memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
@@ -268,7 +261,7 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 		p_connectinfo.screen = INFO_SCREEN_NETWORK;
 
 		/* connect unless we can send announcement while ringing */
-		if (!p_vbox_apppbx->e_ext.vbox_free)
+		if (!p_vbox_ext.vbox_free)
 		{
 			/* send connect message */
 			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_CONNECT);
@@ -285,24 +278,18 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 
 		/* start recording during announcement */
 		/* start parallel recording if desired */
-		p_vbox_mode = p_vbox_apppbx->e_ext.vbox_mode;
-		p_vbox_record_limit = p_vbox_apppbx->e_ext.vbox_time;
-		if (p_vbox_mode == VBOX_MODE_PARALLEL)
-		{
-			/* send recording start message */
-			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_VBOX_RECORD);
-			message_put(message);
-		}
+		p_vbox_mode = p_vbox_ext.vbox_mode;
+		p_vbox_record_limit = p_vbox_ext.vbox_time;
 		/* play the announcement */
 		if ((p_vbox_announce_fh = open_tone(filename, &p_vbox_announce_codec, &p_vbox_announce_size, &p_vbox_announce_left)) >= 0)
 		{
 			fhuse++;
-		} else
+		} 
+		if (!p_vbox_announce_fh || p_vbox_mode==VBOX_MODE_PARALLEL)
 		{
-			PDEBUG(DEBUG_VBOX, "PORT(%s) no announcement found at: '%s' so we start recording now.\n", p_name, filename);
-			/* send recording start message */
-			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_VBOX_RECORD);
-			message_put(message);
+			PDEBUG(DEBUG_VBOX, "PORT(%s) parallel mode OR no announcement found at: '%s' so we start recording now.\n", p_name, filename);
+			/* recording start */
+			open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
 		}
 		break;
 

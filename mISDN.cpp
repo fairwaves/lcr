@@ -66,7 +66,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
-	p_m_nodata = 1; /* may be 1, because call always notifies us */
+	p_m_calldata = 0;
 	p_m_dtmf = !options.nodtmf;
 	sollen wir daraus eine interface-option machen?:
 	p_m_timeout = 0;
@@ -147,7 +147,7 @@ void ph_control(unsigned long b_addr, int c1, int c2)
 	ctrl->prim = PH_CONTROL | REQUEST;
 	ctrl->addr = b_addr | FLG_MSG_DOWN;
 	ctrl->dinfo = 0;
-	ctrl->len = sizeof(unsigned long)*2;
+	ctrl->len = sizeof(int)*2;
 	*d++ = c1;
 	*d++ = c2;
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
@@ -162,7 +162,7 @@ void ph_control_block(unsigned long b_addr, int c1, void *c2, int c2_len)
 	ctrl->prim = PH_CONTROL | REQUEST;
 	ctrl->addr = b_addr | FLG_MSG_DOWN;
 	ctrl->dinfo = 0;
-	ctrl->len = sizeof(unsigned long)*2;
+	ctrl->len = sizeof(int)+c2_len;
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
@@ -263,23 +263,7 @@ static void bchannel_activate(struct mISDNport *mISDNport, int i)
 			PDEBUG(DEBUG_BCHANNEL, "during activation, we set crypt to crypt=%d.\n", mISDNport->b_port[i]->p_m_crypt);
 			ph_control_block(mISDNport->b_addr[i], BF_ENABLE_KEY, mISDNport->b_port[i]->p_m_crypt_key, mISDNport->b_port[i]->p_m_crypt_key_len);
 		}
-
-		/* preload tx-buffer */
-		pre->len = mISDNport->b_port[i]->read_audio(p, ISDN_PRELOAD, 1);
-		if (pre->len > 0)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "port is activated, we fill our buffer (ISDN_PRELOAD = %d).\n", pre->len);
-			/* flip bits */
-#if 0
-			q = p + pre->len;
-			while(p != q)
-				 *p++ = flip[*p];
-#endif
-			pre->prim = DL_DATA | REQUEST;
-			pre->addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
-			pre->dinfo = 0;
-			mISDN_write(mISDNdevice, pre, mISDN_HEADER_LEN+pre->len, TIMEOUT_1SEC);
-		}
+		todo: wer startet/stoppt eigentlich den audio-transmit
 	}
 }
 
@@ -468,12 +452,133 @@ void PmISDN::drop_bchannel(void)
 	p_m_b_stid = 0;
 }
 
+
+/*
+ * data is to be transmitted to the remote
+ */
+wech void Port::transmit(unsigned char *buffer, int length, int tonelength)
+{
+	/* send tone data to isdn device only if we have data, otherwhise we send nothing */
+	if (tonelength>0 && (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops))
+	{
+		unsigned char buf[mISDN_HEADER_LEN+tonelength];
+		iframe_t *frm = (iframe_t *)buf;
+
+		if (p_m_crypt_msg_loops)
+		{
+			/* send pending message */
+			int tosend;
+
+			tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
+			if (tosend > newlen)
+				tosend = newlen;
+			memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
+			p_m_crypt_msg_current += tosend;
+			if (p_m_crypt_msg_current == p_m_crypt_msg_len)
+			{
+				p_m_crypt_msg_current = 0;
+				p_m_crypt_msg_loops--;
+			}
+		}
+		frm->prim = DL_DATA | REQUEST; 
+		frm->addr = p_m_b_addr | FLG_MSG_DOWN;
+		frm->dinfo = 0;
+		frm->len = tonelength;
+		memcpy(&frm->data.p, buffer, tonelength);
+		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+
+		if (p_debug_nothingtosend)
+		{
+			p_debug_nothingtosend = 0;
+			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) start sending, because we have tones and/or remote audio.\n", p_name);
+		} 
+	} else
+	{
+		if (!p_debug_nothingtosend)
+		{
+			p_debug_nothingtosend = 1;
+			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
+		} 
+	}
+}
+
+
 /*
  * handler
  */
 int PmISDN::handler(void)
 {
 	struct message *message;
+	int elapsed, length;
+
+	if ((ret = Port::handler()))
+		return(ret);
+
+	/* send tone data to isdn device only if we have data */
+	if (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops)
+	{
+		/* calculate how much to transmit */
+		if (!p_last_tv.sec)
+		{
+			elapsed = ISDN_PRELOAD << 3; /* preload for the first time */
+		} else
+		{
+			elapsed = 1000 * (now_tv.sec - p_last_tv_sec)
+				+ (now_tv.usec/1000) - p_last_tv_msec;
+			/* gap was greater preload, so only fill up to preload level */
+			if (elapsed > ISDN_PRELOAD)
+			{
+				elapsed = ISDN_PRELOAD << 3
+			}
+		}
+		if (elapsed >= ISDN_TRANSMIT)
+		{
+			unsigned char buf[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)];
+			iframe_t *frm = (iframe_t *)buf;
+
+			length = read_audio(buffer, elapsed);
+			p_last_tv_sec = now_tv.sec;
+			p_last_tv_msec = now_tv.usec/1000;
+
+			if (p_m_crypt_msg_loops)
+			{
+				/* send pending message */
+				int tosend;
+	check!!
+				tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
+				if (tosend > length)
+					tosend = length;
+				memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
+				p_m_crypt_msg_current += tosend;
+				if (p_m_crypt_msg_current == p_m_crypt_msg_len)
+				{
+					p_m_crypt_msg_current = 0;
+					p_m_crypt_msg_loops--;
+				}
+			}
+			frm->prim = DL_DATA | REQUEST; 
+			frm->addr = p_m_b_addr | FLG_MSG_DOWN;
+			frm->dinfo = 0;
+			frm->len = length;
+			memcpy(&frm->data.p, buffer, length);
+			mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+
+			if (p_debug_nothingtosend)
+			{
+				p_debug_nothingtosend = 0;
+				PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) start sending, because we have tones and/or remote audio.\n", p_name);
+			} 
+			return(1);
+		}
+	} else
+	{
+		p_last_tv.sec = p_last_tv.msec = 0; /* flag that we don't transmit data */
+		if (!cwp_debug_nothingtosend)
+		{
+			p_debug_nothingtosend = 1;
+			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
+		} 
+	}
 
 	// NOTE: deletion is done by the child class
 
@@ -598,38 +703,10 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		cryptman_listen_bch((unsigned char *)&frm->data.p, frm->len);
 	}
 
-	/* prevent jitter */
-	gettimeofday(&tv, &tz);
-	jitter_now = tv.tv_sec;
-	jitter_now = jitter_now*8000 + tv.tv_usec/125;
-	if (p_m_jittercheck == 0)
-	{
-		p_m_jittercheck = jitter_now;
-		p_m_jitterdropped = 0;
-	} else
-		p_m_jittercheck += frm->len;
-	if (p_m_jittercheck < jitter_now)
-	{
-//		PERROR("jitter: ignoring slow data\n");
-		p_m_jittercheck = jitter_now;
-	} else
-	if (p_m_jittercheck-ISDN_JITTERLIMIT > jitter_now)
-	{
-		p_m_jitterdropped += frm->len;
-		p_m_jittercheck -= frm->len;
-		/* must exit here */
-		return;
-	} else
-	if (p_m_jitterdropped)
-	{
-		PERROR("jitter: dropping, caused by fast data: %lld\n", p_m_jitterdropped);
-		p_m_jitterdropped = 0;
-	}
-
 	p = (unsigned char *)&frm->data.p;
 
 	/* send data to epoint */
-	if (ACTIVE_EPOINT(p_epointlist)) /* only if we have an epoint object */
+	if (p_m_calldata && ACTIVE_EPOINT(p_epointlist)) /* only if we have an epoint object */
 	{
 //printf("we are port %s and sending to epoint %d\n", p_m_cardname, p_epoint->serial);
 		length_temp = frm->len;
@@ -648,67 +725,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			data_temp += sizeof(message->param.data.data);
 			length_temp -= sizeof(message->param.data.data);
 		}
-	}
-	/* return the same number of tone data, as we recieved */
-	newlen = read_audio(p, frm->len, 1);
-	/* send tone data to isdn device only if we have data, otherwhise we send nothing */
-	if (newlen>0 && (p_tone_fh>=0 || p_tone_fetched || !p_m_nodata || p_m_crypt_msg_loops))
-	{
-//printf("jolly: sending.... %d %d %d %d %d\n", newlen, p_tone_fh, p_tone_fetched, p_m_nodata, p_m_crypt_msg_loops);
-#if 0
-		if (p_m_txmix_on)
-		{
-			p_m_txmix_on -= newlen;
-			if (p_m_txmix_on <= 0)
-			{
-				p_m_txmix_on = 0;
-				p_m_txmix = !p_m_nodata;
-				PDEBUG(DEBUG_BCHANNEL, "after sending message, we set txmix to txmix=%d.\n", p_m_txmix);
-				if (p_m_txmix)
-					ph_control(p_m_b_addr, CMX_MIX_ON, 0);
-			}
-		}
-#endif 
-		if (p_m_crypt_msg_loops)
-		{
-			/* send pending message */
-			int tosend;
-
-			tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
-			if (tosend > newlen)
-				tosend = newlen;
-			memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
-			p_m_crypt_msg_current += tosend;
-			if (p_m_crypt_msg_current == p_m_crypt_msg_len)
-			{
-				p_m_crypt_msg_current = 0;
-				p_m_crypt_msg_loops--;
-#if 0
-// we need to disable rxmix some time after sending the loops...
-				if (!p_m_crypt_msg_loops && p_m_txmix)
-				{
-					p_m_txmix_on = 8000; /* one sec */
-				}
-#endif
-			}
-		}
-		frm->prim = frm->prim & 0xfffffffc | REQUEST; 
-		frm->addr = p_m_b_addr | FLG_MSG_DOWN;
-		frm->len = newlen;
-		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
-
-		if (p_debug_nothingtosend)
-		{
-			p_debug_nothingtosend = 0;
-			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) start sending, because we have tones and/or remote audio.\n", p_name);
-		} 
-	} else
-	{
-		if (!p_debug_nothingtosend)
-		{
-			p_debug_nothingtosend = 1;
-			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
-		} 
 	}
 #if 0
 	/* response to the data indication */
@@ -1034,6 +1050,14 @@ int PmISDN::message_epoint(unsigned long epoint_id, int message_id, union parame
 
 
 /*
+ * transmit function for data to mISDN b-channel
+ */
+void Port::transmit(unsigned char *buffer, int length)
+{
+}
+
+
+/*
  * main loop for processing messages from mISDN device
  */
 int mISDN_handler(void)
@@ -1048,22 +1072,19 @@ int mISDN_handler(void)
 	mISDNuser_head_t *hh;
 	int i;
 
-	if ((ret = Port::handler()))
-		return(ret);
-
 	/* the que avoids loopbacks when replying to stack after receiving
          * from stack. */
 	mISDNport = mISDNport_first;
 	while(mISDNport)
 	{
-		/* process turning off rx */
+		/* process turning on/off rx */
 		i = 0;
 		while(i < mISDNport->b_num)
 		{
 			if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 			{
 				isdnport=mISDNport->b_port[i];
-				if (isdnport->p_tone_name[0] || isdnport->p_tone_fh>=0 || isdnport->p_tone_fetched || !isdnport->p_m_nodata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
+				if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
 				{
 					/* rx IS required */
 					if (isdnport->p_m_rxoff)
@@ -1072,6 +1093,7 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
 						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_ON, 0);
+						return(1);
 					}
 				} else
 				{
@@ -1082,9 +1104,9 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
 						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_OFF, 0);
+						return(1);
 					}
 				}
-				isdnport->p_m_jittercheck = 0; /* reset jitter detection check */
 			}
 			i++;
 		}
@@ -1118,6 +1140,7 @@ int mISDN_handler(void)
 					act.len = 0;
 					mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
 				}
+				return(1);
 			}
 		}
 		if ((dmsg = msg_dequeue(&mISDNport->downqueue)))
