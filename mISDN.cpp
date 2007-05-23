@@ -276,7 +276,7 @@ static void bchannel_deactivate(struct mISDNport *mISDNport, int i)
 		/* reset dsp features */
 		if (mISDNport->b_port[i])
 		{
-			if (mISDNport->b_port[i]->p_m_delay)
+			if (mISDNport->b_port[i]->p_m_txdata)
 			{
 				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset txdata from txdata=%d.\n", mISDNport->b_port[i]->p_m_txdata);
 				ph_control(mISDNport->b_addr[i], CMX_TXDATA_OFF, 0);
@@ -514,8 +514,9 @@ int PmISDN::handler(void)
 	if ((ret = Port::handler()))
 		return(ret);
 
+	inbuffer = (p_fromup_buffer_writep - p_fromup_buffer_readp) & FROMUP_BUFFER_MASK
 	/* send tone data to isdn device only if we have data */
-	if (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops)
+	if (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops || inbuffer)
 	{
 		/* calculate how much to transmit */
 		if (!p_last_tv.sec)
@@ -533,22 +534,62 @@ int PmISDN::handler(void)
 		}
 		if (elapsed >= ISDN_TRANSMIT)
 		{
-			unsigned char buf[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)];
+			unsigned char buf[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)], *p = buf;
 			iframe_t *frm = (iframe_t *)buf;
 
-			length = read_audio(buffer, elapsed);
 			p_last_tv_sec = now_tv.sec;
 			p_last_tv_msec = now_tv.usec/1000;
 
+			/* read tones */
+			length = read_audio(buffer, elapsed);
+
+			/*
+			 * get data from up
+			 * the fromup_buffer data is written to the beginning of the buffer
+			 * the part that is filles with tones (length) is skipped, so tones have priority
+			 * the length value is increased by the number of data copied from fromup_buffer
+			 */
+			if (inbuffer)
+			{
+				/* inbuffer might be less than we skip due to audio */
+				if (inbuffer <= length)
+				{
+					/* clear buffer */
+					p_fromup_buffer_readp = p_fromup_buffer_writep;
+					inbuffer = 0;
+				} else
+				{
+					/* skip what we already have with tones */
+					p_fromup_buffer_readp = (p_fromup_buffer_readp + length) & FROMUP_BUFFER_MASK;
+					inbuffer -= length;
+				}
+				/* if we have more in buffer, than we send this time */
+				if (inbuffer > (elapsed-length))
+					inbuffer = elapsed - length;
+				/* set length to what we actually have */
+				length = length + inbuffer;
+				/* now fill up with fromup_buffer */
+				while (inbuffer)
+				{
+					*p++ = p_fromup_buffer[p_fromup_buffer_readp];
+					p_fromup_buffer_readp = (p_fromup_buffer_readp + 1) & FROMUP_BUFFER_MASK;
+					inbuffer--;
+				}
+			}
+
+			/* overwrite buffer with crypto stuff */
 			if (p_m_crypt_msg_loops)
 			{
 				/* send pending message */
 				int tosend;
+
+				/* we need full length */
+				length = elapsed;
 	check!!
 				tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
 				if (tosend > length)
 					tosend = length;
-				memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
+				memcpy(buffer, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
 				p_m_crypt_msg_current += tosend;
 				if (p_m_crypt_msg_current == p_m_crypt_msg_len)
 				{
@@ -572,7 +613,6 @@ int PmISDN::handler(void)
 		}
 	} else
 	{
-		p_last_tv.sec = p_last_tv.msec = 0; /* flag that we don't transmit data */
 		if (!cwp_debug_nothingtosend)
 		{
 			p_debug_nothingtosend = 1;
@@ -641,31 +681,56 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 
 	if (frm->prim == (PH_CONTROL | INDICATION))
 	{
+		if (frm->len < 4)
+		{
+			PERROR("SHORT READ OF PH_CONTROL INDICATION\n");
+			return;
+		}
 		cont = *((unsigned long *)&frm->data.p);
 		// PDEBUG(DEBUG_PORT, "PmISDN(%s) received a PH_CONTROL INDICATION 0x%x\n", p_name, cont);
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
 		{
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
 			message->param.dtmf = cont & DTMF_TONE_MASK;
-			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL  DTMF digit '%c'\n", p_name, message->param.dtmf);
+			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);
 			message_put(message);
+			return;
 		}
 		switch(cont)
 		{
 			case BF_REJECT:
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CRYPT);
 			message->param.crypt.type = CC_ERROR_IND;
-			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL  reject of blowfish.\n", p_name);
+			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  reject of blowfish.\n", p_name);
 			message_put(message);
 			break;
 
 			case BF_ACCEPT:
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CRYPT);
 			message->param.crypt.type = CC_ACTBF_CONF;
-			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL  accept of blowfish.\n", p_name);
+			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  accept of blowfish.\n", p_name);
 			message_put(message);
 			break;
+
+			case CMX_TX_DATA:
+			if (!p_m_txdatad)
+			{
+				/* if rx is off, it may happen that fifos send us pending informations, we just ignore them */
+				PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring rx data, because 'txdata' is turned off\n", p_name);
+				return;
+			}
+			if (p_record)
+				record(&(cont+1), frm->len - 4, 1); // from up
+			break;
+
+			default:
+			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  unknown 0x%x.\n", p_name, cont);
 		}
+		return;
+	}	
+	if (frm->prim != (PH_DATA | INDICATION))
+	{
+		PERROR("Bchannel received unknown primitve: 0x%x\n", frm->prim);
 		return;
 	}
 
@@ -690,6 +755,10 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring data, because rx is turned off\n", p_name);
 		return;
 	}
+
+	/* record data */
+	if (p_record)
+		record((unsigned char *)&frm->data.p, frm->len, 0); // from down
 
 	/* randomize and listen to crypt message if enabled */
 	if (p_m_crypt_listen)
@@ -1081,33 +1150,58 @@ int mISDN_handler(void)
 		i = 0;
 		while(i < mISDNport->b_num)
 		{
-			if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+			isdnport=mISDNport->b_port[i];
+			/* call bridges in user space OR crypto OR recording */
+			if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
 			{
-				isdnport=mISDNport->b_port[i];
-				if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
+				/* rx IS required */
+				if (isdnport->p_m_rxoff)
 				{
-					/* rx IS required */
-					if (isdnport->p_m_rxoff)
-					{
-						/* turn on RX */
-						isdnport->p_m_rxoff = 0;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
+					/* turn on RX */
+					isdnport->p_m_rxoff = 0;
+					PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
+					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_ON, 0);
-						return(1);
-					}
-				} else
+					return(1);
+				}
+			} else
+			{
+				/* rx NOT required */
+				if (!isdnport->p_m_rxoff)
 				{
-					/* rx NOT required */
-					if (!isdnport->p_m_rxoff)
-					{
-						/* turn off RX */
-						isdnport->p_m_rxoff = 1;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
+					/* turn off RX */
+					isdnport->p_m_rxoff = 1;
+					PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
+					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_OFF, 0);
-						return(1);
-					}
+					return(1);
 				}
 			}
+			/* recordin */
+			if (isdnport->p_record)
+			{
+				/* txdata IS required */
+				if (!isdnport->p_m_txdata)
+				{
+					/* turn on RX */
+					isdnport->p_m_txdata = 1;
+					PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
+					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+						ph_control(isdnport->p_m_b_addr, CMX_TXDATA_ON, 0);
+					return(1);
+				}
+			} else
+			{
+				/* txdata NOT required */
+				if (isdnport->p_m_txdata)
+				{
+					/* turn off RX */
+					isdnport->p_m_txdata = 0;
+					PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
+					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+						ph_control(isdnport->p_m_b_addr, CMX_TXDATA_OFF, 0);
+					return(1);
+				}
 			i++;
 		}
 #if 0

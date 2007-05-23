@@ -241,8 +241,8 @@ struct park_info {
 struct param_data {
 	unsigned char data[512]; /* audio/hdlc data */
 	int len; /* audio/hdlc data */
-	unsigned long port_id; /* to identify the source of this data */
-	int port_type; /* type of the source's port  */
+//	unsigned long port_id; /* to identify the source of this data */
+//	int port_type; /* type of the source's port  */
 };
 
 struct param_play {

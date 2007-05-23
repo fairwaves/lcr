@@ -1833,7 +1833,7 @@ void EndpointAppPBX::encrypt_shared(void)
 
 	/* check the key for the call */
 	if (port->p_type==PORT_TYPE_DSS1_TE_OUT || port->p_type==PORT_TYPE_DSS1_NT_OUT || port->p_type==PORT_TYPE_SIP_OUT)
-		ret = parse_secrets((char *)e_terminal, (char *)port->p_dialinginfo.number, &auth_pointer, &crypt_pointer, &key_pointer);
+		ret = parse_secrets((char *)e_ext.number, (char *)port->p_dialinginfo.number, &auth_pointer, &crypt_pointer, &key_pointer);
 	else
 	{
 		if (!port->p_callerinfo.id[0])
@@ -1842,7 +1842,7 @@ void EndpointAppPBX::encrypt_shared(void)
 			errstr = "No Remote ID";
 			goto reject;
 		}
-		ret = parse_secrets((char *)e_terminal, (char *)numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype), &auth_pointer, &crypt_pointer, &key_pointer);
+		ret = parse_secrets((char *)e_ext.number, (char *)numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype), &auth_pointer, &crypt_pointer, &key_pointer);
 	}
 	if (!ret)
 	{

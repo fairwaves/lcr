@@ -84,7 +84,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	/* get extension */
-	SCPY(e_vbox, e_terminal);
+	SCPY(e_vbox, e_ext.number);
 	if ((rparam = routeparam(e_action, PARAM_EXTENSION)))
 		SCPY(e_vbox, rparam->string_value);
 	if (e_vbox[0] == '\0')
@@ -98,7 +98,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 
 	/* connect, but still accept more digits */
 	new_state(EPOINT_STATE_IN_OVERLAP);
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		e_dtmf = 1;
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 	message_put(message);
@@ -327,7 +327,7 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			if (port)
 			{
 				port->close_record(6000); /* append beep */
-				port->open_record(CODEC_MONO, 1, 5000, e_terminal, 0, "", 0); /* record announcement, skip the first 5000 samples */
+				port->open_record(CODEC_MONO, 1, 5000, e_ext.number, 0, "", 0); /* record announcement, skip the first 5000 samples */
 			}
 			e_vbox_state = VBOX_STATE_RECORD_RECORD;
 			if (e_ext.vbox_language)
@@ -677,7 +677,7 @@ void EndpointAppPBX::vbox_handler(void)
 		e_vbox_display_refresh = 0;
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SPRINT(message->param.notifyinfo.display, e_vbox_display, counter);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s pending display:%s\n", ea_endpoint->ep_serial, e_terminal, message->param.notifyinfo.display);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s pending display:%s\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 		message_put(message);
 		logmessage(message);
 	}
@@ -693,7 +693,7 @@ void EndpointAppPBX::vbox_message_eof(void)
 	char buffer[32];
 	int language = e_ext.vbox_language;
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_terminal, e_vbox_state);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 
 	switch(e_vbox_state)
 	{
@@ -887,7 +887,7 @@ void EndpointAppPBX::vbox_message_eof(void)
 		break;
 
 		default:
-		PERROR("vbox_message_eof(ep%d): terminal %s unknown state: %d\n", ea_endpoint->ep_serial, e_terminal, e_vbox_state);
+		PERROR("vbox_message_eof(ep%d): terminal %s unknown state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 	}
 }
 
@@ -913,7 +913,7 @@ void EndpointAppPBX::set_tone_vbox(char *tone)
 	SCPY(message->param.tone.name, tone);
 	message_put(message);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set tone '%s'\n", ea_endpoint->ep_serial, e_terminal, tone);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set tone '%s'\n", ea_endpoint->ep_serial, e_ext.number, tone);
 }
 
 
@@ -948,7 +948,7 @@ void EndpointAppPBX::set_play_vbox(char *file, int offset)
 	message->param.play.offset = offset;
 	message_put(message);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set play '%s'\n", ea_endpoint->ep_serial, e_terminal, filename);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set play '%s'\n", ea_endpoint->ep_serial, e_ext.number, filename);
 }
 
 
@@ -968,7 +968,7 @@ void EndpointAppPBX::set_play_speed(int speed)
 	message->param.speed = speed;
 	message_put(message);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set speed '%d'\n", ea_endpoint->ep_serial, e_terminal, speed);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set speed '%d'\n", ea_endpoint->ep_serial, e_ext.number, speed);
 }
 
 

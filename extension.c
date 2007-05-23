@@ -33,9 +33,10 @@ char *ext_yesno[] = {
  *
  * reads extension from given extension number and fills structure
  */
-int read_extension(struct extension *ext, char *number)
+int read_extension(struct extension *ext, char *num)
 {
 	FILE *fp=NULL;
+	char number[32];
 	char filename[256];
 	char *p;
 	char option[32];
@@ -44,6 +45,9 @@ int read_extension(struct extension *ext, char *number)
 	char buffer[1024];
 	int last_in_count = 0, last_out_count = 0;
 
+	/* save number, so &ext and ext.number can be given as parameters - without overwriting itself */
+	SCPY(number, num);
+	
 	if (number[0] == '\0')
 		return(0);
 
@@ -57,6 +61,7 @@ int read_extension(struct extension *ext, char *number)
 
 	/* default values */
 	memset(ext, 0, sizeof(struct extension));
+	SCPY(ext->number, number);
 	ext->rights = 4; /* international */
 	ext->tout_setup = 120;
 	ext->tout_dialing = 120;

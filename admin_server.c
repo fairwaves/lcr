@@ -662,7 +662,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.e.state = ADMIN_STATE_IDLE;
 		}
 		/* terminal */
-		SCPY(response->am[num].u.e.terminal, apppbx->e_terminal);
+		SCPY(response->am[num].u.e.terminal, apppbx->e_ext.number);
 		/* callerid */
 		SCPY(response->am[num].u.e.callerid, apppbx->e_callerinfo.id);
 		/* dialing */

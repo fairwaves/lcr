@@ -68,7 +68,7 @@ class EndpointAppPBX : public EndpointApp
 
 	/* states */
 	int			e_state;		/* state of endpoint */
-	char			e_terminal_interface[32];/* current internal isdn interface (usefull for callback to internal phone) */
+	char			e_extension_interface[32];/* current internal isdn interface (usefull for callback to internal phone) */
 	struct caller_info	e_callerinfo;		/* information about the caller */
 	struct dialing_info	e_dialinginfo;		/* information about dialing */
 	struct connect_info	e_connectinfo;		/* information about connected line */

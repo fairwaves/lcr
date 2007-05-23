@@ -42,8 +42,8 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
 	e_ext.rights = 4; /* international */
 	e_ext.rxvol = e_ext.txvol = 256;
         e_state = EPOINT_STATE_IDLE;
-        e_terminal[0] = '\0';
-	e_terminal_interface[0] = '\0';
+        e_ext.number[0] = '\0';
+	e_extension_interface[0] = '\0';
         memset(&e_callerinfo, 0, sizeof(struct caller_info));
         memset(&e_dialinginfo, 0, sizeof(struct dialing_info));
         memset(&e_connectinfo, 0, sizeof(struct connect_info));
@@ -326,12 +326,12 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 			memcpy(&e_callbackinfo, &e_callerinfo, sizeof(e_callbackinfo));
 			memset(&e_dialinginfo, 0, sizeof(e_dialinginfo));
 			/* create dialing by callerinfo */
-			if (e_terminal[0] && e_terminal_interface[0])
+			if (e_ext.number[0] && e_extension_interface[0])
 			{
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) preparing callback to internal: %s interface %s\n", ea_endpoint->ep_serial, e_terminal, e_terminal_interface);
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) preparing callback to internal: %s interface %s\n", ea_endpoint->ep_serial, e_ext.number, e_extension_interface);
 				/* create callback to the current terminal */
-				SCPY(e_dialinginfo.number, e_terminal);
-				SCPY(e_dialinginfo.interfaces, e_terminal_interface);
+				SCPY(e_dialinginfo.number, e_ext.number);
+				SCPY(e_dialinginfo.interfaces, e_extension_interface);
 				e_dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 				e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 			} else
@@ -564,7 +564,7 @@ void EndpointAppPBX::keypad_function(char digit)
 {
 
 	/* we must be in a call, in order to send messages to the call */
-	if (e_terminal[0] == '\0')
+	if (e_ext.number[0] == '\0')
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) IGNORING keypad received not from extension.\n", ea_endpoint->ep_serial);
 		return;
@@ -889,7 +889,7 @@ void EndpointAppPBX::out_setup(void)
 			while(atemp)
 			{
 				if (atemp != this)
-				if (!strcmp(atemp->e_terminal, e_terminal))
+				if (!strcmp(atemp->e_ext.number, e_ext.number))
 					break;
 				atemp = atemp->next;
 			}
@@ -943,7 +943,7 @@ void EndpointAppPBX::out_setup(void)
 			{
 				if (checkapp != this) /* any other endpoint except our own */
 				{
-					if (!strcmp(checkapp->e_terminal, e_terminal))
+					if (!strcmp(checkapp->e_ext.number, e_ext.number))
 					{
 						/* present to forwarded party */
 						if (e_ext.anon_ignore && e_callerinfo.id[0])
@@ -1037,7 +1037,7 @@ void EndpointAppPBX::out_setup(void)
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
-//terminal			SCPY(message->param.setup.from_terminal, e_terminal);
+//terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
 //terminal			if (e_dialinginfo.number)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
 			/* handle restricted caller ids */
@@ -1087,7 +1087,7 @@ void EndpointAppPBX::out_setup(void)
 		{
 			/* only if vbox should be dialed, and terminal is given */
 			earlyb = 0;
-			if (!strcmp(p, "vbox") && e_terminal[0])
+			if (!strcmp(p, "vbox") && e_ext.number[0])
 			{
 				/* go to the end of p */
 				p += strlen(p);
@@ -1101,7 +1101,7 @@ void EndpointAppPBX::out_setup(void)
 					break;
 				}
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocated port %s\n", ea_endpoint->ep_serial, port->p_name);
-				UCPY(cfp, e_terminal); /* cfp or any other direct forward/vbox */
+				UCPY(cfp, e_ext.number); /* cfp or any other direct forward/vbox */
 			} else
 			{
 				cfp[0] = '\0';
@@ -1195,12 +1195,12 @@ void EndpointAppPBX::out_setup(void)
 			if (e_ext.clip==CLIP_HIDE && port->p_type!=PORT_TYPE_VBOX_OUT)
 			{
 				SCPY(message->param.setup.callerinfo.id, e_ext.callerid);
-				SCPY(message->param.setup.callerinfo.intern, e_terminal);
+				SCPY(message->param.setup.callerinfo.intern, e_ext.number);
 				message->param.setup.callerinfo.ntype = e_ext.callerid_type;
 				message->param.setup.callerinfo.present = e_ext.callerid_present;
 			}
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
-//terminal			SCPY(message->param.setup.from_terminal, e_terminal);
+//terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
 //terminal			if (e_dialinginfo.number)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
 				/* handle restricted caller ids */
@@ -1318,7 +1318,7 @@ void EndpointAppPBX::out_setup(void)
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
-//terminal			SCPY(message->param.setup.from_terminal, e_terminal);
+//terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
 //terminal			if (e_dialinginfo.number)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
 				/* handle restricted caller ids */
@@ -1603,8 +1603,8 @@ colp, outclip, outcolp
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is extension\n", ea_endpoint->ep_serial);
 		/* port makes call from extension */
 		SCPY(e_callerinfo.intern, e_callerinfo.id);
-		SCPY(e_terminal, e_callerinfo.intern);
-		SCPY(e_terminal_interface, e_callerinfo.interface);
+		SCPY(e_ext.number, e_callerinfo.intern);
+		SCPY(e_extension_interface, e_callerinfo.interface);
 	} else
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is external or voip\n", ea_endpoint->ep_serial);
@@ -1622,18 +1622,18 @@ colp, outclip, outcolp
 
 	if (e_callerinfo.itype == INFO_ITYPE_INTERN)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call from extension '%s'\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call from extension '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 
 		/* get extension's info about caller */
-		if (!read_extension(&e_ext, e_terminal))
+		if (!read_extension(&e_ext, e_ext.number))
 		{
 			/* extension doesn't exist */
 			printlog("%3d  endpoint EXTENSION '%s' doesn't exist, please check or create.\n", ea_endpoint->ep_serial, e_callerinfo.id);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) rejecting call from not existing extension: '%s'\n", ea_endpoint->ep_serial, e_terminal);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) rejecting call from not existing extension: '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 			message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist, "cause_80"); /* pbx cause: extension not authorized */
-			e_terminal[0] = '\0'; /* no terminal */
+			e_ext.number[0] = '\0'; /* no terminal */
 			return;
 		}
 		writeext = 0;
@@ -1678,7 +1678,7 @@ colp, outclip, outcolp
 
 		/* extension is written */
 		if (writeext)
-			write_extension(&e_ext, e_terminal);
+			write_extension(&e_ext, e_ext.number);
 
 		/* set volume of rx and tx */
 		if (param->setup.callerinfo.itype == INFO_ITYPE_INTERN)
@@ -1695,21 +1695,21 @@ colp, outclip, outcolp
 		if (e_ext.record!=CODEC_OFF && (e_capainfo.bearer_capa==INFO_BC_SPEECH || e_capainfo.bearer_capa==INFO_BC_AUDIO))
 		{
 			/* check if we are a terminal */
-			if (e_terminal[0] == '\0')
+			if (e_ext.number[0] == '\0')
 				PERROR("Port(%d) cannot record because we are not a terminal\n", ea_endpoint->ep_serial);
 			else
 			{
 				port = find_port_id(portlist->port_id);
 				if (port)
-					port->open_record(e_ext.record, 0, 0, e_terminal, e_ext.anon_ignore, "", 0);
+					port->open_record(e_ext.record, 0, 0, e_ext.number, e_ext.anon_ignore, "", 0);
 			}
 		}
 	} else
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call from external port\n", ea_endpoint->ep_serial);
 		/* no terminal identification */
-		e_terminal[0] = '\0';
-		e_terminal_interface[0] = '\0';
+		e_ext.number[0] = '\0';
+		e_extension_interface[0] = '\0';
 		memset(&e_ext, 0, sizeof(e_ext));
 		e_ext.rights = 4; /* right to dial internat */
 	}
@@ -1726,7 +1726,7 @@ colp, outclip, outcolp
 		set_tone(portlist, "dialing");
 	} else
 	{
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			set_tone(portlist, "dialpbx");
 		else
 			set_tone(portlist, "dialtone");
@@ -1754,7 +1754,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
 	if (e_dtmf)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received dialing information, so dtmf is now disabled, to prevent double detection by keypad+dtmf.\n", ea_endpoint->ep_serial, param->information.number, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received dialing information, so dtmf is now disabled, to prevent double detection by keypad+dtmf.\n", ea_endpoint->ep_serial, param->information.number, e_ext.number, e_callerinfo.id);
 		e_dtmf = 0;
 	}
 
@@ -2138,16 +2138,16 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		SCPY(e_connectinfo.name, e_ext.name);
 
 	/* add internal id to colp */
-	SCPY(e_connectinfo.intern, e_terminal);
+	SCPY(e_connectinfo.intern, e_ext.number);
 
 	/* we store the connected port number */
-	SCPY(e_terminal_interface, e_connectinfo.interfaces);
+	SCPY(e_extension_interface, e_connectinfo.interfaces);
 
 	/* for internal and am calls, we get the extension's id */
 	if (portlist->port_type==PORT_TYPE_VBOX_OUT || e_ext.colp==COLP_HIDE)
 	{
 		SCPY(e_connectinfo.id, e_ext.callerid);
-		SCPY(e_connectinfo.intern, e_terminal);
+		SCPY(e_connectinfo.intern, e_ext.number);
 		e_connectinfo.itype = INFO_ITYPE_INTERN;
 		e_connectinfo.ntype = e_ext.callerid_type;
 		e_connectinfo.present = e_ext.callerid_present;
@@ -2171,7 +2171,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	}
 
 	e_cfnr_call = e_cfnr_release = 0;
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
 //		if (call_countrelations(ea_endpoint->ep_call_id) == 2)
 	{
@@ -2203,15 +2203,15 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	{
 		/* callback */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have a callback, so we create a call with cbcaller: \"%s\".\n", ea_endpoint->ep_serial, e_cbcaller);
-		SCPY(e_terminal, e_cbcaller);
+		SCPY(e_ext.number, e_cbcaller);
 		new_state(EPOINT_STATE_IN_OVERLAP);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) callback from extension '%s'\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) callback from extension '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 
 		/* get extension's info about terminal */
-		if (!read_extension(&e_ext, e_terminal))
+		if (!read_extension(&e_ext, e_ext.number))
 		{
 			/* extension doesn't exist */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) rejecting callback from not existing extension: '%s'\n", ea_endpoint->ep_serial, e_terminal);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) rejecting callback from not existing extension: '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 			message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist, "cause_80"); /* pbx cause: extension not authorized */
@@ -2226,7 +2226,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 		/* use caller id (or if exist: id_next_call) for this call */
 		e_callerinfo.screen = INFO_SCREEN_NETWORK;
-		SCPY(e_callerinfo.intern, e_terminal);
+		SCPY(e_callerinfo.intern, e_ext.number);
 		if (e_ext.id_next_call_present >= 0)
 		{
 			SCPY(e_callerinfo.id, e_ext.id_next_call);
@@ -2234,7 +2234,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			e_callerinfo.ntype = e_ext.id_next_call_type;
 			e_ext.id_next_call_present = -1;
 			/* extension is written */
-			write_extension(&e_ext, e_terminal);
+			write_extension(&e_ext, e_ext.number);
 		} else
 		{
 			SCPY(e_callerinfo.id, e_ext.callerid);
@@ -2246,7 +2246,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		e_dtmf = 1;
 
 		/* check if caller id is NOT authenticated */
-		if (!parse_callbackauth(e_terminal, &e_callbackinfo))
+		if (!parse_callbackauth(e_ext.number, &e_callbackinfo))
 		{
 			/* make call state to enter password */
 			new_state(EPOINT_STATE_IN_OVERLAP);
@@ -2280,16 +2280,16 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	}
 
 	/* start recording if enabled, not when answering machine answers */
-	if (param->connectinfo.itype!=INFO_ITYPE_VBOX && e_terminal[0] && e_ext.record!=CODEC_OFF && (e_capainfo.bearer_capa==INFO_BC_SPEECH || e_capainfo.bearer_capa==INFO_BC_AUDIO))
+	if (param->connectinfo.itype!=INFO_ITYPE_VBOX && e_ext.number[0] && e_ext.record!=CODEC_OFF && (e_capainfo.bearer_capa==INFO_BC_SPEECH || e_capainfo.bearer_capa==INFO_BC_AUDIO))
 	{
 		/* check if we are a terminal */
-		if (e_terminal[0] == '\0')
+		if (e_ext.number[0] == '\0')
 			PERROR("Port(%d) cannot record because we are not a terminal\n", ea_endpoint->ep_serial);
 		else
 		{
 			port = find_port_id(portlist->port_id);
 			if (port)
-				port->open_record(e_ext.record, 0, 0, e_terminal, e_ext.anon_ignore, "", 0);
+				port->open_record(e_ext.record, 0, 0, e_ext.number, e_ext.anon_ignore, "", 0);
 		}
 	}
 }
@@ -2724,7 +2724,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 		return;
 	}
 
-//	PDEBUG(DEBUG_EPOINT, "received message %d (terminal %s, caller id %s)\n", message, e_terminal, e_callerinfo.id);
+//	PDEBUG(DEBUG_EPOINT, "received message %d (terminal %s, caller id %s)\n", message, e_ext.number, e_callerinfo.id);
 	switch(message_type)
 	{
 		case MESSAGE_DATA: /* data from port */
@@ -2786,19 +2786,19 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends INFORMATION message */
 		case MESSAGE_INFORMATION: /* additional digits received */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call dialing more=%s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->information.number, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call dialing more=%s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->information.number, e_ext.number, e_callerinfo.id);
 		port_information(portlist, message_type, param);
 		break;
 
 		/* PORT sends FACILITY message */
 		case MESSAGE_FACILITY:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming facility (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming facility (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_facility(portlist, message_type, param);
 		break;
 
 		/* PORT sends DTMF message */
 		case MESSAGE_DTMF: /* dtmf digits received */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dtmf digit=%c (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->dtmf, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dtmf digit=%c (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->dtmf, e_ext.number, e_callerinfo.id);
 		port_dtmf(portlist, message_type, param);
 		break;
 
@@ -2810,7 +2810,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends MORE message */
 		case MESSAGE_OVERLAP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is accepted [overlap dialing] (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is accepted [overlap dialing] (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state != EPOINT_STATE_OUT_SETUP)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup state (for port_list: another portlist might have changed the state already).\n", ea_endpoint->ep_serial);
@@ -2821,7 +2821,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends PROCEEDING message */
 		case MESSAGE_PROCEEDING: /* port is proceeding */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is proceeding (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is proceeding (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_OUT_SETUP
 		 && e_state!=EPOINT_STATE_OUT_OVERLAP)
 		{
@@ -2833,7 +2833,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends ALERTING message */
 		case MESSAGE_ALERTING:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is ringing (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call is ringing (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_OUT_SETUP
 		 && e_state!=EPOINT_STATE_OUT_OVERLAP
 		 && e_state!=EPOINT_STATE_OUT_PROCEEDING)
@@ -2846,7 +2846,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends CONNECT message */
 		case MESSAGE_CONNECT:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call connected to %s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_connectinfo.id, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) outgoing call connected to %s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_connectinfo.id, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_OUT_SETUP
 		 && e_state!=EPOINT_STATE_OUT_OVERLAP
 		 && e_state!=EPOINT_STATE_OUT_PROCEEDING
@@ -2860,43 +2860,43 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends DISCONNECT message */
 		case MESSAGE_DISCONNECT: /* port is disconnected */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call disconnect with cause=%d location=%d (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->disconnectinfo.cause, param->disconnectinfo.location, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call disconnect with cause=%d location=%d (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->disconnectinfo.cause, param->disconnectinfo.location, e_ext.number, e_callerinfo.id);
 		port_disconnect_release(portlist, message_type, param);
 		break;
 
 		/* PORT sends a RELEASE message */
 		case MESSAGE_RELEASE: /* port releases */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) release with cause=%d location=%d (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->disconnectinfo.cause, param->disconnectinfo.location, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) release with cause=%d location=%d (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->disconnectinfo.cause, param->disconnectinfo.location, e_ext.number, e_callerinfo.id);
 		/* portlist is release at port_disconnect_release, thanx Paul */
 		port_disconnect_release(portlist, message_type, param);
 		break;
 
 		/* PORT sends a TIMEOUT message */
 		case MESSAGE_TIMEOUT:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received timeout (state=%d).\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, param->state);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received timeout (state=%d).\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->state);
 		port_timeout(portlist, message_type, param);
 		break; /* release */
 
 		/* PORT sends a NOTIFY message */
 		case MESSAGE_NOTIFY:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_notify(portlist, message_type, param);
 		break;
 
 		/* PORT sends a SUSPEND message */
 		case MESSAGE_SUSPEND:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received suspend.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received suspend.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_suspend(portlist, message_type, param);
 		break; /* suspend */
 
 		/* PORT sends a RESUME message */
 		case MESSAGE_RESUME:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received resume.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received resume.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_resume(portlist, message_type, param);
 		break;
 
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, message);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
 	}
 
 	/* Note: this endpoint may be destroyed, so we MUST return */
@@ -2930,7 +2930,7 @@ void EndpointAppPBX::call_crypt(struct port_list *portlist, int message_type, un
 		break;
 
 		default:
-		PERROR("EPOINT(%d) epoint with terminal '%s' (caller id '%s') unknown crypt message: '%d'\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, param->crypt.type);
+		PERROR("EPOINT(%d) epoint with terminal '%s' (caller id '%s') unknown crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);
 	}
 }
 
@@ -2991,7 +2991,7 @@ void EndpointAppPBX::call_overlap(struct port_list *portlist, int message_type, 
 			set_tone(portlist, "dialtone");
 			return;
 	}
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		set_tone(portlist, "dialpbx");
 	else
 		set_tone(portlist, "dialtone");
@@ -3054,7 +3054,7 @@ void EndpointAppPBX::call_alerting(struct port_list *portlist, int message_type,
 		set_tone(portlist, "ringing");
 		return;
 	}
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		set_tone(portlist, "ringpbx");
 	else
 		set_tone(portlist, "ringing");
@@ -3067,7 +3067,7 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 
 	new_state(EPOINT_STATE_CONNECT);
 //			UCPY(e_call_tone, "");
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
 	e_powerdialing = 0;
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_callerinfo));
@@ -3084,7 +3084,7 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 		memcpy(&message->param.connnectinfo, e_connectinfo);
 
 		/* screen clip if prefix is required */
-		if (e_terminal[0] && message->param.connectinfo.id[0] && e_ext.clip_prefix[0])
+		if (e_ext.number[0] && message->param.connectinfo.id[0] && e_ext.clip_prefix[0])
 		{
 			SCPY(message->param.connectinfo.id, e_ext.clip_prefix);
 			SCAT(message->param.connectinfo.id, numberrize_callerinfo(e_connectinfo.id,e_connectinfo.ntype));
@@ -3092,7 +3092,7 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 		}
 
 		/* use internal caller id */
-		if (e_terminal[0] && e_connectinfo.intern[0] && (message->param.connectinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
+		if (e_ext.number[0] && e_connectinfo.intern[0] && (message->param.connectinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
 		{
 			SCPY(message->param.connectinfo.id, e_connectinfo.intern);
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
@@ -3145,7 +3145,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 			e_call_pattern = 0;
 		}
 		set_tone(ea_endpoint->ep_portlist, "redial");
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') redialing in %d seconds\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, (int)e_powerdelay);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') redialing in %d seconds\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (int)e_powerdelay);
 		/* send proceeding when powerdialing and still setup (avoid dialing timeout) */
 		if (e_state==EPOINT_STATE_IN_OVERLAP)
 		{
@@ -3315,14 +3315,14 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	}
 	/* if an internal extension is dialed, copy that number */
 	if (param->setup.dialinginfo.itype==INFO_ITYPE_INTERN || param->setup.dialinginfo.itype==INFO_ITYPE_VBOX)
-		SCPY(e_terminal, param->setup.dialinginfo.number);
+		SCPY(e_ext.number, param->setup.dialinginfo.number);
 	/* if an internal extension is dialed, get extension's info about caller */
-	if (e_terminal[0]) 
+	if (e_ext.number[0]) 
 	{
-		if (!read_extension(&e_ext, e_terminal))
+		if (!read_extension(&e_ext, e_ext.number))
 		{
-			e_terminal[0] = '\0';
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) the called terminal='%s' is not found in directory tree!\n", ea_endpoint->ep_serial, e_terminal);
+			e_ext.number[0] = '\0';
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) the called terminal='%s' is not found in directory tree!\n", ea_endpoint->ep_serial, e_ext.number);
 		}
 	}
 
@@ -3341,7 +3341,7 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	/* process (voice over) data calls */
 	if (e_ext.datacall && e_capainfo.bearer_capa!=INFO_BC_SPEECH && e_capainfo.bearer_capa!=INFO_BC_AUDIO)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) handling data call as audio call: '%s'\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) handling data call as audio call: '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 		memset(&e_capainfo, 0, sizeof(e_capainfo));
 		e_capainfo.bearer_capa = INFO_BC_AUDIO;
 		e_capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
@@ -3460,30 +3460,30 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		}
 	}
 
-//	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active call (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_terminal, e_callerinfo.id, e_state);
+//	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active call (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_ext.number, e_callerinfo.id, e_state);
 	switch(message_type)
 	{
 		/* CALL SENDS CRYPT message */
 		case MESSAGE_CRYPT:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received crypt message: '%d'\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, param->crypt.type);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);
 		call_crypt(portlist, message_type, param);
 		break;
 
 		/* CALL sends INFORMATION message */
 		case MESSAGE_INFORMATION:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, param->information.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->information.number);
 		call_information(portlist, message_type, param);
 		break;
 
 		/* CALL sends FACILITY message */
 		case MESSAGE_FACILITY:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received facility\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received facility\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		call_facility(portlist, message_type, param);
 		break;
 
 		/* CALL sends OVERLAP message */
 		case MESSAGE_OVERLAP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received 'more info available'\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received 'more info available'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_SETUP
 		 && e_state!=EPOINT_STATE_IN_OVERLAP)
 		{
@@ -3495,7 +3495,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends PROCEEDING message */
 		case MESSAGE_PROCEEDING:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s (caller id '%s') received proceeding\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s (caller id '%s') received proceeding\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if(e_state!=EPOINT_STATE_IN_OVERLAP)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup state.\n", ea_endpoint->ep_serial);
@@ -3506,7 +3506,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends ALERTING message */
 		case MESSAGE_ALERTING:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received alerting\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received alerting\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_OVERLAP
 		 && e_state!=EPOINT_STATE_IN_PROCEEDING)
 		{
@@ -3518,7 +3518,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends CONNECT message */
 		case MESSAGE_CONNECT:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received connect\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received connect\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_OVERLAP
 		 && e_state!=EPOINT_STATE_IN_PROCEEDING
 		 && e_state!=EPOINT_STATE_IN_ALERTING)
@@ -3532,7 +3532,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		/* CALL sends DISCONNECT/RELEASE message */
 		case MESSAGE_DISCONNECT: /* call disconnect */
 		case MESSAGE_RELEASE: /* call releases */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received %s with cause %d location %d\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, (message_type==MESSAGE_DISCONNECT)?"disconnect":"release", param->disconnectinfo.cause, param->disconnectinfo.location);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received %s with cause %d location %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (message_type==MESSAGE_DISCONNECT)?"disconnect":"release", param->disconnectinfo.cause, param->disconnectinfo.location);
 		call_disconnect_release(portlist, message_type, param);
 		break;
 
@@ -3545,13 +3545,13 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends special mISDNSIGNAL message */
 		case MESSAGE_mISDNSIGNAL: /* isdn message to port */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received mISDNsignal message.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received mISDNsignal message.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		call_mISDNsignal(portlist, message_type, param);
 		break;
 
 		/* CALL has pattern available */
 		case MESSAGE_PATTERN: /* indicating pattern available */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern availability.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern availability.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (!e_call_pattern)
 		{
 			PDEBUG(DEBUG_EPOINT, "-> pattern becomes available\n");
@@ -3576,7 +3576,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL has no pattern available */
 		case MESSAGE_NOPATTERN: /* indicating no pattern available */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern NOT available.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern NOT available.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_call_pattern)
 		{
 			PDEBUG(DEBUG_EPOINT, "-> pattern becomes unavailable\n");
@@ -3591,7 +3591,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 #if 0
 		/* CALL (dunno at the moment) */
 		case MESSAGE_REMOTE_AUDIO:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
 		message->param.channel = param->channel;
 		message_put(message);
@@ -3600,12 +3600,12 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends a notify message */
 		case MESSAGE_NOTIFY:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		call_notify(portlist, message_type, param);
 		break;
 
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: #%d\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, message);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: #%d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
 	}
 }
 
@@ -3674,7 +3674,7 @@ void EndpointAppPBX::pick_call(char *extensions)
 				{
 					if (port->p_type == PORT_TYPE_VBOX_OUT)
 					{
-						if (match_list(extensions, eapp->e_terminal))
+						if (match_list(extensions, eapp->e_ext.number))
 						{
 							found = eapp;
 							vbox = 1;
@@ -3683,7 +3683,7 @@ void EndpointAppPBX::pick_call(char *extensions)
 					}
 					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT || port->p_type==PORT_TYPE_DSS1_TE_OUT)
 					 && port->p_state==PORT_STATE_OUT_ALERTING)
-						if (match_list(extensions, eapp->e_terminal))
+						if (match_list(extensions, eapp->e_ext.number))
 						{
 							found = eapp;
 						}
@@ -3883,7 +3883,7 @@ void EndpointAppPBX::join_call(void)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we have no port.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (!e_terminal[0])
+	if (!e_ext.number[0])
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we are not internal extension.\n", ea_endpoint->ep_serial);
 		return;
@@ -3910,8 +3910,8 @@ void EndpointAppPBX::join_call(void)
 			other_eapp = other_eapp->next;
 			continue;
 		}
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s call=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_terminal, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_call_id);
-		if (other_eapp->e_terminal[0] /* has terminal */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s call=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_call_id);
+		if (other_eapp->e_ext.number[0] /* has terminal */
 		 && other_eapp->ea_endpoint->ep_portlist /* has port */
 		 && other_eapp->ea_endpoint->ep_call_id) /* has call */
 		{
@@ -4049,7 +4049,7 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 		*errstr = "No Call";
 		return(1);
 	}
-	if (!e_terminal[0])
+	if (!e_ext.number[0])
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) error: we are not internal extension.\n", ea_endpoint->ep_serial);
 		*errstr = "No Call";

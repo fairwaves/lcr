@@ -1,13 +1,8 @@
-
 define and change dsp conference ids
 
 make asterisk call implementation
 
 new interface.conf (add remove ports by admin)
-
-reduce mixer
-
-call recording
 
 call to multiple endpoints (extensions)
 
@@ -24,7 +19,8 @@ avoid disconnect-collision (release if disconnect from both sides)
 
 display message during nothing/play
 
-
+Port -> Channel
+Call -> Link
 
 
 

@@ -141,9 +141,8 @@ int VBoxPort::handler(void)
 			/* start recording, if not already */
 			if (p_vbox_mode == VBOX_MODE_NORMAL)
 			{
-				/* send recording start message */
-				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_VBOX_RECORD);
-				message_put(message);
+				/* recording start */
+				open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
 			} else // else!!
 			if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT)
 			{
@@ -158,6 +157,8 @@ int VBoxPort::handler(void)
 			}
 		} else
 		{
+			if (p_record)
+				record(buffer, tosend, 0); // from down
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
 			message->param.data.port_type = p_type;
 			message->param.data.port_id = p_serial;
@@ -276,15 +277,14 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 			new_state(PORT_STATE_IN_ALERTING);
 		}
 
-		/* start recording during announcement */
-		/* start parallel recording if desired */
-		p_vbox_mode = p_vbox_ext.vbox_mode;
-		p_vbox_record_limit = p_vbox_ext.vbox_time;
 		/* play the announcement */
 		if ((p_vbox_announce_fh = open_tone(filename, &p_vbox_announce_codec, &p_vbox_announce_size, &p_vbox_announce_left)) >= 0)
 		{
 			fhuse++;
 		} 
+		/* start recording if desired */
+		p_vbox_mode = p_vbox_ext.vbox_mode;
+		p_vbox_record_limit = p_vbox_ext.vbox_time;
 		if (!p_vbox_announce_fh || p_vbox_mode==VBOX_MODE_PARALLEL)
 		{
 			PDEBUG(DEBUG_VBOX, "PORT(%s) parallel mode OR no announcement found at: '%s' so we start recording now.\n", p_name, filename);

@@ -72,7 +72,7 @@ void EndpointAppPBX::efi_message_eof(void)
 	struct message		*message;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_terminal, e_vbox_state);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 
 	switch(e_efi_state)
 	{
@@ -130,7 +130,7 @@ void EndpointAppPBX::efi_message_eof(void)
 		break;
 
 		default:
-		PERROR("efi_message_eof(ep%d): terminal %s unknown state: %d\n", ea_endpoint->ep_serial, e_terminal, e_vbox_state);
+		PERROR("efi_message_eof(ep%d): terminal %s unknown state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 	}
 }
 
@@ -156,6 +156,6 @@ void EndpointAppPBX::set_tone_efi(char *tone)
 	SCPY(message->param.tone.name, tone);
 	message_put(message);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set tone '%s'\n", ea_endpoint->ep_serial, e_terminal, tone);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s set tone '%s'\n", ea_endpoint->ep_serial, e_ext.number, tone);
 }
 

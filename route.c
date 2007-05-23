@@ -2013,12 +2013,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			switch(cond->match)
 			{
 				case MATCH_EXTERN:
-				if (!e_terminal[0])
+				if (!e_ext.number[0])
 					istrue = 1;	 
 				break;
 
 				case MATCH_INTERN:
-				if (e_terminal[0])
+				if (e_ext.number[0])
 					istrue = 1;	 
 				break;
 

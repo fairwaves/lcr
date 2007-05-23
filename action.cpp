@@ -192,7 +192,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	if (e_ext.rights < 1)
 	{
 		printlog("%3d  action   INTERN access to internal phones are denied for this caller.\n", ea_endpoint->ep_serial);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): internal call from terminal %s denied.\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): internal call from terminal %s denied.\n", ea_endpoint->ep_serial, e_ext.number);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_81");
@@ -229,7 +229,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (strchr(e_extdialing, '#'))
 		{
 			e_extdialing[0] = '\0';
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): '#' detected: terminal '%s' selected caller id '%s' and continues dialing: '%s'\n", ea_endpoint->ep_serial, e_terminal, e_callerinfo.id, e_extdialing);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): '#' detected: terminal '%s' selected caller id '%s' and continues dialing: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, e_extdialing);
 		}
 		/* eliminate digits before '*', which is a delete digit
 		 */
@@ -245,7 +245,7 @@ void EndpointAppPBX::action_dialing_external(void)
 				}
 				UCPY(p, p+1); /* remove '*' */
 			}
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s deleted digits and got new string: %s\n", ea_endpoint->ep_serial, e_terminal, e_extdialing);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s deleted digits and got new string: %s\n", ea_endpoint->ep_serial, e_ext.number, e_extdialing);
 		}
 	}
 
@@ -325,7 +325,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	if (e_ext.rights < 2)
 	{
 		printlog("%3d  action   EXTERN calls are denied for this caller.\n", ea_endpoint->ep_serial);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): external call from terminal denied: %s\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): external call from terminal denied: %s\n", ea_endpoint->ep_serial, e_ext.number);
 		release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 		set_tone(portlist, "cause_82");
 		denied:
@@ -342,7 +342,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 3)
 		{
 			printlog("%3d  action   EXTERN national calls are denied for this caller.\n", ea_endpoint->ep_serial);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): national call from terminal %s denied.\n", ea_endpoint->ep_serial, e_terminal);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): national call from terminal %s denied.\n", ea_endpoint->ep_serial, e_ext.number);
 			release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 			set_tone(portlist, "cause_83");
 			goto denied;
@@ -356,7 +356,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 4)
 		{
 			printlog("%3d  action   EXTERN international calls are denied for this caller.\n", ea_endpoint->ep_serial);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): international call from terminal %s denied.\n", ea_endpoint->ep_serial, e_terminal);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): international call from terminal %s denied.\n", ea_endpoint->ep_serial, e_ext.number);
 			release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 			set_tone(portlist, "cause_84");
 			goto denied;
@@ -421,13 +421,13 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
 		return;
 	}
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s dialing extension: %s\n", ea_endpoint->ep_serial, e_terminal, rparam->string_value);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s dialing extension: %s\n", ea_endpoint->ep_serial, e_ext.number, rparam->string_value);
 
 	/* check if internal calls are denied */
 	if (e_ext.rights < 1)
 	{
 		printlog("%3d  action   VBOX-RECORD calls are denied for this caller.\n", ea_endpoint->ep_serial);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): internal call from terminal %s denied.\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): internal call from terminal %s denied.\n", ea_endpoint->ep_serial, e_ext.number);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_81");
@@ -540,7 +540,7 @@ void EndpointAppPBX::action_init_partyline(void)
 	}
 	ea_endpoint->ep_call_id = call->c_serial;
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s dialing room: %d\n", ea_endpoint->ep_serial, e_terminal, partyline);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s dialing room: %d\n", ea_endpoint->ep_serial, e_ext.number, partyline);
 
 	set_tone(portlist, "proceeding");
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
@@ -569,29 +569,29 @@ void EndpointAppPBX::action_hangup_call(void)
 
 	printlog("%3d  action   CALL to '%s' hangs up.\n", ea_endpoint->ep_serial, e_dialinginfo.number);
 	/* check */
-	if (e_terminal[0] == '\0')
+	if (e_ext.number[0] == '\0')
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because caller is unknown (not internal).\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because caller is unknown (not internal).\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
 		return;
 	}
-	if (!(read_extension(&e_ext, e_terminal)))
+	if (!(read_extension(&e_ext, e_ext.number)))
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because cannot read settings.\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because cannot read settings.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
 		return;
 	}
 	if (e_dialinginfo.number[0] == '\0')
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number because nothing was dialed.\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number because nothing was dialed.\n", ea_endpoint->ep_serial, e_ext.number);
 		return;
 	}
 	if (!strcmp(e_dialinginfo.number, e_ext.last_out[0]))
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
 		return;
 	}
 
 	/* insert */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
 	i = MAX_REMEMBER-1;
 	while(i)
 	{
@@ -601,7 +601,7 @@ void EndpointAppPBX::action_hangup_call(void)
 	SCPY(e_ext.last_out[0], e_dialinginfo.number);
 
 	/* write extension */
-	write_extension(&e_ext, e_terminal);
+	write_extension(&e_ext, e_ext.number);
 }
 
 
@@ -647,7 +647,7 @@ void EndpointAppPBX::action_dialing_login(void)
 	}
 
 	/* we changed our extension */
-	SCPY(e_terminal, extension);
+	SCPY(e_ext.number, extension);
 	new_state(EPOINT_STATE_CONNECT);
 	e_dtmf = 1;
 	e_connectedmode = 1;
@@ -679,7 +679,7 @@ void EndpointAppPBX::action_dialing_login(void)
 	if (!(rparam = routeparam(e_action, PARAM_NOPASSWORD)))
 	{
 		/* make call state to enter password */
-		printlog("%3d  action   LOGIN to extension %s, ask for password.\n", ea_endpoint->ep_serial, e_terminal);
+		printlog("%3d  action   LOGIN to extension %s, ask for password.\n", ea_endpoint->ep_serial, e_ext.number);
 		new_state(EPOINT_STATE_IN_OVERLAP);
 		e_ruleset = NULL;
 		e_rule = NULL;
@@ -774,9 +774,9 @@ void EndpointAppPBX::_action_callerid_calleridnext(int next)
 		}
 
 	/* caller id complete, dialing with new caller id */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing callerid '%s' for all following calls.\n", ea_endpoint->ep_serial, e_terminal, callerid);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing callerid '%s' for all following calls.\n", ea_endpoint->ep_serial, e_ext.number, callerid);
 	/* write new parameters */
-	if (read_extension(&e_ext, e_terminal))
+	if (read_extension(&e_ext, e_ext.number))
 	{
 		if (callerid[0] == '\0')
 		{
@@ -799,7 +799,7 @@ void EndpointAppPBX::_action_callerid_calleridnext(int next)
 			if (!next) e_ext.id_next_call_type = -1;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): nationalized callerid: '%s' type=%d\n", ea_endpoint->ep_serial, (!next)?e_ext.callerid:e_ext.id_next_call, (!next)?e_ext.callerid_type:e_ext.id_next_call_type);
 		}
-		write_extension(&e_ext, e_terminal);
+		write_extension(&e_ext, e_ext.number);
 	}
 
 	/* function activated */
@@ -867,8 +867,8 @@ void EndpointAppPBX::action_dialing_forward(void)
 		dest = e_extdialing;
 	}
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing forwarding to '%s'.\n", ea_endpoint->ep_serial, e_terminal, dest);
-	if (read_extension(&e_ext, e_terminal))
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing forwarding to '%s'.\n", ea_endpoint->ep_serial, e_ext.number, dest);
+	if (read_extension(&e_ext, e_ext.number))
 	{
 		switch(diversion)
 		{
@@ -891,7 +891,7 @@ void EndpointAppPBX::action_dialing_forward(void)
 			SCPY(e_ext.cfp, dest);
 			break;
 		}
-		write_extension(&e_ext, e_terminal);
+		write_extension(&e_ext, e_ext.number);
 	}
 	/* function (de)activated */
 	message_disconnect_port(portlist, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, "");
@@ -993,7 +993,7 @@ void EndpointAppPBX::_action_redial_reply(int in)
 		SPRINT(message->param.notifyinfo.display, "(%d) %s vbox", e_select+1, last+5);
 	else
 		SPRINT(message->param.notifyinfo.display, "(%d) %s", e_select+1, (last[0])?last:"- empty -");
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s sending display:%s\n", ea_endpoint->ep_serial, e_terminal, message->param.notifyinfo.display);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s sending display:%s\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 	message_put(message);
 	logmessage(message);
 }
@@ -1061,7 +1061,7 @@ void EndpointAppPBX::action_dialing_powerdial(void)
 
 	/* send connect to avoid overlap timeout */
 //	new_state(EPOINT_STATE_CONNECT); connect may prevent further dialing
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		e_dtmf = 1;
 	memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
@@ -1190,7 +1190,7 @@ void EndpointAppPBX::action_dialing_abbrev(void)
 	portlist = ea_endpoint->ep_portlist;
 
 	/* abbrev dialing is only possible if we have a caller defined */
-	if (!e_terminal[0])
+	if (!e_ext.number[0])
 	{
 		printlog("%3d  action   ABBREVIATION only possible for internal callers.\n", ea_endpoint->ep_serial);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
@@ -1203,7 +1203,7 @@ void EndpointAppPBX::action_dialing_abbrev(void)
 	abbrev = e_extdialing;
 	phone = NULL;
 	name = NULL;
-	result = parse_phonebook(e_terminal, &abbrev, &phone, &name);
+	result = parse_phonebook(e_ext.number, &abbrev, &phone, &name);
 	if (result == 0)
 	{
 		printlog("%3d  action   ABBREVIATION '%s' not found.\n", ea_endpoint->ep_serial, abbrev);
@@ -1266,7 +1266,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		case '3':
 		printlog("%3d  action   TESTMODE executing 'echo connect' test.\n", ea_endpoint->ep_serial);
 		new_state(EPOINT_STATE_CONNECT);
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			e_dtmf = 1;
 		set_tone(portlist, NULL);
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
@@ -1296,7 +1296,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		case '4':
 		printlog("%3d  action   TESTMODE executing 'tone connect' test.\n", ea_endpoint->ep_serial);
 		new_state(EPOINT_STATE_CONNECT);
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			e_dtmf = 1;
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
@@ -1308,7 +1308,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		case '5':
 		printlog("%3d  action   TESTMODE executing 'hold music' test.\n", ea_endpoint->ep_serial);
 		new_state(EPOINT_STATE_CONNECT);
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			e_dtmf = 1;
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
@@ -1326,7 +1326,7 @@ void EndpointAppPBX::action_dialing_test(void)
 			cause = 0;
 		printlog("%3d  action   TESTMODE executing 'announcement' test with cause %d.\n", ea_endpoint->ep_serial, cause);
 		new_state(EPOINT_STATE_CONNECT);
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			e_dtmf = 1;
 		SPRINT(causestr,"cause_%02x",cause);
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
@@ -1360,7 +1360,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		case '9': /* text callerid test */
 		printlog("%3d  action   TESTMODE executing 'caller id' test.\n", ea_endpoint->ep_serial);
 		new_state(EPOINT_STATE_CONNECT);
-		if (e_terminal[0])
+		if (e_ext.number[0])
 			e_dtmf = 1;
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		SCPY(e_connectinfo.id, "12345678");
@@ -1407,7 +1407,7 @@ void EndpointAppPBX::action_init_play(void)
 		goto disconnect;
 	}
 
-	if (e_terminal[0])
+	if (e_ext.number[0])
 		e_dtmf = 1;
 
 	set_tone(ea_endpoint->ep_portlist, rparam->string_value);
@@ -1662,7 +1662,7 @@ void EndpointAppPBX::action_dialing_calculator(void)
 	/* display dialing */	
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 	SPRINT(message->param.notifyinfo.display, ">%s", e_extdialing);
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s' internal values: %f %f\n", ea_endpoint->ep_serial, e_terminal, e_extdialing, value1, value2);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s' internal values: %f %f\n", ea_endpoint->ep_serial, e_ext.number, e_extdialing, value1, value2);
 	message_put(message);
 	logmessage(message);
 
@@ -1872,7 +1872,7 @@ void EndpointAppPBX::action_dialing_help(void)
 		//SCAT(dialing, e_dialinginfo.number);
 		SCPY(e_dialinginfo.number, dialing);
 		e_extdialing = e_dialinginfo.number+strlen(numbering->prefix);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' dialing: %s\n", ea_endpoint->ep_serial, e_terminal, numb_actions[numbering->action], e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' dialing: %s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], e_dialinginfo.number);
 nesting?:
 		process_dialing();
 		return;
@@ -1881,7 +1881,7 @@ nesting?:
 	/* send display message to port */
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 	SPRINT(message->param.notifyinfo.display, ">%s %s%s%s", numbering->prefix, numb_actions[numbering->action], (numbering->param[0])?" ":"", numbering->param);
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' sending display:%s\n", ea_endpoint->ep_serial, e_terminal, numb_actions[numbering->action], message->param.notifyinfo.display);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' sending display:%s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], message->param.notifyinfo.display);
 	message_put(message);
 	logmessage(message);
 #endif
@@ -1920,11 +1920,11 @@ void EndpointAppPBX::action_hangup_execute(void)
 	if (command[0] == '\0')
 	{
 		printlog("%3d  action   EXECUTE no 'execute' parameter given at routing.conf.\n", ea_endpoint->ep_serial);
-		PERROR("EPOINT(%d): terminal %s: NO PARAMETER GIVEN for 'execute' action. see routing.conf\n", ea_endpoint->ep_serial, e_terminal);
+		PERROR("EPOINT(%d): terminal %s: NO PARAMETER GIVEN for 'execute' action. see routing.conf\n", ea_endpoint->ep_serial, e_ext.number);
 		return;
 	}
 	printlog("%3d  action   EXECUTE command='%s'\n", ea_endpoint->ep_serial, command);
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: executing '%s'.\n", ea_endpoint->ep_serial, e_terminal, command);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: executing '%s'.\n", ea_endpoint->ep_serial, e_ext.number, command);
 
 	argv[0] = command;
 	while(strchr(argv[0], '/'))
@@ -1971,17 +1971,17 @@ void EndpointAppPBX::action_hangup_file(void)
 	if (file[0] == '\0')
 	{
 		printlog("%3d  action   FILE no filename given.\n", ea_endpoint->ep_serial);
-		PERROR("EPOINT(%d): terminal %s: NO FILENAME GIVEN for 'file' action. see routing.conf\n", ea_endpoint->ep_serial, e_terminal);
+		PERROR("EPOINT(%d): terminal %s: NO FILENAME GIVEN for 'file' action. see routing.conf\n", ea_endpoint->ep_serial, e_ext.number);
 		return;
 	}
 	if (!(fp = fopen(file, mode)))
 	{
 		printlog("%3d  action   FILE file '%s' cannot be opened. (errno = %d)\n", ea_endpoint->ep_serial, file, errno);
-		PERROR("EPOINT(%d): terminal %s: given file '%s' cannot be opened. see routing.conf\n", ea_endpoint->ep_serial, e_terminal, file);
+		PERROR("EPOINT(%d): terminal %s: given file '%s' cannot be opened. see routing.conf\n", ea_endpoint->ep_serial, e_ext.number, file);
 		return;
 	}
 	printlog("%3d  action   FILE file='%s' content='%s'\n", ea_endpoint->ep_serial, file, content);
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: writing file '%s' with content '%s'.\n", ea_endpoint->ep_serial, e_terminal, file, content);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: writing file '%s' with content '%s'.\n", ea_endpoint->ep_serial, e_ext.number, file, content);
 	fprintf(fp, "%s\n", content);
 	fclose(fp);
 }
@@ -2043,7 +2043,7 @@ void EndpointAppPBX::action_dialing_password(void)
 	if (e_action)
 	if (e_action->index == ACTION_PASSWORD_WRITE)
 	{
-		append_callbackauth(e_terminal, &e_callbackinfo);
+		append_callbackauth(e_ext.number, &e_callbackinfo);
 		printlog("%3d  action   PASSWORD WRITE password written\n", ea_endpoint->ep_serial);
 	}
 
@@ -2081,7 +2081,7 @@ void EndpointAppPBX::process_dialing(void)
 	if (!portlist)
 	{
 		portlist_error:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): note: dialing call requires exactly one port object to process dialing. this case could happen due to a parked call. we end dialing here.\n", ea_endpoint->ep_serial, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): note: dialing call requires exactly one port object to process dialing. this case could happen due to a parked call. we end dialing here.\n", ea_endpoint->ep_serial, e_ext.number);
 		e_action_timeout = 0;
 		e_match_timeout = 0;
 		return;
@@ -2218,7 +2218,7 @@ void EndpointAppPBX::process_dialing(void)
 		if (e_match_timeout && now_d>=e_match_timeout)
 		{
 			/* return timeout rule */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number, e_ruleset->name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number, e_ruleset->name);
 			e_match_timeout = 0;
 			e_action = e_match_to_action;
 			e_extdialing = e_match_to_extdialing;
@@ -2228,7 +2228,7 @@ void EndpointAppPBX::process_dialing(void)
 		{
 //PDEBUG(~0, "HANG-BUG-DEBUGGING: before routing\n");
 			/* check for matching rule */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', checking matching rule of ruleset '%s'\n", ea_endpoint->ep_serial, e_terminal, e_dialinginfo.number, e_ruleset->name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', checking matching rule of ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number, e_ruleset->name);
 			if (e_ruleset)
 			{
 				e_action = route(e_ruleset);
@@ -2244,7 +2244,7 @@ void EndpointAppPBX::process_dialing(void)
 		}
 		if (!e_action)
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): no rule within the current ruleset matches yet.\n", ea_endpoint->ep_serial, e_terminal);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): no rule within the current ruleset matches yet.\n", ea_endpoint->ep_serial, e_ext.number);
 			goto display;
 		}
 
@@ -2291,7 +2291,7 @@ void EndpointAppPBX::process_dialing(void)
 
 		if (action_defs[e_action->index].init_func)
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a init function, so we call it...\n", ea_endpoint->ep_serial, e_terminal, action_defs[e_action->index].name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a init function, so we call it...\n", ea_endpoint->ep_serial, e_ext.number, action_defs[e_action->index].name);
 			(this->*(action_defs[e_action->index].init_func))();
 		}
 		if (e_state!=EPOINT_STATE_IN_SETUP
@@ -2303,11 +2303,11 @@ void EndpointAppPBX::process_dialing(void)
 	}
 
 	/* show what we are doing */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' action: %s (dialing '%s')\n", ea_endpoint->ep_serial, e_terminal, action_defs[e_action->index].name, e_extdialing);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' action: %s (dialing '%s')\n", ea_endpoint->ep_serial, e_ext.number, action_defs[e_action->index].name, e_extdialing);
 	/* go to action's dialing function */
 	if (action_defs[e_action->index].dialing_func)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a dialing function, so we call it...\n", ea_endpoint->ep_serial, e_terminal, action_defs[e_action->index].name);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a dialing function, so we call it...\n", ea_endpoint->ep_serial, e_ext.number, action_defs[e_action->index].name);
 		(this->*(action_defs[e_action->index].dialing_func))();
 	}
 
@@ -2339,7 +2339,7 @@ void EndpointAppPBX::process_dialing(void)
 			SPRINT(message->param.notifyinfo.display, "%s%s%s", action_defs[e_action->index].name, (e_extdialing[0])?" ":"", e_extdialing);
 		}
 
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s'\n", ea_endpoint->ep_serial, e_terminal, message->param.notifyinfo.display);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s'\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 		message_put(message);
 		logmessage(message);
 	}
@@ -2356,10 +2356,10 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 	char callertext[256], dialingtext[256];
 	int writeext = 0, i;
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s'\n", ea_endpoint->ep_serial, e_terminal);
-	if (e_terminal[0])
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s'\n", ea_endpoint->ep_serial, e_ext.number);
+	if (e_ext.number[0])
 	{
-		if (read_extension(&e_ext, e_terminal))
+		if (read_extension(&e_ext, e_ext.number))
 			writeext = 0x10;
 
 		if (!e_start)
@@ -2369,7 +2369,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		} else
 		if (!e_stop)
 			time(&e_stop);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): writing connect from %s to %s into logfile of %s\n", ea_endpoint->ep_serial, e_callerinfo.id, e_dialinginfo.number, e_terminal);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): writing connect from %s to %s into logfile of %s\n", ea_endpoint->ep_serial, e_callerinfo.id, e_dialinginfo.number, e_ext.number);
 		switch(e_dialinginfo.itype)
 		{
 			case INFO_ITYPE_CHAN:
@@ -2396,7 +2396,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 			UNPRINT(strchr(callertext,'\0'), sizeof(callertext)-1+strlen(callertext), " (intern %s)", e_callerinfo.intern);
 		if (e_callerinfo.voip[0]) /* add voip if present */
 			UNPRINT(strchr(callertext,'\0'), sizeof(callertext)-1+strlen(callertext), " (voip %s)", e_callerinfo.voip);
-		write_log(e_terminal, callertext, dialingtext, e_start, e_stop, 0, cause, location);
+		write_log(e_ext.number, callertext, dialingtext, e_start, e_stop, 0, cause, location);
 
 		/* store last received call for reply-list */
 		if (e_callerinfo.id[0] || e_callerinfo.intern[0])
@@ -2416,21 +2416,21 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 				}
 				SCPY(e_ext.last_in[0], callertext);
 				writeext |= 1; /* store extension later */
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last received caller id '%s'.\n", ea_endpoint->ep_serial, e_terminal, e_ext.last_in[0]);
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last received caller id '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_ext.last_in[0]);
 			} else
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last received id '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_terminal, callertext);
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last received id '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, callertext);
 		}
 	}
 
 	/* write extension if needed */
 	if (writeext == 0x11)
-		write_extension(&e_ext, e_terminal);
+		write_extension(&e_ext, e_ext.number);
 
 	if (e_action)
 	{
 		if (action_defs[e_action->index].hangup_func)
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a hangup function, so we call it...\n", ea_endpoint->ep_serial, e_terminal, action_defs[e_action->index].name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: current action '%s' has a hangup function, so we call it...\n", ea_endpoint->ep_serial, e_ext.number, action_defs[e_action->index].name);
 			(this->*(action_defs[e_action->index].hangup_func))();
 		}
 	}

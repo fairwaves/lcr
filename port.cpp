@@ -672,9 +672,8 @@ int Port::message_epoint(unsigned long epoint_id, int message_id, union paramete
 		set_tone(param->tone.dir,param->tone.name);
 		return(1);
 
-		case MESSAGE_DATA:
-//printf("port=%s, epoint=%d\n",p_cardname, epoint->e_serial);
-		mixer(param);
+		case MESSAGE_DATA: /* tx-data from upper layer */
+		fromup(param->data.data, param->data.len);
 		return(1);
 
 		case MESSAGE_VBOX_TONE: /* play tone of answering machine */
@@ -742,18 +741,18 @@ struct fmt {
  * written before close, because we do not know the size yet)
  * type=1 record annoucement,  type=0 record audio stream, type=2 record vbox
  */
-int Port::open_record(int type, int vbox, int skip, char *terminal, int anon_ignore, char *vbox_email, int vbox_email_file)
+int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ignore, char *vbox_email, int vbox_email_file)
 {
 	/* RIFFxxxxWAVEfmt xxxx(fmt-size)dataxxxx... */
 	char dummyheader[8+4+8+sizeof(fmt)+8];
 	char filename[256];
 
-	if (!terminal)
+	if (!extension)
 	{
-		PERROR("Port(%d) not a terminal\n", p_serial);
+		PERROR("Port(%d) not an extension\n", p_serial);
 		return(0);
 	}
-	SCPY(p_record_extension, terminal);
+	SCPY(p_record_extension, extension);
 	p_record_anon_ignore = anon_ignore;
 	SCPY(p_record_vbox_email, vbox_email);
 	p_record_vbox_email_file = vbox_email_file;
@@ -1003,12 +1002,6 @@ void Port::close_record(int beep)
 		else
 			SPRINT(filename, "%s_%s-%s.isdn", p_record_filename, callerid, number);
 		break;
-
-		default:
-		if (p_record_vbox == 1)
-			SPRINT(filename, "%s.unknown", p_record_filename);
-		else
-			SPRINT(filename, "%s_%s-%s.unknown", p_record_filename, callerid, number);
 	}
 
 	fclose(p_record);
@@ -1052,4 +1045,256 @@ void Port::close_record(int beep)
 }
 
 
+/*
+ * recording function
+ * Records all data from down and from up into one single stream.
+ * Both streams may have gaps or jitter.
+ * A Jitter buffer for both streams is used to compensate jitter.
+ * 
+ * If one stream (dir) received packets, they are stored to a
+ * buffer to wait for the other stream (dir), so both streams can 
+ * be combined. If the buffer is full, it's read pointer is written
+ * without mixing stream.
+ * A flag is used to indicate what stream is currently in buffer.
+ *
+ * NOTE: First stereo sample (odd) is from down, second is from up.
+ */
+alle buffer initialisieren
+record nur aufrufen, wenn recorded wird.
+restlicher buffer wegschreiben beim schliessen
+void Port::record(char *data, int length, int dir_fromup)
+{
+	unsigned char write_buffer[1024], *d;
+	signed short *s;
+	int r, w;
+	signed long sample;
+
+	/* no recording */
+	if (!p_record || !length)
+		return;
+
+	free = ((p_record_buffer_readp - p_record_buffer_writep - 1) & RECORD_BUFFER_MASK);
+
+	/* the buffer stores the same data stream */
+	if (dir_fromup == p_record_buffer_dir)
+	{
+		same_again:
+
+		/* first write what we can to the buffer */
+		while(free && length)
+		{
+			p_record_buffer[p_record_buffer_writep] = audio_law_to_s32(*data++);
+			p_record_buffer_writep = (p_record_buffer_writep + 1) & RECORD_BUFFER_MASK;
+			free--;
+			length--;
+		}
+		/* all written, so we return */
+		if (!length)
+			return;
+		/* still data left, buffer is full, so we need to write to file */
+		switch(p_record_type)
+		{
+			case CODEC_MONO:
+			s = (signed short *)write_buffer;
+			i = 0;
+			while(i < 256)
+			{
+				*s++ = p_record_buffer[p_record_buffer_readp];
+				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+				i++;
+			}
+			fwrite(write_buffer, 512, 1, p_record);
+			break;
+
+			case CODEC_STEREO:
+			s = (signed short *)write_buffer;
+			if (p_record_buffer_dir)
+			{
+				i = 0;
+				while(i < 256)
+				{
+					*s++ = 0; /* nothing from down */
+					*s++ = p_record_buffer[p_record_buffer_readp];
+					p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+					i++;
+				}
+			} else
+			{
+				i = 0;
+				while(i < 256)
+				{
+					*s++ = p_record_buffer[p_record_buffer_readp];
+					*s++ = 0; /* nothing from up */
+					p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+					i++;
+				}
+			}
+			fwrite(write_buffer, 1024, 1, p_record);
+			break;
+
+			case CODEC_8BIT:
+			d = write_buffer;
+			i = 0;
+			while(i < 256)
+			{
+				*d++ = (p_record_buffer[p_record_buffer_readp]+0x8000) >> 8;
+				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+				i++;
+			}
+			fwrite(write_buffer, 512, 1, p_record);
+			break;
+
+			case CODEC_LAW:
+			d = write_buffer;
+			i = 0;
+			while(i < 256)
+			{
+				*d++ = audio_s16_to_law[p_record_buffer[p_record_buffer_readp] & 0xffff];
+				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+				i++;
+			}
+			fwrite(write_buffer, 256, 1, p_record);
+			break;
+		}
+		/* because we still have data, we write again */
+		free += sizeof(write_buffer);
+		goto same_again;
+	}
+
+	/* the buffer store the other stream */
+	different_again:
+	
+	/* if buffer empty, change it */
+	if (p_record_buffer_readp == p_record_buffer_writep)
+	{
+		p_record_buffer_dir = dir_fromup;
+		goto same_again;
+	}
+	/* how much data can we mix ? */
+	ii = (p_record_buffer_writep - p_record_buffer_readp) & RECORD_BUFFER_MASK;
+	if (length < ii)
+		ii = length;
+	/* write data mixed with the buffer */
+	switch(p_record_type)
+	{
+		case CODEC_MONO:
+		s = (signed short *)write_buffer;
+		i = 0;
+		while(i < ii)
+		{
+			sample = p_record_buffer[p_record_buffer_readp]
+				+ audio_law_to_s32(*data++);
+			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+			if (sample < 32767)
+				sample = -32767;
+			if (sample > 32768)
+				sample = 32768;
+			*s++ = sample;
+			i++;
+		}
+		fwrite(write_buffer, ii<<1, 1, p_record);
+		break;
+		
+		case CODEC_STEREO:
+		s = (signed short *)write_buffer;
+		if (p_record_buffer_dir)
+		{
+			i = 0;
+			while(i < ii)
+			{
+				*s++ = audio_law_to_s32(*data++);
+				*s++ = p_record_buffer[p_record_buffer_readp];
+				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+				i++;
+			}
+		} else
+		{
+			i = 0;
+			while(i < ii)
+			{
+				*s++ = p_record_buffer[p_record_buffer_readp];
+				*s++ = audio_law_to_s32(*data++);
+				i++;
+			}
+		}
+		fwrite(write_buffer, ii<<2, 1, p_record);
+		break;
+		
+		case CODEC_8BIT:
+		d = write_buffer;
+		i = 0;
+		while(i < ii)
+		{
+			sample = p_record_buffer[p_record_buffer_readp]
+				+ audio_law_to_s32(*data++);
+			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+			if (sample < 32767)
+				sample = -32767;
+			if (sample > 32768)
+				sample = 32768;
+			*d++ = (sample+0x8000) >> 8;
+			i++;
+		}
+		fwrite(write_buffer, ii, 1, p_record);
+		break;
+		
+		case CODEC_LAW:
+		d = write_buffer;
+		i = 0;
+		while(i < ii)
+		{
+			sample = p_record_buffer[p_record_buffer_readp]
+				+ audio_law_to_s32(*data++);
+			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
+			if (sample < 32767)
+				sample = -32767;
+			if (sample > 32768)
+				sample = 32768;
+			*d++ = audio_s16_to_law[sample & 0xffff];
+			i++;
+		}
+		fwrite(write_buffer, ii, 1, p_record);
+		break;
+	}
+	length -= ii;
+	/* data, but buffer empty */
+	if (length)
+	{
+		p_record_buffer_dir = dir_fromup;
+		goto same_again;
+	}
+	/* no data (maybe buffer) */
+	return;
+
+}
+
+
+/*
+ * enque data from upper buffer
+ */
+iniialisieren der werte
+void Port::txfromup(unsigned char *data, int length)
+{
+	
+	/* no recording */
+	if (!length)
+		return;
+
+	/* get free samples in buffer */
+	free = ((p_fromup_buffer_readp - p_fromup_buffer_writep - 1) & FROMUP_BUFFER_MASK);
+	if (free < length)
+	{
+		PDEBUG(DEBUG_PORT, "Port(%d): fromup_buffer overflows, this shall not happen under normal conditions\n", p_serial);
+		return;
+	}
+
+	/* write data to buffer and return */
+	while(length)
+	{
+		p_fromup_buffer[p_fromup_buffer_writep] = *data++;
+		p_fromup_buffer_writep = (p_fromup_buffer_writep + 1) & FROMUP_BUFFER_MASK;
+		length--;
+	}
+	return; // must return, because length is 0
+}
 
