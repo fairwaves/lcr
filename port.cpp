@@ -697,34 +697,6 @@ int Port::message_epoint(unsigned long epoint_id, int message_id, union paramete
 }
 
 
-/*
- * special function generate individual isdn debug logs
- */
-void Port::printisdn(char *fmt, ...)
-{
-	char buffer[4096];
-	char name[128];
-	va_list args;
-	FILE *fp;
-
-	va_start(args,fmt);
-	VUNPRINT(buffer,sizeof(buffer)-1,fmt,args);
-	buffer[sizeof(buffer)-1]=0;
-	va_end(args);
-
-	PDEBUG_RUNTIME(NULL, 0, DEBUG_PORT, "PORT(%s serial=%ld): %s\n", p_name, p_serial, buffer);
-	if (options.deb & DEBUG_LOG)
-	{
-		SPRINT(name, "%s/debug_%s.log", INSTALL_DATA, p_name);
-		if (!(fp = fopen(name, "a")))
-			return;
-	
-		fprintf(fp, "%04d.%02d.%02d %02d:%02d:%02d %s(%ld): %s", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, p_name, p_serial, buffer);
-		fclose(fp);
-	}
-}
-
-
 /* wave header structure */
 struct fmt {
 	unsigned short	stereo; /* 1 = mono, 2 = stereo */

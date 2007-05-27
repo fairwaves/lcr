@@ -36,6 +36,8 @@ enum { /* messages */
 	ADMIN_CALL_DISCONNECT,
 	ADMIN_CALL_RELEASE,
 	ADMIN_CALL_NOTIFY,
+	ADMIN_TRACE_REQUEST,
+	ADMIN_TRACE_RESPONSE,
 	ADMIN_MESSAGE,
 };
 
@@ -135,6 +137,7 @@ struct admin_message {
 		struct admin_response_call	c;
 		struct admin_call		call;
 		struct admin_message		message;
+		struct admin_trace		trace;
 	} u;
 };
 

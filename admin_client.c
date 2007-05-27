@@ -43,6 +43,7 @@ enum {
 	MODE_DIAL,
 	MODE_RELEASE,
 	MODE_TESTCALL,
+	MODE_TRACE,
 };
 
 char *text_interfaces[] = {
@@ -1202,6 +1203,139 @@ next:
 
 
 /*
+ * makes a trace
+ */
+char *admin_trace(int sock, int argc, char *argv[])
+{
+	static struct admin_message msg;
+
+	/* show help */
+	if (!strcasecmp(argv[2], "help"))
+	{
+		printf("Trace Help\n----------\n");
+		printf("%s trace [brief|short] [<filter>=<value> [...]]\n\n", argv[0]);
+		printf("By default a complete trace is shown in detailed format.\n");
+		printf("To show a more compact format, use 'brief' or 'short' keyword.\n");
+		printf("Use filter values to select specific trace messages.\n");
+		printf("All given filter values must match. If no filter is given, anything matches.\n\n");
+		printf("Filters:\n");
+		printf(" category=<mask bits>\n");
+		printf("  0x01 = L1: layer 1 trace (application view)\n");
+		printf("  0x02 = L2: layer 2 trace (application view)\n");
+		printf("  0x04 = L3: layer 3 trace (application view)\n");
+		printf("  0x08 = CH: channel selection trace\n");
+		printf("  0x10 = EP: endpoint trace\n");
+		printf("  0x20 = AP: application trace\n");
+		printf("  0x40 = RO: routing trace\n");
+	}
+	
+	
+
+
+	tbd
+	/* send reload command */
+	memset(&msg, 0, sizeof(msg));
+	msg.message = ADMIN_CALL_SETUP;
+	if (argc > 2)
+	{
+		SCPY(msg.u.call.interface, argv[2]);
+	}
+	if (argc > 3)
+	{
+		SCPY(msg.u.call.callerid, argv[3]);
+	}
+	if (argc > 4)
+	{
+		SCPY(msg.u.call.dialing, argv[4]);
+	}
+	if (argc > 5)
+	{
+		if (argv[5][0] == 'p')
+			msg.u.call.present = 1;
+	}
+	msg.u.call.bc_capa = 0x00; /*INFO_BC_SPEECH*/
+	msg.u.call.bc_mode = 0x00; /*INFO_BMODE_CIRCUIT*/
+	msg.u.call.bc_info1 = 0;
+	msg.u.call.hlc = 0;
+	msg.u.call.exthlc = 0;
+	if (argc > 6)
+		msg.u.call.bc_capa = strtol(argv[6],NULL,0);
+	else
+		msg.u.call.bc_info1 = 3 | 0x80; /* alaw, if no capability is given at all */
+	if (argc > 7) {
+		msg.u.call.bc_mode = strtol(argv[7],NULL,0);
+		if (msg.u.call.bc_mode) msg.u.call.bc_mode = 2;
+	}
+	if (argc > 8) {
+		msg.u.call.bc_info1 = strtol(argv[8],NULL,0);
+		if (msg.u.call.bc_info1 < 0)
+			msg.u.call.bc_info1 = 0;
+		else
+			msg.u.call.bc_info1 |= 0x80;
+	}
+	if (argc > 9) {
+		msg.u.call.hlc = strtol(argv[9],NULL,0);
+		if (msg.u.call.hlc < 0)
+			msg.u.call.hlc = 0;
+		else
+			msg.u.call.hlc |= 0x80;
+	}
+//		printf("hlc=%d\n",  msg.u.call.hlc);
+	if (argc > 10) {
+		msg.u.call.exthlc = strtol(argv[10],NULL,0);
+		if (msg.u.call.exthlc < 0)
+			msg.u.call.exthlc = 0;
+		else
+			msg.u.call.exthlc |= 0x80;
+	}
+
+	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
+		return("Broken pipe while sending command.");
+
+	/* receive response */
+next:
+	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
+		return("Broken pipe while receiving response.");
+	switch(msg.message)
+	{
+		case ADMIN_CALL_SETUP_ACK:
+		printf("SETUP ACKNOWLEDGE\n"); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_PROCEEDING:
+		printf("PROCEEDING\n"); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_ALERTING:
+		printf("ALERTING\n"); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_CONNECT:
+		printf("CONNECT\n number=%s\n", msg.u.call.callerid); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_NOTIFY:
+		printf("NOTIFY\n notify=%d\n number=%s\n", msg.u.call.notify, msg.u.call.callerid); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_DISCONNECT:
+		printf("DISCONNECT\n cause=%d %s\n location=%d %s\n", msg.u.call.cause, (msg.u.call.cause>0 && msg.u.call.cause<128)?isdn_cause[msg.u.call.cause].german:"", msg.u.call.location, (msg.u.call.location>=0 && msg.u.call.location<128)?isdn_location[msg.u.call.location].german:""); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_RELEASE:
+		printf("RELEASE\n cause=%d %s\n location=%d %s\n", msg.u.call.cause, (msg.u.call.cause>0 && msg.u.call.cause<128)?isdn_cause[msg.u.call.cause].german:"", msg.u.call.location, (msg.u.call.location>=0 && msg.u.call.location<128)?isdn_location[msg.u.call.location].german:""); fflush(stdout);
+		break;
+
+		default:
+		return("Response not valid.");
+	}
+	
+	printf("Command successfull.\n");
+	return(NULL);
+}
+
+
+/*
  * main function
  */
 int main(int argc, char *argv[])
@@ -1226,6 +1360,8 @@ int main(int argc, char *argv[])
 		printf("release <number> - Tell PBX to release endpoint with given number.\n");
 		printf("testcall <interface> <callerid> <number> [present|restrict [<capability>]] - Testcall\n");
 		printf(" -> capability = <bc> <mode> <codec> <hlc> <exthlc> (Values must be numbers, -1 to omit.)\n");
+		printf("trace [brief|short] [<filter> [...]] - Shows call trace. Use filter to reduce output.\n");
+		printf(" -> Use 'trace help' to see filter description.\n");
 		printf("\n");
 		return(0);
 	}
@@ -1260,6 +1396,12 @@ int main(int argc, char *argv[])
 		if (argc <= 4)
 			goto usage;
 		mode = MODE_TESTCALL;
+	} else
+	if (!(strcasecmp(argv[1],"trace")))
+	{
+		if (argc <= 2)
+			goto usage;
+		mode = MODE_TRACE;
 	} else
 	{
 		goto usage;
@@ -1304,6 +1446,9 @@ int main(int argc, char *argv[])
 
 		case MODE_TESTCALL:
 		ret = admin_testcall(sock, argc, argv);
+
+		case MODE_TRACE:
+		ret = admin_trace(sock, argc, argv);
 	}
 
 	close(sock);

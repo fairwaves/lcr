@@ -38,10 +38,8 @@ void Pdss1::enc_ie_complete(unsigned char **ntmode, msg_t *msg, int complete)
 	}
 
 	if (complete)
-		printisdn("    complete=%d\n", complete);
-
-	if (complete)
 	{
+		add_trace("complete", NULL, NULL);
 		p = msg_put(msg, 1);
 		if (p_m_d_ntmode)
 		{
@@ -64,7 +62,7 @@ void Pdss1::dec_ie_complete(unsigned char *p, Q931_info_t *qi, int *complete)
 		*complete = 1;
 
 	if (*complete)
-		printisdn("    complete=%d\n", *complete);
+		add_trace("complete", NULL, NULL);
 }
 
 
@@ -111,7 +109,12 @@ void Pdss1::enc_ie_bearer(unsigned char **ntmode, msg_t *msg, int coding, int ca
 		multi = -1;
 	}
 
-	printisdn("    coding=%d capability=%d mode=%d rate=%d multi=%d user=%d\n", coding, capability, mode, rate, multi, user);
+	add_trace("bearer", "coding", "%d", coding);
+	add_trace("bearer", "capability", "%d", capability);
+	add_trace("bearer", "mode", "%d", mode);
+	add_trace("bearer", "rate", "%d", rate);
+	add_trace("bearer", "multi", "%d", multi);
+	add_trace("bearer", "user", "%d", user);
 
 	l = 2 + (multi>=0) + (user>=0);
 	p = msg_put(msg, l+2);
@@ -170,7 +173,12 @@ void Pdss1::dec_ie_bearer(unsigned char *p, Q931_info_t *qi, int *coding, int *c
 			*user = p[3] & 0x1f;
 	}
 
-	printisdn("    coding=%d capability=%d mode=%d rate=%d multi=%d user=%d\n", *coding, *capability, *mode, *rate, *multi, *user);
+	add_trace("bearer", "coding", "%d", *coding);
+	add_trace("bearer", "capability", "%d", *capability);
+	add_trace("bearer", "mode", "%d", *mode);
+	add_trace("bearer", "rate", "%d", *rate);
+	add_trace("bearer", "multi", "%d", *multi);
+	add_trace("bearer", "user", "%d", *user);
 }
 
 
@@ -207,7 +215,12 @@ void Pdss1::enc_ie_hlc(unsigned char **ntmode, msg_t *msg, int coding, int inter
 		return;
 	}
 
-	printisdn("    coding=%d interpretation=%d presentation=%d hlc=%d exthlc=%d\n", coding, interpretation, presentation, hlc, exthlc);
+	add_trace("hlc", "coding", "%d", coding);
+	add_trace("hlc", "interpretation", "%d", interpretation);
+	add_trace("hlc", "presentation", "%d", presentation);
+	add_trace("hlc", "hlc", "%d", hlc);
+	if (exthlc >= 0)
+		add_trace("hlc", "exthlc", "%d", exthlc);
 
 	l = 2 + (exthlc>=0);
 	p = msg_put(msg, l+2);
@@ -257,7 +270,12 @@ void Pdss1::dec_ie_hlc(unsigned char *p, Q931_info_t *qi, int *coding, int *inte
 		*exthlc = p[3] & 0x7f;
 	}
 
-	printisdn("    coding=%d interpretation=%d presentation=%d hlc=%d exthlc=%d\n", *coding, *interpretation, *presentation, *hlc, *exthlc);
+	add_trace("hlc", "coding", "%d", *coding);
+	add_trace("hlc", "interpretation", "%d", *interpretation);
+	add_trace("hlc", "presentation", "%d", *presentation);
+	add_trace("hlc", "hlc", "%d", *hlc);
+	if (*exthlc >= 0)
+		add_trace("hlc", "exthlc", "%d", *exthlc);
 }
 
 
@@ -268,14 +286,14 @@ void Pdss1::enc_ie_call_id(unsigned char **ntmode, msg_t *msg, unsigned char *ca
 	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
 	int l;
 
-	char debug[25];
+	char buffer[25];
 	int i;
 
 	if (!callid || callid_len<=0)
 	{
 		return;
 	}
-	if (callid_len>8)
+	if (callid_len > 8)
 	{
 		PERROR("callid_len(%d) is out of range.\n", callid_len);
 		return;
@@ -284,11 +302,11 @@ void Pdss1::enc_ie_call_id(unsigned char **ntmode, msg_t *msg, unsigned char *ca
 	i = 0;
 	while(i < callid_len)
 	{
-		UPRINT(debug+(i*3), " %02x", callid[i]);
+		UPRINT(buffer+(i*3), " %02x", callid[i]);
 		i++;
 	}
 		
-	printisdn("    callid%s\n", debug);
+	add_trace("callid", NULL, "%s", buffer[0]?buffer+1:"<none>");
 
 	l = callid_len;
 	p = msg_put(msg, l+2);
@@ -303,7 +321,7 @@ void Pdss1::enc_ie_call_id(unsigned char **ntmode, msg_t *msg, unsigned char *ca
 
 void Pdss1::dec_ie_call_id(unsigned char *p, Q931_info_t *qi, unsigned char *callid, int *callid_len)
 {
-	char debug[25];
+	char buffer[25];
 	int i;
 
 	*callid_len = -1;
@@ -328,11 +346,11 @@ void Pdss1::dec_ie_call_id(unsigned char *p, Q931_info_t *qi, unsigned char *cal
 	i = 0;
 	while(i < *callid_len)
 	{
-		UPRINT(debug+(i*3), " %02x", callid[i]);
+		UPRINT(buffer+(i*3), " %02x", callid[i]);
 		i++;
 	}
 		
-	printisdn("    callid%s\n", debug);
+	add_trace("callid", NULL, "%s", buffer[0]?buffer+1:"<none>");
 }
 
 
@@ -359,7 +377,9 @@ void Pdss1::enc_ie_called_pn(unsigned char **ntmode, msg_t *msg, int type, int p
 		return;
 	}
 
-	printisdn("    type=%d plan=%d number='%s'\n", type, plan, number);
+	add_trace("called_pn", "type", "%d", type);
+	add_trace("called_pn", "plan", "%d", plan);
+	add_trace("called_pn", "number", "%s", number);
 
 	l = 1+strlen((char *)number);
 	p = msg_put(msg, l+2);
@@ -397,7 +417,9 @@ void Pdss1::dec_ie_called_pn(unsigned char *p, Q931_info_t *qi, int *type, int *
 	*plan = p[1] & 0xf;
 	strnncpy(number, p+2, p[0]-1, number_len);
 
-	printisdn("    type=%d plan=%d number='%s'\n", *type, *plan, number);
+	add_trace("called_pn", "type", "%d", *type);
+	add_trace("called_pn", "plan", "%d", *plan);
+	add_trace("called_pn", "number", "%s", number);
 }
 
 
@@ -429,7 +451,11 @@ void Pdss1::enc_ie_calling_pn(unsigned char **ntmode, msg_t *msg, int type, int 
 		return;
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d number='%s'\n", type, plan, present, screen, number);
+	add_trace("calling_pn", "type", "%d", type);
+	add_trace("calling_pn", "plan", "%d", plan);
+	add_trace("calling_pn", "present", "%d", present);
+	add_trace("calling_pn", "screen", "%d", screen);
+	add_trace("calling_pn", "number", "%s", number);
 
 	l = 1;
 	if (number) if (number[0])
@@ -496,7 +522,11 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d number='%s'\n", *type, *plan, *present, *screen, number);
+	add_trace("calling_pn", "type", "%d", *type);
+	add_trace("calling_pn", "plan", "%d", *plan);
+	add_trace("calling_pn", "present", "%d", *present);
+	add_trace("calling_pn", "screen", "%d", *screen);
+	add_trace("calling_pn", "number", "%s", *number);
 }
 
 
@@ -528,7 +558,11 @@ void Pdss1::enc_ie_connected_pn(unsigned char **ntmode, msg_t *msg, int type, in
 		return;
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d number='%s'\n", type, plan, present, screen, number);
+	add_trace("connect_pn", "type", "%d", type);
+	add_trace("connect_pn", "plan", "%d", plan);
+	add_trace("connect_pn", "present", "%d", present);
+	add_trace("connect_pn", "screen", "%d", screen);
+	add_trace("connect_pn", "number", "%s", number);
 
 	l = 1;
 	if (number) if (number[0])
@@ -595,7 +629,11 @@ void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, in
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d number='%s'\n", *type, *plan, *present, *screen, number);
+	add_trace("connect_pn", "type", "%d", *type);
+	add_trace("connect_pn", "plan", "%d", *plan);
+	add_trace("connect_pn", "present", "%d", *present);
+	add_trace("connect_pn", "screen", "%d", *screen);
+	add_trace("connect_pn", "number", "%s", number);
 }
 
 
@@ -617,7 +655,8 @@ void Pdss1::enc_ie_cause(unsigned char **ntmode, msg_t *msg, int location, int c
 		return;
 	}
 
-	printisdn("    location=%d cause=%d\n", location, cause);
+	add_trace("cause", "location", "%d", location);
+	add_trace("cause", "value", "%d", cause);
 
 	l = 2;
 	p = msg_put(msg, l+2);
@@ -667,7 +706,8 @@ void Pdss1::dec_ie_cause(unsigned char *p, Q931_info_t *qi, int *location, int *
 	*location = p[1] & 0x0f;
 	*cause = p[2] & 0x7f;
 
-	printisdn("    location=%d cause=%d\n", *location, *cause);
+	add_trace("cause", "location", "%d", *location);
+	add_trace("cause", "value", "%d", *cause);
 }
 
 
@@ -693,7 +733,8 @@ void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive,
 		return;
 	}
 
-	printisdn("    exclusive=%d channel=%d\n", exclusive, channel);
+	add_trace("channel_id", "exclusive", "%d", exclusive);
+	add_trace("channel_id", "channel", "%d", channel);
 
 	if (!pri)
 	{
@@ -832,7 +873,8 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 		}
 	}
 
-	printisdn("    exclusive=%d channel=%d\n", *exclusive, *channel);
+	add_trace("channel_id", "exclusive", "%d", *exclusive);
+	add_trace("channel_id", "channel", "%d", *channel);
 }
 
 
@@ -852,7 +894,8 @@ void Pdss1::enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int no_se
 		return;
 	}
 
-	printisdn("    year=%d month=%d day=%d hour=%d minute=%d second=%d\n", tm->tm_year%100, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+	add_trace("date", "day", "%d.%d.%d", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100);
+	add_trace("date", "time", "%d:%d:%d", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
 	l = 5 + (!no_seconds);
 	p = msg_put(msg, l+2);
@@ -891,7 +934,7 @@ void Pdss1::enc_ie_display(unsigned char **ntmode, msg_t *msg, unsigned char *di
 		display[80] = '\0';
 	}
 
-	printisdn("    display='%s' (len=%d)\n", display, strlen((char *)display));
+	add_trace("display", NULL, "%s", display);
 
 	l = strlen((char *)display);
 	p = msg_put(msg, l+2);
@@ -924,7 +967,7 @@ void Pdss1::dec_ie_display(unsigned char *p, Q931_info_t *qi, unsigned char *dis
 
 	strnncpy(display, p+1, p[0], display_len);
 
-	printisdn("    display='%s'\n", display);
+	add_trace("display", NULL, "%s", display);
 }
 
 
@@ -941,7 +984,7 @@ void Pdss1::enc_ie_keypad(unsigned char **ntmode, msg_t *msg, unsigned char *key
 		return;
 	}
 
-	printisdn("    keypad='%s'\n", keypad);
+	add_trace("keypad", NULL, "%s", keypad);
 
 	l = strlen((char *)keypad);
 	p = msg_put(msg, l+2);
@@ -974,7 +1017,7 @@ void Pdss1::dec_ie_keypad(unsigned char *p, Q931_info_t *qi, unsigned char *keyp
 
 	strnncpy(keypad, p+1, p[0], keypad_len);
 
-	printisdn("    keypad='%s'\n", keypad);
+	add_trace("keypad", NULL, "%s", keypad);
 }
 
 
@@ -991,7 +1034,7 @@ void Pdss1::enc_ie_notify(unsigned char **ntmode, msg_t *msg, int notify)
 		return;
 	}
 
-	printisdn("    notify=%d\n", notify);
+	add_trace("notify", NULL, "%d", notify);
 
 	l = 1;
 	p = msg_put(msg, l+2);
@@ -1024,7 +1067,7 @@ void Pdss1::dec_ie_notify(unsigned char *p, Q931_info_t *qi, int *notify)
 
 	*notify = p[1] & 0x7f;
 
-	printisdn("    notify=%d\n", *notify);
+	add_trace("notify", NULL, "%d", *notify);
 }
 
 
@@ -1051,7 +1094,9 @@ void Pdss1::enc_ie_progress(unsigned char **ntmode, msg_t *msg, int coding, int 
 		return;
 	}
 
-	printisdn("    coding=%d location=%d progress=%d\n", coding, location, progress);
+	add_trace("progress", "codeing", "%d", coding);
+	add_trace("progress", "location", "%d", location);
+	add_trace("progress", "indicator", "%d", indicator);
 
 	l = 2;
 	p = msg_put(msg, l+2);
@@ -1089,7 +1134,9 @@ void Pdss1::dec_ie_progress(unsigned char *p, Q931_info_t *qi, int *coding, int 
 	*location = p[1] & 0x0f;
 	*progress = p[2] & 0x7f;
 
-	printisdn("    coding=%d location=%d progress=%d\n", *coding, *location, *progress);
+	add_trace("progress", "codeing", "%d", *coding);
+	add_trace("progress", "location", "%d", *location);
+	add_trace("progress", "indicator", "%d", *indicator);
 }
 
 
@@ -1126,7 +1173,12 @@ void Pdss1::enc_ie_redir_nr(unsigned char **ntmode, msg_t *msg, int type, int pl
 		return;
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d readon=%d number='%s'\n", type, plan, present, screen, reason, number);
+	add_trace("redir'ing", "type", "%d", type);
+	add_trace("redir'ing", "plan", "%d", plan);
+	add_trace("redir'ing", "present", "%d", present);
+	add_trace("redir'ing", "screen", "%d", screen);
+	add_trace("redir'ing", "reason", "%d", reason);
+	add_trace("redir'ing", "number", "%s", number);
 
 	l = 1;
 	if (number)
@@ -1210,7 +1262,12 @@ void Pdss1::dec_ie_redir_nr(unsigned char *p, Q931_info_t *qi, int *type, int *p
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
-	printisdn("    type=%d plan=%d present=%d screen=%d reason=%d number='%s'\n", *type, *plan, *present, *screen, *reason, number);
+	add_trace("redir'ing", "type", "%d", *type);
+	add_trace("redir'ing", "plan", "%d", *plan);
+	add_trace("redir'ing", "present", "%d", *present);
+	add_trace("redir'ing", "screen", "%d", *screen);
+	add_trace("redir'ing", "reason", "%d", *reason);
+	add_trace("redir'ing", "number", "%s", number);
 }
 
 
@@ -1237,7 +1294,10 @@ void Pdss1::enc_ie_redir_dn(unsigned char **ntmode, msg_t *msg, int type, int pl
 		return;
 	}
 
-	printisdn("    type=%d plan=%d present=%d number='%s'\n", type, plan, present, number);
+	add_trace("redir'tion", "type", "%d", type);
+	add_trace("redir'tion", "plan", "%d", plan);
+	add_trace("redir'tion", "present", "%d", present);
+	add_trace("redir'tion", "number", "%s", number);
 
 	l = 1;
 	if (number)
@@ -1297,7 +1357,10 @@ void Pdss1::dec_ie_redir_dn(unsigned char *p, Q931_info_t *qi, int *type, int *p
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
-	printisdn("    type=%d plan=%d present=%d number='%s'\n", *type, *plan, *present, number);
+	add_trace("redir'tion", "type", "%d", *type);
+	add_trace("redir'tion", "plan", "%d", *plan);
+	add_trace("redir'tion", "present", "%d", *present);
+	add_trace("redir'tion", "number", "%s", number);
 }
 
 
@@ -1308,7 +1371,7 @@ void Pdss1::enc_ie_facility(unsigned char **ntmode, msg_t *msg, unsigned char *f
 	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
 	int l;
 
-	char debug[768];
+	char buffer[768];
 	int i;
 
 	if (!facility || facility_len<=0)
@@ -1319,11 +1382,11 @@ void Pdss1::enc_ie_facility(unsigned char **ntmode, msg_t *msg, unsigned char *f
 	i = 0;
 	while(i < facility_len)
 	{
-		UPRINT(debug+(i*3), " %02x", facility[i]);
+		UPRINT(buffer+(i*3), " %02x", facility[i]);
 		i++;
 	}
 		
-	printisdn("    facility%s\n", debug);
+	add_trace("facility", NULL, "%s", buffer+1);
 
 	l = facility_len;
 	p = msg_put(msg, l+2);
@@ -1363,7 +1426,7 @@ void Pdss1::dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *fa
 	}
 	debug[i*3] = '\0';
 		
-	printisdn("    facility%s\n", debug);
+	add_trace("facility", NULL, "%s", buffer[0]?buffer+1:"<none>");
 }
 
 
@@ -1413,7 +1476,7 @@ void Pdss1::enc_facility_centrex(unsigned char **ntmode, msg_t *msg, unsigned ch
 	centrex[i++] = strlen((char *)cnip);
 	UCPY((char *)(&centrex[i]), (char *)cnip);
 	i += strlen((char *)cnip);
-	printisdn("    cnip='%s'\n", cnip);
+	add_trace("facility", "cnip", "%s", cnip);
 
 	/* encode facility */
 	enc_ie_facility(ntmode, msg, centrex, i);
@@ -1448,7 +1511,7 @@ void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned cha
 		{
 			case 0x80:
 			strnncpy(cnip, &centrex[i+2], centrex[i+1], cnip_len);
-			printisdn("    CENTREX cnip='%s'\n", cnip);
+			add_trace("facility", "cnip", "%s", cnip);
 			break;
 
 			default:
@@ -1458,7 +1521,7 @@ void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned cha
 				UPRINT(debug+(j*3), " %02x", centrex[i+1+j]);
 				i++;
 			}
-			printisdn("    CENTREX unknown=0x%2x len=%d%s\n", centrex[i], centrex[i+1], debug);
+			add_trace("facility", "CENTREX", "unknown=0x%2x len=%d%s\n", centrex[i], centrex[i+1], debug);
 		}
 		i += 1+centrex[i+1];
 	}
@@ -1472,7 +1535,7 @@ void Pdss1::enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, un
 	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
 	int l;
 
-	char debug[768];
+	char buffer[768];
 	int i;
 
 	if (protocol<0 || protocol>127)
@@ -1488,11 +1551,12 @@ void Pdss1::enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, un
 	i = 0;
 	while(i < user_len)
 	{
-		UPRINT(debug+(i*3), " %02x", user[i]);
+		UPRINT(buffer+(i*3), " %02x", user[i]);
 		i++;
 	}
 		
-	printisdn("    protocol=%d user-user%s\n", protocol, debug);
+	add_trace("useruser", "protocol", "%d", protocol);
+	add_trace("useruser", "value", "%s", buffer);
 
 	l = user_len;
 	p = msg_put(msg, l+3);
@@ -1508,7 +1572,7 @@ void Pdss1::enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, un
 
 void Pdss1::dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, unsigned char *user, int *user_len)
 {
-	char debug[768];
+	char buffer[768];
 	int i;
 
 	*user_len = 0;
@@ -1532,12 +1596,13 @@ void Pdss1::dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, un
 	i = 0;
 	while(i < *user_len)
 	{
-		UPRINT(debug+(i*3), " %02x", user[i]);
+		UPRINT(buffer+(i*3), " %02x", user[i]);
 		i++;
 	}
-	debug[i*3] = '\0';
+	buffer[i*3] = '\0';
 		
-	printisdn("    protocol=%d user-user%s\n", *protocol, debug);
+	add_trace("useruser", "protocol", "%d", *protocol);
+	add_trace("useruser", "value", "%s", buffer);
 }
 
 

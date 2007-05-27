@@ -165,6 +165,9 @@ genext.o: genext.c *.h Makefile
 admin_server.o: admin_server.c *.h Makefile
 	$(CC) -c $(CFLAGS) admin_server.c -o admin_server.o
 
+trace.o: trace.c *.h Makefile
+	$(CC) -c $(CFLAGS) trace.c -o trace.o
+
 
 #$(WIZZARD): wizzard.c Makefile
 #	$(CC) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
@@ -194,7 +197,8 @@ $(PBX): main.o \
 	call.o \
 	callpbx.o \
 	callchan.o \
-	admin_server.o
+	admin_server.o \
+	trace.o
 	$(LD) $(LIBDIR) \
        	main.o \
 	options.o \
@@ -221,6 +225,7 @@ $(PBX): main.o \
 	callpbx.o \
 	callchan.o \
 	admin_server.o \
+	trace.o \
 	$(LIBS) -o $(PBX) 
 
 $(PBXADMIN): admin_client.c cause.c *.h Makefile

@@ -203,8 +203,6 @@ class Port
 	char p_record_vbox_email[128];
 	int p_record_vbox_email_file;
 
-	virtual void printisdn(char *fmt, ...);
-
 	void free_epointlist(struct epoint_list *epointlist);
 	void free_epointid(unsigned long epoint_id);
 	struct epoint_list *epointlist_new(unsigned long epoint_id);

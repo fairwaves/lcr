@@ -138,6 +138,7 @@ extern "C" {
 #include "tones.h"
 #include "crypt.h"
 #include "admin_server.h"
+#include "trace.h"
 
 extern double now_d;
 extern time_t now;
@@ -145,5 +146,8 @@ extern struct tm *now_tm;
 extern struct timeval now_tv;
 extern struct timezone now_tz;
 
+#define DIRECTION_NONE	0
+#define DIRECTION_OUT	1
+#define DIRECTION_IN	2
 
 
