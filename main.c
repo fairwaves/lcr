@@ -264,13 +264,6 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 
-	/* check if we have a jitter limit that makes sense */
-	if (ISDN_JITTERLIMIT < 256)
-	{
-		fprintf(stderr, "The ISDN_JITTERLIMIT must be at least 256 samples.\n");
-		goto free;
-	}
-
 	/* init crc */
 	crc_init();
 

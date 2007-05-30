@@ -193,7 +193,7 @@ static void bchannel_activate(struct mISDNport *mISDNport, int i)
 	/* if we are active, we configure our channel */
 	if (mISDNport->b_state[i] == B_STATE_ACTIVE)
 	{
-		unsigned char buffer[mISDN_HEADER_LEN+ISDN_PRELOAD];
+		unsigned char buffer[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)];
 		iframe_t *pre = (iframe_t *)buffer; /* preload data */
 		unsigned char *p = (unsigned char *)&pre->data.p;
 
@@ -527,7 +527,7 @@ int PmISDN::handler(void)
 			elapsed = 1000 * (now_tv.sec - p_last_tv_sec)
 				+ (now_tv.usec/1000) - p_last_tv_msec;
 			/* gap was greater preload, so only fill up to preload level */
-			if (elapsed > ISDN_PRELOAD)
+			if (elapsed > (ISDN_PRELOAD<<3))
 			{
 				elapsed = ISDN_PRELOAD << 3
 			}
@@ -1610,20 +1610,6 @@ struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
 		PDEBUG(DEBUG_ISDN, "NT-mode BRI S/T interface port\n");
 		nt = 1;
 		break;
-		case ISDN_PID_L0_TE_U:
-		PDEBUG(DEBUG_ISDN, "TE-mode BRI U   interface line\n");
-		break;
-		case ISDN_PID_L0_NT_U:
-		PDEBUG(DEBUG_ISDN, "NT-mode BRI U   interface port\n");
-		nt = 1;
-		break;
-		case ISDN_PID_L0_TE_UP2:
-		PDEBUG(DEBUG_ISDN, "TE-mode BRI Up2 interface line\n");
-		break;
-		case ISDN_PID_L0_NT_UP2:
-		PDEBUG(DEBUG_ISDN, "NT-mode BRI Up2 interface port\n");
-		nt = 1;
-		break;
 		case ISDN_PID_L0_TE_E1:
 		PDEBUG(DEBUG_ISDN, "TE-mode PRI E1  interface line\n");
 		pri = 1;
@@ -2098,20 +2084,6 @@ void mISDN_port_info(void)
 			if (stinf->pid.protocol[0] & ISDN_PID_L0_NT_S0_HFC & ISDN_PID_FEATURE_MASK)
 				printf(" HFC multiport card");
 #endif
-			break;
-			case ISDN_PID_L0_TE_U:
-			printf("TE-mode BRI U   interface line");
-			break;
-			case ISDN_PID_L0_NT_U:
-			nt = 1;
-			printf("NT-mode BRI U   interface port");
-			break;
-			case ISDN_PID_L0_TE_UP2:
-			printf("TE-mode BRI Up2 interface line");
-			break;
-			case ISDN_PID_L0_NT_UP2:
-			nt = 1;
-			printf("NT-mode BRI Up2 interface port");
 			break;
 			case ISDN_PID_L0_TE_E1:
 			pri = 1;

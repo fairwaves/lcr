@@ -113,7 +113,7 @@ void _printerror(const char *function, int line, const char *fmt, ...);
 extern "C" {
 #endif
 #include <isdn_net.h>
-#include <net_l3.h>
+#include <../i4lnet/net_l3.h>
 #ifdef __cplusplus
 }
 #endif

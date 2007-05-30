@@ -11,8 +11,7 @@
 
 #include "main.h"
 
-struct trace trace[MAX_NESTED_TRACES];
-int trace_current = -1;
+struct trace trace;
 char trace_string[MX_TRACE_ELEMENTS * 100 + 400];
 
 static char *spaces[11] = {
@@ -35,27 +34,23 @@ static char *spaces[11] = {
  */
 void start_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
 {
-	if (++trace_current == MAX_NESTED_TRACES)
-	{
-		PERROR("maximum nesting level of traces exceeding: %d, exitting!\n", MAX_NESTED_TRACES);
-		PERROR("last trace=%s\n", trace[MAX_NESTED_TRACE-1].name);
-		exit(-1);
-	}
-	memset(trace[trace_current], 0, sizeof(struct trace));
-	trace[trace_current].port = port;
+	if (trace.name[0])
+		PERROR("trace already started (name=%s)\n", trace.name);
+	memset(trace, 0, sizeof(struct trace));
+	trace.port = port;
 	if (interface) if (interface[0])
-		SCPY(trace[trace_current].interface, interface);
+		SCPY(trace.interface, interface);
 	if (caller) if (caller[0])
-		SCPY(trace[trace_current].caller, caller);
+		SCPY(trace.caller, caller);
 	if (dialing) if (dialing[0])
-		SCPY(trace[trace_current].dialing, dialing);
-	trace[trace_current].direction = direction;
+		SCPY(trace.dialing, dialing);
+	trace.direction = direction;
 	if (category) if (category[0])
-		SCPY(trace[trace_current].category, category);
+		SCPY(trace.category, category);
 	if (name) if (name[0])
-		SCPY(trace[trace_current].name, name);
-	trace[trace_current].sec = now_tv.tv_sec;
-	trace[trace_current].usec = now_tv.tv_usec;
+		SCPY(trace.name, name);
+	trace.sec = now_tv.tv_sec;
+	trace.usec = now_tv.tv_usec;
 }
 
 
@@ -68,19 +63,8 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
 {
 	va_list args;
 
-	/* check nesting */
-	if (trace_current < 0)
-	{
-		PERROR("add_trace called without start_trace, exitting.\n");
-		exit(0);
-	}
-	
-	/* check for space */
-	if (trace[trace_current].elements == MAX_TRACE_ELEMENTS)
-	{
-		PERROR("trace with name=%s exceeds the maximum number of elements (%d)\n", trace.name, MAX_TRACE_ELEMENTS);
-		return;
-	}
+	if (!trace.name[0])
+		PERROR("trace not started\n");
 	
 	/* check for required name value */
 	if (!name)
@@ -93,18 +77,18 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
 	}
 	
 	/* write name, sub and value */
-	SCPY(trace[trace_current].element[trace[trace_current].elements].name, name);
+	SCPY(trace.element[trace.elements].name, name);
 	if (sub) if (sub[0])
-		SCPY(trace[trace_current].element[trace[trace_current].elements].sub, sub);
+		SCPY(trace.element[trace.elements].sub, sub);
 	if (fmt) if (fmt[0])
 	{
 		va_start(args, fmt);
-		VUNPRINT(trace[trace_current].element[trace[trace_current].element].value, sizeof(trace[trace_current].element[trace[trace_current].elements].value)-1, fmt, args);
+		VUNPRINT(trace.element[trace.element].value, sizeof(trace.element[trace.elements].value)-1, fmt, args);
 		va_end(args);
 	}
 
 	/* increment elements */
-	trace[trace_current].elements++;
+	trace.elements++;
 }
 
 
@@ -114,12 +98,8 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
  */
 void end_trace(void);
 {
-	/* check nesting */
-	if (trace_current < 0)
-	{
-		PERROR("end_trace called without start_trace, exitting.\n");
-		exit(0);
-	}
+	if (!trace.name[0])
+		PERROR("trace not started\n");
 	
 	/* process log file */
 	if (options.log[0])
@@ -128,8 +108,7 @@ void end_trace(void);
 		fwrite(string, strlen(string), 1, fp);
 	}
 
-	/* reduce nesting level */
-	trace_current--;
+	memset(trace, 0, sizeof(struct trace));
 }
 
 
@@ -137,7 +116,7 @@ void end_trace(void);
  * prints trace to socket or log
  * detail: 1 = brief, 2=short, 3=long
  */
-static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, int direction, char *category);
+static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, char *category);
 {
 	trace_string[0] = '\0';
 	char buffer[256];
@@ -155,8 +134,6 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		if (!!strcasecmp(caller, trace.caller)) return;
 	if (dialing && dialing[0] && trace.dialing[0])
 		if (!!strcasecmp(dialing, trace.dialing)) return;
-	if (direction && trace.direction)
-		if (direction != trace.direction) return;
 	if (category && category[0] && trace.category[0])
 		if (!!strcasecmp(category, trace.category)) return;
 
@@ -237,9 +214,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				buffer[0] = '\0';
 			SCAT(trace_string, buffer);
 			if (trace.element[i].sub[0])
-				SPRINT(buffer, " %s=%s", trace.element[i].sub, value);
+				SPRINT(buffer, " %s=", trace.element[i].sub, value);
 			else
-				SPRINT(buffer, " %s", value);
+				SPRINT(buffer, " ", value);
+			SCAT(trace_string, buffer);
+			if (strchr(value, ' '))
+				SPRINT(buffer, "'%s'", value);
+			else
+				SPRINT(buffer, "%s", value);
 			SCAT(trace_string, buffer);
 			i++;
 		}
@@ -257,9 +239,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				SPRINT(buffer, "           ");
 			SCAT(trace_string, buffer);
 			if (trace.element[i].sub[0])
-				SPRINT(buffer, " : %s%s = %s\n", trace.element[i].sub, spaces[strlen(trace.element[i].sub)], value);
+				SPRINT(buffer, " : %s%s = ", trace.element[i].sub, spaces[strlen(trace.element[i].sub)], value);
 			else
-				SPRINT(buffer, " :              %s\n", value);
+				SPRINT(buffer, " :              ", value);
+			SCAT(trace_string, buffer);
+			if (strchr(value, ' '))
+				SPRINT(buffer, "'%s'\n", value);
+			else
+				SPRINT(buffer, "%s\n", value);
 			SCAT(trace_string, buffer);
 			i++;
 		}

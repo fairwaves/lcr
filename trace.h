@@ -15,8 +15,6 @@ struct trace_element {
 	char value[64];
 };
 
-#define MAX_NESTED_TRACES	1
-
 #define MAX_TRACE_ELEMENTS	32
 struct trace {
 	/* header */
@@ -28,7 +26,7 @@ struct trace {
 	unsigned long sec, usec;
 	
 	/* type */
-	char category[32];
+	char category[4];
 	char name[64];
 
 	/* elements */

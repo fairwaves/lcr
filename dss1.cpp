@@ -45,7 +45,6 @@ Pdss1::Pdss1(int type, mISDNport *mISDNport, char *portname, struct port_setting
 	p_m_d_collect_cause = CAUSE_NOUSER;
 	p_m_d_collect_location = LOCATION_PRIVATE_LOCAL;
 
-
 	PDEBUG(DEBUG_ISDN, "Created new mISDNPort(%s). Currently %d objects use, %s port #%d\n", portname, mISDNport->use, (mISDNport->ntmode)?"NT":"TE", p_m_portnum);
 }
 
@@ -326,14 +325,12 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		}
 
 		/* if channel was not accepted, try to get it */
-		PDEBUG(DEBUG_BCHANNEL, "- our suggested channel %d was not accepted, but %d was given.\n", p_m_b_channel, channel);
 		ret = seize_bchannel(channel, 1); // exclusively
 		add_trace("channel", "available", ret<0?"no":"yes");
 		if (ret < 0)
 		{
 			add_trace("conclusion", NULL, "replied channel not available");
 			end_trace();
-			PDEBUG(DEBUG_BCHANNEL, "- the replied channel %d is not available (cause %d).\n", channel, -ret);
 			goto channelerror;
 		}
 		add_trace("conclusion", NULL, "replied channel accepted");
@@ -444,7 +441,6 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		}
 
 		/* we will see, if our received channel is available */
-		PDEBUG(DEBUG_BCHANNEL, "- our during call-waiting, we get channel %d as first reply.\n", channel);
 		use_from_connect:
 		ret = seize_bchannel(channel, exclusive);
 		add_trace("channel", "available", ret<0?"no":"yes");
@@ -910,7 +906,6 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		exit(-1);
 	}
 	/* send setup message to endpoit */
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) setup: %s->%s\n", p_name, p_callerinfo.id, p_dialinginfo.number);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
 	message->param.setup.port_type = p_type;
@@ -1258,7 +1253,6 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) connect (to '%s' COLP: '%s')\n", p_name, p_dialinginfo.number, p_connectinfo.id);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 	memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
 	message_put(message);
@@ -1289,11 +1283,11 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		RELEASE_t *release;
 		msg_t *dmsg;
 
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) send release because remote disconnects AND provides no patterns (earlyb).\n", p_name);
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, dinfo, sizeof(RELEASE_t), p_m_d_ntmode);
 		release = (RELEASE_t *)(dmsg->data + headerlen);
 		l3_trace_header(CC_RELEASE | REQUEST, DIRECTION_OUT);
 		enc_ie_cause(&release->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
+		add_trace("reason", NULL, "no remote patterns");
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -1451,7 +1445,6 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 		free_epointlist(p_epointlist);
 	}
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) release_complete (cause %d)\n", p_name, cause);
 	new_state(PORT_STATE_RELEASE);
 	p_m_delete = 1;
 }
@@ -1474,7 +1467,6 @@ void Pdss1::t312_timeout(unsigned long prim, unsigned long dinfo, void *data)
 		free_epointlist(p_epointlist);
 	}
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) t312_timeout (collected cause %d location %d)\n", p_name, p_m_d_collect_cause, p_m_d_collect_location);
 	new_state(PORT_STATE_RELEASE);
 	p_m_delete = 1;
 }
@@ -1493,10 +1485,7 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist))
-	{
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) there is no active endpoint to notify to.\n", p_name);
 		return;
-	}
 	/* notification indicator */
 	if (notify < 0)
 		return;
@@ -1556,13 +1545,11 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	if (!ACTIVE_EPOINT(p_epointlist) || p_m_hold)
 	{
-
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) there is no endpoint to notify hold OR we are already on hold, so we reject.\n", p_name);
-
 		dmsg = create_l3msg(CC_HOLD_REJECT | REQUEST, MT_HOLD_REJECT, dinfo, sizeof(HOLD_REJECT_t), p_m_d_ntmode);
 		hold_reject = (HOLD_REJECT_t *)(dmsg->data + headerlen);
 		l3_trace_header(CC_HOLD_REJECT | REQUEST, DIRECTION_OUT);
 		enc_ie_cause(&hold_reject->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, p_m_hold?101:31); /* normal unspecified / incompatible state */
+		add_trace("reason", NULL, "no endpoint");
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -1628,7 +1615,6 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 	{
 		cause = 101; /* incompatible state */
 		reject:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) we are not on hold, so we reject (cazse %d).\n", p_name, cause);
 
 		dmsg = create_l3msg(CC_RETRIEVE_REJECT | REQUEST, MT_RETRIEVE_REJECT, dinfo, sizeof(RETRIEVE_REJECT_t), p_m_d_ntmode);
 		retrieve_reject = (RETRIEVE_REJECT_t *)(dmsg->data + headerlen);
@@ -1765,7 +1751,6 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 			if (epoint->ep_park_len == len)
 			if (!memcmp(epoint->ep_park_callid, callid, len))
 			{
-				PDEBUG(DEBUG_ISDN, "Pdss1(%s) call id is in use, so we reject.\n", p_name);
 				ret = -84; /* call id in use */
 				goto reject;
 			}
@@ -1907,10 +1892,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		epoint = epoint->next;
 	}
 	if (!epoint)
-	{
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) no suspended call, so we reject with cause %d.\n", p_name, ret);
 		goto reject;
-	}
 
 	if (!(epointlist_new(epoint->ep_serial)))
 	{
@@ -1922,7 +1904,6 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		PERROR("no memory for portlist\n");
 		exit(-1);
 	}
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) resume\n", p_name);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RESUME);
 	message_put(message);
 
@@ -1961,7 +1942,6 @@ void Pdss1::facility_ind(unsigned long prim, unsigned long dinfo, void *data)
 	if (facil_len<=0)
 		return;
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) facility\n", p_name);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_FACILITY);
 	message->param.facilityinfo.len = facil_len;
 	memcpy(message->param.facilityinfo.data, facil, facil_len);
@@ -1996,12 +1976,8 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 
 		case CC_SETUP | INDICATION:
-		PDEBUG((DEBUG_BCHANNEL|DEBUG_ISDN), "Pdss1(%s) setup\n", p_name);
 		if (p_state != PORT_STATE_IDLE)
-		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received setup again, IGNORING.\n", p_name);
 			break;
-		}
 		setup_ind(prim, dinfo, data);
 		break;
 
@@ -2018,61 +1994,55 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 			end_trace();
 		}
 		end_trace;
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) setup confirm (l3id=0x%x)\n", p_name, p_m_d_l3id);
 		break;
 
 		case CC_INFORMATION | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) information\n", p_name);
 		information_ind(prim, dinfo, data);
 		break;
 
 		case CC_SETUP_ACKNOWLEDGE | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) setup acknowledge\n", p_name);
 		if (p_state != PORT_STATE_OUT_SETUP)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received setup_acknowledge, but we are not in outgoing setup state, IGNORING.\n", p_name);
+			PERROR("Pdss1(%s) received setup_acknowledge, but we are not in outgoing setup state, IGNORING.\n", p_name);
 			break;
 		}
 		setup_acknowledge_ind(prim, dinfo, data);
 		break;
 
 		case CC_PROCEEDING | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) proceeding\n", p_name);
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received proceeding, but we are not in outgoing setup OR overlap state, IGNORING.\n", p_name);
+			PERROR("Pdss1(%s) received proceeding, but we are not in outgoing setup OR overlap state, IGNORING.\n", p_name);
 			break;
 		}
 		proceeding_ind(prim, dinfo, data);
 		break;
 
 		case CC_ALERTING | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) alerting\n", p_name);
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP
 		 && p_state != PORT_STATE_OUT_PROCEEDING)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding state, IGNORING.\n", p_name);
+			PERROR("Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding state, IGNORING.\n", p_name);
 			break;
 		}
 		alerting_ind(prim, dinfo, data);
 		break;
 
 		case CC_CONNECT | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) connect\n", p_name);
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP
 		 && p_state != PORT_STATE_OUT_PROCEEDING
 		 && p_state != PORT_STATE_OUT_ALERTING)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding OR ALERTING state, IGNORING.\n", p_name);
+			PERROR("Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding OR ALERTING state, IGNORING.\n", p_name);
 			break;
 		}
 		connect_ind(prim, dinfo, data);
 		if (p_m_d_notify_pending)
 		{
-			PDEBUG(DEBUG_ISDN, "received or connect, so we send pending notify message.\n");
+			/* send pending notify message during connect */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
 			p_m_d_notify_pending = NULL;
@@ -2081,12 +2051,11 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 
 		case CC_CONNECT_ACKNOWLEDGE | INDICATION:
 		case CC_CONNECT | CONFIRM:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) connect_acknowlege.\n", p_name);
 		if (p_state == PORT_STATE_CONNECT_WAITING)
 			new_state(PORT_STATE_CONNECT);
 		if (p_m_d_notify_pending)
 		{
-			PDEBUG(DEBUG_ISDN, "received or connect-ack, so we send pending notify message.\n");
+			/* send pending notify message during connect-ack */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
 			p_m_d_notify_pending = NULL;
@@ -2094,53 +2063,42 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 
 		case CC_DISCONNECT | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) disconnect\n", p_name);
 		disconnect_ind(prim, dinfo, data);
 		break;
 
 		case CC_RELEASE | CONFIRM:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) release confirm\n", p_name);
 		case CC_RELEASE | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) release\n", p_name);
 		release_ind(prim, dinfo, data);
 		break;
 
 		case CC_RELEASE_COMPLETE | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) release_complete.\n", p_name);
 		release_complete_ind(prim, dinfo, data);
 		break;
 
 		case CC_RELEASE_COMPLETE | CONFIRM:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) release_complete (confirm).\n", p_name);
 		break;
 
 		case CC_NOTIFY | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) notify\n", p_name);
 		notify_ind(prim, dinfo, data);
 		break;
 
 		case CC_HOLD | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) hold\n", p_name);
 		hold_ind(prim, dinfo, data);
 		break;
 
 		case CC_RETRIEVE | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) retrieve\n", p_name);
 		retrieve_ind(prim, dinfo, data);
 		break;
 
 		case CC_SUSPEND | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) suspend\n", p_name);
 		suspend_ind(prim, dinfo, data);
 		break;
 
 		case CC_RESUME | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) resume\n", p_name);
 		resume_ind(prim, dinfo, data);
 		break;
 
 		case CC_FACILITY | INDICATION:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) facility\n", p_name);
 		facility_ind(prim, dinfo, data);
 		break;
 
@@ -2262,7 +2220,6 @@ int Pdss1::handler(void)
 	/* handle destruction */
 	if (p_m_delete && p_m_d_l3id==0)
 	{
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) doing pending release.\n", p_name);
 		delete this;
 		return(-1);
 	}
@@ -2611,8 +2568,6 @@ void Pdss1::message_facility(unsigned long epoint_id, int message_id, union para
 	if (!p_m_d_ntmode)
 		return;
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) sending facility message\n", p_name);
-
 	/* sending facility */
 	dmsg = create_l3msg(CC_FACILITY | REQUEST, MT_FACILITY, p_m_d_l3id, sizeof(FACILITY_t), p_m_d_ntmode);
 	facility = (FACILITY_t *)(dmsg->data + headerlen);
@@ -2632,7 +2587,6 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 	int plan, type = -1, present;
 	msg_t *dmsg;
 
-	PDEBUG(DEBUG_ISDN, "Pdss1(%s) sending information message\n", p_name);
 	if (param->notifyinfo.notify>INFO_NOTIFY_NONE)
 		notify = param->notifyinfo.notify & 0x7f;
 	else
@@ -2681,7 +2635,7 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 
 	if (notify<0 && !param->notifyinfo.display[0])
 	{
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) nothing to notify, nothing to display\n", p_name);
+		/* nothing to notify, nothing to display */
 		return;
 	}
 
@@ -2690,7 +2644,6 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 		if (p_state!=PORT_STATE_CONNECT)
 		{
 			/* queue notification */
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) queueing notification because isdn port is not active state.\n", p_name);
 			if (p_m_d_notify_pending)
 				message_free(p_m_d_notify_pending);
 			p_m_d_notify_pending = message_create(ACTIVE_EPOINT(p_epointlist), p_serial, EPOINT_TO_PORT, message_id);
@@ -2872,7 +2825,7 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 
 	if (p_state!=PORT_STATE_IN_SETUP && p_state!=PORT_STATE_IN_OVERLAP && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING)
 	{
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) connect command only possible in setup, proceeding or alerting state.\n", p_name);
+		/* connect command only possible in setup, proceeding or alerting state */
 		return;
 	}
 
@@ -3147,14 +3100,12 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 	switch(message_id)
 	{
 		case MESSAGE_INFORMATION: /* overlap dialing */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) received dialing info '%s'.\n", p_name, param->information.number);
 		if (p_type==PORT_TYPE_DSS1_NT_OUT
 		 && p_state!=PORT_STATE_OUT_OVERLAP
 		 && p_state!=PORT_STATE_CONNECT
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
 		 && p_state!=PORT_STATE_IN_DISCONNECT)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) (internal outgoing) ignoring information, invalid state.\n", p_name);
 			break;
 		}
 		if (p_type==PORT_TYPE_DSS1_TE_OUT
@@ -3165,8 +3116,6 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
 		 && p_state!=PORT_STATE_IN_DISCONNECT)
 		{
-			if (options.deb & DEBUG_ISDN)
-				PERROR("Pdss1(%s) (external outgoing) ignoring information, invalid state.\n", p_name);
 			break;
 		}
 		if ((p_type==PORT_TYPE_DSS1_NT_IN || p_type==PORT_TYPE_DSS1_TE_IN)
@@ -3178,14 +3127,12 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
 		 && p_state!=PORT_STATE_IN_DISCONNECT)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) (incoming) ignoring information, invalid state.\n", p_name);
 			break;
 		}
 		message_information(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint */
-		PDEBUG((DEBUG_ISDN | DEBUG_BCHANNEL), "Pdss1(%s) isdn port received setup from '%s' to '%s'\n", p_name, param->setup.callerinfo.id, param->setup.dialinginfo.number);
 		if (p_state!=PORT_STATE_IDLE
 		 && p_state!=PORT_STATE_CONNECT)
 		{
@@ -3226,64 +3173,53 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 		break;
 
 		case MESSAGE_NOTIFY: /* display and notifications */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received notification: display='%s' notify=%d phone=%s\n", p_name, p_callerinfo.id, param->notifyinfo.display, param->notifyinfo.notify, param->notifyinfo.id);
 		message_notify(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_FACILITY: /* facility message */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received facility.\n", p_name, p_callerinfo.id);
 		message_facility(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_OVERLAP: /* more information is needed */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received setup acknowledge\n", p_name, p_callerinfo.id);
 		if (p_state!=PORT_STATE_IN_SETUP)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring setup acknowledge because isdn port is not incoming setup state.\n", p_name);
 			break;
 		}
 		message_overlap(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_PROCEEDING: /* call of endpoint is proceeding */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received proceeding\n", p_name, p_callerinfo.id);
 		if (p_state!=PORT_STATE_IN_SETUP
 		 && p_state!=PORT_STATE_IN_OVERLAP)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring: proceeding command not possible in current state.\n", p_name);
 			break;
 		}
 		message_proceeding(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_ALERTING: /* call of endpoint is ringing */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received alerting\n", p_name, p_callerinfo.id);
 		if (p_state!=PORT_STATE_IN_SETUP
 		 && p_state!=PORT_STATE_IN_OVERLAP
 		 && p_state!=PORT_STATE_IN_PROCEEDING)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring: alerting command not possible in current state.\n", p_name);
 			break;
 		}
 		message_alerting(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_CONNECT: /* call of endpoint is connected */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received connect\n", p_name, p_callerinfo.id);
 		if (p_state!=PORT_STATE_IN_SETUP
 		 && p_state!=PORT_STATE_IN_OVERLAP
 		 && p_state!=PORT_STATE_IN_PROCEEDING
 		 && p_state!=PORT_STATE_IN_ALERTING
 		 && !(p_state==PORT_STATE_CONNECT && p_m_d_ntmode))
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring: connect command not possible in current state.\n", p_name);
 			break;
 		}
 		message_connect(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_DISCONNECT: /* call has been disconnected */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received disconnect cause=%d\n", p_name, p_callerinfo.id, param->disconnectinfo.cause);
 		if (p_state!=PORT_STATE_IN_SETUP
 		 && p_state!=PORT_STATE_IN_OVERLAP
 		 && p_state!=PORT_STATE_IN_PROCEEDING
@@ -3295,24 +3231,21 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 		 && p_state!=PORT_STATE_CONNECT
 		 && p_state!=PORT_STATE_CONNECT_WAITING)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring: disconnect command not possible in current state.\n", p_name);
 			break;
 		}
 		message_disconnect(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_RELEASE: /* release isdn port */
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received release cause=%d\n", p_name, p_callerinfo.id, param->disconnectinfo.cause);
 		if (p_state==PORT_STATE_RELEASE)
 		{
-			PDEBUG(DEBUG_ISDN, "Pdss1(%s) ignoring: release command not possible in RELEASE state.\n", p_name);
 			break;
 		}
 		message_release(epoint_id, message_id, param);
 		break;
 
 		default:
-		PDEBUG(DEBUG_ISDN, "Pdss1(%s) isdn port with (caller id %s) received a wrong message: %d\n", p_name, p_callerinfo.id, message);
+		PERROR("Pdss1(%s) isdn port with (caller id %s) received a wrong message: %d\n", p_name, p_callerinfo.id, message);
 	}
 
 	return(1);
@@ -3460,14 +3393,14 @@ int stack2manager_nt(void *dat, void *arg)
 		break;
 
 		case CC_RELEASE_CR | INDICATION:
-		PDEBUG(DEBUG_ISDN, "%s: unhandled message from stack: call ref released (l3id=0x%x)\n", __FUNCTION__, hh->dinfo);
+		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", hh->dinfo);
 		break;
 
 		case CC_DISCONNECT | INDICATION:
 
 		// fall throug
 		default:
-		PDEBUG(DEBUG_ISDN, "%s: unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", __FUNCTION__, hh->prim, hh->dinfo, msg->len);
+		PERROR("unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", hh->prim, hh->dinfo, msg->len);
 		return(-EINVAL);
 	}
 	free_msg(msg);
@@ -3494,7 +3427,6 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)
 		if (port->p_type == PORT_TYPE_DSS1_TE_IN || port->p_type == PORT_TYPE_DSS1_TE_OUT)
 		{
 			pdss1 = (class Pdss1 *)port;
-//PDEBUG(DEBUG_ISDN, "comparing dinfo = 0x%x with l3id 0x%x\n", frm->dinfo, pdss1->p_m_d_l3id);
 			/* check out correct stack */
 			if (pdss1->p_m_mISDNport == mISDNport)
 			/* check out correct id */
@@ -3541,11 +3473,11 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)
 
 	if (frm->prim == (CC_RELEASE_CR | INDICATION))
 	{
-		PDEBUG(DEBUG_ISDN, "unhandled message from stack: call ref released (l3id=0x%x)\n", frm->dinfo);
+		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", frm->dinfo);
 		free_msg(msg);
 		return(0);
 	}
-	PDEBUG(DEBUG_ISDN, "unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", frm->prim, frm->dinfo, msg->len);
+	PERROR("unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", frm->prim, frm->dinfo, msg->len);
 	return(-EINVAL);
 }
 

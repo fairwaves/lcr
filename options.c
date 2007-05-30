@@ -35,7 +35,7 @@ struct options options = {
 	"",				/* dummy caller id */
 	0,				/* use tones by dsp.o */
 	0,				/* by default use priority 0 */
-	"pbx@jolly.de"			/* source mail adress */
+	"lcr@your.machine"		/* source mail adress */
 };
 
 /* read options

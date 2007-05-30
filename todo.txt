@@ -1,5 +1,3 @@
-define and change dsp conference ids
-
 make asterisk call implementation
 
 new interface.conf (add remove ports by admin)

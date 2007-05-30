@@ -135,13 +135,56 @@ EndpointAppPBX::~EndpointAppPBX(void)
 }
 
 
+/*
+ * trace header for application
+ */
+void EndpointAppPBX::trace_header(char *name, int direction)
+{
+	char msgtext[sizeof(trace.name)];
+
+	SCPY(msgtext, name);
+
+	/* add direction */
+	if (direction)
+	{
+		if (p_m_ntmode)
+		{
+			if (direction == DIRECTION_OUT)
+				SCAT(msgtext, " N->U");
+			else
+				SCAT(msgtext, " N<-U");
+		} else
+		{
+			if (direction == DIRECTION_OUT)
+				SCAT(msgtext, " U->N");
+			else
+				SCAT(msgtext, " U<-N");
+		}
+	}
+
+	/* init trace with given values */
+	start_trace(0,
+		    NULL,
+		    nationalize(e_callerinfo.id, e_callerinfo.ntype),
+		    e_dialinginfo.number,
+		    direction,
+		    CATEGORY_AP,
+		    msgtext);
+}
+
+
 EPOINT_STATE_NAMES
 
 /* set new endpoint state
  */
 void EndpointAppPBX::new_state(int state)
 {
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) new state %s --> %s\n", ea_endpoint->ep_serial, state_name[e_state], state_name[state]);
+	if (e_state != state)
+	{
+		trace_header("NEW STATE", DIRECTION_NONE);
+		add_trace("state", "old", "%s", state_name[e_state]);
+		add_trace("state", "new", "%s", state_name[state]);
+	}
 	e_state = state;
 }
 

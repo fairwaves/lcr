@@ -120,11 +120,25 @@ struct admin_call {
 	int		exthlc;
 };
 
-struct admin_message {
-	int		type; /* type of message */
-	unsigned long	ref; /* reference to individual endpoints */
-	union parameter	param; /* parameter union */
+struct admin_trace_req {
+	int		detail;
+	char		category[4];
+	char		name[64];
+	int		port;
+	char		interface[64];
+	char		caller[34];
+	char		dialing[64];
 };
+
+struct admin_trace_rsp {
+	char		text[512];
+};
+
+//struct admin_msg {
+//	int		type; /* type of message */
+//	unsigned long	ref; /* reference to individual endpoints */
+//	union parameter	param; /* parameter union */
+//};
 
 struct admin_message {
 	int message; /* type of admin message */
@@ -136,8 +150,9 @@ struct admin_message {
 		struct admin_response_epoint	e;
 		struct admin_response_call	c;
 		struct admin_call		call;
-		struct admin_message		message;
-		struct admin_trace		trace;
+//		struct admin_msg		msg;
+		struct admin_trace_req		trace_req;
+		struct admin_trace_rsp		trace_rsp;
 	} u;
 };
 
