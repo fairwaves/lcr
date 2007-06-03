@@ -111,9 +111,7 @@ enum { /* how to parse text file during startup */
 #define PARAM_INTERFACES	(1LL<<19)
 #define PARAM_ADDRESS		(1LL<<20)
 #define PARAM_SAMPLE		(1LL<<21)
-#ifdef PBX
 #define PARAM_ANNOUNCEMENT	(1LL<<22)
-#endif
 #define PARAM_RULESET		(1LL<<23)
 #define PARAM_CAUSE		(1LL<<24)
 #define PARAM_LOCATION		(1LL<<25)
@@ -132,9 +130,8 @@ enum { /* how to parse text file during startup */
 #define PARAM_CALLTO		(1LL<<38)
 #define PARAM_ROOM		(1LL<<39)
 #define PARAM_TIMEOUT		(1LL<<40)
-#ifdef PBX
 #define PARAM_NOPASSWORD	(1LL<<41)
-#endif
+#define PARAM_STRIP	(1LL<<42)
 
 
 /* action index

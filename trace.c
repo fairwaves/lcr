@@ -32,7 +32,7 @@ static char *spaces[11] = {
  * initializes a new trace
  * all values will be reset
  */
-void start_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
+void start_trace(int port, char *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
 {
 	if (trace.name[0])
 		PERROR("trace already started (name=%s)\n", trace.name);
@@ -45,8 +45,8 @@ void start_trace(int port, char *interface, char *caller, char *dialing, int dir
 	if (dialing) if (dialing[0])
 		SCPY(trace.dialing, dialing);
 	trace.direction = direction;
-	if (category) if (category[0])
-		SCPY(trace.category, category);
+	trace.category = category;
+	trace.serial = serial;
 	if (name) if (name[0])
 		SCPY(trace.name, name);
 	trace.sec = now_tv.tv_sec;
@@ -104,7 +104,7 @@ void end_trace(void);
 	/* process log file */
 	if (options.log[0])
 	{
-		string = print_trace(1, 0, NULL, NULL, NULL, -1, "AP", NULL);
+		string = print_trace(1, 0, NULL, NULL, NULL, -1, "AP", CATEGORY_EP);
 		fwrite(string, strlen(string), 1, fp);
 	}
 
@@ -116,7 +116,7 @@ void end_trace(void);
  * prints trace to socket or log
  * detail: 1 = brief, 2=short, 3=long
  */
-static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, char *category);
+static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, int category);
 {
 	trace_string[0] = '\0';
 	char buffer[256];
@@ -198,8 +198,20 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
 	}
 
-	/* "L3: CC_SETUP (net->user)" */
-	SPRINT(buffer, "%s: %s", trace.category[0]?trace.category:"--", trace.name[0]?trace.name:"<unknown>");
+	/* "CH(45): CC_SETUP (net->user)" */
+	switch (trace.category)
+	{	case CATEGORY_CH:
+		SCAT(trace_string, "CH");
+		break;
+
+		case CATEGORY_EP:
+		SCAT(trace_string, "EP");
+		break;
+
+		default:
+		SCAT(trace_string, "--");
+	}
+	SPRINT(buffer, "(%d): %s", trace.serial, trace.name[0]?trace.name:"<unknown>");
 	SCAT(trace_string, buffer);
 
 	/* elements */

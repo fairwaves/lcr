@@ -144,31 +144,14 @@ void EndpointAppPBX::trace_header(char *name, int direction)
 
 	SCPY(msgtext, name);
 
-	/* add direction */
-	if (direction)
-	{
-		if (p_m_ntmode)
-		{
-			if (direction == DIRECTION_OUT)
-				SCAT(msgtext, " N->U");
-			else
-				SCAT(msgtext, " N<-U");
-		} else
-		{
-			if (direction == DIRECTION_OUT)
-				SCAT(msgtext, " U->N");
-			else
-				SCAT(msgtext, " U<-N");
-		}
-	}
-
 	/* init trace with given values */
-	start_trace(0,
+	start_trace(e_serial,
 		    NULL,
 		    nationalize(e_callerinfo.id, e_callerinfo.ntype),
 		    e_dialinginfo.number,
 		    direction,
-		    CATEGORY_AP,
+		    CATEGORY_EP,
+		    e_serial,
 		    msgtext);
 }
 
@@ -179,12 +162,15 @@ EPOINT_STATE_NAMES
  */
 void EndpointAppPBX::new_state(int state)
 {
+#if 0
 	if (e_state != state)
 	{
 		trace_header("NEW STATE", DIRECTION_NONE);
 		add_trace("state", "old", "%s", state_name[e_state]);
 		add_trace("state", "new", "%s", state_name[state]);
+		end_trace();
 	}
+#endif
 	e_state = state;
 }
 
@@ -718,7 +704,9 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 		if (!strcasecmp(interface->name, ifname))
 		{
 			/* found explicit interface */
-			printlog("%3d  interface %s found as given\n", ea_endpoint->ep_serial, ifname);
+			trace_header("CHANNEL SELECTION (found interface)", DIRECTION_NONE);
+			add_trace("interface", NULL, "%s", ifname);
+			end_trace();
 			goto found;
 		}
 
@@ -727,7 +715,9 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 		if (!interface->extension)
 		{
 			/* found non extension */
-			printlog("%3d  interface %s found, that is not an extension\n", ea_endpoint->ep_serial, interface->name);
+			trace_header("CHANNEL SELECTION (found non extension interface)", DIRECTION_NONE);
+			add_trace("interface", NULL, "%s", interface->name);
+			end_trace();
 			goto found;
 		}
 	}
@@ -739,7 +729,9 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	if (!interface->ifport)
 	{
 		/* no ports */
-		printlog("%3d  interface %s has no active ports, skipping.\n", ea_endpoint->ep_serial, interface->name);
+		trace_header("CHANNEL SELECTION (interface has no active ports, skipping)", DIRECTION_NONE);
+		add_trace("interface", NULL, "%s", interface->name);
+		end_trace();
 		interface = interface->next;
 		goto checknext;
 	}
@@ -754,7 +746,10 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			ifport_start = ifport_start->next;
 			i++;
 		}
-		printlog("%3d  starting with port#%d position %d (round-robin)\n", ea_endpoint->ep_serial, ifport_start->portnum, index);
+		trace_header("CHANNEL SELECTION (starting round-robin)", DIRECTION_NONE);
+		add_trace("port", NULL, "%d", ifport_start->portnum);
+		add_trace("position", NULL, "%d", index);
+		end_trace();
 	}
 
 	/* loop ports */
@@ -764,7 +759,10 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	/* see if port is available */
 	if (!ifport->mISDNport)
 	{
-		printlog("%3d  port#%d position %d is not available, skipping.\n", ea_endpoint->ep_serial, ifport->portnum, index);
+		trace_header("CHANNEL SELECTION (port not available, skipping)", DIRECTION_NONE);
+		add_trace("port", NULL, "%d", ifport->portnum);
+		add_trace("position", NULL, "%d", index);
+		end_trace();
 		goto portbusy;
 	}
 	mISDNport = ifport->mISDNport;
@@ -774,15 +772,20 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	/* see if port is administratively blocked */
 	if (ifport->block)
 	{
-		printlog("%3d  port#%d position %d is administratively blocked, skipping.\n", ea_endpoint->ep_serial, ifport->portnum, index);
+		trace_header("CHANNEL SELECTION (port blocked by admin, skipping)", DIRECTION_NONE);
+		add_trace("port", NULL, "%d", ifport->portnum);
+		add_trace("position", NULL, "%d", index);
+		end_trace();
 		goto portbusy;
 	}
 
 	/* see if link is up */
 	if (mISDNport->ptp && !mISDNport->l2link)
 	{
-		printlog("%3d  port#%d position %d is ptp but layer 2 is down.\n", ea_endpoint->ep_serial, ifport->portnum, index);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is PTP with L2 down\n", ea_endpoint->ep_serial);
+		trace_header("CHANNEL SELECTION (port is ptp with layer 2 down, skipping)", DIRECTION_NONE);
+		add_trace("port", NULL, "%d", ifport->portnum);
+		add_trace("position", NULL, "%d", index);
+		end_trace();
 		goto portbusy;
 	}
 
@@ -803,7 +806,11 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 				if (mISDNport->b_port[i] == NULL)
 				{
 					*channel = i+1+(i>=15);
-					printlog("%3d  port#%d position %d selecting free channel %d\n", ea_endpoint->ep_serial, ifport->portnum, index, *channel);
+					trace_header("CHANNEL SELECTION (selecting free channel)", DIRECTION_NONE);
+					add_trace("port", NULL, "%d", ifport->portnum);
+					add_trace("position", NULL, "%d", index);
+					add_trace("channel", NULL, "%d", *channel);
+					end_trace();
 					break;
 				}
 				i++;
@@ -815,12 +822,18 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			{
 				break; /* all channel in use or reserverd */
 			}
-			printlog("%3d  port#%d position %d using with 'any channel'\n", ea_endpoint->ep_serial, ifport->portnum, index);
+			trace_header("CHANNEL SELECTION (using 'any channel')", DIRECTION_NONE);
+			add_trace("port", NULL, "%d", ifport->portnum);
+			add_trace("position", NULL, "%d", index);
+			end_trace();
 			*channel = SEL_CHANNEL_ANY;
 			break;
 
 			case CHANNEL_NO: /* call waiting */
-			printlog("%3d  port#%d position %d using with 'no channel'\n", ea_endpoint->ep_serial, ifport->portnum, index);
+			trace_header("CHANNEL SELECTION (using 'no channel', call-waiting)", DIRECTION_NONE);
+			add_trace("port", NULL, "%d", ifport->portnum);
+			add_trace("position", NULL, "%d", index);
+			end_trace();
 			*channel = SEL_CHANNEL_NO;
 			break;
 
@@ -833,7 +846,11 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			if (mISDNport->b_port[i] == NULL)
 			{
 				*channel = selchannel->channel;
-				printlog("%3d  port#%d position %d selecting given channel %d\n", ea_endpoint->ep_serial, ifport->portnum, index, *channel);
+				trace_header("CHANNEL SELECTION (selecting given channel)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				add_trace("channel", NULL, "%d", *channel);
+				end_trace();
 				break;
 			}
 			break;
@@ -858,7 +875,10 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 		return(mISDNport);
 	}
 
-	printlog("%3d  port#%d position %d skipping, because no channel found.\n", ea_endpoint->ep_serial, ifport->portnum, index);
+	trace_header("CHANNEL SELECTION (skipping, no channel found)", DIRECTION_NONE);
+	add_trace("port", NULL, "%d", ifport->portnum);
+	add_trace("position", NULL, "%d", index);
+	end_trace();
 
 	portbusy:
 	/* go next port, until all ports are checked */
@@ -1040,8 +1060,9 @@ void EndpointAppPBX::out_setup(void)
 			mISDNport = hunt_port(ifname, &channel);
 			if (!mISDNport)
 			{
-				printlog("%3d  endpoint INTERFACE '%s' not found or busy\n", ea_endpoint->ep_serial, ifname);
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) given interface: '%s' not found or too busy to accept calls.\n", ea_endpoint->ep_serial, e_ext.interfaces);
+				trace_header("INTERFACE (not found or busy)", DIRECTION_NONE);
+				add_trace("interface", NULL, "%s", ifname);
+				end_trace();
 				continue;
 			}
 			/* creating INTERNAL port */
@@ -1168,8 +1189,9 @@ void EndpointAppPBX::out_setup(void)
 						/* if PTP, skip all down links */
 						if (mISDNport->ptp && !mISDNport->l2link)
 						{
-							printlog("%3d  endpoint INTERFACE Layer 2 of interface '%s' is down.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-							PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is PTP with L2 down\n", ea_endpoint->ep_serial);
+							trace_header("INTERFACE (layer 2 is down)", DIRECTION_NONE);
+							add_trace("interface", NULL, "%s", mISDNport->interface_name);
+							end_trace();
 							mISDNport = mISDNport->next;
 							continue;
 						}
@@ -1187,14 +1209,17 @@ void EndpointAppPBX::out_setup(void)
 							}
 							if (use >= mISDNport->b_num)
 							{
-								printlog("%3d  endpoint INTERFACE Interface '%s' has no free channel.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-								PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is not single link port_list NT-modem OR no channel available.\n", ea_endpoint->ep_serial);
+								trace_header("INTERFACE (no free channel)", DIRECTION_NONE);
+								add_trace("interface", NULL, "%s", mISDNport->interface_name);
+								end_trace();
 								mISDNport = mISDNport->next;
 								continue;
 							}
 						}
 						/* found interface */
-						printlog("%3d  endpoint INTERFACE Interface '%s' found for external call.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
+						trace_header("INTERFACE (found)", DIRECTION_NONE);
+						add_trace("interface", NULL, "%s", mISDNport->interface_name);
+						end_trace();
 						break;
 					}
 					mISDNport = mISDNport->next;
@@ -1208,8 +1233,9 @@ void EndpointAppPBX::out_setup(void)
 				} else
 				{
 					port = NULL;
-					printlog("%3d  endpoint INTERFACE External interface not found or busy.\n", ea_endpoint->ep_serial);
-					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) given interface: '%s' too busy to accept calls.\n", ea_endpoint->ep_serial, e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+					trace_header("INTERFACE (too busy)", DIRECTION_NONE);
+					add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+					end_trace();
 				}
 			}
 			if (!port)
@@ -1260,8 +1286,8 @@ void EndpointAppPBX::out_setup(void)
 		/* now we have all ports created */
 		if (!anycall)
 		{
-			printlog("%3d  endpoint INTERFACE No port or no parallel forwarding defined. Nothing to call to.\n", ea_endpoint->ep_serial);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no port or no cfp defined for extension, nothing to dial.\n", ea_endpoint->ep_serial);
+			trace_header("INTERFACE (no extension's interface)", DIRECTION_NONE);
+			end_trace();
 			if (!ea_endpoint->ep_call_id)
 				break;
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
@@ -1296,8 +1322,9 @@ void EndpointAppPBX::out_setup(void)
 					/* if PTP, skip all down links */
 					if (mISDNport->ptp && !mISDNport->l2link)
 					{
-						printlog("%3d  endpoint INTERFACE Layer 2 of interface '%s' is down.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-						PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is PTP with L2 down\n", ea_endpoint->ep_serial);
+						trace_header("INTERFACE (layer 2 is down)", DIRECTION_NONE);
+						add_trace("interface", NULL, "%s", mISDNport->interface_name);
+						end_trace();
 						mISDNport = mISDNport->next;
 						continue;
 					}
@@ -1315,22 +1342,26 @@ void EndpointAppPBX::out_setup(void)
 						}
 						if (use >= mISDNport->b_num)
 						{
-							printlog("%3d  endpoint INTERFACE Interface '%s' has no free channel.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-							PDEBUG(DEBUG_EPOINT, "EPOINT(%d) skipping because it is not single link port_list NT-modem OR no channel available.\n", ea_endpoint->ep_serial);
+							trace_header("INTERFACE (no free channel)", DIRECTION_NONE);
+							add_trace("interface", NULL, "%s", mISDNport->interface_name);
+							end_trace();
 							mISDNport = mISDNport->next;
 							continue;
 						}
 					}
 					/* found interface */
-					printlog("%3d  endpoint INTERFACE Interface '%s' found for external call.\n", ea_endpoint->ep_serial, mISDNport->interface_name);
+					trace_header("INTERFACE (found)", DIRECTION_NONE);
+					add_trace("interface", NULL, "%s", mISDNport->interface_name);
+					end_trace();
 					break;
 				}
 				mISDNport = mISDNport->next;
 			}
 			if (!mISDNport)
 			{
-				printlog("%3d  endpoint INTERFACE External interface not found or busy.\n", ea_endpoint->ep_serial);
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) given interface: '%s' too busy to accept calls.\n", ea_endpoint->ep_serial, e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+				trace_header("INTERFACE (too busy)", DIRECTION_NONE);
+				add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+				end_trace();
 				goto check_anycall_extern;
 			}
 			/* creating EXTERNAL port*/
@@ -1338,8 +1369,8 @@ void EndpointAppPBX::out_setup(void)
 			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings);
 			if (!port)	
 			{
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no external port available\n", ea_endpoint->ep_serial);
-				goto check_anycall_extern;
+				PERROR("EPOINT(%d) no memory for external port, exitting\n", ea_endpoint->ep_serial);
+				exit(-1);
 			}
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
@@ -1378,8 +1409,8 @@ void EndpointAppPBX::out_setup(void)
 		/* now we have all ports created */
 		if (!anycall)
 		{
-			printlog("%3d  endpoint INTERFACE No free port found for making any call.\n", ea_endpoint->ep_serial);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no port found which is idle for at least one number\n", ea_endpoint->ep_serial);
+			trace_header("INTERFACE (no free ports found)", DIRECTION_NONE);
+			end_trace();
 			if (!ea_endpoint->ep_call_id)
 				break;
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
@@ -1543,7 +1574,8 @@ int EndpointAppPBX::handler(void)
 	        		e_rule = e_ruleset->rule_first;
 			e_action = NULL;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) password timeout %s\n", ea_endpoint->ep_serial, e_extdialing);
-			printlog("%3d  endpoint PASSWORD timeout\n", ea_endpoint->ep_serial);
+			trace_header("PASSWORD timeout", DIRECTION_NONE);
+			end_trace();
 			e_connectedmode = 0;
 			e_dtmf = 0;
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
@@ -1570,8 +1602,8 @@ void EndpointAppPBX::hookflash(void)
 	notify_active();
 	e_tx_state = NOTIFY_STATE_ACTIVE;
 
-	printlog("%3d  endpoint HOOKFLASH\n", ea_endpoint->ep_serial);
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dtmf hookflash detected.\n", ea_endpoint->ep_serial);
+	trace_header("HOOKFLASH DTMF", DIRECTION_NONE);
+	end_trace();
 	if (ea_endpoint->ep_use > 1)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot hooflash while child process is running.\n", ea_endpoint->ep_serial);
@@ -1652,16 +1684,21 @@ colp, outclip, outcolp
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is external or voip\n", ea_endpoint->ep_serial);
 	}
-	printlog("%3d  incoming %s='%s'%s%s%s%s dialing='%s'\n",
-		ea_endpoint->ep_serial,
-		(e_callerinfo.intern[0])?"SETUP from extension":"SETUP from extern",
-		(e_callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-		(e_callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-		(e_redirinfo.id[0])?"redirected='":"",
-		e_redirinfo.id,
-		(e_redirinfo.id[0])?"'":"",
-		e_dialinginfo.number
-		);
+	trace_header("SETUP", DIRECTION_IN);
+	if (e_callerinfo.intern[0])
+		add_trace("extension", NULL, "%s", e_callerinfo.intern);
+	add_trace("caller id", "number", "%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
+	if (e_callerinfo.present == INFO_PRESENT_RESTRICTED)
+		add_trace("caller id", "present", "restricted");
+	if (e_redirinfo.id[0])
+	{
+		add_trace("redir'ing", "number", "%s", numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype));
+		if (e_redirinfo.present == INFO_PRESENT_RESTRICTED)
+			add_trace("redir'ing", "present", "restricted");
+	}
+	if (e_dialinginfo.number)
+		add_trace("dialing", "number", "%s", e_dialinginfo.number));
+	end_trace();
 
 	if (e_callerinfo.itype == INFO_ITYPE_INTERN)
 	{
@@ -1671,8 +1708,9 @@ colp, outclip, outcolp
 		if (!read_extension(&e_ext, e_ext.number))
 		{
 			/* extension doesn't exist */
-			printlog("%3d  endpoint EXTENSION '%s' doesn't exist, please check or create.\n", ea_endpoint->ep_serial, e_callerinfo.id);
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) rejecting call from not existing extension: '%s'\n", ea_endpoint->ep_serial, e_ext.number);
+			trace_header("EXTENSION (not created)", DIRECTION_IN);
+			add_trace("extension", NULL, "%s", e_ext.number);
+			end_trace();
 			message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist, "cause_80"); /* pbx cause: extension not authorized */
@@ -1788,10 +1826,11 @@ colp, outclip, outcolp
 /* port MESSAGE_INFORMATION */
 void EndpointAppPBX::port_information(struct port_list *portlist, int message_type, union parameter *param)
 {
-	printlog("%3d  incoming INFORMATION information='%s'\n",
-		ea_endpoint->ep_serial,
-		param->information.number
-		);
+	trace_header("INFORMATION", DIRECTION_IN);
+	add_trace("dialing", NULL, "%s", param->information.number);
+	if (param->information.sending_complete)
+		add_trace("complete", NULL, NULL);
+	end_trace();
 	e_overlap = 1;
 
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
@@ -1864,10 +1903,9 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 /* port MESSAGE_DTMF */
 void EndpointAppPBX::port_dtmf(struct port_list *portlist, int message_type, union parameter *param)
 {
-	printlog("%3d  incoming DTMF digit='%c'\n",
-		ea_endpoint->ep_serial,
-		param->dtmf
-		);
+	trace_header("DTMF", DIRECTION_IN);
+	add_trace("digit", NULL, "%c", param->dtmf);
+	end_trace();
 	/* only if dtmf detection is enabled */
 	if (!e_dtmf)
 	{
@@ -1997,9 +2035,8 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_SETUP_ACK, "", 0, 0, 0);
 
-	printlog("%3d  incoming SETUP ACKNOWLEDGE\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("SETUP ACKNOWLEDGE", DIRECTION_IN);
+	end_trace();
 	if (e_dialing_queue[0] && portlist)
 	{
 		/* send what we have not dialed yet, because we had no setup complete */
@@ -2051,9 +2088,8 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_PROCEEDING, "", 0, 0, 0);
 
-	printlog("%3d  incoming PROCEEDING\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("PROCEEDING", DIRECTION_IN);
+	end_trace();
 	e_state = EPOINT_STATE_OUT_PROCEEDING;
 	/* check if pattern is availatle */
 	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
@@ -2094,9 +2130,8 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_ALERTING, "", 0, 0, 0);
 
-	printlog("%3d  incoming ALERTING\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("ALERTING", DIRECTION_IN);
+	end_trace();
 	new_state(EPOINT_STATE_OUT_ALERTING);
 	/* check if pattern is available */
 	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
@@ -2142,11 +2177,13 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	admin_call_response(e_adminid, ADMIN_CALL_CONNECT, numberrize_callerinfo(param->connectinfo.id,param->connectinfo.ntype), 0, 0, 0);
 
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_connectinfo));
-	printlog("%3d  incoming CONNECT id='%s'%s\n",
-		ea_endpoint->ep_serial,
-		(e_connectinfo.intern[0])?e_connectinfo.intern:e_connectinfo.id,
-		(e_connectinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":""
-		);
+	trace_header("CONNECT", DIRECTION_IN);
+	if (e_connectinfo.intern[0])
+		add_trace("extension", NULL, "%s", e_connectinfo.intern);
+	add_trace("connect id", "number", "%s", numberrize_callerinfo(e_connectinfo.id, e_connectinfo.ntype));
+	if (e_connectinfo.present == INFO_PRESENT_RESTRICTED)
+		add_trace("connect id", "present", "restricted");
+	end_trace();
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing all other ports (start)\n", ea_endpoint->ep_serial);
 	while(ea_endpoint->ep_portlist->next) /* as long as we have at least two ports */
 	{
@@ -2349,14 +2386,10 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	/* signal to call tool */
 	admin_call_response(e_adminid, (message_type==MESSAGE_DISCONNECT)?ADMIN_CALL_DISCONNECT:ADMIN_CALL_RELEASE, "", param->disconnectinfo.cause, param->disconnectinfo.location, 0);
 
-	printlog("%3d  incoming %s cause='%d' (%s) location='%d' (%s)\n",
-		ea_endpoint->ep_serial,
-		(message_type==MESSAGE_DISCONNECT)?"DISCONNECT":"RELEASE",
-		param->disconnectinfo.cause,
-		(param->disconnectinfo.cause>0 && param->disconnectinfo.cause<128)?isdn_cause[param->disconnectinfo.cause].english:"-",
-		param->disconnectinfo.location,
-		(param->disconnectinfo.location>=0 && param->disconnectinfo.location<16)?isdn_location[param->disconnectinfo.location].english:"-"
-		);
+	trace_header((message_type==MESSAGE_DISCONNECT)?"DISCONNECT":"RELEASE", DIRECTION_IN);
+	add_trace("cause", "value", "%d", param->disconnectinfo.cause);
+	add_trace("cause", "location", "%d", param->disconnectinfo.location);
+	end_trace();
 
 //#warning does this work? only disconnect when incoming port hat not already disconnected yet?
 	if (e_state==EPOINT_STATE_IN_DISCONNECT && message_type!=MESSAGE_RELEASE)// || e_state==EPOINT_STATE_OUT_DISCONNECT || e_state==EPOINT_STATE_IDLE)
@@ -2487,48 +2520,57 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 {
 	char cause[16];
 
-	printlog("%3d  incoming TIMEOUT\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("TIMEOUT", DIRECTION_IN);
 	message_type = MESSAGE_DISCONNECT;
 	switch (param->state)
 	{
 		case PORT_STATE_OUT_SETUP:
 		case PORT_STATE_OUT_OVERLAP:
+		add_trace("state", NULL, "outgoing setup/dialing");
+		end_trace();
 		/* no user responding */
 		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_SETUP:
 		case PORT_STATE_IN_OVERLAP:
+		add_trace("state", NULL, "incoming setup/dialing");
 		param->disconnectinfo.cause = CAUSE_INVALID; /* number incomplete */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		break;
 
 		case PORT_STATE_OUT_PROCEEDING:
+		add_trace("state", NULL, "outgoing proceeding");
+		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOUSER; /* no user responding */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_PROCEEDING:
+		add_trace("state", NULL, "incoming proceeding");
 		param->disconnectinfo.cause = CAUSE_NOUSER;
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL; /* no user responding */
 		break;
 
 		case PORT_STATE_OUT_ALERTING:
+		add_trace("state", NULL, "outgoing alerting");
+		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOANSWER; /* no answer */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_ALERTING:
+		add_trace("state", NULL, "incoming alerting");
 		param->disconnectinfo.cause = CAUSE_NOANSWER;
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		break;
 
 		case PORT_STATE_IN_DISCONNECT:
 		case PORT_STATE_OUT_DISCONNECT:
+		add_trace("state", NULL, "disconnect");
+		end_trace();
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) in this special case, we release due to disconnect timeout.\n", ea_endpoint->ep_serial);
 		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 		return; /* must exit here */
@@ -2537,6 +2579,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		param->disconnectinfo.cause = 31; /* normal unspecified */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	}
+	end_trace();
 	/* release call, disconnect isdn */
 	e_call_pattern = 0;
 	new_state(EPOINT_STATE_OUT_DISCONNECT);
@@ -2681,16 +2724,22 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		logtext = "CALL_IS_DIVERTING";
 		break;
 		default:
-		SPRINT(buffer, "indicator=%d", param->notifyinfo.notify - 0x80);
+		SPRINT(buffer, "%d", param->notifyinfo.notify - 0x80);
 		logtext = buffer;
 
 	}
-	printlog("%3d  incoming NOTIFY notify='%s' id='%s'%s\n",
-		ea_endpoint->ep_serial,
-		logtext,
-		param->notifyinfo.id,
-		(param->notifyinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":""
-	);
+	trace_header("NOTIFY", DIRECTION_IN);
+	if (param->notifyinfo.notify)
+		add_trace("indicator", NULL, "%s", logtext);
+	if (param->notifyinfo.id)
+	{
+		add_trace("redir'on", "number", "%s", numberrize_callerinfo(param->notifyinfo.id, param->notifyinfo.ntype));
+		if (param->notifyinfo.present == INFO_PRESENT_RESTRICTED)
+			add_trace("redir'on", "present", "restricted");
+	}
+	if (param->notifyinfo.display[0])
+		add_trace("display", NULL, "%s", param->notifyinfo.display);
+	end_trace();
 
 	/* notify call if available */
 	if (ea_endpoint->ep_call_id)
@@ -2707,10 +2756,8 @@ void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type,
 {
 	struct message *message;
 
-	printlog("%3d  incoming FACILITY len='%d'\n",
-		ea_endpoint->ep_serial,
-		param->facilityinfo.len
-		);
+	trace_header("FACILITY", DIRECTION_IN);
+	end_trace();
 
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_FACILITY);
 	memcpy(&message->param.facilityinfo, &param->facilityinfo, sizeof(struct facility_info));
@@ -2721,9 +2768,8 @@ void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type,
 /* NOTE: before supending, the inactive-notification must be done in order to set call mixer */
 void EndpointAppPBX::port_suspend(struct port_list *portlist, int message_type, union parameter *param)
 {
-	printlog("%3d  incoming SUSPEND\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("SUSPEND", DIRECTION_IN);
+	end_trace();
 	/* epoint is now parked */
 	ea_endpoint->ep_park = 1;
 	memcpy(ea_endpoint->ep_park_callid, param->parkinfo.callid, sizeof(ea_endpoint->ep_park_callid));
@@ -2737,9 +2783,8 @@ void EndpointAppPBX::port_suspend(struct port_list *portlist, int message_type, 
 /* NOTE: before resume, the active-notification must be done in order to set call mixer */
 void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, union parameter *param)
 {
-	printlog("%3d  incoming RESUME\n",
-		ea_endpoint->ep_serial
-		);
+	trace_header("RESUME", DIRECTION_IN);
+	end_trace();
 	/* epoint is now resumed */
 	ea_endpoint->ep_park = 0;
 
@@ -4196,99 +4241,60 @@ void EndpointAppPBX::logmessage(struct message *message)
 	switch(message->type)
 	{
 		case MESSAGE_SETUP:
-		port = find_port_id(message->id_to);
-		if (!port)
-			return;
-		if (port->p_type == PORT_TYPE_DSS1_NT_OUT)
+		trace_header("SETUP", DIRECTION_OUT);
+		if (message->param.setup.callerinfo.intern[0])
+			add_trace("extension", NULL, "%s", message->param.setup.callerinfo.intern);
+		add_trace("caller id", "number", "%s", numberrize_callerinfo(message->param.setup.callerinfo.id, message->param.setup.callerinfo.ntype));
+		if (message->param.setup.callerinfo.present == INFO_PRESENT_RESTRICTED)
+			add_trace("caller id", "present", "restricted");
+		if (message->param.setup.redirinfo.number[0])
 		{
-			pdss1 = (class Pdss1 *)port;
-			printlog("%3d  outgoing SETUP from %s='%s'%s%s%s%s to intern='%s' port='%d' (NT)\n",
-				ea_endpoint->ep_serial,
-				(message->param.setup.callerinfo.intern[0])?"intern":"extern",
-				(message->param.setup.callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-				(message->param.setup.callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-				(message->param.setup.redirinfo.id[0])?"redirected='":"",
-				message->param.setup.redirinfo.id,
-				(message->param.setup.redirinfo.id[0])?"'":"",
-				message->param.setup.dialinginfo.number,
-				pdss1->p_m_mISDNport->portnum
-				);
+			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(message->param.setup.redirinfo.id, message->param.setup.redirinfo.ntype));
+			if (message->param.setup.redirinfo.present == INFO_PRESENT_RESTRICTED)
+				add_trace("redir'ing", "present", "restricted");
 		}
-		if (port->p_type == PORT_TYPE_DSS1_TE_OUT)
-		{
-			pdss1 = (class Pdss1 *)port;
-			printlog("%3d  outgoing SETUP from %s='%s'%s%s%s%s to extern='%s' port='%d' (TE)\n",
-				ea_endpoint->ep_serial,
-				(message->param.setup.callerinfo.intern[0])?"intern":"extern",
-				(message->param.setup.callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-				(message->param.setup.callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-				(message->param.setup.redirinfo.id[0])?"redirected='":"",
-				message->param.setup.redirinfo.id,
-				(message->param.setup.redirinfo.id[0])?"'":"",
-				message->param.setup.dialinginfo.number,
-				pdss1->p_m_mISDNport->portnum
-				);
-		}
-		if (port->p_type == PORT_TYPE_VBOX_OUT)
-		{
-			printlog("%3d  outgoing SETUP from %s='%s'%s%s%s%s to vbox='%s'\n",
-				ea_endpoint->ep_serial,
-				(message->param.setup.callerinfo.intern[0])?"intern":"extern",
-				(message->param.setup.callerinfo.intern[0])?e_callerinfo.intern:e_callerinfo.id,
-				(message->param.setup.callerinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-				(message->param.setup.redirinfo.id[0])?"redirected='":"",
-				message->param.setup.redirinfo.id,
-				(message->param.setup.redirinfo.id[0])?"'":"",
-				message->param.setup.dialinginfo.number
-				);
-		}
+		if (message->param.setup.dialinginfo.number[0])
+			add_trace("dialing", NULL, "%s", message->param.setup.dialinginfo.number);
+		end_trace();
 		break;
 
 		case MESSAGE_OVERLAP:
-		printlog("%3d  outgoing SETUP ACKNOWLEDGE\n",
-			ea_endpoint->ep_serial
-			);
+		trace_header("SETUP ACKNOWLEDGE", DIRECTION_OUT);
+		end_trace();
 		break;
 
 		case MESSAGE_PROCEEDING:
-		printlog("%3d  outgoing PROCEEDING\n",
-			ea_endpoint->ep_serial
-			);
+		trace_header("PROCEEDING", DIRECTION_OUT);
+		end_trace();
 		break;
 
 		case MESSAGE_ALERTING:
-		printlog("%3d  outgoing ALERTING\n",
-			ea_endpoint->ep_serial
-			);
+		trace_header("ALERTING", DIRECTION_OUT);
+		end_trace();
 		break;
 
 		case MESSAGE_CONNECT:
-		printlog("%3d  outgoing CONNECT id='%s'%s\n",
-			ea_endpoint->ep_serial,
-			message->param.connectinfo.id,
-			(message->param.connectinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":""
-		);
+		trace_header("CONNECT", DIRECTION_OUT);
+		if (message->param.connectinfo.intern[0])
+			add_trace("extension", NULL, "%s", message->param.connectinfo.intern);
+		add_trace("connect id", "number", "%s", numberrize_callerinfo(message->param.connectinfo.id, message->param.connectinfo.ntype));
+		if (message->param.connectinfo.present == INFO_PRESENT_RESTRICTED)
+			add_trace("connect id", "present", "restricted");
+		end_trace();
 		break;
 
 		case MESSAGE_DISCONNECT:
-		printlog("%3d  outgoing DISCONNECT cause='%d' (%s) location='%d' (%s) display='%s'\n",
-			ea_endpoint->ep_serial,
-			message->param.disconnectinfo.cause,
-			(message->param.disconnectinfo.cause>0 && message->param.disconnectinfo.cause<128)?isdn_cause[message->param.disconnectinfo.cause].english:"-",
-			message->param.disconnectinfo.location,
-			(message->param.disconnectinfo.location>=0 && message->param.disconnectinfo.location<16)?isdn_location[message->param.disconnectinfo.location].english:"-",
-			message->param.disconnectinfo.display
-			);
+		trace_header("DISCONNECT", DIRECTION_OUT);
+		add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
+		add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+		end_trace();
 		break;
 
 		case MESSAGE_RELEASE:
-		printlog("%3d  outgoing RELEASE cause='%d' (%s) location='%d' (%s)\n",
-			ea_endpoint->ep_serial,
-			message->param.disconnectinfo.cause,
-			(message->param.disconnectinfo.cause>0 && message->param.disconnectinfo.cause<128)?isdn_cause[message->param.disconnectinfo.cause].english:"-",
-			message->param.disconnectinfo.location,
-			(message->param.disconnectinfo.location>=0 && message->param.disconnectinfo.location<16)?isdn_location[message->param.disconnectinfo.location].english:"-"
-			);
+		trace_header("RELEASE", DIRECTION_OUT);
+		add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
+		add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+		end_trace();
 		break;
 
 		case MESSAGE_NOTIFY:
@@ -4367,39 +4373,44 @@ void EndpointAppPBX::logmessage(struct message *message)
 			logtext = "CALL_IS_DIVERTING";
 			break;
 			default:
-			SPRINT(buffer, "indicator=%d", message->param.notifyinfo.notify - 0x80);
+			SPRINT(buffer, "%d", message->param.notifyinfo.notify - 0x80);
 			logtext = buffer;
 
 		}
-		printlog("%3d  outgoing NOTIFY notify='%s' id='%s'%s display='%s'\n",
-			ea_endpoint->ep_serial,
-			logtext,
-			message->param.notifyinfo.id,
-			(message->param.notifyinfo.present==INFO_PRESENT_RESTRICTED)?" anonymous":"",
-			message->param.notifyinfo.display
-			);
+		trace_header("NOTIFY", DIRECTION_OUT);
+		if (message->param.notifyinfo.notify)
+			add_trace("indicator", NULL, "%s", logtext);
+		if (message->param.notifyinfo.number[0])
+		{
+			add_trace("redir'on", "number", "%s", numberrize_callerinfo(message->param.notifyinfo.id, message->param.notifyinfo.ntype));
+			if (message->param.notifyinfo.present == INFO_PRESENT_RESTRICTED)
+				add_trace("redir'on", "present", "restricted");
+		}
+		if (message->param.notifyinfo.display[0])
+			add_trace("display", NULL, "%s", message->param.notifyinfo.display);
+		end_trace();
 		break;
 
 		case MESSAGE_INFORMATION:
-		printlog("%3d  outgoing INFORMATION information='%s'\n",
-			ea_endpoint->ep_serial,
-			message->param.information.number
-			);
+		trace_header("INFORMATION", DIRECTION_OUT);
+		add_trace("dialing", NULL, "%s", message->param.information.number);
+		end_trace();
 		break;
 
 		case MESSAGE_FACILITY:
-		printlog("%3d  outgoing FACILITY len='%d'\n",
-			ea_endpoint->ep_serial,
-			message->param.facilityinfo.len
-			);
+		trace_header("FACILITY", DIRECTION_OUT);
+		end_trace();
 		break;
 
 		case MESSAGE_TONE:
-		printlog("%3d  outgoing TONE dir='%s' name='%s'\n",
-			ea_endpoint->ep_serial,
-			message->param.tone.dir,
-			message->param.tone.name
-			);
+		trace_header("TONE", DIRECTION_OUT);
+		if (message->param.tone.name[0])
+		{
+			add_trace("directory", NULL, "%s", message->param.tone.dir[0]?message->param.tone.dir:"default");
+			add_trace("name", NULL, "%s", message->param.tone.name);
+		} else
+			add_trace("off", NULL, NULL);
+		end_trace();
 		break;
 
 		default:

@@ -105,6 +105,7 @@ static void debug(const char *function, int line, char *prefix, char *buffer)
 			debug_newline = 1;
 }
 
+muss ins trace
 void printlog(const char *fmt, ...)
 {
 	char buffer[4096];

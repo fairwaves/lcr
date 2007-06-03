@@ -27,6 +27,7 @@ struct trace {
 	
 	/* type */
 	char category[4];
+	int serial;
 	char name[64];
 
 	/* elements */
@@ -35,13 +36,9 @@ struct trace {
 };
 
 
-#define	CATEGORY_L1	0x01
-#define	CATEGORY_L2	0x02
-#define	CATEGORY_L3	0x04
-#define	CATEGORY_CH	0x08
-#define	CATEGORY_EP	0x10
-#define	CATEGORY_AP	0x20
-#define	CATEGORY_RO	0x40
+
+#define	CATEGORY_CH	0x01
+#define	CATEGORY_EP	0x02
 
 
 void start_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
