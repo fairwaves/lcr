@@ -46,7 +46,7 @@ int global_debug = 0;
 int quit=0;
 
 pthread_mutex_t mutexd; // debug output mutex
-pthread_mutex_t mutexl; // log output mutex
+//pthread_mutex_t mutext; // trace output mutex
 pthread_mutex_t mutexe; // error output mutex
 
 int memuse = 0;
@@ -105,36 +105,6 @@ static void debug(const char *function, int line, char *prefix, char *buffer)
 			debug_newline = 1;
 }
 
-muss ins trace
-void printlog(const char *fmt, ...)
-{
-	char buffer[4096];
-	va_list args;
-	FILE *fp;
-
-	pthread_mutex_lock(&mutexl);
-
-	va_start(args,fmt);
-	VUNPRINT(buffer,sizeof(buffer)-1,fmt,args);
-	buffer[sizeof(buffer)-1]=0;
-	va_end(args);
-
-	if (options.log[0])
-	{
-		if (options.deb & DEBUG_LOG)
-			debug(NULL, 0, "LOG ->", buffer);
-
-		if ((fp = fopen(options.log, "a")))
-		{
-			fduse++;
-			fprintf(fp, "%04d.%02d.%02d %02d:%02d:%02d %s", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, buffer);
-			fclose(fp);
-			fduse--;
-		}
-	}
-
-	pthread_mutex_unlock(&mutexl);
-}
 
 void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...)
 {
@@ -231,7 +201,7 @@ int main(int argc, char *argv[])
 	char			prefix_string[64];
 	struct sched_param	schedp;
 	char 			*debug_prefix = "alloc";
-	int			created_mutexd = 0, created_mutexl = 0, created_mutexe = 0,
+	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
         			created_lock = 0, created_signal = 0, created_debug = 0;
 #ifdef DEBUG_DURATION
 	time_t			durationupdate;
@@ -282,12 +252,12 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 	created_mutexd = 1;
-	if (pthread_mutex_init(&mutexl, NULL))
-	{
-		fprintf(stderr, "cannot create 'printlog' mutex\n");
-		goto free;
-	}
-	created_mutexl = 1;
+//	if (pthread_mutex_init(&mutext, NULL))
+//	{
+//		fprintf(stderr, "cannot create 'trace' mutex\n");
+//		goto free;
+//	}
+//	created_mutext = 1;
 	if (pthread_mutex_init(&mutexe, NULL))
 	{
 		fprintf(stderr, "cannot create 'PERROR' mutex\n");
@@ -500,7 +470,6 @@ int main(int argc, char *argv[])
 
 	/*** main loop ***/
 	printf("%s %s started, waiting for calls...\n", NAME, VERSION_STRING);
-	printlog("%s %s started, waiting for calls...\n", NAME, VERSION_STRING);
 	GET_NOW();
 #ifdef DEBUG_DURATION
 	start_d = now_d;
@@ -724,7 +693,7 @@ BUDETECT
 			idletime += 4000;
 		}
 	}
-	printlog("PBX terminated\n");
+	printf("PBX terminated\n");
 	ret=0;
 
 	/* free all */
@@ -808,9 +777,9 @@ free:
 	if (created_mutexe)
 		if (pthread_mutex_destroy(&mutexe))
 			fprintf(stderr, "cannot destroy 'PERROR' mutex\n");
-	if (created_mutexl)
-		if (pthread_mutex_destroy(&mutexl))
-			fprintf(stderr, "cannot destroy 'printlog' mutex\n");
+//	if (created_mutext)
+//		if (pthread_mutex_destroy(&mutext))
+//			fprintf(stderr, "cannot destroy 'trace' mutex\n");
 	if (created_mutexd)
 		if (pthread_mutex_destroy(&mutexd))
 			fprintf(stderr, "cannot destroy 'PDEBUG' mutex\n");

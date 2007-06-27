@@ -364,7 +364,7 @@ struct action_defs action_defs[] = {
 	{ ACTION_EFI,
 	  "efi",	&EndpointAppPBX::action_init_efi, NULL, NULL,
 	  PARAM_PROCEEDING | PARAM_ALERTING | PARAM_CONNECT,
-	  "Elektronische Fernsprecher Identifikation."},
+	  "Elektronische Fernsprecher Identifikation - announces caller ID."},
 	{ -1,
 	  NULL, NULL, NULL, NULL, 0, NULL}
 };

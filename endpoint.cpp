@@ -69,7 +69,7 @@ Endpoint::Endpoint(int port_id, int call_id)
 		if (port)
 		{
 			if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
-				earlyb = port->mISDNport->is_earlyb;
+				earlyb = ((class PmISDN *)port)->p_m_mISDNport->is_earlyb;
 			if (!portlist_new(port_id, port->p_type, earlyb))
 			{
 				PERROR("no mem for portlist, exitting...\n");
@@ -170,7 +170,7 @@ struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type, i
 	/* link to call or port */
 	portlist->port_id = port_id;
 	portlist->port_type = port_type;
-	portlist->earlyb = earlyb;
+	portlist->early_b = earlyb;
 
 	return(portlist);
 }

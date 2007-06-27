@@ -31,7 +31,6 @@ struct options options = {
 	"tones_american",		/* directory of tones */
 	"",				/* directories of tones to fetch */
 	"extensions",			/* directory of extensions */
-	0,				/* dtmf detection on */
 	"",				/* dummy caller id */
 	0,				/* use tones by dsp.o */
 	0,				/* by default use priority 0 */
@@ -230,12 +229,6 @@ int read_options(void)
 			SCPY(options.international, param);
 
 			PDEBUG(DEBUG_CONFIG, "inernational dial prefix: %s\n", param);
-		} else
-		if (!strcmp(option,"nodtmf"))
-		{
-			options.nodtmf = 1;
-
-			PDEBUG(DEBUG_CONFIG, "disable dtmf detection\n");
 		} else
 		if (!strcmp(option,"dummyid"))
 		{

@@ -254,7 +254,14 @@ int admin_route(struct admin_queue **responsep)
 			apppbx->e_callback = 0;
 			apppbx->e_action = NULL;
 			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
-			printlog("%3d  endpoint ADMIN Kicking due to reload of routing.\n", apppbx->ea_endpoint->ep_serial);
+			start_trace(0,
+				NULL,
+				nationalize(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype),
+				apppbx->e_dialinginfo.number,
+				DIRECTION_NONE,
+		   		CATEGORY_EP,
+				apppbx->e_serial,
+				"KICK (reload routing)");
 		}
 
 		apppbx->e_action_timeout = NULL;

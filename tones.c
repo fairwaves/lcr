@@ -278,10 +278,15 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
  * the len must be the number of samples, NOT for the bytes to read!!
  * the data returned is law-code
  */
-int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed long *left, int speed)
+int read_tone(int fh, unsigned char *buffer, int codec, int len, signed long size, signed long *left, int speed)
 {
 	int l;
 	int offset;
+	signed short buffer16[len], *buf16 = buffer16;
+	signed short buffer32[len<<1], *buf32 = buffer32;
+	unsigned char buffer8[len], *buf8 = buffer8;
+	signed long sample;
+	int i = 0;
 //printf("left=%ld\n",*left);
 
 	/* if no *left is given (law has unknown length) */
@@ -320,9 +325,6 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 		break;
 
 		case CODEC_MONO:
-			signed short buffer16[len], *buf16 = buffer16;
-			signed long sample;
-			int i = 0;
 			l = read(fh, buf16, len<<1);
 			if (l>0)
 			{
@@ -342,9 +344,6 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 
 		case CODEC_STEREO:
 		{
-			signed short buffer32[len<<1], *buf32 = buffer32;
-			signed long sample;
-			int i = 0;
 			l = read(fh, buf32, len<<2);
 			if (l>0)
 			{
@@ -365,8 +364,6 @@ int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed
 
 		case CODEC_8BIT:
 		{
-			unsigned char buffer8[len], *buf8 = buffer8;
-			int i = 0;
 			l = read(fh, buf8, len);
 			if (l>0)
 			{

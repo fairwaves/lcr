@@ -140,18 +140,20 @@ EndpointAppPBX::~EndpointAppPBX(void)
  */
 void EndpointAppPBX::trace_header(char *name, int direction)
 {
-	char msgtext[sizeof(trace.name)];
+	struct trace _trace;
+
+	char msgtext[sizeof(_trace.name)];
 
 	SCPY(msgtext, name);
 
 	/* init trace with given values */
-	start_trace(e_serial,
+	start_trace(ea_endpoint->ep_serial,
 		    NULL,
-		    nationalize(e_callerinfo.id, e_callerinfo.ntype),
+		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype),
 		    e_dialinginfo.number,
 		    direction,
 		    CATEGORY_EP,
-		    e_serial,
+		    ea_endpoint->ep_serial,
 		    msgtext);
 }
 
@@ -181,6 +183,10 @@ void EndpointAppPBX::new_state(int state)
 void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *present)
 {
 	struct interface	*interface;
+	char			*msn1;
+	struct interface_msn	*ifmsn;
+	struct interface_screen	*ifscreen;
+	char suffix[64];
 
 	interface = interface_first;
 	while(interface)
@@ -191,7 +197,6 @@ void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *prese
 		}
 		interface = interface->next;
 	}
-add logging
 	if (interface)
 	{
 		/* screen incoming caller id */
@@ -200,38 +205,50 @@ add logging
 			/* check for MSN numbers, use first MSN if no match */
 			msn1 = NULL;
 			ifmsn = interface->ifmsn;
-			while(ifmns)
+			while(ifmsn)
 			{
 				if (!msn1)
-					msn1 = ifmns->msn;
-				if (!strcmp(ifmns->mns, id))
+					msn1 = ifmsn->msn;
+				if (!strcmp(ifmsn->msn, id))
 				{
 					break;
 				}
 				ifmsn = ifmsn->next;
 			}
-			if (!ifmns && mns1) // not in list, first msn given
+			if (ifmsn)
+			{
+				trace_header("SCREEN (found in list)", DIRECTION_IN);
+				add_trace("msn", NULL, "%s", id);
+				end_trace();
+			}
+			if (!ifmsn && msn1) // not in list, first msn given
+			{
+				trace_header("SCREEN (not found in list)", DIRECTION_IN);
+				add_trace("msn", "given", "%s", id);
+				add_trace("msn", "used", "%s", msn1);
+				end_trace();
 				UNCPY(id, msn1, idsize);
-			id[idsize-1] = '\0';
+				id[idsize-1] = '\0';
+			}
 		}
 	
 		/* check screen list */
 		if (out)
-			iscreen = interface->ifscreen_out;
+			ifscreen = interface->ifscreen_out;
 		else
-			iscreen = interface->ifscreen_in;
+			ifscreen = interface->ifscreen_in;
 		while (ifscreen)
 		{
-			if (ifcreen->match_type==-1 || ifscreen->match_type==*type)
-			if (ifcreen->match_present==-1 || ifscreen->match_present==*present)
+			if (ifscreen->match_type==-1 || ifscreen->match_type==*type)
+			if (ifscreen->match_present==-1 || ifscreen->match_present==*present)
 			{
-				if (strchr(ifcreen->match_id,'%'))
+				if (strchr(ifscreen->match,'%'))
 				{
-					if (!strncmp(ifscreen->match_id, id, strchr(ifscreen->match_id,'%')-ifscreen->match_id))
+					if (!strncmp(ifscreen->match, id, strchr(ifscreen->match,'%')-ifscreen->match))
 						break;
 				} else
 				{
-					if (!strcmp(ifscreen->match_id, id))
+					if (!strcmp(ifscreen->match, id))
 						break;
 				}
 			}
@@ -239,26 +256,88 @@ add logging
 		}
 		if (ifscreen) // match
 		{
-			if (ifscren->result_type != -1)
-				*type = ifscreen->result_type;
-			if (ifscren->result_present != -1)
-				*present = ifscreen->result_present;
-			if (strchr(ifscreen->match_id,'%'))
+			trace_header("SCREEN (found in list)", out?DIRECTION_OUT:DIRECTION_IN);
+			switch(*type)
 			{
-				SCPY(suffix, strchr(ifscreen->match_id,'%') - ifscreen->match_id + id);
-				UNCPY(id, ifscreen->result_id);
-				id[idsize-1] = '\0';
-				if (strchr(ifscreen->result_id,'%'))
+				case INFO_NTYPE_UNKNOWN:
+				add_trace("given", "type", "unknown");
+				break;
+				case INFO_NTYPE_SUBSCRIBER:
+				add_trace("given", "type", "subscriber");
+				break;
+				case INFO_NTYPE_NATIONAL:
+				add_trace("given", "type", "national");
+				break;
+				case INFO_NTYPE_INTERNATIONAL:
+				add_trace("given", "type", "international");
+				break;
+			}
+			switch(*present)
+			{
+				case INFO_PRESENT_ALLOWED:
+				add_trace("given", "present", "allowed");
+				break;
+				case INFO_PRESENT_RESTRICTED:
+				add_trace("given", "present", "restricted");
+				break;
+				case INFO_PRESENT_NOTAVAIL:
+				add_trace("given", "present", "not available");
+				break;
+			}
+			add_trace("given", "id", "%s", id[0]?id:"<empty>");
+			if (ifscreen->result_type != -1)
+			{
+				*type = ifscreen->result_type;
+				switch(*type)
 				{
-					*strchr(ifscreen->result_id,'%') = '\0';
+					case INFO_NTYPE_UNKNOWN:
+					add_trace("used", "type", "unknown");
+					break;
+					case INFO_NTYPE_SUBSCRIBER:
+					add_trace("used", "type", "subscriber");
+					break;
+					case INFO_NTYPE_NATIONAL:
+					add_trace("used", "type", "national");
+					break;
+					case INFO_NTYPE_INTERNATIONAL:
+					add_trace("used", "type", "international");
+					break;
+				}
+			}
+			if (ifscreen->result_present != -1)
+			{
+				*present = ifscreen->result_present;
+				switch(*present)
+				{
+					case INFO_PRESENT_ALLOWED:
+					add_trace("used", "present", "allowed");
+					break;
+					case INFO_PRESENT_RESTRICTED:
+					add_trace("used", "present", "restricted");
+					break;
+					case INFO_PRESENT_NOTAVAIL:
+					add_trace("used", "present", "not available");
+					break;
+				}
+			}
+			if (strchr(ifscreen->match,'%'))
+			{
+				SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
+				UNCPY(id, ifscreen->result, idsize);
+				id[idsize-1] = '\0';
+				if (strchr(ifscreen->result,'%'))
+				{
+					*strchr(ifscreen->result,'%') = '\0';
 					UNCAT(id, suffix, idsize);
 					id[idsize-1] = '\0';
 				}
 			} else
 			{
-				UNCPY(id, ifscreen->result_id, idsize);
+				UNCPY(id, ifscreen->result, idsize);
 				id[idsize-1] = '\0';
 			}
+			add_trace("used", "id", "%s", id[0]?id:"<empty>");
+			end_trace();
 		}
 	}
 }
@@ -388,18 +467,18 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 
 
 /* cancel callerid if restricted, unless anon-ignore is enabled at extension or port is of type external (so called police gets caller id :)*/
-void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *voip, char *intern, char *name)
+void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *voip, char *extension, char *name)
 {
-	PDEBUG(DEBUG_EPOINT, "id='%s' ntype=%d present=%d screen=%d voip='%s' intern='%s' name='%s'\n", (id)?id:"NULL", (ntype)?*ntype:-1, (present)?*present:-1, (screen)?*screen:-1, (voip)?voip:"NULL", (intern)?intern:"NULL", (name)?name:"NULL");
+	PDEBUG(DEBUG_EPOINT, "id='%s' ntype=%d present=%d screen=%d voip='%s' extension='%s' name='%s'\n", (id)?id:"NULL", (ntype)?*ntype:-1, (present)?*present:-1, (screen)?*screen:-1, (voip)?voip:"NULL", (extension)?extension:"NULL", (name)?name:"NULL");
 
 	/* caller id is not restricted, so we do nothing */
 	if (*present != INFO_PRESENT_RESTRICTED)
 		return;
 
 	/* only extensions are restricted */
-	if (!intern)
+	if (!extension)
 		return;
-	if (!intern[0])
+	if (!extension[0])
 		return;
 
 	/* if we enabled anonymouse ignore */
@@ -416,39 +495,39 @@ void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *n
 // maybe we should not make voip address anonymous
 //	if (voip)
 //		voip[0] = '\0';
-// maybe it's no fraud to present internal id
-//	if (intern)
-//		intern[0] = '\0';
+// maybe it's no fraud to present extension id
+//	if (extension)
+//		extension[0] = '\0';
 	if (name)
 		name[0] = '\0';
 }
 
 /* used display message to display callerid as available */
-char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *voip, char *intern, char *name)
+char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *voip, char *extension, char *name)
 {
 	static char display[81];
 
 	display[0] = '\0';
 	char *cid = numberrize_callerinfo(id, ntype);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d voip='%s' intern='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (voip)?voip:"NULL", (intern)?intern:"NULL", (name)?name:"NULL");
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d voip='%s' extension='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (voip)?voip:"NULL", (extension)?extension:"NULL", (name)?name:"NULL");
 
 	if (!id)
 		id = "";
 	if (!voip)
 		voip = "";
-	if (!intern)
-		intern = "";
+	if (!extension)
+		extension = "";
 	if (!name)
 		name = "";
 
 	/* NOTE: is caller is is not available for this extesion, it has been removed by apply_callerid_restriction already */
 
 	/* internal extension's caller id */
-	if (intern[0] && e_ext.display_int)
+	if (extension[0] && e_ext.display_int)
 	{
 		if (!display[0])
-			SCAT(display, intern);
+			SCAT(display, extension);
 		if (display[0])
 			SCAT(display, " ");
 		if (itype == INFO_ITYPE_VBOX)
@@ -458,7 +537,7 @@ char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int
 	}
 
 	/* external caller id */
-	if (!intern[0] && !voip[0] && e_ext.display_ext)
+	if (!extension[0] && !voip[0] && e_ext.display_ext)
 	{
 		if (!display[0])
 		{
@@ -686,9 +765,10 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
  * if no ifname was given, any interface that is not an extension
  * will be searched.
  */
-static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
+struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 {
 	struct interface *interface;
+	struct interface_port *ifport, *ifport_start;
 	struct mISDNport *mISDNport;
 
 	interface = interface_first;
@@ -696,7 +776,7 @@ static struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	/* first find the given interface or, if not given, one with no extension */
 	checknext:
 	if (!interface)
-		return(null);
+		return(NULL);
 
 	/* check for given interface */
 	if (ifname)
@@ -1664,12 +1744,8 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
 	e_dtmf = param->setup.dtmf;
 
-	/* screen by interface */
-	if (e_callerinfo.interface[0])
-	{
-		/* screen incoming caller id */
-		screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
-	}
+	/* screen incoming caller id */
+	screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
 colp, outclip, outcolp
 
 	/* process extension */
@@ -2206,12 +2282,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 	e_start = now;
 
-	/* screen by interface */
-	if (e_callerinfo.interface[0])
-	{
-		/* screen incoming caller id */
-		screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
-	}
+	/* screen incoming caller id */
+	screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
 
 	/* screen connected name */
 	if (e_ext.name[0])
@@ -3163,12 +3235,8 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param, param, sizeof(union parameter));
-		/* screen by interface */
-		if (e_connectinfo.interface[0])
-		{
-			/* screen incoming caller id */
-			screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
-		}
+		/* screen incoming caller id */
+		screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
 		memcpy(&message->param.connnectinfo, e_connectinfo);
 
 		/* screen clip if prefix is required */
@@ -3419,12 +3487,8 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
 
-	/* screen by interface */
-	if (e_callerinfo.interface[0])
-	{
-		/* screen incoming caller id */
-		screen(1, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
-	}
+	/* screen incoming caller id */
+	screen(1, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
 
 	/* process (voice over) data calls */
 	if (e_ext.datacall && e_capainfo.bearer_capa!=INFO_BC_SPEECH && e_capainfo.bearer_capa!=INFO_BC_AUDIO)

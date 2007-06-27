@@ -31,7 +31,6 @@ extern int fhuse;
 #define PDEBUG_RUNTIME(mask, fmt, arg...) _printdebug(NULL, 0, mask, fmt, ## arg)
 #define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, 0, fmt, ## arg)
 void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...);
-void printlog(const char *fmt, ...);
 void _printerror(const char *function, int line, const char *fmt, ...);
 
 #define DEBUG_CONFIG	0x0001
@@ -62,12 +61,12 @@ void _printerror(const char *function, int line, const char *fmt, ...);
  * preload transmit buffer to avoid gaps at the beginning due to jitter
  * this is also the maximum load that will be kept in tx-buffer
  */
-#define ISDN_PRELOAD	128 // 1024 samples
+#define ISDN_PRELOAD	1024 // samples
 
 /* 
  * interval for refreshing transmit buffer
  */
-#define ISDN_TRANSMIT	32 // 256 samples
+#define ISDN_TRANSMIT	256 // samples
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */

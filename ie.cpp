@@ -1096,7 +1096,7 @@ void Pdss1::enc_ie_progress(unsigned char **ntmode, msg_t *msg, int coding, int 
 
 	add_trace("progress", "codeing", "%d", coding);
 	add_trace("progress", "location", "%d", location);
-	add_trace("progress", "indicator", "%d", indicator);
+	add_trace("progress", "indicator", "%d", progress);
 
 	l = 2;
 	p = msg_put(msg, l+2);
@@ -1136,7 +1136,7 @@ void Pdss1::dec_ie_progress(unsigned char *p, Q931_info_t *qi, int *coding, int 
 
 	add_trace("progress", "codeing", "%d", *coding);
 	add_trace("progress", "location", "%d", *location);
-	add_trace("progress", "indicator", "%d", *indicator);
+	add_trace("progress", "indicator", "%d", *progress);
 }
 
 
@@ -1426,7 +1426,7 @@ void Pdss1::dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *fa
 	}
 	debug[i*3] = '\0';
 		
-	add_trace("facility", NULL, "%s", buffer[0]?buffer+1:"<none>");
+	add_trace("facility", NULL, "%s", debug[0]?debug+1:"<none>");
 }
 
 

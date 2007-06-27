@@ -62,7 +62,7 @@ int VBoxPort::handler(void)
 {
 	struct message	*message;
 	unsigned long	tosend;
-	unsigned char	buffer[ISDN_TRANSMIT<<3];
+	unsigned char	buffer[ISDN_TRANSMIT];
 	time_t		currenttime;
 	class Endpoint	*epoint;
 	int		ret;
@@ -160,8 +160,6 @@ int VBoxPort::handler(void)
 			if (p_record)
 				record(buffer, tosend, 0); // from down
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-			message->param.data.port_type = p_type;
-			message->param.data.port_id = p_serial;
 			message->param.data.len = tosend;
 			memcpy(message->param.data.data, buffer, tosend);
 			message_put(message);
@@ -180,7 +178,6 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 	struct message *message;
 	class Endpoint *epoint;
 	char filename[256], *c;
-	class EndpointAppPBX *eapp;
 
 	if (Port::message_epoint(epoint_id, message_id, param))
 		return(1);
@@ -194,6 +191,10 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 
 	switch(message_id)
 	{
+		case MESSAGE_DATA:
+		record(param->data.data, param->data.len, 1); // from up
+		return(1);
+
 		case MESSAGE_DISCONNECT: /* call has been disconnected */
 		PDEBUG(DEBUG_VBOX, "PORT(%s) vbox port with (caller id %s) received disconnect cause=%d\n", p_name, p_callerinfo.id, param->disconnectinfo.cause);
 
@@ -224,7 +225,7 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint, answer with connect */
 		/* get apppbx */
-		memcpy(&p_vbox_ext, ((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
+		memcpy(&p_vbox_ext, &((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
 		/* extract optional announcement file */
 		if ((c = strchr(param->setup.dialinginfo.number, ',')))
 		{

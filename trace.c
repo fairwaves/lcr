@@ -11,6 +11,7 @@
 
 #include "main.h"
 
+trace auch ein printdebug
 struct trace trace;
 char trace_string[MX_TRACE_ELEMENTS * 100 + 400];
 
@@ -32,7 +33,7 @@ static char *spaces[11] = {
  * initializes a new trace
  * all values will be reset
  */
-void start_trace(int port, char *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
+void start_trace(int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name)
 {
 	if (trace.name[0])
 		PERROR("trace already started (name=%s)\n", trace.name);
@@ -106,6 +107,8 @@ void end_trace(void);
 	{
 		string = print_trace(1, 0, NULL, NULL, NULL, -1, "AP", CATEGORY_EP);
 		fwrite(string, strlen(string), 1, fp);
+		if (options.deb)
+			debug(NULL, 0, "trace", string);
 	}
 
 	memset(trace, 0, sizeof(struct trace));
@@ -211,7 +214,10 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		default:
 		SCAT(trace_string, "--");
 	}
-	SPRINT(buffer, "(%d): %s", trace.serial, trace.name[0]?trace.name:"<unknown>");
+	if (trace.serial)
+		SPRINT(buffer, "(%d): %s", trace.serial, trace.name[0]?trace.name:"<unknown>");
+	else
+		SPRINT(buffer, ": %s", trace.name[0]?trace.name:"<unknown>");
 	SCAT(trace_string, buffer);
 
 	/* elements */

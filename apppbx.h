@@ -345,12 +345,14 @@ class EndpointAppPBX : public EndpointApp
 
 	void message_disconnect_port(struct port_list *portlist, int cause, int location, char *display);
 	void logmessage(struct message *messsage);
+	void trace_header(char *name, int direction);
+	void screen(int out, char *id, int idsize, int *type, int *present);
 };
 
 
 char *nationalize_callerinfo(char *string, int *type);
 char *numberrize_callerinfo(char *string, int type);
-void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *h323, char *intern, char *name);
+void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *voip, char *intern, char *name);
 void send_mail(char *filename, char *callerid, char *callerintern, char *callername, char *vbox_email, int vbox_year, int vbox_mon, int vbox_mday, int vbox_hour, int vbox_min, char *terminal);
 
 

@@ -53,26 +53,26 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
 	p_m_b_reserve = 0;
-	p_m_b_addr = 0;
-	p_m_b_stid = 0;
 	p_m_jittercheck = 0;
 	p_m_delete = 0;
 	p_m_hold = 0;
 	p_m_txvol = p_m_rxvol = 0;
 	p_m_conf = 0;
 	p_m_txdata = 0;
-#warning set delay by routing parameter or interface config
 	p_m_delay = 0;
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
 	p_m_calldata = 0;
-	p_m_dtmf = !options.nodtmf;
-	sollen wir daraus eine interface-option machen?:
+	p_m_dtmf = !mISDNport->ifport->nodtmf;
 	p_m_timeout = 0;
 	p_m_timer = 0;
-#warning denke auch an die andere seite. also das setup sollte dies weitertragen
 
+	/* audio from up */
+	p_m_fromup_buffer_readp = 0;
+	p_m_fromup_buffer_writep = 0;
+
+	/* crypt */
 	p_m_crypt = 0;
 	p_m_crypt_listen = 0;
 	p_m_crypt_msg_loops = 0;
@@ -96,9 +96,8 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 		mISDNport->b_reserved++;
 	}
 
-	} else
 	/* reserve channel */
-	if (channel) // only if constructor was called with a channel resevation
+	if (channel > 0) // only if constructor was called with a channel resevation
 		seize_bchannel(channel, exclusive);
 
 	/* we increase the number of objects: */
@@ -115,7 +114,7 @@ PmISDN::~PmISDN()
 	struct message *message;
 
 	/* remove bchannel relation */
-	free_bchannel();
+	drop_bchannel();
 
 	/* release epoint */
 	while (p_epointlist)
@@ -136,9 +135,128 @@ PmISDN::~PmISDN()
 
 
 /*
+ * trace
+ */
+void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction)
+{
+	/* init trace with given values */
+	start_trace(mISDNport?mISDNport->portnum:0,
+		    mISDNport?mISDNport->ifport->interface:NULL,
+		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
+		    port?port->p_dialinginfo.number:NULL,
+		    direction,
+		    CATEGORY_CH,
+		    port?port->p_serial:0,
+		    msgtext);
+}
+
+
+/*
+ * layer trace header
+ */
+static struct isdn_message {
+	char *name;
+	unsigned long value;
+} isdn_message[] = {
+	{"TIMEOUT", CC_TIMEOUT},
+	{"SETUP", CC_SETUP},
+	{"SETUP_ACK", CC_SETUP_ACKNOWLEDGE},
+	{"PROCEEDING", CC_PROCEEDING},
+	{"ALERTING", CC_ALERTING},
+	{"CONNECT", CC_CONNECT},
+	{"CONNECT RES", CC_CONNECT},
+	{"CONNECT_ACK", CC_CONNECT_ACKNOWLEDGE},
+	{"DISCONNECT", CC_DISCONNECT},
+	{"RELEASE", CC_RELEASE},
+	{"RELEASE_COMP", CC_RELEASE_COMPLETE},
+	{"INFORMATION", CC_INFORMATION},
+	{"PROGRESS", CC_PROGRESS},
+	{"NOTIFY", CC_NOTIFY},
+	{"SUSPEND", CC_SUSPEND},
+	{"SUSPEND_ACK", CC_SUSPEND_ACKNOWLEDGE},
+	{"SUSPEND_REJ", CC_SUSPEND_REJECT},
+	{"RESUME", CC_RESUME},
+	{"RESUME_ACK", CC_RESUME_ACKNOWLEDGE},
+	{"RESUME_REJ", CC_RESUME_REJECT},
+	{"HOLD", CC_HOLD},
+	{"HOLD_ACK", CC_HOLD_ACKNOWLEDGE},
+	{"HOLD_REJ", CC_HOLD_REJECT},
+	{"RETRIEVE", CC_RETRIEVE},
+	{"RETRIEVE_ACK", CC_RETRIEVE_ACKNOWLEDGE},
+	{"RETRIEVE_REJ", CC_RETRIEVE_REJECT},
+	{"FACILITY", CC_FACILITY},
+	{"STATUS", CC_STATUS},
+	{"RESTART", CC_RESTART},
+	{"RELEASE_CR", CC_RELEASE_CR},
+	{"NEW_CR", CC_NEW_CR},
+	{"DL_ESTABLISH", DL_ESTABLISH},
+	{"DL_RELEASE", DL_RELEASE},
+	{"PH_ACTIVATE", PH_ACTIVATE},
+	{"PH_DEACTIVATE", PH_DEACTIVATE},
+
+	{NULL, 0},
+};
+static char *isdn_prim[4] = {
+	" REQUEST",
+	" CONFIRM",
+	" INDICATION",
+	" RESPONSE",
+};
+void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction)
+{
+	int i;
+	char msgtext[64] = "<<UNKNOWN MESSAGE>>";
+
+	/* select message and primitive text */
+	i = 0;
+	while(isdn_message[i].name)
+	{
+		if (isdn_message[i].value == (prim&0xffffff00))
+		{
+			SCPY(msgtext, isdn_message[i].name);
+			break;
+		}
+		i++;
+	}
+	SCAT(msgtext, isdn_prim[prim&0x00000003]);
+
+	/* add direction */
+	if (direction && (prim&0xffffff00)!=CC_NEW_CR && (prim&0xffffff00)!=CC_RELEASE_CR)
+	{
+		if (mISDNport)
+		{
+			if (mISDNport->ntmode)
+			{
+				if (direction == DIRECTION_OUT)
+					SCAT(msgtext, " N->U");
+				else
+					SCAT(msgtext, " N<-U");
+			} else
+			{
+				if (direction == DIRECTION_OUT)
+					SCAT(msgtext, " U->N");
+				else
+					SCAT(msgtext, " U<-N");
+			}
+		}
+	}
+
+	/* init trace with given values */
+	start_trace(mISDNport?mISDNport->portnum:0,
+		    mISDNport?mISDNport->ifport->interface:NULL,
+		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
+		    port?port->p_dialinginfo.number:NULL,
+		    direction,
+		    CATEGORY_CH,
+		    port?port->p_serial:0,
+		    msgtext);
+}
+
+
+/*
  * send control information to the channel (dsp-module)
  */
-void ph_control(unsigned long b_addr, int c1, int c2)
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long b_addr, int c1, int c2, char *trace_name, int trace_value)
 {
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	iframe_t *ctrl = (iframe_t *)buffer; 
@@ -151,9 +269,12 @@ void ph_control(unsigned long b_addr, int c1, int c2)
 	*d++ = c1;
 	*d++ = c2;
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
+	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
+	add_trace(trace_name, NULL, "%d", trace_value);
+	end_trace();
 }
 
-void ph_control_block(unsigned long b_addr, int c1, void *c2, int c2_len)
+void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long b_addr, int c1, void *c2, int c2_len, char *trace_name, int trace_value)
 {
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+c2_len];
 	iframe_t *ctrl = (iframe_t *)buffer;
@@ -166,185 +287,369 @@ void ph_control_block(unsigned long b_addr, int c1, void *c2, int c2_len)
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
+	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
+	add_trace(trace_name, NULL, "%d", trace_value);
+	end_trace();
 }
 
 
 /*
- * activate / deactivate bchannel
+ * subfunction for bchannel_event
+ * create stack
  */
-static void bchannel_activate(struct mISDNport *mISDNport, int i)
+static int _bchannel_create(struct mISDNport *mISDNport, int i)
+{
+	unsigned char buff[1024];
+	layer_info_t li;
+	mISDN_pid_t pid;
+	int ret;
+
+	if (mISDNport->b_stid[i])
+	{
+		PERROR("Error: no stack for index");
+		return(-1);
+	}
+	if (mISDNport->b_addr[i])
+	{
+		PERROR("Error: stack already created");
+		return(-1);
+	}
+
+	/* create new layer */
+	PDEBUG(DEBUG_BCHANNEL, "creating new layer for bchannel %d (index %d).\n" , i+1+(i>=15), i);
+	memset(&li, 0, sizeof(li));
+	memset(&pid, 0, sizeof(pid));
+	li.object_id = -1;
+	li.extentions = 0;
+	li.st = mISDNport->b_stid[i];
+	UCPY(li.name, "B L4");
+	li.pid.layermask = ISDN_LAYER((4));
+	li.pid.protocol[4] = ISDN_PID_L4_B_USER;
+	ret = mISDN_new_layer(mISDNdevice, &li);
+	if (ret)
+	{
+		failed_new_layer:
+		PERROR("mISDN_new_layer() failed to add bchannel %d (index %d)\n", i+1+(i>=15), i);
+		goto failed;
+	}
+	mISDNport->b_addr[i] = li.id;
+	if (!li.id)
+	{
+		goto failed_new_layer;
+	}
+	PDEBUG(DEBUG_BCHANNEL, "new layer (b_addr=0x%x)\n", mISDNport->b_addr[i]);
+
+	/* create new stack */
+	pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
+	pid.protocol[2] = ISDN_PID_L2_B_TRANS;
+	pid.protocol[3] = ISDN_PID_L3_B_DSP;
+	pid.protocol[4] = ISDN_PID_L4_B_USER;
+	pid.layermask = ISDN_LAYER((1)) | ISDN_LAYER((2)) | ISDN_LAYER((3)) | ISDN_LAYER((4));
+	ret = mISDN_set_stack(mISDNdevice, mISDNport->b_stid[i], &pid);
+	if (ret)
+	{
+		stack_error:
+		PERROR("mISDN_set_stack() failed (ret=%d) to add bchannel (index %d) stid=0x%x\n", ret, i, mISDNport->b_stid[i]);
+		mISDN_write_frame(mISDNdevice, buff, mISDNport->b_addr[i], MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
+		goto failed;
+	}
+	ret = mISDN_get_setstack_ind(mISDNdevice, mISDNport->b_addr[i]);
+	if (ret)
+		goto stack_error;
+
+	/* get layer id */
+	mISDNport->b_addr[i] = mISDN_get_layerid(mISDNdevice, mISDNport->b_stid[i], 4);
+	if (!mISDNport->b_addr[i])
+		goto stack_error;
+	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL create stack", DIRECTION_OUT);
+	add_trace("channel", NULL, "%d", i+1+(i>=15));
+	add_trace("stack", "id", "%d", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "%d", mISDNport->b_addr[i]);
+	end_trace();
+
+	return(0);
+
+failed:
+	mISDNport->b_addr[i] = 0;
+	return(-1);
+}
+
+
+/*
+ * subfunction for bchannel_event
+ * activate request
+ */
+static void _bchannel_activate(struct mISDNport *mISDNport, int i)
 {
 	iframe_t act;
 
-	/* we must activate if we are deactivated */
-	if (mISDNport->b_state[i] == B_STATE_IDLE)
+	/* activate bchannel */
+	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL activate", DIRECTION_OUT);
+	add_trace("channel", NULL, "%d", i+1+(i>=15));
+	end_trace();
+	act.prim = DL_ESTABLISH | REQUEST; 
+	act.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
+	act.dinfo = 0;
+	act.len = 0;
+	mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
+}
+
+
+/*
+ * subfunction for bchannel_event
+ * set features
+ */
+static void _bchannel_configure(struct mISDNport *mISDNport, int i)
+{
+	struct PmISDN *port;
+	int addr;
+
+	port = mISDNport->b_port[i];
+	addr = mISDNport->b_addr[i];
+	if (!port)
 	{
-		/* activate bchannel */
-		PDEBUG(DEBUG_BCHANNEL, "activating bchannel (index %d), because currently idle (address 0x%x).\n", i, mISDNport->b_addr[i]);
-		act.prim = DL_ESTABLISH | REQUEST; 
-		act.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
-		act.dinfo = 0;
-		act.len = 0;
-		mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-		mISDNport->b_state[i] = B_STATE_ACTIVATING;
+		PERROR("bchannel index i=%d not associated with a port object\n", i);
 		return;
 	}
 
-	/* if we are active, we configure our channel */
-	if (mISDNport->b_state[i] == B_STATE_ACTIVE)
-	{
-		unsigned char buffer[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)];
-		iframe_t *pre = (iframe_t *)buffer; /* preload data */
-		unsigned char *p = (unsigned char *)&pre->data.p;
-
-		/* it is an error if this channel is not associated with a port object */
-		if (!mISDNport->b_port[i])
-		{
-			PERROR("bchannel index i=%d not associated with a port object\n", i);
-			return;
-		}
-
-		/* configure dsp features */
-		if (mISDNport->b_port[i]->p_m_txdata)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set txdata to txdata=%d.\n", mISDNport->b_port[i]->p_m_txdata);
-			ph_control(mISDNport->b_addr[i], (mISDNport->b_port[i]->p_m_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF);
-		}
-		if (mISDNport->b_port[i]->p_m_delay)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set delay to delay=%d.\n", mISDNport->b_port[i]->p_m_delay);
-			ph_control(mISDNport->b_addr[i], CMX_DELAY, mISDNport->b_port[i]->p_m_delay);
-		}
-		if (mISDNport->b_port[i]->p_m_txvol)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we change tx-volume to shift=%d.\n", mISDNport->b_port[i]->p_m_txvol);
-			ph_control(mISDNport->b_addr[i], VOL_CHANGE_TX, mISDNport->b_port[i]->p_m_txvol);
-		}
-		if (mISDNport->b_port[i]->p_m_rxvol)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we change rx-volume to shift=%d.\n", mISDNport->b_port[i]->p_m_rxvol);
-			ph_control(mISDNport->b_addr[i], VOL_CHANGE_RX, mISDNport->b_port[i]->p_m_rxvol);
-		}
-//tone		if (mISDNport->b_port[i]->p_m_conf && !mISDNport->b_port[i]->p_m_tone)
-		if (mISDNport->b_port[i]->p_m_conf)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we change conference to conf=%d.\n", mISDNport->b_port[i]->p_m_conf);
-			ph_control(mISDNport->b_addr[i], CMX_CONF_JOIN, mISDNport->b_port[i]->p_m_conf);
-		}
-		if (mISDNport->b_port[i]->p_m_echo)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set echo to echo=%d.\n", mISDNport->b_port[i]->p_m_echo);
-			ph_control(mISDNport->b_addr[i], CMX_ECHO_ON, 0);
-		}
-		if (mISDNport->b_port[i]->p_m_tone)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set tone to tone=%d.\n", mISDNport->b_port[i]->p_m_tone);
-			ph_control(mISDNport->b_addr[i], TONE_PATT_ON, mISDNport->b_port[i]->p_m_tone);
-		}
-		if (mISDNport->b_port[i]->p_m_rxoff)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set rxoff to rxoff=%d.\n", mISDNport->b_port[i]->p_m_rxoff);
-			ph_control(mISDNport->b_addr[i], CMX_RECEIVE_OFF, 0);
-		}
-#if 0
-		if (mISDNport->b_port[i]->p_m_txmix)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set txmix to txmix=%d.\n", mISDNport->b_port[i]->p_m_txmix);
-			ph_control(mISDNport->b_addr[i], CMX_MIX_ON, 0);
-		}
-#endif
-		if (mISDNport->b_port[i]->p_m_dtmf)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set dtmf to dtmf=%d.\n", mISDNport->b_port[i]->p_m_dtmf);
-			ph_control(mISDNport->b_addr[i], DTMF_TONE_START, 0);
-		}
-		if (mISDNport->b_port[i]->p_m_crypt)
-		{
-			PDEBUG(DEBUG_BCHANNEL, "during activation, we set crypt to crypt=%d.\n", mISDNport->b_port[i]->p_m_crypt);
-			ph_control_block(mISDNport->b_addr[i], BF_ENABLE_KEY, mISDNport->b_port[i]->p_m_crypt_key, mISDNport->b_port[i]->p_m_crypt_key_len);
-		}
-		todo: wer startet/stoppt eigentlich den audio-transmit
-	}
+	/* set dsp features */
+	if (port->p_m_txdata)
+		ph_control(mISDNport, port, addr, (port->p_m_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
+	if (port->p_m_delay)
+		ph_control(mISDNport, port, addr, CMX_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
+	if (port->p_m_txvol)
+		ph_control(mISDNport, port, addr, VOL_CHANGE_TX, port->p_m_txvol, "DSP-TXVOL", port->p_m_txvol);
+	if (port->p_m_rxvol)
+		ph_control(mISDNport, port, addr, VOL_CHANGE_RX, port->p_m_rxvol, "DSP-RXVOL", port->p_m_rxvol);
+	if (port->p_m_conf)
+		ph_control(mISDNport, port, addr, CMX_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
+	if (port->p_m_echo)
+		ph_control(mISDNport, port, addr, CMX_ECHO_ON, 0, "DSP-ECHO", 1);
+	if (port->p_m_tone)
+		ph_control(mISDNport, port, addr, TONE_PATT_ON, port->p_m_tone, "DSP-TONE", port->p_m_tone);
+	if (port->p_m_rxoff)
+		ph_control(mISDNport, port, addr, CMX_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+//	if (port->p_m_txmix)
+//		ph_control(mISDNport, port, addr, CMX_MIX_ON, 0, "DSP-MIX", 1);
+	if (port->p_m_dtmf)
+		ph_control(mISDNport, port, addr, DTMF_TONE_START, 0, "DSP-DTMF", 1);
+	if (port->p_m_crypt)
+		ph_control_block(mISDNport, port, addr, BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
 }
 
-static void bchannel_deactivate(struct mISDNport *mISDNport, int i)
+/*
+ * subfunction for bchannel_event
+ * deactivate 
+ */
+static void _bchannel_deactivate(struct mISDNport *mISDNport, int i)
 {
 	iframe_t dact;
+	int addr;
+	
+	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL deactivate", DIRECTION_OUT);
+	add_trace("channel", NULL, "%d", i+1+(i>=15));
+	end_trace();
+	dact.prim = DL_RELEASE | REQUEST; 
+	dact.addr = addr | FLG_MSG_DOWN;
+	dact.dinfo = 0;
+	dact.len = 0;
+	mISDN_write(mISDNdevice, &dact, mISDN_HEADER_LEN+dact.len, TIMEOUT_1SEC);
+}
 
-	if (mISDNport->b_state[i] == B_STATE_ACTIVE)
+/*
+ * subfunction for bchannel_event
+ * destroy stack
+ */
+static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
+{
+	unsigned char buff[1024];
+
+	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove stack", DIRECTION_OUT);
+	add_trace("channel", NULL, "%d", i+1+(i>=15));
+	add_trace("stack", "id", "%d", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "%d", mISDNport->b_addr[i]);
+	end_trace();
+	/* remove our stack only if set */
+	PDEBUG(DEBUG_BCHANNEL, "free stack (b_addr=0x%x)\n", mISDNport->b_addr[i]);
+	mISDN_clear_stack(mISDNdevice, mISDNport->b_stid[i]);
+	if (mISDNport->b_addr[i])
+		mISDN_write_frame(mISDNdevice, buff, mISDNport->b_addr[i] | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
+	mISDNport->b_addr[i] = 0;
+}
+
+
+/*
+bchannel procedure
+------------------
+
+A bchannel goes through the following states in this order:
+
+- B_STATE_IDLE
+No one is using the bchannel.
+It is available and not linked to Port class, nor reserved.
+
+- B_STATE_ACTIVATING
+The bchannel stack is created and an activation request is sent.
+It MAY be linked to Port class, but already unlinked due to Port class removal.
+
+- B_STATE_ACTIVE
+The bchannel is active and cofigured to the Port class needs.
+Also it is linked to a Port class, otherwhise it would be deactivated.
+
+- B_STATE_DEACTIVATING
+The bchannel is in deactivating state, due to deactivation request.
+It may be linked to a Port class, that likes to reactivate it.
+
+- B_STATE_IDLE
+See above.
+After deactivating bchannel, and if not used, the bchannel becomes idle again.
+
+
+A bchannel can have the following events:
+
+- B_EVENT_ACTIVATE
+A bchannel is required by a Port class.
+
+- B_EVENT_ACTIVATED
+The bchannel beomes active.
+
+- B_EVENT_DEACTIVATE
+The bchannel is not required by Port class anymore
+
+- B_EVENT_DEACTIVATED
+The bchannel becomes inactive.
+
+All actions taken on these events depend on the current bchannel's state and if it is linked to a Port class.
+
+*/
+
+/*
+ * process bchannel events
+ * - mISDNport is a pointer to the port's structure
+ * - i is the index of the bchannel
+ * - event is the B_EVENT_* value
+ * - port is the PmISDN class pointer
+ */
+void bchannel_event(struct mISDNport *mISDNport, int i, int event)
+{
+	int state = mISDNport->b_state[i];
+	
+	switch(event)
 	{
-		/* reset dsp features */
+		case B_EVENT_ACTIVATE:
+		/* port may not be used by any other bchannel */
 		if (mISDNport->b_port[i])
 		{
-			if (mISDNport->b_port[i]->p_m_txdata)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset txdata from txdata=%d.\n", mISDNport->b_port[i]->p_m_txdata);
-				ph_control(mISDNport->b_addr[i], CMX_TXDATA_OFF, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_delay)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset delay from delay=%d.\n", mISDNport->b_port[i]->p_m_delay);
-				ph_control(mISDNport->b_addr[i], CMX_JITTER, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_txvol)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset tx-volume from shift=%d.\n", mISDNport->b_port[i]->p_m_txvol);
-				ph_control(mISDNport->b_addr[i], VOL_CHANGE_TX, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_rxvol)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset rx-volume from shift=%d.\n", mISDNport->b_port[i]->p_m_rxvol);
-				ph_control(mISDNport->b_addr[i], VOL_CHANGE_RX, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_conf)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we release conference from conf=%d.\n", mISDNport->b_port[i]->p_m_conf);
-				ph_control(mISDNport->b_addr[i], CMX_CONF_SPLIT, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_echo)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset echo from echo=%d.\n", mISDNport->b_port[i]->p_m_echo);
-				ph_control(mISDNport->b_addr[i], CMX_ECHO_OFF, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_tone)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset tone from tone=%d.\n", mISDNport->b_port[i]->p_m_tone);
-				ph_control(mISDNport->b_addr[i], TONE_PATT_OFF, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_rxoff)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset rxoff from rxoff=%d.\n", mISDNport->b_port[i]->p_m_rxoff);
-				ph_control(mISDNport->b_addr[i], CMX_RECEIVE_ON, 0);
-			}
-#if 0
-			if (mISDNport->b_port[i]->p_m_txmix)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset txmix from txmix=%d.\n", mISDNport->b_port[i]->p_m_txmix);
-				ph_control(mISDNport->b_addr[i], CMX_MIX_OFF, 0);
-			}
-#endif
-			if (mISDNport->b_port[i]->p_m_dtmf)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset dtmf from dtmf=%d.\n", mISDNport->b_port[i]->p_m_dtmf);
-				ph_control(mISDNport->b_addr[i], DTMF_TONE_STOP, 0);
-			}
-			if (mISDNport->b_port[i]->p_m_crypt)
-			{
-				PDEBUG(DEBUG_BCHANNEL, "during deactivation, we reset crypt from crypt=%d.\n", mISDNport->b_port[i]->p_m_dtmf);
-				ph_control(mISDNport->b_addr[i], BF_DISABLE, 0);
-			}
+			PERROR("SOFTWARE ERROR: bchannel must not be linked to a Port class\n");
+			exit(-1);
 		}
-		/* deactivate bchannel */
-		PDEBUG(DEBUG_BCHANNEL, "deactivating bchannel (index %d), because currently active.\n", i);
-		dact.prim = DL_RELEASE | REQUEST; 
-		dact.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
-		dact.dinfo = 0;
-		dact.len = 0;
-		mISDN_write(mISDNdevice, &dact, mISDN_HEADER_LEN+dact.len, TIMEOUT_1SEC);
-		mISDNport->b_state[i] = B_STATE_DEACTIVATING;
-		return;
+		switch(state)
+		{
+			case B_STATE_IDLE:
+			/* create stack and send activation request */
+			if (_bchannel_create(mISDNport, i))
+			{
+				_bchannel_activate(mISDNport, i);
+				state = B_STATE_ACTIVATING;
+			}
+			break;
+
+			case B_STATE_ACTIVATING:
+			/* do nothing, because it is already activating */
+			break;
+
+			case B_STATE_DEACTIVATING:
+			/* do nothing, because we must wait until we can reactivate */
+			break;
+
+			default:
+			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
+		}
+		break;
+
+		case B_EVENT_ACTIVATED:
+		switch(state)
+		{
+			case B_STATE_ACTIVATING:
+			if (mISDNport->b_port[i])
+			{
+				/* bchannel is active and used by Port class, so we configure bchannel */
+				_bchannel_configure(mISDNport, i);
+				state = B_STATE_ACTIVE;
+			} else
+			{
+				/* bchannel is active, but not used anymore (or has wrong stack config), so we deactivate */
+				_bchannel_deactivate(mISDNport, i);
+				state = B_STATE_DEACTIVATING;
+			}
+			break;
+
+			default:
+			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
+		}
+		break;
+
+		case B_EVENT_DEACTIVATE:
+		if (!mISDNport->b_port[i])
+		{
+			PERROR("SOFTWARE ERROR: bchannel must be linked to a Port class\n");
+			exit(-1);
+		}
+		switch(state)
+		{
+			case B_STATE_IDLE:
+			/* bchannel is idle due to an error, so we do nothing */
+			break;
+
+			case B_STATE_ACTIVATING:
+			/* do nothing because we must wait until bchanenl is active before deactivating */
+			break;
+
+			case B_STATE_ACTIVE:
+			/* bchannel is active, so we deactivate */
+			_bchannel_deactivate(mISDNport, i);
+			state = B_STATE_DEACTIVATING;
+			break;
+
+			case B_STATE_DEACTIVATING:
+			/* we may have taken an already deactivating bchannel, but do not require it anymore, so we do nothing */
+			break;
+
+			default:
+			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
+		}
+		break;
+
+		case B_EVENT_DEACTIVATED:
+		_bchannel_destroy(mISDNport, i);
+		state = B_STATE_IDLE;
+		switch(state)
+		{
+			case B_STATE_DEACTIVATING:
+			if (mISDNport->b_port[i])
+			{
+				/* bchannel is now deactivate, but is requied by Port class, so we reactivate */
+				if (_bchannel_create(mISDNport, i))
+				{
+					_bchannel_activate(mISDNport, i);
+					state = B_STATE_ACTIVATING;
+				}
+			}
+			break;
+
+			default:
+			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
+		}
+		break;
+
+		default:
+		PERROR("Illegal event %d, please correct.\n", event);
 	}
+
+	mISDNport->b_state[i] = state;
 }
+
+
 
 
 /*
@@ -352,8 +657,8 @@ static void bchannel_deactivate(struct mISDNport *mISDNport, int i)
  * give channel number or SEL_CHANNEL_ANY or SEL_CHANNEL_NO
  * give exclusiv flag
  * returns -(cause value) or x = channel x or 0 = no channel
+ * NOTE: no activation is done here
  */
-denke ans aktivieren und deaktivieren
 int PmISDN::seize_bchannel(int channel, int exclusive)
 {
 	int i;
@@ -407,32 +712,34 @@ int PmISDN::seize_bchannel(int channel, int exclusive)
 	return(-34); /* no free channel */
 
 seize:
+	PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) seizing bchannel %d (index %d)\n", p_name, channel, i);
+
 	/* link Port */
 	p_m_mISDNport->b_port[i] = this;
 	p_m_b_index = i;
 	p_m_b_channel = channel;
 	p_m_b_exclusive = exclusive;
-	p_m_b_stid = p_m_mISDNport->b_stid[i];
-	p_m_b_addr = p_m_mISDNport->b_addr[i];
 	p_m_jittercheck = 0;
 
 	/* reserve channel */
-	if (p_m_b_reserve == 0) // already reserved
+	if (!p_m_b_reserve)
 	{
 		p_m_b_reserve = 1;
-		mISDNport->b_reserved++;
+		p_m_mISDNport->b_reserved++;
 	}
-
-	PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) seizing bchannel %d (index %d)\n", p_name, channel, i);
 
 	return(channel);
 }
 
 /*
  * drop reserved channel and unset it.
+ * deactivation is also done
  */
 void PmISDN::drop_bchannel(void)
 {
+	if (p_m_b_index < 0)
+		return;
+
 	/* unreserve channel */
 	if (p_m_b_reserve)
 		p_m_mISDNport->b_reserved--;
@@ -444,62 +751,12 @@ void PmISDN::drop_bchannel(void)
 
 	PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) dropping bchannel\n", p_name);
 
+	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_IDLE)
+		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_DEACTIVATE);
 	p_m_mISDNport->b_port[p_m_b_index] = NULL;
 	p_m_b_index = -1;
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
-	p_m_b_addr = 0;
-	p_m_b_stid = 0;
-}
-
-
-/*
- * data is to be transmitted to the remote
- */
-wech void Port::transmit(unsigned char *buffer, int length, int tonelength)
-{
-	/* send tone data to isdn device only if we have data, otherwhise we send nothing */
-	if (tonelength>0 && (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops))
-	{
-		unsigned char buf[mISDN_HEADER_LEN+tonelength];
-		iframe_t *frm = (iframe_t *)buf;
-
-		if (p_m_crypt_msg_loops)
-		{
-			/* send pending message */
-			int tosend;
-
-			tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
-			if (tosend > newlen)
-				tosend = newlen;
-			memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
-			p_m_crypt_msg_current += tosend;
-			if (p_m_crypt_msg_current == p_m_crypt_msg_len)
-			{
-				p_m_crypt_msg_current = 0;
-				p_m_crypt_msg_loops--;
-			}
-		}
-		frm->prim = DL_DATA | REQUEST; 
-		frm->addr = p_m_b_addr | FLG_MSG_DOWN;
-		frm->dinfo = 0;
-		frm->len = tonelength;
-		memcpy(&frm->data.p, buffer, tonelength);
-		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
-
-		if (p_debug_nothingtosend)
-		{
-			p_debug_nothingtosend = 0;
-			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) start sending, because we have tones and/or remote audio.\n", p_name);
-		} 
-	} else
-	{
-		if (!p_debug_nothingtosend)
-		{
-			p_debug_nothingtosend = 1;
-			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
-		} 
-	}
 }
 
 
@@ -510,38 +767,40 @@ int PmISDN::handler(void)
 {
 	struct message *message;
 	int elapsed, length;
+	int ret;
+	int inbuffer;
 
 	if ((ret = Port::handler()))
 		return(ret);
 
-	inbuffer = (p_fromup_buffer_writep - p_fromup_buffer_readp) & FROMUP_BUFFER_MASK
+	inbuffer = (p_m_fromup_buffer_writep - p_m_fromup_buffer_readp) & FROMUP_BUFFER_MASK;
 	/* send tone data to isdn device only if we have data */
 	if (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops || inbuffer)
 	{
 		/* calculate how much to transmit */
-		if (!p_last_tv.sec)
+		if (!p_last_tv_sec)
 		{
-			elapsed = ISDN_PRELOAD << 3; /* preload for the first time */
+			elapsed = ISDN_PRELOAD; /* preload for the first time */
 		} else
 		{
-			elapsed = 1000 * (now_tv.sec - p_last_tv_sec)
-				+ (now_tv.usec/1000) - p_last_tv_msec;
+			elapsed = 8000 * (now_tv.tv_sec - p_last_tv_sec)
+				+ 8 * (now_tv.tv_usec/1000 - p_last_tv_msec);
 			/* gap was greater preload, so only fill up to preload level */
-			if (elapsed > (ISDN_PRELOAD<<3))
+			if (elapsed > ISDN_PRELOAD)
 			{
-				elapsed = ISDN_PRELOAD << 3
+				elapsed = ISDN_PRELOAD;
 			}
 		}
 		if (elapsed >= ISDN_TRANSMIT)
 		{
-			unsigned char buf[mISDN_HEADER_LEN+(ISDN_PRELOAD<<3)], *p = buf;
+			unsigned char buf[mISDN_HEADER_LEN+ISDN_PRELOAD], *p = buf;
 			iframe_t *frm = (iframe_t *)buf;
 
-			p_last_tv_sec = now_tv.sec;
-			p_last_tv_msec = now_tv.usec/1000;
+			p_last_tv_sec = now_tv.tv_sec;
+			p_last_tv_msec = now_tv.tv_usec/1000;
 
 			/* read tones */
-			length = read_audio(buffer, elapsed);
+			length = read_audio(p, elapsed);
 
 			/*
 			 * get data from up
@@ -555,13 +814,14 @@ int PmISDN::handler(void)
 				if (inbuffer <= length)
 				{
 					/* clear buffer */
-					p_fromup_buffer_readp = p_fromup_buffer_writep;
+					p_m_fromup_buffer_readp = p_m_fromup_buffer_writep;
 					inbuffer = 0;
 				} else
 				{
 					/* skip what we already have with tones */
-					p_fromup_buffer_readp = (p_fromup_buffer_readp + length) & FROMUP_BUFFER_MASK;
+					p_m_fromup_buffer_readp = (p_m_fromup_buffer_readp + length) & FROMUP_BUFFER_MASK;
 					inbuffer -= length;
+					p += length;
 				}
 				/* if we have more in buffer, than we send this time */
 				if (inbuffer > (elapsed-length))
@@ -571,8 +831,8 @@ int PmISDN::handler(void)
 				/* now fill up with fromup_buffer */
 				while (inbuffer)
 				{
-					*p++ = p_fromup_buffer[p_fromup_buffer_readp];
-					p_fromup_buffer_readp = (p_fromup_buffer_readp + 1) & FROMUP_BUFFER_MASK;
+					*p++ = p_m_fromup_buffer[p_m_fromup_buffer_readp];
+					p_m_fromup_buffer_readp = (p_m_fromup_buffer_readp + 1) & FROMUP_BUFFER_MASK;
 					inbuffer--;
 				}
 			}
@@ -583,13 +843,17 @@ int PmISDN::handler(void)
 				/* send pending message */
 				int tosend;
 
-				/* we need full length */
-				length = elapsed;
-	check!!
+				/* how much do we have to send */
 				tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
-				if (tosend > length)
-					tosend = length;
-				memcpy(buffer, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
+				if (tosend > elapsed)
+					tosend = elapsed;
+
+				/* our length increases, if less */
+				if (length < tosend)
+					length = tosend;
+
+				/* copy message (part) to buffer */
+				memcpy(buf, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
 				p_m_crypt_msg_current += tosend;
 				if (p_m_crypt_msg_current == p_m_crypt_msg_len)
 				{
@@ -598,10 +862,10 @@ int PmISDN::handler(void)
 				}
 			}
 			frm->prim = DL_DATA | REQUEST; 
-			frm->addr = p_m_b_addr | FLG_MSG_DOWN;
+			frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
 			frm->dinfo = 0;
 			frm->len = length;
-			memcpy(&frm->data.p, buffer, length);
+			memcpy(&frm->data.p, buf, length);
 			mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
 
 			if (p_debug_nothingtosend)
@@ -613,7 +877,7 @@ int PmISDN::handler(void)
 		}
 	} else
 	{
-		if (!cwp_debug_nothingtosend)
+		if (!p_debug_nothingtosend)
 		{
 			p_debug_nothingtosend = 1;
 			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
@@ -649,10 +913,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	unsigned char *data_temp;
 	unsigned long length_temp;
 	struct message *message;
-	struct timeval tv;
-	struct timezone tz;
-	long long jitter_now;
-	int newlen;
 	unsigned char *p;
 	int l;
 	unsigned long cont;
@@ -690,6 +950,9 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		// PDEBUG(DEBUG_PORT, "PmISDN(%s) received a PH_CONTROL INDICATION 0x%x\n", p_name, cont);
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
 		{
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
+			add_trace("DTMF", NULL, "%c", cont & DTMF_TONE_MASK);
+			end_trace();
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
 			message->param.dtmf = cont & DTMF_TONE_MASK;
 			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);
@@ -699,6 +962,9 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		switch(cont)
 		{
 			case BF_REJECT:
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
+			add_trace("DSP-CRYPT", NULL, "error");
+			end_trace();
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CRYPT);
 			message->param.crypt.type = CC_ERROR_IND;
 			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  reject of blowfish.\n", p_name);
@@ -706,6 +972,9 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			break;
 
 			case BF_ACCEPT:
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
+			add_trace("DSP-CRYPT", NULL, "ok");
+			end_trace();
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CRYPT);
 			message->param.crypt.type = CC_ACTBF_CONF;
 			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  accept of blowfish.\n", p_name);
@@ -713,18 +982,20 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			break;
 
 			case CMX_TX_DATA:
-			if (!p_m_txdatad)
+			if (!p_m_txdata)
 			{
 				/* if rx is off, it may happen that fifos send us pending informations, we just ignore them */
 				PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring rx data, because 'txdata' is turned off\n", p_name);
 				return;
 			}
 			if (p_record)
-				record(&(cont+1), frm->len - 4, 1); // from up
+				record((unsigned char *)(cont+1), frm->len - 4, 1); // from up
 			break;
 
 			default:
-			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  unknown 0x%x.\n", p_name, cont);
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
+			add_trace("unknown", NULL, "0x%x", cont);
+			end_trace();
 		}
 		return;
 	}	
@@ -785,9 +1056,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
 			message->param.data.len = (length_temp>sizeof(message->param.data.data))?sizeof(message->param.data.data):length_temp;
 			memcpy(message->param.data.data, data_temp, message->param.data.len);
-			message->param.data.compressed = 1;
-			message->param.data.port_id = p_serial;
-			message->param.data.port_type = p_type;
 			message_put(message);
 			if (length_temp <= sizeof(message->param.data.data))
 				break;
@@ -818,7 +1086,7 @@ void PmISDN::set_echotest(int echo)
 		PDEBUG(DEBUG_ISDN, "we set echo to echo=%d.\n", p_m_echo);
 		if (p_m_b_channel)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-				ph_control(p_m_b_addr, p_m_echo?CMX_ECHO_ON:CMX_ECHO_OFF, 0);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_echo?CMX_ECHO_ON:CMX_ECHO_OFF, 0, "DSP-ECHO", p_m_echo);
 	}
 }
 
@@ -846,7 +1114,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 		{
 			PDEBUG(DEBUG_ISDN, "we reset tone from id=%d to OFF.\n", p_m_tone);
-			ph_control(p_m_b_addr, TONE_PATT_OFF, 0);
+			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], TONE_PATT_OFF, 0, "DSP-TONE", 0);
 		}
 		p_m_tone = 0;
 		Port::set_tone(dir, tone);
@@ -928,7 +1196,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		PDEBUG(DEBUG_ISDN, "we set tone to id=%d.\n", p_m_tone);
 		if (p_m_b_channel)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-				ph_control(p_m_b_addr, p_m_tone?TONE_PATT_ON:TONE_PATT_OFF, p_m_tone);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_tone?TONE_PATT_ON:TONE_PATT_OFF, p_m_tone, "DSP-TONE", p_m_tone);
 	}
 	/* turn user-space tones off in cases of no tone OR dsp tone */
 	Port::set_tone("",NULL);
@@ -948,7 +1216,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			PDEBUG(DEBUG_BCHANNEL, "we change tx-volume to shift=%d.\n", p_m_txvol);
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, VOL_CHANGE_TX, p_m_txvol);
+					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_TX, p_m_txvol, "DSP-TXVOL", p_m_txvol);
 		}
 		if (p_m_rxvol != param->mISDNsignal.rxvol)
 		{
@@ -956,7 +1224,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			PDEBUG(DEBUG_BCHANNEL, "we change rx-volume to shift=%d.\n", p_m_rxvol);
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, VOL_CHANGE_RX, p_m_rxvol);
+					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_RX, p_m_rxvol, "DSP-RXVOL", p_m_rxvol);
 		}
 		break;
 
@@ -969,7 +1237,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			PDEBUG(DEBUG_BCHANNEL, "we change conference to conf=%d.\n", p_m_conf);
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, (p_m_conf)?CMX_CONF_JOIN:CMX_CONF_SPLIT, p_m_conf);
+					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], (p_m_conf)?CMX_CONF_JOIN:CMX_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
 		}
 		/* we must set, even if currently tone forbids conf */
 		p_m_conf = param->mISDNsignal.conf;
@@ -981,48 +1249,20 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 		{
 			p_m_calldata = param->mISDNsignal.calldata;
 			PDEBUG(DEBUG_BCHANNEL, "we change to calldata=%d.\n", p_m_calldata);
-			auch senden
 		}
 		break;
 		
-#if 0
-		case mISDNSIGNAL_NODATA:
-		p_m_nodata = param->mISDNsignal.nodata;
-		if (p_m_txmix == p_m_nodata) /* txmix != !nodata */
+		case mISDNSIGNAL_DELAY:
+		if (p_m_delay != param->mISDNsignal.delay)
 		{
-			p_m_txmix = !p_m_nodata;
-			PDEBUG(DEBUG_BCHANNEL, "we change mix mode to txmix=%d (nodata=%d).\n", p_m_txmix, p_m_nodata);
+			p_m_delay = param->mISDNsignal.delay;
+			PDEBUG(DEBUG_BCHANNEL, "we change delay mode to delay=%d.\n", p_m_delay);
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, p_m_txmix?CMX_MIX_ON:CMX_MIX_OFF, 0);
-		}
-		break;
-#endif
-
-#if 0
-		case mISDNSIGNAL_RXOFF:
-		if (p_m_rxoff != param->mISDNsignal.rxoff)
-		{
-			p_m_rxoff = param->mISDNsignal.rxoff;
-			PDEBUG(DEBUG_BCHANNEL, "we change receive mode to rxoff=%d.\n", p_m_rxoff);
-			if (p_m_b_channel)
-				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, p_m_rxoff?CMX_RECEIVE_OFF:CMX_RECEIVE_ON, 0);
+					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
 		}
 		break;
 
-		case mISDNSIGNAL_DTMF:
-		if (p_m_dtmf != param->mISDNsignal.dtmf)
-		{
-			p_m_dtmf = param->mISDNsignal.dtmf;
-			PDEBUG(DEBUG_BCHANNEL, "we change dtmf mode to dtmf=%d.\n", p_m_dtmf);
-			if (p_m_b_channel)
-				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-					ph_control(p_m_b_addr, p_m_dtmf?DTMF_TONE_START:DTMF_TONE_STOP, 0);
-		}
-		break;
-
-#endif
 		default:
 		PERROR("PmISDN(%s) unsupported signal message %d.\n", p_name, param->mISDNsignal.message);
 	}
@@ -1051,7 +1291,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 		PDEBUG(DEBUG_BCHANNEL, "we set encryption to crypt=%d. (0 means OFF)\n", p_m_crypt);
 		if (p_m_b_channel)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-				ph_control_block(p_m_b_addr, p_m_crypt?BF_ENABLE_KEY:BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len);
+				ph_control_block(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_crypt?BF_ENABLE_KEY:BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len, "DSP-CRYPT", p_m_crypt_key_len);
 		break;
 
 		case CC_DACT_REQ:            /* deactivate session encryption */
@@ -1082,7 +1322,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 		if (p_m_txmix)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "for sending CR_MESSAGE_REQ, we reset txmix from txmix=%d.\n", p_m_txmix);
-			ph_control(p_m_b_addr, CMX_MIX_OFF, 0);
+			ph_control(p_m_mISDNport, this, p_mISDNport->b_addr[p_m_b_index], CMX_MIX_OFF, 0, "DSP-TXMIX", 0);
 		}
 #endif
 		break;
@@ -1103,6 +1343,10 @@ int PmISDN::message_epoint(unsigned long epoint_id, int message_id, union parame
 
 	switch(message_id)
 	{
+		case MESSAGE_DATA: /* tx-data from upper layer */
+		txfromup(param->data.data, param->data.len);
+		return(1);
+
 		case MESSAGE_mISDNSIGNAL: /* user command */
 		PDEBUG(DEBUG_ISDN, "PmISDN(%s) received special ISDN SIGNAL %d.\n", p_name, param->mISDNsignal.message);
 		message_mISDNsignal(epoint_id, message_id, param);
@@ -1115,14 +1359,6 @@ int PmISDN::message_epoint(unsigned long epoint_id, int message_id, union parame
 	}
 
 	return(0);
-}
-
-
-/*
- * transmit function for data to mISDN b-channel
- */
-void Port::transmit(unsigned char *buffer, int length)
-{
 }
 
 
@@ -1151,57 +1387,61 @@ int mISDN_handler(void)
 		while(i < mISDNport->b_num)
 		{
 			isdnport=mISDNport->b_port[i];
-			/* call bridges in user space OR crypto OR recording */
-			if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
+			if (isdnport)
 			{
-				/* rx IS required */
-				if (isdnport->p_m_rxoff)
+				/* call bridges in user space OR crypto OR recording */
+				if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
 				{
-					/* turn on RX */
-					isdnport->p_m_rxoff = 0;
-					PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
-					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_ON, 0);
-					return(1);
+					/* rx IS required */
+					if (isdnport->p_m_rxoff)
+					{
+						/* turn on RX */
+						isdnport->p_m_rxoff = 0;
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
+						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_RECEIVE_ON, 0, "DSP-RXOFF", 0);
+						return(1);
+					}
+				} else
+				{
+					/* rx NOT required */
+					if (!isdnport->p_m_rxoff)
+					{
+						/* turn off RX */
+						isdnport->p_m_rxoff = 1;
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
+						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+						return(1);
+					}
 				}
-			} else
-			{
-				/* rx NOT required */
-				if (!isdnport->p_m_rxoff)
+				/* recording */
+				if (isdnport->p_record)
 				{
-					/* turn off RX */
-					isdnport->p_m_rxoff = 1;
-					PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
-					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-						ph_control(isdnport->p_m_b_addr, CMX_RECEIVE_OFF, 0);
-					return(1);
+					/* txdata IS required */
+					if (!isdnport->p_m_txdata)
+					{
+						/* turn on RX */
+						isdnport->p_m_txdata = 1;
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
+						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_ON, 0, "DSP-TXDATA", 1);
+						return(1);
+					}
+				} else
+				{
+					/* txdata NOT required */
+					if (isdnport->p_m_txdata)
+					{
+						/* turn off RX */
+						isdnport->p_m_txdata = 0;
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
+						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
+							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_OFF, 0, "DSP-TXDATA", 0);
+						return(1);
+					}
 				}
 			}
-			/* recordin */
-			if (isdnport->p_record)
-			{
-				/* txdata IS required */
-				if (!isdnport->p_m_txdata)
-				{
-					/* turn on RX */
-					isdnport->p_m_txdata = 1;
-					PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
-					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-						ph_control(isdnport->p_m_b_addr, CMX_TXDATA_ON, 0);
-					return(1);
-				}
-			} else
-			{
-				/* txdata NOT required */
-				if (isdnport->p_m_txdata)
-				{
-					/* turn off RX */
-					isdnport->p_m_txdata = 0;
-					PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
-					if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-						ph_control(isdnport->p_m_b_addr, CMX_TXDATA_OFF, 0);
-					return(1);
-				}
 			i++;
 		}
 #if 0
@@ -1234,6 +1474,8 @@ int mISDN_handler(void)
 					act.len = 0;
 					mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
 				}
+				l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | REQUEST, DIRECTION_OUT);
+				end_trace();
 				return(1);
 			}
 		}
@@ -1330,23 +1572,28 @@ int mISDN_handler(void)
 				case MGR_SHORTSTATUS | CONFIRM:
 				switch(frm->dinfo) {
 					case SSTATUS_L1_ACTIVATED:
-					PDEBUG(DEBUG_ISDN, "Received SSTATUS_L1_ACTIVATED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+					l1l2l3_trace_header(mISDNport, NULL, PH_ACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+					end_trace();
 					goto ss_act;
 					case SSTATUS_L1_DEACTIVATED:
-					PDEBUG(DEBUG_ISDN, "Received SSTATUS_L1_DEACTIVATED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+					l1l2l3_trace_header(mISDNport, NULL, PH_DEACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+					end_trace();
 					goto ss_deact;
 					case SSTATUS_L2_ESTABLISHED:
-					PDEBUG(DEBUG_ISDN, "Received SSTATUS_L2_ESTABLISHED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+					l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | (frm->prim & 0x3), DIRECTION_IN);
+					end_trace();
 					goto ss_estab;
 					case SSTATUS_L2_RELEASED:
-					PDEBUG(DEBUG_ISDN, "Received SSTATUS_L2_RELEASED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+					l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE | (frm->prim & 0x3), DIRECTION_IN);
+					end_trace();
 					goto ss_rel;
 				}
 				break;
 
 				case PH_ACTIVATE | CONFIRM:
 				case PH_ACTIVATE | INDICATION:
-				PDEBUG(DEBUG_ISDN, "Received PH_ACTIVATED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+				end_trace();
 				if (mISDNport->ntmode)
 				{
 					mISDNport->l1link = 1;
@@ -1360,7 +1607,8 @@ int mISDN_handler(void)
 
 				case PH_DEACTIVATE | CONFIRM:
 				case PH_DEACTIVATE | INDICATION:
-				PDEBUG(DEBUG_ISDN, "Received PH_DEACTIVATED for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+				end_trace();
 				if (mISDNport->ntmode)
 				{
 					mISDNport->l1link = 0;
@@ -1379,11 +1627,10 @@ int mISDN_handler(void)
 
 				case DL_ESTABLISH | INDICATION:
 				case DL_ESTABLISH | CONFIRM:
-//				PDEBUG(DEBUG_ISDN, "addr 0x%x established data link (DL) TE portnum=%d (DL_ESTABLISH)\n", frm->addr, mISDNport->portnum);
+				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+				end_trace();
 				if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 				ss_estab:
-//				if (mISDNport->ntmode)
-//					break;
 				if (mISDNport->l2establish)
 				{
 					mISDNport->l2establish = 0;
@@ -1394,11 +1641,10 @@ int mISDN_handler(void)
 
 				case DL_RELEASE | INDICATION:
 				case DL_RELEASE | CONFIRM:
-//				PDEBUG(DEBUG_ISDN, "addr 0x%x released data link (DL) TE portnum=%d (DL_RELEASE)\n", frm->addr, mISDNport->portnum);
+				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+				end_trace();
 				if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 				ss_rel:
-//				if (mISDNport->ntmode)
-//					break;
 				mISDNport->l2link = 0;
 				if (mISDNport->ptp)
 				{
@@ -1485,11 +1731,7 @@ int mISDN_handler(void)
 					PERROR("unhandled b-establish (address 0x%x).\n", frm->addr);
 					break;
 				}
-				mISDNport->b_state[i] = B_STATE_ACTIVE;
-				if (!mISDNport->b_port[i])
-					bchannel_deactivate(mISDNport, i);
-				else
-					bchannel_activate(mISDNport, i);
+				bchannel_event(mISDNport, i, B_EVENT_ACTIVATED);
 				break;
 
 				case PH_DEACTIVATE | INDICATION:
@@ -1509,11 +1751,7 @@ int mISDN_handler(void)
 					PERROR("unhandled b-release (address 0x%x).\n", frm->addr);
 					break;
 				}
-				mISDNport->b_state[i] = B_STATE_IDLE;
-				if (mISDNport->b_port[i])
-					bchannel_activate(mISDNport, i);
-				else
-					bchannel_deactivate(mISDNport, i);
+				bchannel_event(mISDNport, i, B_EVENT_DEACTIVATED);
 				break;
 			}
 			break;
@@ -1538,7 +1776,7 @@ int mISDN_handler(void)
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
+struct mISDNport *mISDNport_open(int port, int ptp, int ptmp)
 {
 	int ret;
 	unsigned char buff[1025];
@@ -1546,14 +1784,12 @@ struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
 	stack_info_t *stinf;
 	struct mISDNport *mISDNport, **mISDNportp;
 	int i, cnt;
-	layer_info_t li;
 //	interface_info_t ii;
 	net_stack_t *nst;
 	manager_t *mgr;
-	mISDN_pid_t pid;
+	layer_info_t li;
 	int pri = 0;
 	int nt = 0;
-	iframe_t dact;
 
 	/* open mISDNdevice if not already open */
 	if (mISDNdevice < 0)
@@ -1710,6 +1946,7 @@ struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
 	while(i < stinf->childcnt)
 	{
 		mISDNport->b_stid[i] = stinf->child[i];
+		mISDNport->b_state[i] = B_STATE_IDLE;
 		PDEBUG(DEBUG_ISDN, "b_stid[%d] = 0x%x.\n", i, mISDNport->b_stid[i]);
 		i++;
 	}
@@ -1837,70 +2074,16 @@ struct mISDNport *mISDN_port_open(int port, int ptp, int ptmp)
 
 	PDEBUG(DEBUG_BCHANNEL, "using 'mISDN_dsp.o' module\n");
 
-	/* add all bchannel layers */
-	i = 0;
-	while(i < mISDNport->b_num)
-	{
-		/* create new layer */
-		PDEBUG(DEBUG_BCHANNEL, "creating bchannel %d (index %d).\n" , i+1+(i>=15), i);
-		memset(&li, 0, sizeof(li));
-		memset(&pid, 0, sizeof(pid));
-		li.object_id = -1;
-		li.extentions = 0;
-		li.st = mISDNport->b_stid[i];
-		UCPY(li.name, "B L4");
-		li.pid.layermask = ISDN_LAYER((4));
-		li.pid.protocol[4] = ISDN_PID_L4_B_USER;
-		ret = mISDN_new_layer(mISDNdevice, &li);
-		if (ret)
-		{
-			failed_new_layer:
-			PERROR("mISDN_new_layer() failed to add bchannel %d (index %d)\n", i+1+(i>=15), i);
-			goto closeport;
-		}
-		mISDNport->b_addr[i] = li.id;
-		if (!li.id)
-		{
-			goto failed_new_layer;
-		}
-		PDEBUG(DEBUG_BCHANNEL, "new layer (b_addr=0x%x)\n", mISDNport->b_addr[i]);
-
-		/* create new stack */
-		pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
-		pid.protocol[2] = ISDN_PID_L2_B_TRANS;
-		pid.protocol[3] = ISDN_PID_L3_B_DSP;
-		pid.protocol[4] = ISDN_PID_L4_B_USER;
-		pid.layermask = ISDN_LAYER((1)) | ISDN_LAYER((2)) | ISDN_LAYER((3)) | ISDN_LAYER((4));
-		ret = mISDN_set_stack(mISDNdevice, mISDNport->b_stid[i], &pid);
-		if (ret)
-		{
-			stack_error:
-			PERROR("mISDN_set_stack() failed (ret=%d) to add bchannel (index %d) stid=0x%x\n", ret, i, mISDNport->b_stid[i]);
-			mISDN_write_frame(mISDNdevice, buff, mISDNport->b_addr[i], MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-			mISDNport->b_addr[i] = 0;
-//			mISDNport->b_addr_low[i] = 0;
-			goto closeport;
-		}
-		ret = mISDN_get_setstack_ind(mISDNdevice, mISDNport->b_addr[i]);
-		if (ret)
-			goto stack_error;
-
-		/* get layer id */
-		mISDNport->b_addr[i] = mISDN_get_layerid(mISDNdevice, mISDNport->b_stid[i], 4);
-		if (!mISDNport->b_addr[i])
-			goto stack_error;
-		/* deactivate bchannel if already enabled due to crash */
-		PDEBUG(DEBUG_BCHANNEL, "deactivating bchannel (index %d) as a precaution.\n", i);
-		dact.prim = DL_RELEASE | REQUEST; 
-		dact.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
-		dact.dinfo = 0;
-		dact.len = 0;
-		mISDN_write(mISDNdevice, &dact, mISDN_HEADER_LEN+dact.len, TIMEOUT_1SEC);
-
-		i++;
-	}
-	PDEBUG(DEBUG_ISDN, "- port %d %s (%s) %d b-channels\n", mISDNport->portnum, (mISDNport->ntmode)?"NT-mode":"TE-mode", (mISDNport->ptp)?"Point-To-Point":"Multipoint", mISDNport->b_num);
-	printlog("opening port %d %s (%s) %d b-channels\n", mISDNport->portnum, (mISDNport->ntmode)?"NT-mode":"TE-mode", (mISDNport->ptp)?"Point-To-Point":"Multipoint", mISDNport->b_num);
+	start_trace(mISDNport->portnum,
+		    mISDNport->ifport->interface,
+		    NULL,
+		    NULL,
+		    DIRECTION_NONE,
+		    CATEGORY_CH,
+		    0,
+		    "PORT (open)");
+	add_trace("channels", NULL, "%d", mISDNport->b_num);
+	end_trace();
 	return(mISDNport);
 }
 
@@ -1922,7 +2105,7 @@ void mISDNport_close(struct mISDNport *mISDNport)
 {
 	struct mISDNport **mISDNportp;
 	class Port *port;
-	classs PmISDN *pmISDN;
+	class PmISDN *isdnport;
 	net_stack_t *nst;
 	unsigned char buf[32];
 	int i;
@@ -1933,29 +2116,34 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	{
 		if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_mISDN)
 		{
-			pmISDN = (class PmISDN)*port;
-			if (pmISDN->p_m_mISDNport)
+			isdnport = (class PmISDN *)port;
+			if (isdnport->p_m_mISDNport)
 			{
-				PDEBUG(DEBUG_ISDN, "port %s uses mISDNport %d, destroying it.\n", pnISDN->p_name, mISDNport->portnum);
-				delete pmISDN;
+				PDEBUG(DEBUG_ISDN, "port %s uses mISDNport %d, destroying it.\n", isdnport->p_name, mISDNport->portnum);
+				delete isdnport;
 			}
 		}
 		port = port->next;
 	}
 
-	printlog("closing port %d\n", mISDNport->portnum);
+	start_trace(mISDNport->portnum,
+		    mISDNport->ifport->interface,
+		    NULL,
+		    NULL,
+		    DIRECTION_NONE,
+		    CATEGORY_CH,
+		    0,
+		    "PORT (close)");
+	end_trace();
 
 	/* free bchannels */
 	i = 0;
 	while(i < mISDNport->b_num)
 	{
-		bchannel_deactivate(mISDNport, i);
-		PDEBUG(DEBUG_BCHANNEL, "freeing %s port %d bchannel (index %d).\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, i);
 		if (mISDNport->b_stid[i])
 		{
-			mISDN_clear_stack(mISDNdevice, mISDNport->b_stid[i]);
-			if (mISDNport->b_addr[i])
-				mISDN_write_frame(mISDNdevice, buf, mISDNport->b_addr[i] | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
+			_bchannel_destroy(mISDNport, i);
+			PDEBUG(DEBUG_BCHANNEL, "freeing %s port %d bchannel (index %d).\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, i);
 		}
 		i++;
 	}
@@ -2195,4 +2383,32 @@ void mISDN_port_info(void)
 	}
 }
 
+
+/*
+ * enque data from upper buffer
+ */
+void PmISDN::txfromup(unsigned char *data, int length)
+{
+	int avail;
+	/* no data */
+	if (!length)
+		return;
+
+	/* get free samples in buffer */
+	avail = ((p_m_fromup_buffer_readp - p_m_fromup_buffer_writep - 1) & FROMUP_BUFFER_MASK);
+	if (avail < length)
+	{
+		PDEBUG(DEBUG_PORT, "Port(%d): fromup_buffer overflows, this shall not happen under normal conditions\n", p_serial);
+		return;
+	}
+
+	/* write data to buffer and return */
+	while(length)
+	{
+		p_m_fromup_buffer[p_m_fromup_buffer_writep] = *data++;
+		p_m_fromup_buffer_writep = (p_m_fromup_buffer_writep + 1) & FROMUP_BUFFER_MASK;
+		length--;
+	}
+	return; // must return, because length is 0
+}
 

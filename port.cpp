@@ -9,6 +9,44 @@
 **                                                                           **
 \*****************************************************************************/ 
 
+/* HOW TO audio?
+
+Audio flow has two ways:
+
+* from channel to the upper layer
+  -> sound from mISDN channel
+  -> announcement from vbox channel
+
+* from the upper layer to the channel
+  -> sound from remote channel
+  -> sound from asterisk
+
+Audio is required:
+
+  -> if local or remote channel is not mISDN
+  -> if endpoint is linked to asterisk
+  -> if call is recorded (vbox)
+
+
+Functions:
+
+* PmISDN::txfromup
+  -> audio from upper layer is buffered for later transmission to channel
+* PmISDN::handler
+  -> buffered audio from upper layer or tones are transmitted via system clock
+* mISDN_handler
+  -> rx-data from port to record() and upper layer
+  -> tx-data from port (dsp) to record()
+* VboxPort::handler
+  -> streaming announcement to upper layer
+  -> recording announcement
+* VboxPort::message_epoint
+  -> recording audio message from upper layer
+  
+
+   
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -18,10 +56,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include "main.h"
-
-#define BETTERDELAY
-
-//#define MIXER_DEBUG /* debug mixer buffer overflow and underrun */
 
 class Port *port_first = NULL;
 
@@ -149,8 +183,6 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 	p_tone_fh = -1;
 	p_tone_fetched = NULL;
 	p_tone_name[0] = '\0';
-//	p_knock_fh = -1;
-//	p_knock_fetched = NULL;
 	p_state = PORT_STATE_IDLE;
 	p_epointlist = NULL;
 	memset(&p_callerinfo, 0, sizeof(p_callerinfo));
@@ -158,19 +190,20 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 	memset(&p_connectinfo, 0, sizeof(p_connectinfo));
 	memset(&p_redirinfo, 0, sizeof(p_redirinfo));
 	memset(&p_capainfo, 0, sizeof(p_capainfo));
-	memset(p_mixer_buffer, 0, sizeof(p_mixer_buffer));
-	memset(p_record_buffer, 0, sizeof(p_record_buffer));
-	memset(p_stereo_buffer, 0, sizeof(p_stereo_buffer));
-	p_mixer_rel = NULL;
-	p_mixer_readp = 0;
 	p_echotest = 0;
-	next = NULL;
+
+	/* call recording */
 	p_record = NULL;
 	p_record_type = 0;
 	p_record_length = 0;
+	p_record_skip = 0;
 	p_record_filename[0] = '\0';
+	p_record_buffer_readp = 0;
+	p_record_buffer_writep = 0;
+	p_record_buffer_dir = 0;
 
 	/* append port to chain */
+	next = NULL;
 	temp = port_first;
 	tempp = &port_first;
 	while(temp)
@@ -189,7 +222,6 @@ Port::Port(int type, char *portname, struct port_settings *settings)
  */
 Port::~Port(void)
 {
-	struct mixer_relation *relation, *rtemp;
 	class Port *temp, **tempp;
 	struct message *message;
 
@@ -199,18 +231,6 @@ Port::~Port(void)
 	classuse--;
 
 	PDEBUG(DEBUG_PORT, "removing port of type %d, name '%s'\n", p_type, p_name);
-
-	/* free mixer relation chain */
-	relation = p_mixer_rel;
-	while(relation)
-	{
-		rtemp = relation;
-		relation = relation->next;
-		memset(rtemp, 0, sizeof(struct mixer_relation));
-		free(rtemp);
-		pmemuse--;
-	}
-	p_mixer_rel = NULL; /* beeing paranoid */
 
 	/* disconnect port from endpoint */
 	while(p_epointlist)
@@ -480,7 +500,6 @@ void Port::set_vbox_speed(int speed)
 int Port::read_audio(unsigned char *buffer, int length)
 {
 	int l,len;
-	int readp;
 	int nodata=0; /* to detect 0-length files and avoid endless reopen */
 	char filename[128];
 	int tone_left_before; /* temp variable to determine the change in p_tone_left */
@@ -490,7 +509,6 @@ int Port::read_audio(unsigned char *buffer, int length)
 		return(0);
 
 	len = length;
-	codec_in = p_tone_codec;
 
 	/* if there is no tone set, use silence */
 	if (p_tone_name[0] == 0)
@@ -612,7 +630,6 @@ try_loop:
 				PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 				p_tone_dir[0] = '\0';
 				p_tone_name[0] = '\0';
-		//		codec_in = CODEC_LAW;
 				goto rest_is_silence;
 			}
 			fhuse++;
@@ -626,7 +643,6 @@ try_loop:
 			PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 			p_tone_dir[0] = '\0';
 			p_tone_name[0] = '\0';
-	//		codec_in = CODEC_LAW;
 			goto rest_is_silence;
 		}
 		fhuse++;
@@ -639,14 +655,6 @@ try_loop:
 
 done:
 	return(length-len);
-}
-
-
-/*
- * dummy for transmit function, since this must be inherited
- */
-void Port::transmit(unsigned char *buffer, int length, int tonelength)
-{
 }
 
 
@@ -670,10 +678,6 @@ int Port::message_epoint(unsigned long epoint_id, int message_id, union paramete
 		case MESSAGE_TONE: /* play tone */
 		PDEBUG(DEBUG_PORT, "PORT(%s) isdn port with (caller id %s) setting tone '%s' dir '%s'\n", p_name, p_callerinfo.id, param->tone.name, param->tone.dir);
 		set_tone(param->tone.dir,param->tone.name);
-		return(1);
-
-		case MESSAGE_DATA: /* tx-data from upper layer */
-		fromup(param->data.data, param->data.len);
 		return(1);
 
 		case MESSAGE_VBOX_TONE: /* play tone of answering machine */
@@ -818,9 +822,10 @@ void Port::close_record(int beep)
 
 	if (!p_record)
 		return;
+	PDEBUG(DEBUG_PORT, "data still in record buffer: %d (dir %d)\n", (p_record_buffer_writep - p_record_buffer_readp) & RECORD_BUFFER_MASK, p_record_buffer_dir);
 
 	memcpy(&callerinfo, &p_callerinfo, sizeof(struct caller_info));
-	apply_callerid_restriction(p_record_anon_ignore, -1, callerinfo.id, &callerinfo.ntype, &callerinfo.present, &callerinfo.screen, callerinfo.voip, callerinfo.intern, callerinfo.name);
+	apply_callerid_restriction(p_record_anon_ignore, -1, callerinfo.id, &callerinfo.ntype, &callerinfo.present, &callerinfo.screen, NULL/*callerinfo.voip*/, callerinfo.extension, callerinfo.name);
 
 	SCPY(number, p_dialinginfo.number);
 	SCPY(callerid, numberrize_callerinfo(callerinfo.id, callerinfo.ntype));
@@ -1011,7 +1016,7 @@ void Port::close_record(int beep)
 		/* send email with sample*/
 		if (p_record_vbox_email[0])
 		{
-			send_mail(p_record_vbox_email_file?filename:(char *)"", callerid, callerinfo.intern, callerinfo.name, p_record_vbox_email, p_record_vbox_year, p_record_vbox_mon, p_record_vbox_mday, p_record_vbox_hour, p_record_vbox_min, p_record_extension);
+			send_mail(p_record_vbox_email_file?filename:(char *)"", callerid, callerinfo.extension, callerinfo.name, p_record_vbox_email, p_record_vbox_year, p_record_vbox_mon, p_record_vbox_mday, p_record_vbox_hour, p_record_vbox_min, p_record_extension);
 		}
 	}
 }
@@ -1025,25 +1030,35 @@ void Port::close_record(int beep)
  * 
  * If one stream (dir) received packets, they are stored to a
  * buffer to wait for the other stream (dir), so both streams can 
- * be combined. If the buffer is full, it's read pointer is written
- * without mixing stream.
+ * be combined. If the buffer is full, it's content is written
+ * without mixing stream. (assuming only one stram (dir) exists.)
  * A flag is used to indicate what stream is currently in buffer.
  *
  * NOTE: First stereo sample (odd) is from down, second is from up.
  */
-alle buffer initialisieren
-record nur aufrufen, wenn recorded wird.
-restlicher buffer wegschreiben beim schliessen
-void Port::record(char *data, int length, int dir_fromup)
+void Port::record(unsigned char *data, int length, int dir_fromup)
 {
 	unsigned char write_buffer[1024], *d;
 	signed short *s;
-	int r, w;
+	int free, i, ii;
 	signed long sample;
 
 	/* no recording */
 	if (!p_record || !length)
 		return;
+
+	/* skip */
+	if (dir_fromup)
+	{
+		/* more than we have */
+		if (p_record_skip > length)
+		{
+			p_record_skip -= length;
+			return;
+		}
+		data += p_record_skip;
+		length -= p_record_skip;
+	}
 
 	free = ((p_record_buffer_readp - p_record_buffer_writep - 1) & RECORD_BUFFER_MASK);
 
@@ -1055,7 +1070,7 @@ void Port::record(char *data, int length, int dir_fromup)
 		/* first write what we can to the buffer */
 		while(free && length)
 		{
-			p_record_buffer[p_record_buffer_writep] = audio_law_to_s32(*data++);
+			p_record_buffer[p_record_buffer_writep] = audio_law_to_s32[*data++];
 			p_record_buffer_writep = (p_record_buffer_writep + 1) & RECORD_BUFFER_MASK;
 			free--;
 			length--;
@@ -1132,9 +1147,7 @@ void Port::record(char *data, int length, int dir_fromup)
 		free += sizeof(write_buffer);
 		goto same_again;
 	}
-
-	/* the buffer store the other stream */
-	different_again:
+	/* the buffer stores the other stream */
 	
 	/* if buffer empty, change it */
 	if (p_record_buffer_readp == p_record_buffer_writep)
@@ -1155,7 +1168,7 @@ void Port::record(char *data, int length, int dir_fromup)
 		while(i < ii)
 		{
 			sample = p_record_buffer[p_record_buffer_readp]
-				+ audio_law_to_s32(*data++);
+				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 			if (sample < 32767)
 				sample = -32767;
@@ -1174,7 +1187,7 @@ void Port::record(char *data, int length, int dir_fromup)
 			i = 0;
 			while(i < ii)
 			{
-				*s++ = audio_law_to_s32(*data++);
+				*s++ = audio_law_to_s32[*data++];
 				*s++ = p_record_buffer[p_record_buffer_readp];
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
@@ -1185,7 +1198,7 @@ void Port::record(char *data, int length, int dir_fromup)
 			while(i < ii)
 			{
 				*s++ = p_record_buffer[p_record_buffer_readp];
-				*s++ = audio_law_to_s32(*data++);
+				*s++ = audio_law_to_s32[*data++];
 				i++;
 			}
 		}
@@ -1198,7 +1211,7 @@ void Port::record(char *data, int length, int dir_fromup)
 		while(i < ii)
 		{
 			sample = p_record_buffer[p_record_buffer_readp]
-				+ audio_law_to_s32(*data++);
+				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 			if (sample < 32767)
 				sample = -32767;
@@ -1216,7 +1229,7 @@ void Port::record(char *data, int length, int dir_fromup)
 		while(i < ii)
 		{
 			sample = p_record_buffer[p_record_buffer_readp]
-				+ audio_law_to_s32(*data++);
+				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 			if (sample < 32767)
 				sample = -32767;
@@ -1240,33 +1253,4 @@ void Port::record(char *data, int length, int dir_fromup)
 
 }
 
-
-/*
- * enque data from upper buffer
- */
-iniialisieren der werte
-void Port::txfromup(unsigned char *data, int length)
-{
-	
-	/* no recording */
-	if (!length)
-		return;
-
-	/* get free samples in buffer */
-	free = ((p_fromup_buffer_readp - p_fromup_buffer_writep - 1) & FROMUP_BUFFER_MASK);
-	if (free < length)
-	{
-		PDEBUG(DEBUG_PORT, "Port(%d): fromup_buffer overflows, this shall not happen under normal conditions\n", p_serial);
-		return;
-	}
-
-	/* write data to buffer and return */
-	while(length)
-	{
-		p_fromup_buffer[p_fromup_buffer_writep] = *data++;
-		p_fromup_buffer_writep = (p_fromup_buffer_writep + 1) & FROMUP_BUFFER_MASK;
-		length--;
-	}
-	return; // must return, because length is 0
-}
 

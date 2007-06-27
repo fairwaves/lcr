@@ -13,7 +13,7 @@
 class Pdss1 : public PmISDN
 {
 	public:
-	Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel);
+	Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
 	~Pdss1();
 	int p_m_d_l3id;				/* current l3 process id */
 	int p_m_d_ces;				/* ntmode: tei&sapi */
@@ -31,6 +31,7 @@ class Pdss1 : public PmISDN
 	void new_state(int state);		/* set new state */
 	void isdn_show_send_message(unsigned long prim, msg_t *msg);
 	int received_first_reply_to_setup(unsigned long prim, int exclusive, int channel);
+	int hunt_bchannel(int exclusive, int channel);
 	void information_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void *data);

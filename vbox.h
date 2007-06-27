@@ -33,5 +33,7 @@ class VBoxPort : public Port
 	unsigned long p_vbox_audio_transferred;		/* number of samples sent to endpoint */
 	signed long p_vbox_record_start;		/* start for recording */
 	signed long p_vbox_record_limit;		/* limit for recording */
+
+	struct extension p_vbox_ext;			/* save settings of extension */
 };
 

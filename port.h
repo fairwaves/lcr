@@ -80,6 +80,9 @@ enum { /* event list from listening to tty */
 	TTYI_EVENT_BUSY,	/* channel unavailable */
 };
 
+#define RECORD_BUFFER_LENGTH	1024
+#define RECORD_BUFFER_MASK	1023
+
 /* structure of epoint_list */
 struct epoint_list {
 	struct epoint_list	*next;
@@ -110,13 +113,6 @@ inline unsigned long INACTIVE_EPOINT(struct epoint_list *epointlist)
 }
 
 
-/* a linked list of soft-mixer relations */
-struct mixer_relation {
-	struct mixer_relation *next;		/* next in list */
-	unsigned long port_id;			/* port related to */
-	int mixer_writep;			/* write pointer in buffer */
-	};
-
 /* structure of port settings */
 struct port_settings {
 	char tones_dir[256];			/* directory of current tone */
@@ -144,11 +140,12 @@ class Port
 	virtual void set_echotest(int echotest);
 	virtual void set_tone(char *dir, char *name);
 	virtual int read_audio(unsigned char *buffer, int length);
-	virtual void transmit(unsigned char *buffer, int length);
 
 	struct port_settings p_settings;
 	
 	/* tone */
+	unsigned long p_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
+	unsigned long p_last_tv_msec;
 	int p_debug_nothingtosend;		/* used for debugging the, if we have currently nothing to send (used for ISDN) */
 	char p_tone_dir[256];			/* name of current directory */
 	char p_tone_name[256];			/* name of current tone */
@@ -187,10 +184,17 @@ class Port
 	/* recording */
 	int open_record(int type, int mode, int skip, char *terminal, int anon_ignore, char *vbox_email, int vbox_email_file);
 	void close_record(int beep);
+	void record(unsigned char *data, int length, int dir_fromup);
 	FILE *p_record;				/* recording fp: if not NULL, recording is enabled */
 	int p_record_type;			/* codec to use: RECORD_MONO, RECORD_STEREO, ... */
 	int p_record_skip;			/* skip bytes before writing the sample */
 	unsigned long p_record_length;		/* size of what's written so far */
+
+	unsigned char p_record_buffer[RECORD_BUFFER_LENGTH];
+	unsigned long p_record_buffer_readp;
+	unsigned long p_record_buffer_writep;
+	int p_record_buffer_dir;		/* current direction in buffer */
+
 	char p_record_filename[256];		/* record filename */
 	int p_record_vbox;			/* 0= normal recording, 1= announcement, 2= record to vbox dir */
 	int p_record_vbox_year;			/* time when vbox recording started */

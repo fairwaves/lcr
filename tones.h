@@ -10,11 +10,11 @@
 \*****************************************************************************/ 
 
 int open_tone(char *file, int *codec, signed long *length, signed long *left);
-int read_tone(int fh, void *buffer, int codec, int len, signed long size, signed long *left, int speed);
+int read_tone(int fh, unsigned char *buffer, int codec, int len, signed long size, signed long *left, int speed);
 int fetch_tones(void);
 void free_tones(void);
 void *open_tone_fetched(char *dir, char *file, int *codec, signed long *length, signed long *left);
-int read_tone_fetched(void **fetched, void *buffer, int codec, int len, signed long size, signed long *left, int speed);
+int read_tone_fetched(void **fetched, void *buffer, int len, signed long size, signed long *left, int speed);
 
 /* tone sets */
 struct tonesettone {

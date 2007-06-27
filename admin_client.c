@@ -26,9 +26,9 @@
 #include "admin.h"
 #include "cause.h"
 
-#define LTEE {addch(ACS_LTEE);addch(ACS_HLINE);addch(ACS_HLINE);}
-#define LLCORNER {addch(ACS_LLCORNER);addch(ACS_HLINE);addch(ACS_HLINE);}
-#define VLINE {addch(ACS_VLINE);addstr("  ");}
+#define LTEE {addch(/*ACS_LTEE*/'t');addch(/*ACS_HLINE*/'q');addch(/*ACS_HLINE*/'q');}
+#define LLCORNER {addch(/*ACS_LLCORNER*/'m');addch(/*ACS_HLINE*/'q');addch(/*ACS_HLINE*/'q');}
+#define VLINE {addch(/*ACS_VLINE*/'x');addstr("  ");}
 #define EMPTY {addstr("   ");}
 //char rotator[] = {'-', '\\', '|', '/'};
 int	lastlines, lastcols;
@@ -485,8 +485,7 @@ char *admin_state(int sock)
 	}
 	off=0;
 readagain:
-	if ((len = read(sock, ((unsigned char *)(m))+off,
-				       	num*sizeof(struct admin_message)-off)) != num*sizeof(struct admin_message)-off)
+	if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
 	{
 		if (len <= 0) {
 			free(m);
@@ -494,7 +493,7 @@ readagain:
 			cleanup_curses();
 			return("Broken pipe while receiving state infos.");
 		}
-		if (len < num*sizeof(struct admin_message))
+		if (len < num*(int)sizeof(struct admin_message))
 		{
 			off+=len;
 			goto readagain;
@@ -906,7 +905,7 @@ readagain:
 		{
 			move(line++>1?line-1:1, 0);
 			color(blue);
-			hline(ACS_HLINE, COLS);
+			hline(/*ACS_HLINE*/'q', COLS);
 			color(white);
 			
 			l = logcur-(LINES-line-2);
@@ -947,7 +946,7 @@ readagain:
 	/* displeay head line */
 	move(1, 0);
 	color(blue);
-	hline(ACS_HLINE, COLS);
+	hline(/*ACS_HLINE*/'q', COLS);
 	if (offset)
 	{
 		move(1, 1);
@@ -958,7 +957,7 @@ readagain:
 	/* display end */
 	move(LINES-2, 0);
 	color(white);
-	hline(ACS_HLINE, COLS);
+	hline(/*ACS_HLINE*/'q', COLS);
 	move(LINES-1, 0);
 	color(white);
 	SPRINT(buffer, "i = interfaces '%s'  c = calls '%s'  l = log  q = quit  +/- = scroll", text_interfaces[show_interfaces], text_calls[show_calls]);
@@ -1221,13 +1220,8 @@ char *admin_trace(int sock, int argc, char *argv[])
 		printf("All given filter values must match. If no filter is given, anything matches.\n\n");
 		printf("Filters:\n");
 		printf(" category=<mask bits>\n");
-		printf("  0x01 = L1: layer 1 trace (application view)\n");
-		printf("  0x02 = L2: layer 2 trace (application view)\n");
-		printf("  0x04 = L3: layer 3 trace (application view)\n");
-		printf("  0x08 = CH: channel selection trace\n");
-		printf("  0x10 = EP: endpoint trace\n");
-		printf("  0x20 = AP: application trace\n");
-		printf("  0x40 = RO: routing trace\n");
+		printf("  0x01 = CH: channel object trace\n");
+		printf("  0x02 = EP: endpoint object trace\n");
 		printf(" port=<mISDN port>  select only given port for trace\n");
 		printf(" interface=<interface name>  select only given interface for trace\n");
 		printf(" caller=<caller id>  select only given caller id for trace\n");

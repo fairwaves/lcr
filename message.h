@@ -118,10 +118,11 @@ enum { /* diversion types */
 #define INFO_HLC_AUDIOVISUAL				0xe0
 
 enum { /* isdnsignal */
-	mISDNSIGNAL_VOLUME,
-	mISDNSIGNAL_CONF,
+	mISDNSIGNAL_VOLUME,		/* change volume */
+	mISDNSIGNAL_CONF,		/* joint/split conference */
 	mISDNSIGNAL_CALLDATA,		/* data required by call instance */
-	mISDNSIGNAL_ECHO,
+	mISDNSIGNAL_ECHO,		/* enable/disable echoe */
+	mISDNSIGNAL_DELAY,		/* use delay or adaptive jitter */
 };
 
 /* call-info structure CALLER */
@@ -241,8 +242,6 @@ struct park_info {
 struct param_data {
 	unsigned char data[512]; /* audio/hdlc data */
 	int len; /* audio/hdlc data */
-//	unsigned long port_id; /* to identify the source of this data */
-//	int port_type; /* type of the source's port  */
 };
 
 struct param_play {
@@ -268,6 +267,7 @@ struct param_mISDNsignal {
 	int calldata;
 	int tone;
 	int echo;
+	int delay;
 };
 
 /* encryption control structure CRYPT */

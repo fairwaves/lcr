@@ -33,7 +33,7 @@ class Endpoint
 
 	/* port relation */
 	struct port_list 	*ep_portlist;	/* link to list of ports */
-	struct port_list *portlist_new(unsigned long port_id, int port_type);
+	struct port_list *portlist_new(unsigned long port_id, int port_type, int earlyb);
 	void free_portlist(struct port_list *portlist);
 
 	/* call relation */

@@ -41,7 +41,9 @@ struct trace {
 #define	CATEGORY_EP	0x02
 
 
-void start_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
-void add_trace(char *name, char *sub, char *value);
+void start_trace(int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
+void add_trace(char *name, char *sub, const char *fmt, ...);
 void end_trace(void);
 //char *print_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
+
+

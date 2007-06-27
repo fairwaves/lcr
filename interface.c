@@ -18,31 +18,11 @@ struct interface *interface_first = NULL; /* first interface is current list */
 struct interface *interface_newlist = NULL; /* first interface in new list */
 
 
-/* set default selchannel */
-void default_selchannel(struct interface_port *ifport)
+/* set default out_channel */
+void default_out_channel(struct interface_port *ifport)
 {
 	struct select_channel *selchannel, **selchannelp;
 
-	/* channel selection for TE-ports */
-	if (!ifport->mISDNport->ntmode)
-	{
-		selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-		if (!selchannel)
-		{
-			PERROR("No memory!");
-			return;
-		}
-		memuse++;
-		memset(*selchannelp, 0, sizeof(struct select_channel));
-		*selchannelp->channel = SEL_CHANNEL_ANY;
-		selchannelp = &ifport->selchannel;
-		while(*selchannelp)
-			selchannelp = &((*selchannelp)->next);
-		*selchannelp = selchannel;
-		return(0);
-	}
-
-	/* channel selection for NT-ports */
 	selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
 	if (!selchannel)
 	{
@@ -50,16 +30,19 @@ void default_selchannel(struct interface_port *ifport)
 		return;
 	}
 	memuse++;
-	memset(*selchannelp, 0, sizeof(struct select_channel));
-	*selchannelp->channel = SEL_CHANNEL_FREE;
-	selchannelp = &ifport->selchannel;
-	while(*selchannelp)
-		selchannelp = &((*selchannelp)->next);
-	*selchannelp = selchannel;
+	memset(selchannel, 0, sizeof(struct select_channel));
+	
+	if (ifport->mISDNport->ntmode)
+		selchannel->channel = CHANNEL_FREE;
+	else
+		selchannel->channel = CHANNEL_ANY;
+	
+	ifport->out_channel = selchannel;
 
-	/* additional channel selection for multipoint ports */
-	if (!ifport->mISDNport->ptp)
+	/* additional channel selection for multipoint NT ports */
+	if (!ifport->mISDNport->ptp && ifport->mISDNport->ntmode)
 	{
+		selchannelp = &(selchannel->next);
 		selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
 		if (!selchannel)
 		{
@@ -67,13 +50,30 @@ void default_selchannel(struct interface_port *ifport)
 			return;
 		}
 		memuse++;
-		memset(*selchannelp, 0, sizeof(struct select_channel));
-		*selchannelp->channel = SEL_CHANNEL_NO; // call waiting
-		selchannelp = &ifport->selchannel;
-		while(*selchannelp)
-			selchannelp = &((*selchannelp)->next);
+		memset(selchannel, 0, sizeof(struct select_channel));
+		selchannel->channel = CHANNEL_NO; // call waiting
 		*selchannelp = selchannel;
 	}
+}
+
+
+/* set default in_channel */
+void default_in_channel(struct interface_port *ifport)
+{
+	struct select_channel *selchannel;
+
+	selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
+	if (!selchannel)
+	{
+		PERROR("No memory!");
+		return;
+	}
+	memuse++;
+	memset(selchannel, 0, sizeof(struct select_channel));
+	
+	selchannel->channel = CHANNEL_FREE;
+	
+	ifport->in_channel = selchannel;
 }
 
 
@@ -325,7 +325,7 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 		if (!strcasecmp(el, "force"))
 		{
 			ifport->channel_force = 1;
-			if (ifport->selchannel)
+			if (ifport->out_channel)
 			{
 				SPRINT(interface_error, "Error in %s (line %d): value 'force' may only appear as first element in list.\n", filename, line);
 				return(-1);
@@ -333,17 +333,17 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 		} else
 		if (!strcasecmp(el, "any"))
 		{
-			val = SEL_CHANNEL_ANY;
+			val = CHANNEL_ANY;
 			goto selchannel;
 		} else
 		if (!strcasecmp(el, "free"))
 		{
-			val = SEL_CHANNEL_FREE;
+			val = CHANNEL_FREE;
 			goto selchannel;
 		} else
 		if (!strcasecmp(el, "no"))
 		{
-			val = SEL_CHANNEL_NO;
+			val = CHANNEL_NO;
 			goto selchannel;
 		} else
 		{
@@ -372,7 +372,7 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 			/* set value */
 			selchannel->channel = val;
 			/* tail port */
-			selchannelp = &ifport->selchannel;
+			selchannelp = &ifport->out_channel;
 			while(*selchannelp)
 				selchannelp = &((*selchannelp)->next);
 			*selchannelp = selchannel;
@@ -402,14 +402,14 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 	{
 		el = p;
 		p = get_seperated(p);
-		if (ifport->in_select) if (ifport->in_select->channel == SEL_CHANNEL_FREE)
+		if (ifport->in_channel) if (ifport->in_channel->channel == CHANNEL_FREE)
 		{
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s' has values behind 'free' keyword. They has no effect.\n", filename, line, parameter);
 				return(-1);
 		}
 		if (!strcasecmp(el, "free"))
 		{
-			val = SEL_CHANNEL_FREE;
+			val = CHANNEL_FREE;
 			goto selchannel;
 		} else
 		{
@@ -438,7 +438,7 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 			/* set value */
 			selchannel->channel = val;
 			/* tail port */
-			selchannelp = &ifport->in_select;
+			selchannelp = &ifport->in_channel;
 			while(*selchannelp)
 				selchannelp = &((*selchannelp)->next);
 			*selchannelp = selchannel;
@@ -509,7 +509,6 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 	}
 	memuse++;
 	memset(ifscreen, 0, sizeof(struct interface_screen));
-#warning handle unchanged as unchanged!!
 	ifscreen->match_type = -1; /* unchecked */
 	ifscreen->match_present = -1; /* unchecked */
 	ifscreen->result_type = -1; /* unchanged */
@@ -571,7 +570,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			/* check for % at the end */
 			if (strchr(el, '%'))
 			{
-				if (strchr(el, '%') != el+len(el)-1)
+				if (strchr(el, '%') != el+strlen(el)-1)
 				{
 					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
 					return(-1);
@@ -630,7 +629,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			/* check for % at the end */
 			if (strchr(el, '%'))
 			{
-				if (strchr(el, '%') != el+len(el)-1)
+				if (strchr(el, '%') != el+strlen(el)-1)
 				{
 					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
 					return(-1);
@@ -660,11 +659,30 @@ static int inter_screen_out(struct interface *interface, char *filename, int lin
 {
 	return(inter_screen(&interface->ifscreen_out, interface, filename, line, parameter, value));
 }
-static int inter_filter(struct interface *interface, char *filename, int line, char *parameter, char *value)
+static int inter_nodtmf(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-#warning filter to be done
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->nodtmf = 1;
 	return(0);
 }
+#warning filter to be done
+#if 0
+static int inter_filter(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	return(0);
+}
+#endif
 
 
 /*
@@ -715,7 +733,7 @@ struct interface_param interface_param[] = {
 	"If no channel was requested, the first free channel found is selected.\n"
 	"This parameter must follow a 'port' parameter.\n"
 	" <number>[,...] - List of channels to accept.\n"
-	" free - Accept any free channel\n"
+	" free - Accept any free channel"},
 
 	{"msn", &inter_msn, "<default MSN>,[<additional MSN>[,...]]",
 	"Incomming caller ID is checked against given MSN numbers.\n"
@@ -735,6 +753,10 @@ struct interface_param interface_param[] = {
 	{"screen-out", &inter_screen_out, "<old caller ID> <new caller ID> [options]",
 	"Adds an entry for outgoing calls to the caller ID screen list.\n"
 	"See 'screen-in' for help."},
+
+	{"nodtmf", &inter_nodtmf, "",
+	"Disables DTMF detection for this interface.\n"
+	"This parameter must follow a 'port' parameter."},
 
 #if 0
 #warning todo: filter, also in the PmISDN object
@@ -1081,8 +1103,10 @@ void relink_interfaces(void)
 			if (ifport->mISDNport)
 			{
 				/* default channel selection list */
-				if (!ifport->selchannel)
-					default_selchannel(ifport);
+				if (!ifport->out_channel)
+					default_out_channel(ifport);
+				if (!ifport->in_channel)
+					default_in_channel(ifport);
 				/* default is_tones */
 				if (ifport->interface->is_tones)
 					ifport->mISDNport->is_tones = (ifport->interface->is_tones==IS_YES);

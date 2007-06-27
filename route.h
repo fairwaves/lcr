@@ -131,7 +131,7 @@ enum { /* how to parse text file during startup */
 #define PARAM_ROOM		(1LL<<39)
 #define PARAM_TIMEOUT		(1LL<<40)
 #define PARAM_NOPASSWORD	(1LL<<41)
-#define PARAM_STRIP	(1LL<<42)
+#define PARAM_STRIP		(1LL<<42)
 
 
 /* action index

@@ -48,10 +48,12 @@ struct interface_port {
 	struct interface	*interface; /* link to interface */
 	struct mISDNport	*mISDNport; /* link to port */
 	int			portnum; /* port number */
-	int			ptp; /* load stack in PTP mode */
+	int			ptp; /* force load stack in PTP mode */
+	int			ptmp; /* force load stack in PTP mode */
 	int			channel_force; /* forces channel by protocol */
-	struct select_channel	*out_select; /* list of channels to select */
-	struct select_channel	*in_select; /* the same for incoming channels */
+	int			nodtmf; /* disables DTMF */
+	struct select_channel	*out_channel; /* list of channels to select */
+	struct select_channel	*in_channel; /* the same for incoming channels */
 	int			block; /* set if interface is blocked */
 };
 
