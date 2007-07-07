@@ -124,8 +124,9 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	/* head */
 	if (detail >= 3)
 	{
+		SCAT(trace_string, "------------------------------------------------------------------------------\n");
 		/* "Port: 1 (BRI PTMP TE)" */
-		if (port)
+		if (trace.port)
 		{
 			mISDNport = mISDNport_first;
 			while(mISDNport)
@@ -135,9 +136,13 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				mISDNport = mISDNport->next;
 			}
 			if (mISDNport)
-				SPRINT(buffer, "Port: %d (%s %s %s)", port, (mISDNport->pri)?"PRI":"BRI", (mISDNport->ptp)?"PTP":"PTMP", (mISDNport->ntmode)?"NT":"TE");
-			else
-				SPRINT(buffer, "Port: %d (does not exist}\n", port);
+			{
+				SPRINT(buffer, "Port: %d (%s %s %s)", trace.port, (mISDNport->pri)?"PRI":"BRI", (mISDNport->ptp)?"PTP":"PTMP", (mISDNport->ntmode)?"NT":"TE");
+				/* copy interface, if we have a port */
+				if (mISDNport->ifport) if (mISDNport->ifport->interface)
+				SCPY(trace.interface, mISDNport->ifport->interface->name);
+			} else
+				SPRINT(buffer, "Port: %d (does not exist)\n", trace.port);
 			SCAT(trace_string, buffer);
 		} else
 			SCAT(trace_string, "Port: ---");

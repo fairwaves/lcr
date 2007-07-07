@@ -444,13 +444,12 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 static void _bchannel_deactivate(struct mISDNport *mISDNport, int i)
 {
 	iframe_t dact;
-	int addr;
 	
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL deactivate", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
 	end_trace();
 	dact.prim = DL_RELEASE | REQUEST; 
-	dact.addr = addr | FLG_MSG_DOWN;
+	dact.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
 	dact.dinfo = 0;
 	dact.len = 0;
 	mISDN_write(mISDNdevice, &dact, mISDN_HEADER_LEN+dact.len, TIMEOUT_1SEC);
@@ -534,7 +533,6 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 {
 	int state = mISDNport->b_state[i];
 
-printf("event=%d state=%d\n", event, state);	
 	switch(event)
 	{
 		case B_EVENT_ACTIVATE:
@@ -622,11 +620,15 @@ printf("event=%d state=%d\n", event, state);
 		break;
 
 		case B_EVENT_DEACTIVATED:
-		_bchannel_destroy(mISDNport, i);
-		state = B_STATE_IDLE;
 		switch(state)
 		{
+			case B_STATE_IDLE:
+			/* ignore due to deactivation confirm after unloading */
+			break;
+
 			case B_STATE_DEACTIVATING:
+			_bchannel_destroy(mISDNport, i);
+			state = B_STATE_IDLE;
 			if (mISDNport->b_port[i])
 			{
 				/* bchannel is now deactivate, but is requied by Port class, so we reactivate */
@@ -1002,7 +1004,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		}
 		return;
 	}	
-	if (frm->prim != (PH_DATA | INDICATION))
+	if (frm->prim != (PH_DATA | INDICATION) && frm->prim != (DL_DATA | INDICATION))
 	{
 		PERROR("Bchannel received unknown primitve: 0x%x\n", frm->prim);
 		return;
@@ -1537,245 +1539,260 @@ int mISDN_handler(void)
 		case MGR_ADDTIMER | CONFIRM:
 		case MGR_DELTIMER | CONFIRM:
 		case MGR_REMOVETIMER | CONFIRM:
-//		if (options.deb & DEBUG_ISDN)
-//			PDEBUG(DEBUG_ISDN, "timer-confirm\n");
 		free_msg(msg);
 		return(1);
 	}
 
-	/* find the port */
+	/* handle timer events from mISDN for NT-stack
+	 * note: they do not associate with a stack */
+	if (frm->prim == (MGR_TIMER | INDICATION))
+	{
+		itimer_t *it;
+
+		/* find mISDNport */
+		mISDNport = mISDNport_first;
+		while(mISDNport)
+		{
+			/* nt mode only */
+			if (mISDNport->ntmode)
+			{
+				it = mISDNport->nst.tlist;
+				/* find timer */
+				while(it)
+				{
+					if (it->id == (int)frm->addr)
+						break;
+					it = it->next;
+				}
+				if (it)
+					break;
+			}
+			mISDNport = mISDNport->next;
+		}
+		if (mISDNport)
+		{
+			mISDN_write_frame(mISDNdevice, msg->data, mISDNport->upper_id | FLG_MSG_DOWN,
+				MGR_TIMER | RESPONSE, 0, 0, NULL, TIMEOUT_1SEC);
+
+			PDEBUG(DEBUG_ISDN, "timer-indication port %d it=%p\n", mISDNport->portnum, it);
+			test_and_clear_bit(FLG_TIMER_RUNING, (long unsigned int *)&it->Flags);
+			ret = it->function(it->data);
+		} else
+		{
+			PDEBUG(DEBUG_ISDN, "timer-indication not handled\n");
+		}
+		goto out;
+	}
+
+	/* find the mISDNport that belongs to the stack */
 	mISDNport = mISDNport_first;
 	while(mISDNport)
 	{
-		if ((frm->prim==(MGR_TIMER | INDICATION)) && mISDNport->ntmode)
-		{
-			itimer_t *it = mISDNport->nst.tlist;
-
-			/* find timer */
-			while(it)
-			{
-				if (it->id == (int)frm->addr)
-					break;
-				it = it->next;
-			}
-			if (it)
-			{
-				mISDN_write_frame(mISDNdevice, msg->data, mISDNport->upper_id | FLG_MSG_DOWN,
-					MGR_TIMER | RESPONSE, 0, 0, NULL, TIMEOUT_1SEC);
-
-				PDEBUG(DEBUG_ISDN, "timer-indication %s port %d it=%p\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, it);
-				test_and_clear_bit(FLG_TIMER_RUNING, (long unsigned int *)&it->Flags);
-				ret = it->function(it->data);
-				break;
-			}
-			/* we will continue here because we have a timer for a different mISDNport */
-		}
-//printf("comparing frm->addr %x with upper_id %x\n", frm->addr, mISDNport->upper_id);
-		if ((frm->addr&STACK_ID_MASK) == (unsigned int)(mISDNport->upper_id&STACK_ID_MASK))
-		{
-			/* d-message */
-			switch(frm->prim)
-			{
-				case MGR_SHORTSTATUS | INDICATION:
-				case MGR_SHORTSTATUS | CONFIRM:
-				switch(frm->dinfo) {
-					case SSTATUS_L1_ACTIVATED:
-					l1l2l3_trace_header(mISDNport, NULL, PH_ACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
-					end_trace();
-					goto ss_act;
-					case SSTATUS_L1_DEACTIVATED:
-					l1l2l3_trace_header(mISDNport, NULL, PH_DEACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
-					end_trace();
-					goto ss_deact;
-					case SSTATUS_L2_ESTABLISHED:
-					l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | (frm->prim & 0x3), DIRECTION_IN);
-					end_trace();
-					goto ss_estab;
-					case SSTATUS_L2_RELEASED:
-					l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE | (frm->prim & 0x3), DIRECTION_IN);
-					end_trace();
-					goto ss_rel;
-				}
-				break;
-
-				case PH_ACTIVATE | CONFIRM:
-				case PH_ACTIVATE | INDICATION:
-				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
-				end_trace();
-				if (mISDNport->ntmode)
-				{
-					mISDNport->l1link = 1;
-					setup_queue(mISDNport, 1);
-					goto l1_msg;
-				}
-				ss_act:
-				mISDNport->l1link = 1;
-				setup_queue(mISDNport, 1);
-				break;
-
-				case PH_DEACTIVATE | CONFIRM:
-				case PH_DEACTIVATE | INDICATION:
-				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
-				end_trace();
-				if (mISDNport->ntmode)
-				{
-					mISDNport->l1link = 0;
-					setup_queue(mISDNport, 0);
-					goto l1_msg;
-				}
-				ss_deact:
-				mISDNport->l1link = 0;
-				setup_queue(mISDNport, 0);
-				break;
-
-				case PH_CONTROL | CONFIRM:
-				case PH_CONTROL | INDICATION:
-				PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
-				break;
-
-				case DL_ESTABLISH | INDICATION:
-				case DL_ESTABLISH | CONFIRM:
-				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
-				end_trace();
-				if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
-				ss_estab:
-				if (mISDNport->l2establish)
-				{
-					mISDNport->l2establish = 0;
-					PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
-				}
-				mISDNport->l2link = 1;
-				break;
-
-				case DL_RELEASE | INDICATION:
-				case DL_RELEASE | CONFIRM:
-				l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
-				end_trace();
-				if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
-				ss_rel:
-				mISDNport->l2link = 0;
-				if (mISDNport->ptp)
-				{
-					time(&mISDNport->l2establish);
-					PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
-				}
-				break;
-
-				default:
-				l1_msg:
-				PDEBUG(DEBUG_STACK, "GOT d-msg from %s port %d prim 0x%x dinfo 0x%x addr 0x%x\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, frm->prim, frm->dinfo, frm->addr);
-				if (frm->dinfo==(signed long)0xffffffff && frm->prim==(PH_DATA|CONFIRM))
-				{
-					PERROR("SERIOUS BUG, dinfo == 0xffffffff, prim == PH_DATA | CONFIRM !!!!\n");
-				}
-				/* d-message */
-				if (mISDNport->ntmode)
-				{
-					/* l1-data enters the nt-mode library */
-					nst = &mISDNport->nst;
-					if (nst->l1_l2(nst, msg))
-						free_msg(msg);
-					return(1);
-				} else
-				{
-					/* l3-data is sent to pbx */
-					if (stack2manager_te(mISDNport, msg))
-						free_msg(msg);
-					return(1);
-				}
-			}
+		if ((frm->addr&MASTER_ID_MASK) == (unsigned int)(mISDNport->upper_id&MASTER_ID_MASK))
 			break;
-		}
-//PDEBUG(DEBUG_ISDN, "flg:%d upper_id=%x addr=%x\n", (frm->addr&FLG_CHILD_STACK), (mISDNport->b_addr[0])&(~IF_CHILDMASK), (frm->addr)&(~IF_CHILDMASK));
-		/* check if child, and if parent stack match */
-		if ((frm->addr&FLG_CHILD_STACK) && (((unsigned int)(mISDNport->b_addr[0])&(~CHILD_ID_MASK)&STACK_ID_MASK) == ((frm->addr)&(~CHILD_ID_MASK)&STACK_ID_MASK)))
-		{
-			/* b-message */
-			switch(frm->prim)
-			{
-				/* we don't care about confirms, we use rx data to sync tx */
-				case PH_DATA | CONFIRM:
-				case DL_DATA | CONFIRM:
-				break;
-
-				/* we receive audio data, we respond to it AND we send tones */
-				case PH_DATA | INDICATION:
-				case DL_DATA | INDICATION:
-				case PH_CONTROL | INDICATION:
-				i = 0;
-				while(i < mISDNport->b_num)
-				{
-					if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
-						break;
-					i++;
-				}
-				if (i == mISDNport->b_num)
-				{
-					PERROR("unhandled b-message (address 0x%x).\n", frm->addr);
-					break;
-				}
-				if (mISDNport->b_port[i])
-				{
-//PERROR("port sech: %s data\n", mISDNport->b_port[i]->p_name);
-					mISDNport->b_port[i]->bchannel_receive(frm);
-				} else
-					PDEBUG(DEBUG_BCHANNEL, "b-channel is not associated to an ISDNPort (address 0x%x), ignoring.\n", frm->addr);
-				break;
-
-				case PH_ACTIVATE | INDICATION:
-				case DL_ESTABLISH | INDICATION:
-				case PH_ACTIVATE | CONFIRM:
-				case DL_ESTABLISH | CONFIRM:
-				PDEBUG(DEBUG_BCHANNEL, "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
-				i = 0;
-				while(i < mISDNport->b_num)
-				{
-					if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
-						break;
-					i++;
-				}
-				if (i == mISDNport->b_num)
-				{
-					PERROR("unhandled b-establish (address 0x%x).\n", frm->addr);
-					break;
-				}
-				bchannel_event(mISDNport, i, B_EVENT_ACTIVATED);
-				break;
-
-				case PH_DEACTIVATE | INDICATION:
-				case DL_RELEASE | INDICATION:
-				case PH_DEACTIVATE | CONFIRM:
-				case DL_RELEASE | CONFIRM:
-				PDEBUG(DEBUG_BCHANNEL, "DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
-				i = 0;
-				while(i < mISDNport->b_num)
-				{
-					if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
-						break;
-					i++;
-				}
-				if (i == mISDNport->b_num)
-				{
-					PERROR("unhandled b-release (address 0x%x).\n", frm->addr);
-					break;
-				}
-				bchannel_event(mISDNport, i, B_EVENT_DEACTIVATED);
-				break;
-			}
-			break;
-		}
-
 		mISDNport = mISDNport->next;
 	} 
 	if (!mISDNport)
 	{
-		if (frm->prim == (MGR_TIMER | INDICATION))
-			PERROR("unhandled timer indication message: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
-		else
-			PERROR("unhandled message: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
-//		PERROR("test: is_child: %x  of stack %x == %x (baddr %x frm %x)\n", (frm->addr&FLG_CHILD_STACK), ((unsigned int)(mISDNport_first->b_addr[0])&(~CHILD_ID_MASK)&STACK_ID_MASK), ((frm->addr)&(~CHILD_ID_MASK)&STACK_ID_MASK), mISDNport_first->b_addr[0], frm->addr);
+		PERROR("message belongs to no mISDNport: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		goto out;
 	}
 
+	/* master stack */
+	if (!(frm->addr&FLG_CHILD_STACK))
+	{
+		/* d-message */
+		switch(frm->prim)
+		{
+			case MGR_SHORTSTATUS | INDICATION:
+			case MGR_SHORTSTATUS | CONFIRM:
+			switch(frm->dinfo) {
+				case SSTATUS_L1_ACTIVATED:
+				l1l2l3_trace_header(mISDNport, NULL, PH_ACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+				end_trace();
+				goto ss_act;
+				case SSTATUS_L1_DEACTIVATED:
+				l1l2l3_trace_header(mISDNport, NULL, PH_DEACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+				end_trace();
+				goto ss_deact;
+				case SSTATUS_L2_ESTABLISHED:
+				l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | (frm->prim & 0x3), DIRECTION_IN);
+				end_trace();
+				goto ss_estab;
+				case SSTATUS_L2_RELEASED:
+				l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE | (frm->prim & 0x3), DIRECTION_IN);
+				end_trace();
+				goto ss_rel;
+			}
+			break;
+
+			case PH_ACTIVATE | CONFIRM:
+			case PH_ACTIVATE | INDICATION:
+			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			end_trace();
+			if (mISDNport->ntmode)
+			{
+				mISDNport->l1link = 1;
+				setup_queue(mISDNport, 1);
+				goto l1_msg;
+			}
+			ss_act:
+			mISDNport->l1link = 1;
+			setup_queue(mISDNport, 1);
+			break;
+
+			case PH_DEACTIVATE | CONFIRM:
+			case PH_DEACTIVATE | INDICATION:
+			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			end_trace();
+			if (mISDNport->ntmode)
+			{
+				mISDNport->l1link = 0;
+				setup_queue(mISDNport, 0);
+				goto l1_msg;
+			}
+			ss_deact:
+			mISDNport->l1link = 0;
+			setup_queue(mISDNport, 0);
+			break;
+
+			case PH_CONTROL | CONFIRM:
+			case PH_CONTROL | INDICATION:
+			PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+			break;
+
+			case DL_ESTABLISH | INDICATION:
+			case DL_ESTABLISH | CONFIRM:
+			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			end_trace();
+			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
+			ss_estab:
+			if (mISDNport->l2establish)
+			{
+				mISDNport->l2establish = 0;
+				PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+			}
+			mISDNport->l2link = 1;
+			break;
+
+			case DL_RELEASE | INDICATION:
+			case DL_RELEASE | CONFIRM:
+			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			end_trace();
+			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
+			ss_rel:
+			mISDNport->l2link = 0;
+			if (mISDNport->ptp)
+			{
+				time(&mISDNport->l2establish);
+				PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
+			}
+			break;
+
+			default:
+			l1_msg:
+			PDEBUG(DEBUG_STACK, "GOT d-msg from %s port %d prim 0x%x dinfo 0x%x addr 0x%x\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, frm->prim, frm->dinfo, frm->addr);
+			if (frm->dinfo==(signed long)0xffffffff && frm->prim==(PH_DATA|CONFIRM))
+			{
+				PERROR("SERIOUS BUG, dinfo == 0xffffffff, prim == PH_DATA | CONFIRM !!!!\n");
+			}
+			/* d-message */
+			if (mISDNport->ntmode)
+			{
+				/* l1-data enters the nt-mode library */
+				nst = &mISDNport->nst;
+				if (nst->l1_l2(nst, msg))
+					free_msg(msg);
+				return(1);
+			} else
+			{
+				/* l3-data is sent to pbx */
+				if (stack2manager_te(mISDNport, msg))
+					free_msg(msg);
+				return(1);
+			}
+		}
+	} else
+	/* child stack */
+	{
+		/* b-message */
+		switch(frm->prim)
+		{
+			/* we don't care about confirms, we use rx data to sync tx */
+			case PH_DATA | CONFIRM:
+			case DL_DATA | CONFIRM:
+			break;
+
+			/* we receive audio data, we respond to it AND we send tones */
+			case PH_DATA | INDICATION:
+			case DL_DATA | INDICATION:
+			case PH_CONTROL | INDICATION:
+			i = 0;
+			while(i < mISDNport->b_num)
+			{
+				if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
+					break;
+				i++;
+			}
+			if (i == mISDNport->b_num)
+			{
+				PERROR("unhandled b-message (address 0x%x).\n", frm->addr);
+				break;
+			}
+			if (mISDNport->b_port[i])
+			{
+//PERROR("port sech: %s data\n", mISDNport->b_port[i]->p_name);
+				mISDNport->b_port[i]->bchannel_receive(frm);
+			} else
+				PDEBUG(DEBUG_BCHANNEL, "b-channel is not associated to an ISDNPort (address 0x%x), ignoring.\n", frm->addr);
+			break;
+
+			case PH_ACTIVATE | INDICATION:
+			case DL_ESTABLISH | INDICATION:
+			case PH_ACTIVATE | CONFIRM:
+			case DL_ESTABLISH | CONFIRM:
+			PDEBUG(DEBUG_BCHANNEL, "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
+			i = 0;
+			while(i < mISDNport->b_num)
+			{
+				if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
+					break;
+				i++;
+			}
+			if (i == mISDNport->b_num)
+			{
+				PERROR("unhandled b-establish (address 0x%x).\n", frm->addr);
+				break;
+			}
+			bchannel_event(mISDNport, i, B_EVENT_ACTIVATED);
+			break;
+
+			case PH_DEACTIVATE | INDICATION:
+			case DL_RELEASE | INDICATION:
+			case PH_DEACTIVATE | CONFIRM:
+			case DL_RELEASE | CONFIRM:
+			PDEBUG(DEBUG_BCHANNEL, "DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
+			i = 0;
+			while(i < mISDNport->b_num)
+			{
+				if ((unsigned int)(mISDNport->b_addr[i]&STACK_ID_MASK) == (frm->addr&STACK_ID_MASK))
+					break;
+				i++;
+			}
+			if (i == mISDNport->b_num)
+			{
+				PERROR("unhandled b-release (address 0x%x).\n", frm->addr);
+				break;
+			}
+			bchannel_event(mISDNport, i, B_EVENT_DEACTIVATED);
+			break;
+
+			default:
+			PERROR("child message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		}
+	}
+
+	out:
 	free_msg(msg);
 	return(1);
 }

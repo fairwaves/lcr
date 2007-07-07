@@ -1785,17 +1785,18 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 	switch (prim)
 	{
 		case CC_TIMEOUT | INDICATION:
-		l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 		if (p_m_d_ntmode)
 		{
 			int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 			timer_hex = *((int *)(((char *)data)+headerlen));
 		}
-		if (timer_hex)
-			add_trace("timer", NULL, "%x", timer_hex);
-		end_trace();
 		if (timer_hex==0x312 && p_m_d_ntmode)
+		{
+			l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+			add_trace("timer", NULL, "%x", timer_hex);
+			end_trace();
 			t312_timeout(prim, dinfo, data);
+		}
 		break;
 
 		case CC_SETUP | INDICATION:
@@ -2832,20 +2833,8 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
-		/* remove epoint */
-		remove_endpoint:
-		free_epointid(epoint_id);
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_CR | REQUEST, DIRECTION_OUT);
-		add_trace("callref", "new", "0x%x", p_m_d_l3id);
-		end_trace();
-		if (p_m_d_ntmode)
-		{
-			if ((p_m_d_l3id&0xff00) == 0xff00)
-				p_m_mISDNport->procids[p_m_d_l3id&0xff] = 0;
-		}
-		p_m_d_l3id = 0;
-		p_m_delete = 1;
 		return;
+
 	}
 	/* if we are on outgoing/incoming call setup, we may release complete */
 	if (p_state==PORT_STATE_OUT_SETUP
@@ -2862,7 +2851,20 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
-		goto remove_endpoint;
+
+		/* remove epoint */
+		free_epointid(epoint_id);
+		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_CR | REQUEST, DIRECTION_OUT);
+		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
+		end_trace();
+		if (p_m_d_ntmode)
+		{
+			if ((p_m_d_l3id&0xff00) == 0xff00)
+				p_m_mISDNport->procids[p_m_d_l3id&0xff] = 0;
+		}
+		p_m_d_l3id = 0;
+		p_m_delete = 1;
+		return;
 	}
 
 	/* NT-MODE in setup state we must send PROCEEDING first */
@@ -3286,7 +3288,7 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)
 
 		/* creating port object */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_TE_IN, mISDNport, name, NULL, 0, 0)))
 		{
 			RELEASE_COMPLETE_t *release_complete;
 			msg_t *dmsg;

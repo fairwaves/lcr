@@ -147,7 +147,7 @@ void EndpointAppPBX::trace_header(char *name, int direction)
 	SCPY(msgtext, name);
 
 	/* init trace with given values */
-	start_trace(ea_endpoint->ep_serial,
+	start_trace(0,
 		    NULL,
 		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype),
 		    e_dialinginfo.id,

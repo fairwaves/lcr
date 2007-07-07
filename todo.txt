@@ -1,17 +1,10 @@
+BUG: no channels after reload interfaces
+BUG: audio is corrupted, shall we use fh or name for state of tones?
+BUG: release to NT not always work
+
 make asterisk call implementation
 
-new interface.conf (add remove ports by admin)
-
-call to multiple endpoints (extensions)
-
-trace with layers and filters
- - layer 1 and 2 state changes and messages
- - layer 3 isdn trace, process ids
- - messages between port, endpoint and call
- - port hunt and channel selection
- - dialing / routing
- - application process (action)
- - bchannel control (tones, dsp, filter, activation/deactivation)
+trace to debug, log and socket
 
 avoid disconnect-collision (release if disconnect from both sides)
 
@@ -20,11 +13,7 @@ display message during nothing/play
 Port -> Channel
 Call -> Link
 
-connect_acknowledge
-
-
 maybe:
-
 delay - per param setzen, lokal als mISDNsignal und remote mittels setup
 
 
