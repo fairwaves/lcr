@@ -164,7 +164,7 @@ int admin_interface(struct admin_queue **responsep)
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_INTERFACE;
@@ -256,11 +256,11 @@ int admin_route(struct admin_queue **responsep)
 			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 			start_trace(0,
 				NULL,
-				nationalize(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype),
-				apppbx->e_dialinginfo.number,
+				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype),
+				apppbx->e_dialinginfo.id,
 				DIRECTION_NONE,
 		   		CATEGORY_EP,
-				apppbx->e_serial,
+				apppbx->ea_endpoint->ep_serial,
 				"KICK (reload routing)");
 		}
 
@@ -277,7 +277,7 @@ int admin_route(struct admin_queue **responsep)
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_ROUTE;
@@ -307,7 +307,7 @@ int admin_dial(struct admin_queue **responsep, char *message)
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_DIAL;
@@ -340,6 +340,107 @@ int admin_dial(struct admin_queue **responsep, char *message)
 
 
 /*
+ * do blocking
+ * 
+ * 0 = make port available
+ * 1 = make port administratively blocked
+ * 2 = unload port
+ * the result is returned:
+ * 0 = port is now available
+ * 1 = port is now blocked
+ * 2 = port cannot be loaded or has been unloaded
+ * -1 = port doesn't exist
+ */
+int admin_block(struct admin_queue **responsep, int portnum, int block)
+{
+	struct admin_queue	*response;	/* response pointer */
+	struct interface	*interface;
+	struct interface_port	*ifport;
+
+	/* create block response */
+	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
+	if (!response)
+		return(-1);
+	memuse++;
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
+	response->num = 1;
+	/* message */
+	response->am[0].message = ADMIN_RESPONSE_CMD_BLOCK;
+	response->am[0].u.x.portnum = portnum;
+
+	/* search for port */
+	interface = interface_first;
+	while(interface)
+	{
+		ifport = interface->ifport;
+		while(ifport)
+		{
+			if (ifport->portnum == portnum)
+				break;
+			ifport = ifport->next;
+		}
+		if (ifport)
+			break;
+		interface = interface->next;
+	}
+	/* not found, we return -1 */
+	if (!ifport)
+	{
+		response->am[0].u.x.block = -1;
+		response->am[0].u.x.error = 1;
+		SPRINT(response->am[0].u.x.message, "Port %d does not exist.", portnum);
+		goto out;
+	}
+
+	/* no interface */
+	if (!ifport->mISDNport)
+	{
+		/* not loaded anyway */
+		if (block >= 2)
+		{
+			response->am[0].u.x.block = 2;
+			goto out;
+		}
+
+		/* try loading interface */
+		ifport->block = block;
+		load_port(ifport);
+
+		/* port cannot load */
+		if (ifport->block >= 2)
+		{
+			response->am[0].u.x.block = 2;
+			response->am[0].u.x.error = 1;
+			SPRINT(response->am[0].u.x.message, "Port %d will not load.", portnum);
+			goto out;
+		}
+
+		/* port loaded */
+		response->am[0].u.x.block = ifport->block;
+		goto out;
+	}
+
+	/* if we shall unload interface */
+	if (block >= 2)
+	{
+		mISDNport_close(ifport->mISDNport);
+		ifport->mISDNport = 0;
+		ifport->block = 2;
+		goto out;
+	}
+	
+	/* port new blocking state */
+	ifport->block = response->am[0].u.x.block = block;
+
+	out:
+	/* attach to response chain */
+	*responsep = response;
+	responsep = &response->next;
+	return(0);
+}
+
+
+/*
  * do release
  */
 int admin_release(struct admin_queue **responsep, char *message)
@@ -353,7 +454,7 @@ int admin_release(struct admin_queue **responsep, char *message)
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_RELEASE;
@@ -416,7 +517,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 	apppbx->e_capainfo.bearer_info1 = msg->u.call.bc_info1;
 	apppbx->e_capainfo.hlc = msg->u.call.hlc;
 	apppbx->e_capainfo.exthlc = msg->u.call.exthlc;
-	SCPY(apppbx->e_dialinginfo.number, msg->u.call.dialing);
+	SCPY(apppbx->e_dialinginfo.id, msg->u.call.dialing);
 	SCPY(apppbx->e_dialinginfo.interfaces, msg->u.call.interface);
 	apppbx->e_dialinginfo.sending_complete = 1;
 
@@ -461,7 +562,7 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 	if (!response)
 		return;
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = message;
@@ -488,6 +589,8 @@ int admin_state(struct admin_queue **responsep)
 	class EndpointAppPBX	*apppbx;
 	class Call		*call;
 	class Pdss1		*pdss1;
+	struct interface	*interface;
+	struct interface_port	*ifport;
 	struct mISDNport	*mISDNport;
 	int			i;
 	int			num;
@@ -499,7 +602,7 @@ int admin_state(struct admin_queue **responsep)
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue));
+	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_STATE;
@@ -510,12 +613,17 @@ int admin_state(struct admin_queue **responsep)
 	/* log file */
 	SCPY(response->am[0].u.s.logfile, options.log);
 	/* interface count */
-	mISDNport = mISDNport_first;
 	i = 0;
-	while(mISDNport)
+	interface = interface_first;
+	while(interface)
 	{
-		i++;
-		mISDNport = mISDNport->next;
+		ifport = interface->ifport;
+		while(ifport)
+		{
+			i++;
+			ifport = ifport->next;
+		}
+		interface = interface->next;
 	}
 	response->am[0].u.s.interfaces = i;
 	/* call count */
@@ -537,8 +645,8 @@ int admin_state(struct admin_queue **responsep)
 	}
 	response->am[0].u.s.epoints = i;
 	/* port count */
-	port = port_first;
 	i = 0;
+	port = port_first;
 	while(port)
 	{
 		i++;
@@ -551,52 +659,67 @@ int admin_state(struct admin_queue **responsep)
 
 	/* create response for all interfaces */
 	num = (response->am[0].u.s.interfaces)+(response->am[0].u.s.calls)+(response->am[0].u.s.epoints)+(response->am[0].u.s.ports);
+	if (num == 0)
+		return(0);
 	response = (struct admin_queue *)malloc(sizeof(admin_queue)+(num*sizeof(admin_message)));
 	if (!response)
 		return(-1);
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+(num*sizeof(admin_queue)));
+	memset(response, 0, sizeof(admin_queue)+(num*sizeof(admin_message)));
 	response->num = num;
 	*responsep = response;
 	responsep = &response->next;
-	mISDNport = mISDNport_first;
+	interface = interface_first;
 	num = 0;
-	while(mISDNport)
+	while(interface)
 	{
-		/* message */
-		response->am[num].message = ADMIN_RESPONSE_S_INTERFACE;
-		/* portnum */
-		response->am[num].u.i.portnum = mISDNport->portnum;
-		/* interface */
-		SCPY(response->am[num].u.i.interface_name, mISDNport->interface_name);
-		/* iftype */
-		response->am[num].u.i.iftype = mISDNport->iftype;
-		/* ptp */
-		response->am[num].u.i.ptp = mISDNport->ptp;
-		/* ntmode */
-		response->am[num].u.i.ntmode = mISDNport->ntmode;
-		/* pri */
-		response->am[num].u.i.pri = mISDNport->pri;
-		/* use */
-		response->am[num].u.i.use = mISDNport->use;
-		/* l1link */
-		response->am[num].u.i.l1link = mISDNport->l1link;
-		/* l2link */
-		response->am[num].u.i.l2link = mISDNport->l2link;
-		/* channels */
-		response->am[num].u.i.channels = mISDNport->b_num;
-		/* channel info */
-		i = 0;
-		anybusy = 0;
-		while(i < mISDNport->b_num)
+		ifport = interface->ifport;
+		while(ifport)
 		{
-			response->am[num].u.i.busy[i] = mISDNport->b_state[i];
-			if (mISDNport->b_port[i])
-				response->am[num].u.i.port[i] = mISDNport->b_port[i]->p_serial;
-			i++;
+			/* message */
+			response->am[num].message = ADMIN_RESPONSE_S_INTERFACE;
+			/* interface */
+			SCPY(response->am[num].u.i.interface_name, interface->name);
+			/* portnum */
+			response->am[num].u.i.portnum = ifport->portnum;
+			/* iftype */
+			response->am[num].u.i.extension = interface->extension;
+			/* block */
+			response->am[num].u.i.block = ifport->block;
+			if (ifport->mISDNport)
+			{
+				mISDNport = ifport->mISDNport;
+
+				/* ptp */
+				response->am[num].u.i.ptp = mISDNport->ptp;
+				/* ntmode */
+				response->am[num].u.i.ntmode = mISDNport->ntmode;
+				/* pri */
+				response->am[num].u.i.pri = mISDNport->pri;
+				/* use */
+				response->am[num].u.i.use = mISDNport->use;
+				/* l1link */
+				response->am[num].u.i.l1link = mISDNport->l1link;
+				/* l2link */
+				response->am[num].u.i.l2link = mISDNport->l2link;
+				/* channels */
+				response->am[num].u.i.channels = mISDNport->b_num;
+				/* channel info */
+				i = 0;
+				anybusy = 0;
+				while(i < mISDNport->b_num)
+				{
+					response->am[num].u.i.busy[i] = mISDNport->b_state[i];
+					if (mISDNport->b_port[i])
+						response->am[num].u.i.port[i] = mISDNport->b_port[i]->p_serial;
+					i++;
+				}
+			}
+			num++;
+
+			ifport = ifport->next;
 		}
-		mISDNport = mISDNport->next;
-		num++;
+		interface = interface->next;
 	}
 
 	/* create response for all calls */
@@ -673,7 +796,7 @@ int admin_state(struct admin_queue **responsep)
 		/* callerid */
 		SCPY(response->am[num].u.e.callerid, apppbx->e_callerinfo.id);
 		/* dialing */
-		SCPY(response->am[num].u.e.dialing, apppbx->e_dialinginfo.number);
+		SCPY(response->am[num].u.e.dialing, apppbx->e_dialinginfo.id);
 		/* action string */
 		if (apppbx->e_action)
 			SCPY(response->am[num].u.e.action, action_defs[apppbx->e_action->index].name);
@@ -918,16 +1041,25 @@ int admin_handle(void)
 				PERROR("Failed to create state response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
-			case ADMIN_REQUEST_MESSAGE:
+			break;
+
+			case ADMIN_REQUEST_CMD_BLOCK:
+			if (admin_block(&admin->response, msg.u.x.portnum, msg.u.x.block) < 0)
+			{
+				PERROR("Failed to create block response for socket %d.\n", admin->sock);
+				goto response_error;
+			}
+			break;
+
+#warning interface tbd
+#if 0
+			case ADMIN_MESSAGE:
 			if (admin_message(&admin->response) < 0)
 			{
 				PERROR("Failed to create message response for socket %d.\n", admin->sock);
-				response_error:
-				*adminp = admin->next;
-				free_connection(admin);
-				admin = *adminp;
-				continue;
+				goto response_error;
 			}
+#endif
 #if 0
 #warning DEBUGGING
 {
@@ -948,7 +1080,11 @@ int admin_handle(void)
 			if (admin_call(admin, &msg))
 			{
 				PERROR("Failed to create call for socket %d.\n", admin->sock);
-				goto response_error;
+				response_error:
+				*adminp = admin->next;
+				free_connection(admin);
+				admin = *adminp;
+				continue;
 			}
 			break;
 

@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-enum { CALL_TYPE_NONE, CALL_TYPE_PBX, CALL_TYPE_CHAN};
+enum { CALL_TYPE_NONE, CALL_TYPE_PBX, CALL_TYPE_ASTERISK};
 
 /* call
  *

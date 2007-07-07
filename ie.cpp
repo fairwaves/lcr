@@ -526,7 +526,7 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 	add_trace("calling_pn", "plan", "%d", *plan);
 	add_trace("calling_pn", "present", "%d", *present);
 	add_trace("calling_pn", "screen", "%d", *screen);
-	add_trace("calling_pn", "number", "%s", *number);
+	add_trace("calling_pn", "number", "%s", number);
 }
 
 

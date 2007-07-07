@@ -227,7 +227,7 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 		/* get apppbx */
 		memcpy(&p_vbox_ext, &((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
 		/* extract optional announcement file */
-		if ((c = strchr(param->setup.dialinginfo.number, ',')))
+		if ((c = strchr(param->setup.dialinginfo.id, ',')))
 		{
 			if (c[1] == '/')
 				SPRINT(filename, c+1);
@@ -238,7 +238,7 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 		{
 			SPRINT(filename, "%s/%s/%s/vbox/announcement", INSTALL_DATA, options.extensions_dir, p_vbox_ext.number);
 		}
-		PDEBUG(DEBUG_VBOX, "PORT(%s) vbox port received setup from '%s' to '%s'\n", p_name, param->setup.callerinfo.id, param->setup.dialinginfo.number);
+		PDEBUG(DEBUG_VBOX, "PORT(%s) vbox port received setup from '%s' to '%s'\n", p_name, param->setup.callerinfo.id, param->setup.dialinginfo.id);
 		memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
 		memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 		/* link relation */
@@ -254,7 +254,7 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 		}
 
 		/* copy setup infos to port */
-		SCPY(p_vbox_extension, param->setup.dialinginfo.number);
+		SCPY(p_vbox_extension, param->setup.dialinginfo.id);
 
 		/* create connect info */
 		SCPY(p_connectinfo.id, p_vbox_extension);

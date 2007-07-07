@@ -46,8 +46,8 @@ struct mISDNport {
 	int use; /* counts the number of port that uses this port */
 	int ntmode; /* is TRUE if port is nt mode */
 	int pri; /* is TRUE if port is a primary rate interface */
-	int is_tones; /* TRUE if tones are sent outside connect state */
-	int is_earlyb; /* TRUE if tones are received outside connect state */
+	int tones; /* TRUE if tones are sent outside connect state */
+	int earlyb; /* TRUE if tones are received outside connect state */
 	int upper_id; /* id to transfer data down */
 	int lower_id; /* id to transfer data up */
 	int d_stid;
@@ -79,7 +79,7 @@ calls with no bchannel (call waiting, call on hold).
 
 /* mISDN none-object functions */
 void mISDN_port_info(void);
-struct mISDNport *mISDNport_open(int port, int ptp, int ptmp);
+struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

@@ -609,8 +609,8 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			if (e_vbox_index_callerid[0]!='\0' && !!strcmp(e_vbox_index_callerid,"anonymous") && !!strcmp(e_vbox_index_callerid,"unknown"))
 			{
 				set_tone(portlist, "dialing");
-				SPRINT(e_dialinginfo.number, "extern:%s", e_vbox_index_callerid);
-				e_extdialing = e_dialinginfo.number;
+				SPRINT(e_dialinginfo.id, "extern:%s", e_vbox_index_callerid);
+				e_extdialing = e_dialinginfo.id;
 				e_action = NULL;
 				process_dialing();
 				return;

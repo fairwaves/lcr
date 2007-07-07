@@ -36,7 +36,7 @@ extern "C" {
  */
 Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive) : PmISDN(type, mISDNport, portname, settings, channel, exclusive)
 {
-	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN:INFO_ITYPE_ISDN_EXTENSION;
+	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_m_d_ntmode = mISDNport->ntmode;
 	p_m_d_l3id = 0;
 	p_m_d_ces = -1;
@@ -469,7 +469,7 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 	}
 use_channel:
 	add_trace("conclusion", NULL, "channel available");
-	add_trace("connect", "channel", "%d", p_m_b_channel);
+	add_trace("connect", "channel", "%d", channel);
 	end_trace();
 	return(channel);
 }
@@ -518,7 +518,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 	dec_ie_calling_pn(setup->CALLING_PN, (Q931_info_t *)((unsigned long)data+headerlen), &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
-	dec_ie_called_pn(setup->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &called_type, &called_plan, (unsigned char *)p_dialinginfo.number, sizeof(p_dialinginfo.number));
+	dec_ie_called_pn(setup->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(setup->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
 #ifdef CENTREX
 	/* te-mode: CNIP (calling name identification presentation) */
@@ -596,7 +596,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);
 
 	/* dialing information */
-	SCAT(p_dialinginfo.number, (char *)keypad);
+	SCAT(p_dialinginfo.id, (char *)keypad);
 	switch (called_type)
 	{
 		case 0x1:
@@ -808,12 +808,12 @@ void Pdss1::information_ind(unsigned long prim, unsigned long dinfo, void *data)
 	struct message *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
-	dec_ie_called_pn(information->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, (unsigned char *)p_dialinginfo.number, sizeof(p_dialinginfo.number));
+	dec_ie_called_pn(information->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(information->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
 	dec_ie_complete(information->COMPLETE, (Q931_info_t *)((unsigned long)data+headerlen), &p_dialinginfo.sending_complete);
 	end_trace();
 
-	SCAT(p_dialinginfo.number, (char *)keypad);
+	SCAT(p_dialinginfo.id, (char *)keypad);
 	switch (type)
 	{
 		case 0x1:
@@ -1120,16 +1120,20 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	p_connectinfo.isdn_port = p_m_portnum;
 	SCPY(p_connectinfo.interfaces, p_m_mISDNport->ifport->interface->name);
 
-	/* send connect acknowledge */
-	dmsg = create_l3msg(CC_CONNECT | RESPONSE, MT_CONNECT, dinfo, sizeof(CONNECT_ACKNOWLEDGE_t), p_m_d_ntmode);
-	connect_acknowledge = (CONNECT_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_CONNECT | RESPONSE, DIRECTION_OUT);
-	/* if we had no bchannel before, we send it now */
-	if (!bchannel_before && p_m_b_channel)
-		enc_ie_channel_id(&connect_acknowledge->CHANNEL_ID, dmsg, 1, p_m_b_channel);
-	end_trace();
-	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
-
+	/* only in nt-mode we send connect ack. in te-mode it is done by stack itself or optional */
+	if (p_m_d_ntmode)
+	{
+		/* send connect acknowledge */
+		dmsg = create_l3msg(CC_CONNECT | RESPONSE, MT_CONNECT, dinfo, sizeof(CONNECT_ACKNOWLEDGE_t), p_m_d_ntmode);
+		connect_acknowledge = (CONNECT_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
+		l1l2l3_trace_header(p_m_mISDNport, this, CC_CONNECT | RESPONSE, DIRECTION_OUT);
+		/* if we had no bchannel before, we send it now */
+		if (!bchannel_before && p_m_b_channel)
+			enc_ie_channel_id(&connect_acknowledge->CHANNEL_ID, dmsg, 1, p_m_b_channel);
+		end_trace();
+		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
+	}
+	
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 	memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
 	message_put(message);
@@ -1155,7 +1159,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		cause = 16;
 
 	/* release if we are remote sends us no tones */
-	if (p_m_mISDNport->is_earlyb)
+	if (p_m_mISDNport->earlyb)
 	{
 		RELEASE_t *release;
 		msg_t *dmsg;
@@ -1719,7 +1723,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		PERROR("no memory for epointlist\n");
 		exit(-1);
 	}
-	if (!(epoint->portlist_new(p_serial, p_type, p_m_mISDNport->is_earlyb)))
+	if (!(epoint->portlist_new(p_serial, p_type, p_m_mISDNport->earlyb)))
 	{
 		PERROR("no memory for portlist\n");
 		exit(-1);
@@ -2032,7 +2036,7 @@ int Pdss1::handler(void)
 {
 	int ret;
 
-	if ((ret = Port::handler()))
+	if ((ret = PmISDN::handler()))
 		return(ret);
 
 	/* handle destruction */
@@ -2056,12 +2060,12 @@ void Pdss1::message_information(unsigned long epoint_id, int message_id, union p
 	INFORMATION_t *information;
 	msg_t *dmsg;
 
-	if (param->information.number[0]) /* only if we have something to dial */
+	if (param->information.id[0]) /* only if we have something to dial */
 	{
 		dmsg = create_l3msg(CC_INFORMATION | REQUEST, MT_INFORMATION, p_m_d_l3id, sizeof(INFORMATION_t), p_m_d_ntmode);
 		information = (INFORMATION_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_INFORMATION | REQUEST, DIRECTION_OUT);
-		enc_ie_called_pn(&information->CALLED_PN, dmsg, 0, 1, (unsigned char *)param->information.number);
+		enc_ie_called_pn(&information->CALLED_PN, dmsg, 0, 1, (unsigned char *)param->information.id);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 	}
@@ -2251,9 +2255,9 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	if (type >= 0)
 		enc_ie_calling_pn(&setup->CALLING_PN, dmsg, type, plan, present, screen, (unsigned char *)p_callerinfo.id);
 	/* dialing information */
-	if (p_dialinginfo.number[0]) /* only if we have something to dial */
+	if (p_dialinginfo.id[0]) /* only if we have something to dial */
 	{
-		enc_ie_called_pn(&setup->CALLED_PN, dmsg, 0, 1, (unsigned char *)p_dialinginfo.number);
+		enc_ie_called_pn(&setup->CALLED_PN, dmsg, 0, 1, (unsigned char *)p_dialinginfo.id);
 	}
 	/* sending complete */
 	if (p_dialinginfo.sending_complete)
@@ -2513,7 +2517,7 @@ void Pdss1::message_overlap(unsigned long epoint_id, int message_id, union param
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_mISDNport->is_tones)
+	if (p_m_mISDNport->tones)
 		enc_ie_progress(&setup_acknowledge->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -2539,7 +2543,7 @@ void Pdss1::message_proceeding(unsigned long epoint_id, int message_id, union pa
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_mISDNport->is_tones)
+	if (p_m_mISDNport->tones)
 		enc_ie_progress(&proceeding->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -2586,7 +2590,7 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_mISDNport->is_tones)
+	if (p_m_mISDNport->tones)
 		enc_ie_progress(&alerting->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -2735,7 +2739,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	char *p = NULL;
 
 	/* we reject during incoming setup when we have no tones. also if we are in outgoing setup state */
-	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->is_tones)
+	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->tones)
 	 || p_state==PORT_STATE_OUT_SETUP)
 	{
 		/* sending release to endpoint */
@@ -2790,7 +2794,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_mISDNport->is_tones)
+	if (p_m_mISDNport->tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
 	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
@@ -2889,7 +2893,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-	if (p_m_mISDNport->is_tones)
+	if (p_m_mISDNport->tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
 	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);

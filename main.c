@@ -66,7 +66,7 @@ int last_debug = 0;
 int debug_newline = 1;
 int nooutput = 0;
 
-static void debug(const char *function, int line, char *prefix, char *buffer)
+void debug(const char *function, int line, char *prefix, char *buffer)
 {
 	/* if we have a new debug count, we add a mark */
 	if (last_debug != debug_count)
@@ -169,7 +169,7 @@ void sighandler(int sigset)
 			schedp.sched_priority = 0;
 			sched_setscheduler(0, SCHED_OTHER, &schedp);
 		}
-		fprintf(stderr, "PBX: Signal received: %d\n", sigset);
+		fprintf(stderr, "LCR: Signal received: %d\n", sigset);
 		PERROR("Signal received: %d\n", sigset);
 	}
 }
@@ -178,18 +178,8 @@ void sighandler(int sigset)
 /*
  * the main
  */
-#ifdef VOIP
-#define ARGC (args.GetCount()+1)
-#define ARGV(a) (args[a-1])
-void PBXMain::Main(void)
-{
-	PArgList &args = GetArguments();
-#else
-#define ARGC (argc)
-#define ARGV(a) (argv[a])
 int main(int argc, char *argv[])
 {
-#endif
 	int			ret = -1;
 	int			lockfd = -1; /* file lock */
 	struct message		*message;
@@ -218,13 +208,13 @@ int main(int argc, char *argv[])
 	printf("\n** %s  Version %s\n\n", NAME, VERSION_STRING);
 
 	/* show options */
-	if (ARGC <= 1)
+	if (argc <= 1)
 	{
 		usage:
 		printf("\n");
-		printf("Usage: pbx (query | start | fork | rules | route)\n");
+		printf("Usage: lcr (query | start | fork | rules | route)\n");
 		printf("query     = Show available isdn ports.\n");
-		printf("start     = Run pbx normally, abort with CTRL+C.\n");
+		printf("start     = Run lcr normally, abort with CTRL+C.\n");
 		printf("fork      = Do daemon fork and run as background process.\n");
 		printf("interface = Get help of available interface syntax.\n");
 		printf("rules     = Get help of available routing rule syntax.\n");
@@ -266,7 +256,7 @@ int main(int argc, char *argv[])
 	created_mutexe = 1;
 
 	/* show interface */
-	if (!(strcasecmp(ARGV(1),"interface")))
+	if (!(strcasecmp(argv[1],"interface")))
 	{
 		doc_interface();
 		ret = 0;
@@ -274,18 +264,18 @@ int main(int argc, char *argv[])
 	}
 
 	/* show rules */
-	if (!(strcasecmp(ARGV(1),"rules")))
+	if (!(strcasecmp(argv[1],"rules")))
 	{
-		if (ARGC <= 2)
+		if (argc <= 2)
 			doc_rules(NULL);
 		else
-			doc_rules(ARGV(2));
+			doc_rules(argv[2]);
 		ret = 0;
 		goto free;
 	}
 
 	/* query available isdn ports */
-	if (!(strcasecmp(ARGV(1),"query")))
+	if (!(strcasecmp(argv[1],"query")))
 	{
 		mISDN_port_info();
 		ret = 0;
@@ -327,7 +317,7 @@ int main(int argc, char *argv[])
 
 #if 0
 	/* query available isdn ports */
-	if (!(strcasecmp(ARGV(1),"route")))
+	if (!(strcasecmp(argv[1],"route")))
 	{
 		ruleset_debug(ruleset_first);
 		ret = 0;
@@ -336,7 +326,7 @@ int main(int argc, char *argv[])
 #endif
 
 	/* do fork in special cases */
-	if (!(strcasecmp(ARGV(1),"fork")))
+	if (!(strcasecmp(argv[1],"fork")))
 	{
 		pid_t pid;
 
@@ -365,27 +355,27 @@ int main(int argc, char *argv[])
 		}
 		if (pid != 0)
 		{
-			printf("PBX: Starting daemon.\n");
+			printf("LCR: Starting daemon.\n");
 			exit(0);
 		}
 		nooutput = 1;
 	} else
 	/* if not start */
-	if (!!strcasecmp(ARGV(1),"start"))
+	if (!!strcasecmp(argv[1],"start"))
 	{
 		goto usage;
 	}
 
 	/* create lock and lock! */
-	if ((lockfd = open("/var/run/pbx.lock", O_CREAT, 0)) < 0)
+	if ((lockfd = open("/var/run/lcr.lock", O_CREAT, 0)) < 0)
 	{
-		fprintf(stderr, "Cannot create lock file: /var/run/pbx.lock\n");
+		fprintf(stderr, "Cannot create lock file: /var/run/lcr.lock\n");
 		goto free;
 	}
 	if (flock(lockfd, LOCK_EX|LOCK_NB) < 0)
 	{
 		if (errno == EWOULDBLOCK)
-			fprintf(stderr, "PBX: Another PBX process is running. Please kill the other one.\n");
+			fprintf(stderr, "LCR: Another LCR process is running. Please kill the other one.\n");
 		else	fprintf(stderr, "Locking process failed: errno=%d\n", errno);
 		goto free;
 	}
@@ -417,7 +407,6 @@ int main(int argc, char *argv[])
 	}
 	relink_interfaces();
 	interface_first = interface_newlist;
-	free_interfaces(interface_newlist);
 	interface_newlist = NULL;
 	
 	/* locking memory paging */
@@ -693,7 +682,7 @@ BUDETECT
 			idletime += 4000;
 		}
 	}
-	printf("PBX terminated\n");
+	printf("LCR terminated\n");
 	ret=0;
 
 	/* free all */
@@ -811,7 +800,7 @@ free:
 
 	/* take me out */
 	if (ret)
-		printf("PBX: Exit (code %d)\n", ret);
+		printf("LCR: Exit (code %d)\n", ret);
 #ifdef VOIP
 	return;
 #else

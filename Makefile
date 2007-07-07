@@ -1,6 +1,6 @@
 #*****************************************************************************\
 #*                                                                           **
-#* PBX4Linux                                                                 **
+#* Linux Call Router                                                         **
 #*                                                                           **
 #*---------------------------------------------------------------------------**
 #* Copyright: Andreas Eversberg                                              **
@@ -14,13 +14,13 @@ WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 
 # select location to install
 INSTALL_BIN = /usr/local/bin
-INSTALL_DATA = /usr/local/pbx
+INSTALL_DATA = /usr/local/lcr
 
 # give locations for the libraries
 LINUX_INCLUDE = -I/usr/src/linux/include
 
 # give location of the mISDN libraries
-MISDNUSER_INCLUDE = -I../mISDNuser/include
+MISDNUSER_INCLUDE = -I../mISDNuser/include -I../mISDNuser/i4lnet
 MISDNUSER_LIB = -L../mISDNuser/lib -L../mISDNuser/i4lnet
 LIBS += -lisdnnet -lmISDN -lpthread
 
@@ -30,9 +30,9 @@ CURSES = -lncurses
 CC = g++
 LD = $(CC)
 WIZZARD = ./wizzard
-PBX = ./pbx
-PBXADMIN = ./pbxadmin
-PBXWATCH = ./pbxwatch
+LCR = ./lcr
+LCRADMIN = ./lcradmin
+LCRWATCH = ./lcrwatch
 GEN = ./gentones
 GENW = ./genwave
 GENRC = ./genrc
@@ -55,14 +55,14 @@ endif
 #	@echo Please report any bug. To compile use \"make beta\".
 #	@exit
 
-all: $(PBXADMIN) $(PBX) $(GEN) $(GENW) $(GENRC) $(GENEXT)
+all: $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	@sh -c 'grep -n strcpy *.c* ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n strncpy *.c* ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n strcat *.c* ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n strncat *.c* ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n sprintf *.c* ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n snprintf *.c* ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
-	@echo "All PBX binaries done"
+	@echo "All LCR binaries done"
 	@sync
 	@exit
 
@@ -92,21 +92,6 @@ mISDN.o: mISDN.cpp *.h Makefile
 
 dss1.o: dss1.cpp ie.cpp *.h Makefile
 	$(CC) -c $(CFLAGS) dss1.cpp -o dss1.o
-
-opal.o: opal.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) opal.cpp -o opal.o
-
-opal_mgr.o: opal_mgr.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) opal_mgr.cpp -o opal_mgr.o
-
-opal_pbxep.o: opal_pbxep.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) opal_pbxep.cpp -o opal_pbxep.o
-
-opal_pbxcon.o: opal_pbxcon.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) opal_pbxcon.cpp -o opal_pbxcon.o
-
-opal_pbxms.o: opal_pbxms.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) opal_pbxms.cpp -o opal_pbxms.o
 
 #knock.o: knock.cpp *.h Makefile
 #	$(CC) -c $(CFLAGS) knock.cpp -o knock.o
@@ -173,7 +158,7 @@ trace.o: trace.c *.h Makefile
 #	$(CC) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
 #	-o $(WIZZARD) 
 
-$(PBX): main.o \
+$(LCR): main.o \
 	options.o \
 	interface.o \
 	extension.o \
@@ -226,15 +211,15 @@ $(PBX): main.o \
 	callchan.o \
 	admin_server.o \
 	trace.o \
-	$(LIBS) -o $(PBX) 
+	$(LIBS) -o $(LCR) 
 
-$(PBXADMIN): admin_client.c cause.c *.h Makefile
+$(LCRADMIN): admin_client.c cause.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
-	-o $(PBXADMIN) 
+	-o $(LCRADMIN) 
 
-$(PBXWATCH): watch.c *.h Makefile
+$(LCRWATCH): watch.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) -lm watch.c \
-	-o $(PBXWATCH) 
+	-o $(LCRWATCH) 
 
 $(GEN):	gentones.c *.h Makefile 
 	$(CC) $(LIBDIR) $(CFLAGS) -lm gentones.c \
@@ -257,10 +242,10 @@ $(GENEXT): options.o extension.o genext.o
 #	@exit
 
 install:
-	-killall -9 -w -q pbx # the following error must be ignored
-	cp $(PBX) $(INSTALL_BIN)
-	cp $(PBXADMIN) $(INSTALL_BIN)
-#	cp $(PBXWATCH) $(INSTALL_BIN)
+	-killall -9 -w -q lcr # the following error must be ignored
+	cp $(LCR) $(INSTALL_BIN)
+	cp $(LCRADMIN) $(INSTALL_BIN)
+#	cp $(LCRWATCH) $(INSTALL_BIN)
 	cp $(GEN) $(INSTALL_BIN)
 	cp $(GENW) $(INSTALL_BIN)
 	cp $(GENRC) $(INSTALL_BIN)
@@ -291,7 +276,7 @@ install:
 
 clean:
 	touch *
-	rm -f $(PBX) $(PBXADMIN) $(PBXWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
+	rm -f $(LCR) $(LCRADMIN) $(LCRWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	rm -f *.o
 	rm -f .*.c.sw* .*.cpp.sw* .*.h.sw*
 	rm -f bla nohup.out
@@ -299,22 +284,22 @@ clean:
 
 tar:
 	make clean
-	cd .. &&  tar -cvzf pbx4linux_`date +%Y%m%d`.tar.gz pbx4linux
+	cd .. &&  tar -cvzf lcr_`date +%Y%m%d`.tar.gz lcr
 
-start: $(PBX)
+start: $(LCR)
 	sync
-	-killall -9 -w -q pbx # the following error must be ignored
-	$(PBX) start
+	-killall -9 -w -q lcr # the following error must be ignored
+	$(LCR) start
 
-s: $(PBX)
+s: $(LCR)
 	sync
-	-killall -9 -w -q pbx # the following error must be ignored
-	$(PBX) start
+	-killall -9 -w -q lcr # the following error must be ignored
+	$(LCR) start
 
-fork: $(PBX)
+fork: $(LCR)
 	sync
-	-killall -9 -w -q pbx # the following error must be ignored
-	$(PBX) fork
+	-killall -9 -w -q lcr # the following error must be ignored
+	$(LCR) fork
 
 
 

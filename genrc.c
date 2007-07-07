@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -51,7 +51,7 @@ int main(void)
 	char protocol[1024], layermask[1024], types[256];
 
 	printf("\n\nThis program generates a script, which is used to start/stop/restart mISDN\n");
-	printf("driver. All configuration of cards is done for using with the PBX.\n");
+	printf("driver. All configuration of cards is done for using with the LCR.\n");
 
 	while(i < (int)sizeof(mode)) /* number of cards */
 	{
@@ -67,7 +67,7 @@ int main(void)
 		ptp[i] = 0;
 		do
 		{
-			printf("\nIs your port #%d connected to point-to-multipoint line/phone, which supports multiple\ntelephones (Mehrgeräteanschluss) OR is it a point-to-point link which is used\nfor PBX and supports extension dialing (Anlagenanschluss)?\n[ptp | ptm]: ", i+1); fflush(stdout);
+			printf("\nIs your port #%d connected to point-to-multipoint line/phone, which supports multiple\ntelephones (Mehrgeräteanschluss) OR is it a point-to-point link which is used\nfor LCR and supports extension dialing (Anlagenanschluss)?\n[ptp | ptm]: ", i+1); fflush(stdout);
 			scanf("%s", input);
 		} while (!!strcmp(input,"ptp") && !!strcmp(input,"ptm"));
 		ptp[i] = (input[2]=='p')?1:0;
@@ -152,16 +152,16 @@ int main(void)
 
 	n = i;
 
-	printf("\nWhere do you like to load the modules from, enter 0 for default, 1 for\n'/usr/local/pbx/modules/' or the full path.\n[0 | 1 | <path>]: "); fflush(stdout);
+	printf("\nWhere do you like to load the modules from, enter 0 for default, 1 for\n'/usr/local/lcr/modules/' or the full path.\n[0 | 1 | <path>]: "); fflush(stdout);
 	scanf("%s", input);
 	if (!strcmp(input, "0"))
 		SCPY(input, "");
 	if (!strcmp(input, "1"))
-		SCPY(input, "/usr/local/pbx/modules");
+		SCPY(input, "/usr/local/lcr/modules");
 	if (input[0]) if (input[strlen(input)-1] != '/')
 		SCAT(input, "/");
 
-	printf("\n\nFinally tell me where to write the mISDN rc file.\Enter the name 'mISDN' for current directory.\nYou may want to say '/usr/local/pbx/mISDN' or '/etc/rc.d/mISDN'\n: "); fflush(stdout);
+	printf("\n\nFinally tell me where to write the mISDN rc file.\Enter the name 'mISDN' for current directory.\nYou may want to say '/usr/local/lcr/mISDN' or '/etc/rc.d/mISDN'\n: "); fflush(stdout);
 	scanf("%s", name);
 	if (!(fp=fopen(name, "w")))
 	{

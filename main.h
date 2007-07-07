@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -9,11 +9,11 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#define NAME		"PBX4Linux"
+#define NAME		"LCR"
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
 
-#define VERSION_STRING	"3.6 (Januar 2006)"
+#define VERSION_STRING	"0.1 (August 2007)"
 
 extern int memuse;
 extern int mmemuse;
@@ -32,6 +32,7 @@ extern int fhuse;
 #define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, 0, fmt, ## arg)
 void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...);
 void _printerror(const char *function, int line, const char *fmt, ...);
+void debug(const char *function, int line, char *prefix, char *buffer);
 
 #define DEBUG_CONFIG	0x0001
 #define DEBUG_MSG 	0x0002

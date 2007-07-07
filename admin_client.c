@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -26,9 +26,9 @@
 #include "admin.h"
 #include "cause.h"
 
-#define LTEE {addch(/*ACS_LTEE*/'t');addch(/*ACS_HLINE*/'q');addch(/*ACS_HLINE*/'q');}
-#define LLCORNER {addch(/*ACS_LLCORNER*/'m');addch(/*ACS_HLINE*/'q');addch(/*ACS_HLINE*/'q');}
-#define VLINE {addch(/*ACS_VLINE*/'x');addstr("  ");}
+#define LTEE {addch(ACS_LTEE);addch(ACS_HLINE);addch(ACS_HLINE);}
+#define LLCORNER {addch(ACS_LLCORNER);addch(ACS_HLINE);addch(ACS_HLINE);}
+#define VLINE {addch(ACS_VLINE);addstr("  ");}
 #define EMPTY {addstr("   ");}
 //char rotator[] = {'-', '\\', '|', '/'};
 int	lastlines, lastcols;
@@ -42,6 +42,9 @@ enum {
 	MODE_ROUTE,
 	MODE_DIAL,
 	MODE_RELEASE,
+	MODE_UNBLOCK,
+	MODE_BLOCK,
+	MODE_UNLOAD,
 	MODE_TESTCALL,
 	MODE_TRACE,
 };
@@ -459,7 +462,7 @@ char *admin_state(int sock)
 	/* send reload command */
 	memset(&msg, 0, sizeof(msg));
 	msg.message = ADMIN_REQUEST_STATE;
-//	printf("sizeof=%d\n",sizeof(msg));
+//	printf("sizeof=%d\n",sizeof(msg));fflush(stdout);
 	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
 	{
 		cleanup_curses();
@@ -472,6 +475,7 @@ char *admin_state(int sock)
 		cleanup_curses();
 		return("Broken pipe while receiving response.");
 	}
+
 	if (msg.message != ADMIN_RESPONSE_STATE)
 	{
 		cleanup_curses();
@@ -484,19 +488,22 @@ char *admin_state(int sock)
 		return("Not enough memory for messages.");
 	}
 	off=0;
-readagain:
-	if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
+	if (num)
 	{
-		if (len <= 0) {
-			free(m);
-//			fprintf(stderr, "got=%d expected=%d\n", i, num*sizeof(struct admin_message));
-			cleanup_curses();
-			return("Broken pipe while receiving state infos.");
-		}
-		if (len < num*(int)sizeof(struct admin_message))
+		readagain:
+		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
 		{
-			off+=len;
-			goto readagain;
+			if (len <= 0) {
+				free(m);
+	//			fprintf(stderr, "got=%d expected=%d\n", i, num*sizeof(struct admin_message));
+				cleanup_curses();
+				return("Broken pipe while receiving state infos.");
+			}
+			if (len < num*(int)sizeof(struct admin_message))
+			{
+				off+=len;
+				goto readagain;
+			}
 		}
 	}
 	j = 0;
@@ -633,112 +640,125 @@ readagain:
 			/* show interface summary */
 			move(++line>1?line:1, 0);
 			color(white);
-
-			SPRINT(buffer, "%s(%d) '%s' %s use:%d ", (m[i].u.i.ntmode)?"NT":"TE", m[i].u.i.portnum, m[i].u.i.interface_name, (m[i].u.i.ptp)?"ptp ":"ptmp", m[i].u.i.use);
-			addstr(buffer);
-			if (m[i].u.i.ptp || !m[i].u.i.ntmode)
+			if (m[i].u.i.block >= 2)
 			{
-				color((m[i].u.i.l2link)?green:red);
-				addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
-			}
-			color((m[i].u.i.l1link)?green:blue);
-			addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
-			if (line+2 >= LINES) goto end;
-			/* show channels */
-			if (show_interfaces > 1)
+				SPRINT(buffer, "%s (%d)%s", m[i].u.i.interface_name, m[i].u.i.portnum, (m[i].u.i.extension)?" (extension)":"");
+				addstr(buffer);
+				color(red);
+				addstr("  not loaded");
+			} else
 			{
-				ltee = 0;
-				j = k =0;
-				jj = m[i].u.i.channels;
-				while(j < jj)
+				SPRINT(buffer, "%s (%d) %s %s%s use:%d", m[i].u.i.interface_name, m[i].u.i.portnum, (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp", (m[i].u.i.extension)?" extension":"", m[i].u.i.use);
+				addstr(buffer);
+				if (m[i].u.i.ptp || !m[i].u.i.ntmode)
 				{
-					/* show all channels */
-					if (show_interfaces>2 || m[i].u.i.busy[j]>0)
+					color((m[i].u.i.l2link)?green:red);
+					addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
+				}
+				color((m[i].u.i.l1link)?green:blue);
+				addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
+				if (m[i].u.i.block)
+				{
+					color(red);
+					addstr("  blocked");
+				}
+				if (line+2 >= LINES) goto end;
+				/* show channels */
+				if (show_interfaces > 1)
+				{
+					ltee = 0;
+					j = k =0;
+					jj = m[i].u.i.channels;
+					while(j < jj)
+					{
+						/* show all channels */
+						if (show_interfaces>2 || m[i].u.i.busy[j]>0)
+						{
+							color(cyan);
+							/* show left side / right side */
+							if ((k & 1) && (COLS > 70))
+							{
+								move(line>1?line:1,4+((COLS-4)/2));
+							} else
+							{
+								move(++line>1?line:1, 1);
+								LTEE
+								ltee = 1;
+							}
+							k++;
+							color(white);
+							if (m[i].u.i.pri)
+								SPRINT(buffer,"S%2d: ", j+1+(j>=15));
+							else
+								SPRINT(buffer,"B%2d: ", j+1);
+							addstr(buffer);
+							if (!m[i].u.i.ptp)
+								goto ptmp;
+							if (m[i].u.i.l2link && m[i].u.i.block==0)
+							{
+								ptmp:
+								color((m[i].u.i.busy[j])?yellow:blue);
+								addstr((m[i].u.i.busy[j])?"busy":"idle");
+							} else
+							{
+								color(red);
+								addstr("blk ");
+							}
+							if (m[i].u.i.port[j])
+							{
+								/* search for port */
+								l = msg.u.s.interfaces+msg.u.s.calls+msg.u.s.epoints;
+								ll = l+msg.u.s.ports;
+								while(l < ll)
+								{
+									if (m[l].u.p.serial == m[i].u.i.port[j])
+									{
+										SPRINT(buffer, " %s(%ld)", m[l].u.p.name, m[l].u.p.serial);
+										addstr(buffer);
+									}
+									l++;
+								}
+							}
+							if (line+2 >= LINES)
+							{
+								if (ltee)
+								{
+									color(cyan);
+									move(line>1?line:1, 1);
+									LLCORNER
+								}
+								goto end;
+							}
+						}
+						j++;
+					}
+					if (ltee)
 					{
 						color(cyan);
-						/* show left side / right side */
-						if ((k & 1) && (COLS > 70))
+						move(line>1?line:1, 1);
+						LLCORNER
+					}
+					if (line+2 >= LINES) goto end;
+					/* show summary if no channels were shown */
+					if (show_interfaces<2 && ltee==0)
+					{
+						color(cyan);
+						move(++line>1?line:1, 1);
+						LLCORNER
+							
+						if (m[i].u.i.l2link && m[i].u.i.block==0)
 						{
-							move(line>1?line:1,4+((COLS-4)/2));
-						} else
-						{
-							move(++line>1?line:1, 1);
-							LTEE
-							ltee = 1;
-						}
-						k++;
-						color(white);
-						if (m[i].u.i.pri)
-							SPRINT(buffer,"S%2d: ", j+1+(j>=15));
-						else
-							SPRINT(buffer,"B%2d: ", j+1);
-						addstr(buffer);
-						if (!m[i].u.i.ptp)
-							goto ptmp;
-						if (m[i].u.i.l2link)
-						{
-							ptmp:
-							color((m[i].u.i.busy[j])?yellow:blue);
-							addstr((m[i].u.i.busy[j])?"busy":"idle");
+							color(green);
+							SPRINT(buffer,"all %d channels free", m[i].u.i.channels);
 						} else
 						{
 							color(red);
-							addstr("blk ");
+							SPRINT(buffer,"all %d channels blocked", m[i].u.i.channels);
 						}
-						if (m[i].u.i.port[j])
-						{
-							/* search for port */
-							l = msg.u.s.interfaces+msg.u.s.calls+msg.u.s.epoints;
-							ll = l+msg.u.s.ports;
-							while(l < ll)
-							{
-								if (m[l].u.p.serial == m[i].u.i.port[j])
-								{
-									SPRINT(buffer, " %s(%ld)", m[l].u.p.name, m[l].u.p.serial);
-									addstr(buffer);
-								}
-								l++;
-							}
-						}
-						if (line+2 >= LINES)
-						{
-							if (ltee)
-							{
-								color(cyan);
-								move(line>1?line:1, 1);
-								LLCORNER
-							}
-							goto end;
-						}
+						addstr(buffer);
 					}
-					j++;
+					if (line+2 >= LINES) goto end;
 				}
-				if (ltee)
-				{
-					color(cyan);
-					move(line>1?line:1, 1);
-					LLCORNER
-				}
-				if (line+2 >= LINES) goto end;
-				/* show summary if no channels were shown */
-				if (show_interfaces<2 && ltee==0)
-				{
-					color(cyan);
-					move(++line>1?line:1, 1);
-					LLCORNER
-						
-					if (m[i].u.i.l2link)
-					{
-						color(green);
-						SPRINT(buffer,"all %d channels free", m[i].u.i.channels);
-					} else
-					{
-						color(red);
-						SPRINT(buffer,"all %d channels blocked", m[i].u.i.channels);
-					}
-					addstr(buffer);
-				}
-				if (line+2 >= LINES) goto end;
 			}
 			i++;
 			anything = 1;
@@ -905,7 +925,7 @@ readagain:
 		{
 			move(line++>1?line-1:1, 0);
 			color(blue);
-			hline(/*ACS_HLINE*/'q', COLS);
+			hline(ACS_HLINE, COLS);
 			color(white);
 			
 			l = logcur-(LINES-line-2);
@@ -933,7 +953,7 @@ readagain:
 	move(0, 0);
 	color(white);
 	msg.u.s.version_string[sizeof(msg.u.s.version_string)-1] = '\0';
-	SPRINT(buffer, "PBX4Linux %s", msg.u.s.version_string);
+	SPRINT(buffer, "LCR %s", msg.u.s.version_string);
 	addstr(buffer);
 	if (COLS>50)
 	{
@@ -946,7 +966,7 @@ readagain:
 	/* displeay head line */
 	move(1, 0);
 	color(blue);
-	hline(/*ACS_HLINE*/'q', COLS);
+	hline(ACS_HLINE, COLS);
 	if (offset)
 	{
 		move(1, 1);
@@ -957,7 +977,7 @@ readagain:
 	/* display end */
 	move(LINES-2, 0);
 	color(white);
-	hline(/*ACS_HLINE*/'q', COLS);
+	hline(ACS_HLINE, COLS);
 	move(LINES-1, 0);
 	color(white);
 	SPRINT(buffer, "i = interfaces '%s'  c = calls '%s'  l = log  q = quit  +/- = scroll", text_interfaces[show_interfaces], text_calls[show_calls]);
@@ -1052,6 +1072,21 @@ char *admin_cmd(int sock, int mode, char *extension, char *number)
 		msg.message = ADMIN_REQUEST_CMD_RELEASE;
 		SCPY(msg.u.x.message, number);
 		break;
+		case MODE_UNBLOCK:
+		msg.message = ADMIN_REQUEST_CMD_BLOCK;
+		msg.u.x.portnum = atoi(number);
+		msg.u.x.block = 0;
+		break;
+		case MODE_BLOCK:
+		msg.message = ADMIN_REQUEST_CMD_BLOCK;
+		msg.u.x.portnum = atoi(number);
+		msg.u.x.block = 1;
+		break;
+		case MODE_UNLOAD:
+		msg.message = ADMIN_REQUEST_CMD_BLOCK;
+		msg.u.x.portnum = atoi(number);
+		msg.u.x.block = 2;
+		break;
 	}
 
 	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
@@ -1076,6 +1111,12 @@ char *admin_cmd(int sock, int mode, char *extension, char *number)
 		break;
 		case MODE_RELEASE:
 		if (msg.message != ADMIN_RESPONSE_CMD_RELEASE)
+			return("Response not valid.");
+		break;
+		case MODE_UNBLOCK:
+		case MODE_BLOCK:
+		case MODE_UNLOAD:
+		if (msg.message != ADMIN_RESPONSE_CMD_BLOCK)
 			return("Response not valid.");
 		break;
 	}
@@ -1293,10 +1334,13 @@ int main(int argc, char *argv[])
 		printf("\n");
 		printf("Usage: %s state | interface | route | dial ...\n", argv[0]);
 		printf("state - View current states using graphical console output.\n");
-		printf("interface - Tell PBX to reload \"interface.conf\".\n");
-		printf("route - Tell PBX to reload \"route.conf\".\n");
-		printf("dial <extension> <number> - Tell PBX the next number to dial for extension.\n");
-		printf("release <number> - Tell PBX to release endpoint with given number.\n");
+		printf("interface - Tell LCR to reload \"interface.conf\".\n");
+		printf("route - Tell LCR to reload \"route.conf\".\n");
+		printf("dial <extension> <number> - Tell LCR the next number to dial for extension.\n");
+		printf("release <number> - Tell LCR to release endpoint with given number.\n");
+		printf("block <port> - Block given port.\n");
+		printf("unblock <port> - Unblock given port.\n");
+		printf("unload <port> - Unload port. To load port use 'block' or 'unblock'.\n");
 		printf("testcall <interface> <callerid> <number> [present|restrict [<capability>]] - Testcall\n");
 		printf(" -> capability = <bc> <mode> <codec> <hlc> <exthlc> (Values must be numbers, -1 to omit.)\n");
 		printf("trace [brief|short] [<filter> [...]] - Shows call trace. Use filter to reduce output.\n");
@@ -1330,6 +1374,24 @@ int main(int argc, char *argv[])
 			goto usage;
 		mode = MODE_RELEASE;
 	} else
+	if (!(strcasecmp(argv[1],"unblock")))
+	{
+		if (argc <= 2)
+			goto usage;
+		mode = MODE_UNBLOCK;
+	} else
+	if (!(strcasecmp(argv[1],"block")))
+	{
+		if (argc <= 2)
+			goto usage;
+		mode = MODE_BLOCK;
+	} else
+	if (!(strcasecmp(argv[1],"unload")))
+	{
+		if (argc <= 2)
+			goto usage;
+		mode = MODE_UNLOAD;
+	} else
 	if (!(strcasecmp(argv[1],"testcall")))
 	{
 		if (argc <= 4)
@@ -1357,7 +1419,7 @@ int main(int argc, char *argv[])
 	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
 	{
 		close(sock);
-		fprintf(stderr, "Failed to connect to socket \"%s\".\nIs PBX4Linux running?\n", sock_address.sun_path);
+		fprintf(stderr, "Failed to connect to socket \"%s\".\nIs LCR running?\n", sock_address.sun_path);
 		exit(EXIT_FAILURE);
 	}
 
@@ -1378,6 +1440,9 @@ int main(int argc, char *argv[])
 		break;
 
 		case MODE_RELEASE:
+		case MODE_UNBLOCK:
+		case MODE_BLOCK:
+		case MODE_UNLOAD:
 		ret = admin_cmd(sock, mode, NULL, argv[2]);
 		break;
 

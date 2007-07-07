@@ -10,8 +10,8 @@
 \*****************************************************************************/ 
 
 struct trace_element {
-	char name[10];
-	char sub[10];
+	char name[11];
+	char sub[11];
 	char value[64];
 };
 
@@ -26,7 +26,7 @@ struct trace {
 	unsigned long sec, usec;
 	
 	/* type */
-	char category[4];
+	int category;
 	int serial;
 	char name[64];
 

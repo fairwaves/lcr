@@ -20,6 +20,13 @@ display message during nothing/play
 Port -> Channel
 Call -> Link
 
+connect_acknowledge
+
+
+maybe:
+
+delay - per param setzen, lokal als mISDNsignal und remote mittels setup
+
 
 
 old stuff....

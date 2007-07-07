@@ -69,7 +69,7 @@ Endpoint::Endpoint(int port_id, int call_id)
 		if (port)
 		{
 			if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
-				earlyb = ((class PmISDN *)port)->p_m_mISDNport->is_earlyb;
+				earlyb = ((class PmISDN *)port)->p_m_mISDNport->earlyb;
 			if (!portlist_new(port_id, port->p_type, earlyb))
 			{
 				PERROR("no mem for portlist, exitting...\n");

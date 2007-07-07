@@ -140,7 +140,6 @@ struct extension {
 	int display_cause; 	/* clear cause using display message */
 	int display_ext;	/* display external caller ids */
 	int display_int;	/* display internal caller ids */
-	int display_voip; 	/* display h323 caller ids */
 	int display_fake; 	/* display fake caller ids */
 	int display_anon; 	/* display anonymouse caller ids */
 	int display_menu; 	/* display menu */

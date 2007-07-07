@@ -133,12 +133,12 @@ void EndpointAppPBX::action_dialing_internal(void)
 	memcpy(&callerinfo, &e_callerinfo, sizeof(callerinfo));
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
-	dialinginfo.itype = INFO_ITYPE_INTERN;
-	SCPY(dialinginfo.number, e_dialinginfo.number);
+	dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
+	SCPY(dialinginfo.id, e_dialinginfo.id);
 
 	/* process extension */
 	if ((rparam = routeparam(e_action, PARAM_EXTENSION)))
-		SCPY(dialinginfo.number, rparam->string_value);
+		SCPY(dialinginfo.id, rparam->string_value);
 
 	/* process number type */
 	if ((rparam = routeparam(e_action, PARAM_TYPE)))
@@ -179,10 +179,10 @@ void EndpointAppPBX::action_dialing_internal(void)
 	}
 
 	/* check if extension exists AND only if not multiple extensions */
-	if (!read_extension(&ext, dialinginfo.number) && !strchr(dialinginfo.number,','))
+	if (!read_extension(&ext, dialinginfo.id) && !strchr(dialinginfo.id,','))
 	{
 		trace_header("ACTION extension (extension doesn't exist)", DIRECTION_NONE);
-		add_trace("extension", NULL, dialinginfo.number);
+		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_UNALLOCATED, LOCATION_PRIVATE_LOCAL, "");
@@ -193,7 +193,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	if (e_ext.rights < 1)
 	{
 		trace_header("ACTION extension (dialing to extension denied)", DIRECTION_NONE);
-		add_trace("extension", NULL, dialinginfo.number);
+		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
@@ -203,7 +203,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 
 	/* add or update internal call */
 	trace_header("ACTION extension (calling)", DIRECTION_NONE);
-	add_trace("extension", NULL, dialinginfo.number);
+	add_trace("extension", NULL, dialinginfo.id);
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
@@ -258,18 +258,18 @@ void EndpointAppPBX::action_dialing_external(void)
 	memcpy(&callerinfo, &e_callerinfo, sizeof(callerinfo));
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
-	dialinginfo.itype = INFO_ITYPE_EXTERN;
+	dialinginfo.itype = INFO_ITYPE_ISDN;
 	dialinginfo.sending_complete = 0;
-	SCPY(dialinginfo.number, e_extdialing);
+	SCPY(dialinginfo.id, e_extdialing);
 
 	/* process prefix */
 	if ((rparam = routeparam(e_action, PARAM_PREFIX)))
-		SPRINT(dialinginfo.number, "%s%s", rparam->string_value, e_extdialing);
+		SPRINT(dialinginfo.id, "%s%s", rparam->string_value, e_extdialing);
 
 	/* process number complete */
 	if ((rparam = routeparam(e_action, PARAM_COMPLETE)))
 		if ((rparam = routeparam(e_action, PARAM_PREFIX)))
-			SCPY(dialinginfo.number, rparam->string_value);
+			SCPY(dialinginfo.id, rparam->string_value);
 		dialinginfo.sending_complete = 1;
 
 	/* process number type */
@@ -338,7 +338,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		return;
 	}
 
-	if (!strncmp(dialinginfo.number, options.national, strlen(options.national))
+	if (!strncmp(dialinginfo.id, options.national, strlen(options.national))
 	 || dialinginfo.ntype == INFO_NTYPE_NATIONAL
 	 || dialinginfo.ntype == INFO_NTYPE_INTERNATIONAL)
 	{
@@ -353,7 +353,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		}
 	}
 
-	if (!strncmp(dialinginfo.number, options.international, strlen(options.international))
+	if (!strncmp(dialinginfo.id, options.international, strlen(options.international))
 	 || dialinginfo.ntype == INFO_NTYPE_INTERNATIONAL)
 	{
 		/* check if international calls are denied */
@@ -369,7 +369,7 @@ void EndpointAppPBX::action_dialing_external(void)
 
 	/* add or update outgoing call */
 	trace_header("ACTION extern (calling)", DIRECTION_NONE);
-	add_trace("number", NULL, dialinginfo.number);
+	add_trace("number", NULL, dialinginfo.id);
 	if (dialinginfo.interfaces[0])
 		add_trace("interfaces", NULL, dialinginfo.interfaces);
 	end_trace();
@@ -451,19 +451,19 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 	dialinginfo.itype = INFO_ITYPE_VBOX;
 	dialinginfo.sending_complete = 1;
-	SCPY(dialinginfo.number, rparam->string_value);
+	SCPY(dialinginfo.id, rparam->string_value);
 
 	/* append special announcement (if given) */
 	if ((rparam = routeparam(e_action, PARAM_ANNOUNCEMENT)))
 	if (rparam->string_value[0])
 	{
-		SCAT(dialinginfo.number, ",");
-		SCAT(dialinginfo.number, rparam->string_value);
+		SCAT(dialinginfo.id, ",");
+		SCAT(dialinginfo.id, rparam->string_value);
 	}
 
 	/* add or update internal call */
 	trace_header("ACTION vbox-record (calling)", DIRECTION_NONE);
-	add_trace("extension", NULL, "%s", dailinginfo.number);
+	add_trace("extension", NULL, "%s", dialinginfo.id);
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
@@ -557,7 +557,7 @@ void EndpointAppPBX::action_init_partyline(void)
 
 	/* send setup to call */
 	trace_header("ACTION partyline (calling)", DIRECTION_NONE);
-	add_trace("room", NULL, "%d", partylind);
+	add_trace("room", NULL, "%d", partyline);
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
 	message->param.setup.partyline = partyline;
@@ -581,34 +581,34 @@ void EndpointAppPBX::action_hangup_call(void)
 	/* check */
 	if (e_ext.number[0] == '\0')
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because caller is unknown (not internal).\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because caller is unknown (not internal).\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
 		return;
 	}
 	if (!(read_extension(&e_ext, e_ext.number)))
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because cannot read settings.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because cannot read settings.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
 		return;
 	}
-	if (e_dialinginfo.number[0] == '\0')
+	if (e_dialinginfo.id[0] == '\0')
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number because nothing was dialed.\n", ea_endpoint->ep_serial, e_ext.number);
 		return;
 	}
-	if (!strcmp(e_dialinginfo.number, e_ext.last_out[0]))
+	if (!strcmp(e_dialinginfo.id, e_ext.last_out[0]))
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
 		return;
 	}
 
 	/* insert */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
 	i = MAX_REMEMBER-1;
 	while(i)
 	{
 		UCPY(e_ext.last_out[i], e_ext.last_out[i-1]);
 		i--;
 	}
-	SCPY(e_ext.last_out[0], e_dialinginfo.number);
+	SCPY(e_ext.last_out[0], e_dialinginfo.id);
 
 	/* write extension */
 	write_extension(&e_ext, e_ext.number);
@@ -672,9 +672,9 @@ void EndpointAppPBX::action_dialing_login(void)
 		message->param.connectinfo.present = INFO_PRESENT_RESTRICTED;
 	else	message->param.connectinfo.present = e_ext.callerid_present;
 	/* handle restricted caller ids */
-	apply_callerid_restriction(e_ext.anon_ignore, portlist->port_type, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name);
+	apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 	/* display callerid if desired for extension */
-	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name));
+	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 	message->param.connectinfo.ntype = e_ext.callerid_type;
 	message_put(message);
 	logmessage(message);
@@ -700,8 +700,8 @@ void EndpointAppPBX::action_dialing_login(void)
 		e_action = &action_password;
 		e_match_timeout = 0;
 		e_match_to_action = NULL;
-		e_dialinginfo.number[0] = '\0';
-		e_extdialing = strchr(e_dialinginfo.number, '\0');
+		e_dialinginfo.id[0] = '\0';
+		e_extdialing = strchr(e_dialinginfo.id, '\0');
 
 		/* set timeout */
 		e_password_timeout = now+20;
@@ -716,8 +716,8 @@ void EndpointAppPBX::action_dialing_login(void)
 		if (e_ruleset)
 			e_rule = e_ruleset->rule_first;
 		e_action = NULL;
-		e_dialinginfo.number[0] = '\0';
-		e_extdialing = e_dialinginfo.number;
+		e_dialinginfo.id[0] = '\0';
+		e_extdialing = e_dialinginfo.id;
 		set_tone(portlist, "dialpbx");
 	}
 }
@@ -1016,8 +1016,8 @@ void EndpointAppPBX::_action_redial_reply(int in)
 		add_trace("number", NULL, "%s", last);
 		add_trace("last but", NULL, "%d", e_select);
 		end_trace();
-		SCPY(e_dialinginfo.number, last);
-		e_extdialing = e_dialinginfo.number;
+		SCPY(e_dialinginfo.id, last);
+		e_extdialing = e_dialinginfo.id;
 		e_action = NULL;
 		process_dialing();
 		return;
@@ -1117,7 +1117,7 @@ void EndpointAppPBX::action_dialing_powerdial(void)
 	logmessage(message);
 
 	/* do dialing */
-	SCPY(e_dialinginfo.number, e_ext.last_out[0]);
+	SCPY(e_dialinginfo.id, e_ext.last_out[0]);
 	e_powerdialing = -1; /* indicates the existence of powerdialing but no redial time given */
 	e_powercount = 0;
 	e_action = NULL;
@@ -1281,8 +1281,8 @@ void EndpointAppPBX::action_dialing_abbrev(void)
 	if (name) if (name[0])
 		add_trace("name", NULL, "%s", name);
 	end_trace();
-	SCPY(e_dialinginfo.number, phone);
-	e_extdialing = e_dialinginfo.number;
+	SCPY(e_dialinginfo.id, phone);
+	e_extdialing = e_dialinginfo.id;
 	e_action = NULL;
 	process_dialing();
 }
@@ -1339,8 +1339,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		set_tone(portlist, NULL);
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		SCPY(e_connectinfo.id, e_callerinfo.id);
-		SCPY(e_connectinfo.intern, e_callerinfo.intern);
-		SCPY(e_connectinfo.voip, e_callerinfo.voip);
+		SCPY(e_connectinfo.extension, e_callerinfo.extension);
 		e_connectinfo.itype = e_callerinfo.itype;
 		e_connectinfo.ntype = e_callerinfo.ntype;
 		e_connectinfo.present = e_callerinfo.present;
@@ -1348,9 +1347,9 @@ void EndpointAppPBX::action_dialing_test(void)
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(struct connect_info));
 		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, portlist->port_type, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name);
+		apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 		/* display callerid if desired for extension */
-		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name));
+		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 		message_put(message);
 		logmessage(message);
 
@@ -1680,19 +1679,19 @@ void EndpointAppPBX::action_dialing_calculator(void)
 			switch(mode)
 			{
 				case 0: /* multiply */
-				UNPRINT(e_extdialing, sizeof(e_dialinginfo.number)-strlen(e_dialinginfo.number), "%.8f", sign1*value1*value2);
+				UNPRINT(e_extdialing, sizeof(e_dialinginfo.id)-strlen(e_dialinginfo.id), "%.8f", sign1*value1*value2);
 				break;
 				case 1: /* divide */
-				UNPRINT(e_extdialing, sizeof(e_dialinginfo.number)-strlen(e_dialinginfo.number), "%.8f", sign1*value1/value2);
+				UNPRINT(e_extdialing, sizeof(e_dialinginfo.id)-strlen(e_dialinginfo.id), "%.8f", sign1*value1/value2);
 				break;
 				case 2: /* add */
-				UNPRINT(e_extdialing, sizeof(e_dialinginfo.number)-strlen(e_dialinginfo.number), "%.8f", sign1*value1+value2);
+				UNPRINT(e_extdialing, sizeof(e_dialinginfo.id)-strlen(e_dialinginfo.id), "%.8f", sign1*value1+value2);
 				break;
 				case 3: /* substract */
-				UNPRINT(e_extdialing, sizeof(e_dialinginfo.number)-strlen(e_dialinginfo.number), "%.8f", sign1*value1-value2);
+				UNPRINT(e_extdialing, sizeof(e_dialinginfo.id)-strlen(e_dialinginfo.id), "%.8f", sign1*value1-value2);
 				break;
 			}
-			e_dialinginfo.number[sizeof(e_dialinginfo.number)-1] = '\0';
+			e_dialinginfo.id[sizeof(e_dialinginfo.id)-1] = '\0';
 			if (strchr(e_extdialing, '.')) /* remove zeroes */
 			{
 				while (e_extdialing[strlen(e_extdialing)-1] == '0')
@@ -1787,7 +1786,7 @@ void EndpointAppPBX::_action_goto_menu(int mode)
 	if (!e_ruleset)
 	{
 		trace_header("ACTION goto/menu (ruleset not found)", DIRECTION_NONE);
-		add_trace("ruleset", "NULL", "%s", praram->string_value);
+		add_trace("ruleset", NULL, "%s", rparam->string_value);
 		end_trace();
 		goto disconnect;
 	}
@@ -1795,27 +1794,27 @@ void EndpointAppPBX::_action_goto_menu(int mode)
 	/* if the 'menu' was selected, we will flush all digits */
 	if (mode)
 	{
-		e_dialinginfo.number[0] = 0;
-		e_extdialing = e_dialinginfo.number;
+		e_dialinginfo.id[0] = 0;
+		e_extdialing = e_dialinginfo.id;
 	} else
 	{
 		/* remove digits that are required to match the rule */
 		if (!(rparam = routeparam(e_action, PARAM_STRIP)))
 		{
 			if (e_extdialing)
-				SCPY(e_dialinginfo.number, e_extdialing);
-			e_extdialing = e_dialinginfo.number;
+				SCPY(e_dialinginfo.id, e_extdialing);
+			e_extdialing = e_dialinginfo.id;
 		}
 	}
 
 	/* play sample */
 	trace_header("ACTION goto/menu (change to)", DIRECTION_NONE);
-	add_trace("ruleset", "NULL", "%s", e_ruleset->name);
-	if (e_dialinginfo.number[0])
-		add_trace("dialing", "NULL", "%s", e_dialinginfo.number);
+	add_trace("ruleset", NULL, "%s", e_ruleset->name);
+	if (e_dialinginfo.id[0])
+		add_trace("dialing", NULL, "%s", e_dialinginfo.id);
 	if ((rparam = routeparam(e_action, PARAM_SAMPLE)))
 	{
-		add_trace("sample", "NULL", "%s", praram->string_value);
+		add_trace("sample", NULL, "%s", rparam->string_value);
 		set_tone(ea_endpoint->ep_portlist, rparam->string_value);
 	}
 	end_trace();
@@ -1915,7 +1914,7 @@ void EndpointAppPBX::action_dialing_help(void)
 	/* show all things that would match */
 #if 0
 	struct numbering *numbering = numbering_int;
-	char dialing[sizeof(e_dialinginfo.number)];
+	char dialing[sizeof(e_dialinginfo.id)];
 	int i;
 	struct message *message;
 	struct route_param *rparam;
@@ -1925,15 +1924,15 @@ void EndpointAppPBX::action_dialing_help(void)
 		return;
 
 	/* scroll menu */
-	if (strchr(e_dialinginfo.number,'*'))
+	if (strchr(e_dialinginfo.id,'*'))
 	{
 		e_menu--;
-		e_dialinginfo.number[0] = '\0';
+		e_dialinginfo.id[0] = '\0';
 	}
-	if (strchr(e_dialinginfo.number,'#'))
+	if (strchr(e_dialinginfo.id,'#'))
 	{
 		e_menu++;
-		e_dialinginfo.number[0] = '\0';
+		e_dialinginfo.id[0] = '\0';
 	}
 	
 	/* get position in menu */
@@ -1964,15 +1963,15 @@ void EndpointAppPBX::action_dialing_help(void)
 	}
 
 	/* if we dial something else we need to add the prefix and change the action */
-	if (e_dialinginfo.number[0])
+	if (e_dialinginfo.id[0])
 	{
 		e_action = NUMB_ACTION_NONE;
 		SCPY(dialing, numbering->prefix);
 		//we ignore the first digit after selecting
-		//SCAT(dialing, e_dialinginfo.number);
-		SCPY(e_dialinginfo.number, dialing);
-		e_extdialing = e_dialinginfo.number+strlen(numbering->prefix);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' dialing: %s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], e_dialinginfo.number);
+		//SCAT(dialing, e_dialinginfo.id);
+		SCPY(e_dialinginfo.id, dialing);
+		e_extdialing = e_dialinginfo.id+strlen(numbering->prefix);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' dialing: %s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], e_dialinginfo.id);
 nesting?:
 		process_dialing();
 		return;
@@ -2011,7 +2010,7 @@ void EndpointAppPBX::action_hangup_execute(void)
 {
 	struct route_param *rparam;
 	char *command = "", isdn_port[10];
-	char *argv[8+1]; /* check also number of args below */
+	char *argv[7+1]; /* check also number of args below */
 	int i = 0;
 
 	/* get script / command */
@@ -2037,12 +2036,11 @@ void EndpointAppPBX::action_hangup_execute(void)
 	}
 	argv[1+i] = e_extdialing;
 	argv[2+i] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype);
-	argv[3+i] = e_callerinfo.intern;
-	argv[4+i] = e_callerinfo.voip;
-	argv[5+i] = e_callerinfo.name;
+	argv[3+i] = e_callerinfo.extension;
+	argv[4+i] = e_callerinfo.name;
 	SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
-	argv[6+i] = isdn_port;
-	argv[7+i] = NULL; /* check also number of args above */
+	argv[5+i] = isdn_port;
+	argv[6+i] = NULL; /* check also number of args above */
 	execve("/bin/sh", argv, environ);
 }
 
@@ -2106,7 +2104,7 @@ void EndpointAppPBX::action_init_pick(void)
 	
 	trace_header("ACTION pick", DIRECTION_NONE);
 	if (extensions) if (extensions[0])
-		add_trace("extensions", NULL, "%s", file);
+		add_trace("extensions", NULL, "%s", extensions);
 	end_trace();
 	pick_call(extensions);
 }
@@ -2165,8 +2163,8 @@ void EndpointAppPBX::action_dialing_password(void)
 	if (e_ruleset)
 		e_rule = e_ruleset->rule_first;
 	e_action = NULL;
-	e_dialinginfo.number[0] = '\0';
-	e_extdialing = e_dialinginfo.number;
+	e_dialinginfo.id[0] = '\0';
+	e_extdialing = e_dialinginfo.id;
 	set_tone(portlist, "dialpbx");
 }
 
@@ -2259,13 +2257,13 @@ void EndpointAppPBX::process_dialing(void)
 
 #if 0
 	/* check if we do menu selection */
-	if (e_action==NUMB_ACTION_NONE && (e_dialinginfo.number[0]=='*' || e_dialinginfo.number[0]=='#'))
+	if (e_action==NUMB_ACTION_NONE && (e_dialinginfo.id[0]=='*' || e_dialinginfo.id[0]=='#'))
 	/* do menu selection */
 	if (e_ext.display_menu)
 	{
 		if (portlist->port_type==PORT_TYPE_DSS1_NT_IN || portlist->port_type==PORT_TYPE_DSS1_NT_OUT) /* only if the dialing terminal is an isdn telephone connected to an internal port */
 		{
-			e_dialinginfo.number[0] = '\0';
+			e_dialinginfo.id[0] = '\0';
 			e_action = NUMB_ACTION_MENU;
 			e_menu = 0;
 			process_dialing();
@@ -2300,30 +2298,30 @@ void EndpointAppPBX::process_dialing(void)
 		e_select = 0;
 
 		/* check for external call */
-		if (!strncmp(e_dialinginfo.number, "extern:", 7))
+		if (!strncmp(e_dialinginfo.id, "extern:", 7))
 		{
-			e_extdialing = e_dialinginfo.number+7;
+			e_extdialing = e_dialinginfo.id+7;
 			e_action = &action_external;
 			goto process_action;
 		}
 		/* check for internal call */
-		if (!strncmp(e_dialinginfo.number, "intern:", 7))
+		if (!strncmp(e_dialinginfo.id, "intern:", 7))
 		{
-			e_extdialing = e_dialinginfo.number+7;
+			e_extdialing = e_dialinginfo.id+7;
 			e_action = &action_internal;
 			goto process_action;
 		}
 		/* check for chan call */
-		if (!strncmp(e_dialinginfo.number, "chan:", 5))
+		if (!strncmp(e_dialinginfo.id, "chan:", 5))
 		{
-			e_extdialing = e_dialinginfo.number+4;
+			e_extdialing = e_dialinginfo.id+4;
 			e_action = &action_chan;
 			goto process_action;
 		}
 		/* check for vbox call */
-		if (!strncmp(e_dialinginfo.number, "vbox:", 5))
+		if (!strncmp(e_dialinginfo.id, "vbox:", 5))
 		{
-			e_extdialing = e_dialinginfo.number+5;
+			e_extdialing = e_dialinginfo.id+5;
 			e_action = &action_vbox;
 			goto process_action;
 		}
@@ -2331,7 +2329,7 @@ void EndpointAppPBX::process_dialing(void)
 		if (e_match_timeout && now_d>=e_match_timeout)
 		{
 			/* return timeout rule */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number, e_ruleset->name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id, e_ruleset->name);
 			e_match_timeout = 0;
 			e_action = e_match_to_action;
 			e_extdialing = e_match_to_extdialing;
@@ -2343,7 +2341,7 @@ void EndpointAppPBX::process_dialing(void)
 		{
 //PDEBUG(~0, "HANG-BUG-DEBUGGING: before routing\n");
 			/* check for matching rule */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', checking matching rule of ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.number, e_ruleset->name);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', checking matching rule of ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id, e_ruleset->name);
 			if (e_ruleset)
 			{
 				e_action = route(e_ruleset);
@@ -2456,7 +2454,7 @@ void EndpointAppPBX::process_dialing(void)
 
 		if (!e_action)
 		{
-			SPRINT(message->param.notifyinfo.display, "> %s", e_dialinginfo.number);
+			SPRINT(message->param.notifyinfo.display, "> %s", e_dialinginfo.id);
 		} else
 		{
 			SPRINT(message->param.notifyinfo.display, "%s%s%s", action_defs[e_action->index].name, (e_extdialing[0])?" ":"", e_extdialing);
@@ -2492,20 +2490,20 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		} else
 		if (!e_stop)
 			time(&e_stop);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): writing connect from %s to %s into logfile of %s\n", ea_endpoint->ep_serial, e_callerinfo.id, e_dialinginfo.number, e_ext.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): writing connect from %s to %s into logfile of %s\n", ea_endpoint->ep_serial, e_callerinfo.id, e_dialinginfo.id, e_ext.number);
 		switch(e_dialinginfo.itype)
 		{
 			case INFO_ITYPE_CHAN:
-			SPRINT(dialingtext, "chan:%s", e_dialinginfo.number);
+			SPRINT(dialingtext, "chan:%s", e_dialinginfo.id);
 			break;
-			case INFO_ITYPE_INTERN:
-			SPRINT(dialingtext, "intern:%s", e_dialinginfo.number);
+			case INFO_ITYPE_ISDN_EXTENSION:
+			SPRINT(dialingtext, "intern:%s", e_dialinginfo.id);
 			break;
 			case INFO_ITYPE_VBOX:
-			SPRINT(dialingtext, "vbox:%s", e_dialinginfo.number);
+			SPRINT(dialingtext, "vbox:%s", e_dialinginfo.id);
 			break;
 			default:
-			SPRINT(dialingtext, "%s", e_dialinginfo.number);
+			SPRINT(dialingtext, "%s", e_dialinginfo.id);
 		}
 
 		if (e_callerinfo.id[0])
@@ -2515,18 +2513,16 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		/* allpy restriction */
 		if (!e_ext.anon_ignore && e_callerinfo.present==INFO_PRESENT_RESTRICTED)
 			SPRINT(callertext, "anonymous");
-		if (e_callerinfo.intern[0]) /* add intern if present */
-			UNPRINT(strchr(callertext,'\0'), sizeof(callertext)-1+strlen(callertext), " (intern %s)", e_callerinfo.intern);
-		if (e_callerinfo.voip[0]) /* add voip if present */
-			UNPRINT(strchr(callertext,'\0'), sizeof(callertext)-1+strlen(callertext), " (voip %s)", e_callerinfo.voip);
+		if (e_callerinfo.extension[0]) /* add intern if present */
+			UNPRINT(strchr(callertext,'\0'), sizeof(callertext)-1+strlen(callertext), " (intern %s)", e_callerinfo.extension);
 		write_log(e_ext.number, callertext, dialingtext, e_start, e_stop, 0, cause, location);
 
 		/* store last received call for reply-list */
-		if (e_callerinfo.id[0] || e_callerinfo.intern[0])
+		if (e_callerinfo.id[0] || e_callerinfo.extension[0])
 		if (e_ext.anon_ignore || e_callerinfo.present!=INFO_PRESENT_RESTRICTED)
 		{
-			if (e_callerinfo.intern[0])
-				SPRINT(callertext, "intern:%s", e_callerinfo.intern);
+			if (e_callerinfo.extension[0])
+				SPRINT(callertext, "intern:%s", e_callerinfo.extension);
 			else
 				SPRINT(callertext, "extern:%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
 			if (!!strcmp(callertext, e_ext.last_in[0]))

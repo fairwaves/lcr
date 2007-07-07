@@ -256,7 +256,6 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 {
 	struct interface_port *ifport, **ifportp;
 	struct interface *searchif;
-	struct interface_port *searchport;
 	int val;
 
 	val = get_number(value);
@@ -269,7 +268,7 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 	searchif = interface_newlist;
 	while(searchif)
 	{
-		searchport = searchif->ifport;
+		ifport = searchif->ifport;
 		while(ifport)
 		{
 			if (ifport->portnum == val)
@@ -883,7 +882,7 @@ struct interface *read_interfaces(void)
 			parameter[strlen(parameter)-1] = '\0';
 
 			/* check if interface name already exists */
-			interface = interface_first;
+			interface = interface_newlist;
 			while(interface)
 			{
 				if (!strcasecmp(interface->name, parameter+1))
@@ -921,10 +920,12 @@ struct interface *read_interfaces(void)
 			{
 				if (ifparam->func(interface, filename, line, parameter, value))
 					goto error;
-				continue;
+				break;
 			}
 			ifparam++;
 		}
+		if (ifparam->name)
+			continue;
 
 		SPRINT(interface_error, "Error in %s (line %d): unknown parameter: '%s'.\n", filename, line, parameter);
 		goto error;
@@ -1092,36 +1093,50 @@ void relink_interfaces(void)
 		{
 			if (!ifport->mISDNport)
 			{
-				/* open new port */
-				mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp);
-				if (mISDNport)
-				{
-					ifport->mISDNport = mISDNport;
-					mISDNport->ifport = ifport;
-				}
+				load_port(ifport);
 			}
-			if (ifport->mISDNport)
-			{
-				/* default channel selection list */
-				if (!ifport->out_channel)
-					default_out_channel(ifport);
-				if (!ifport->in_channel)
-					default_in_channel(ifport);
-				/* default is_tones */
-				if (ifport->interface->is_tones)
-					ifport->mISDNport->is_tones = (ifport->interface->is_tones==IS_YES);
-				else
-					ifport->mISDNport->is_tones = (ifport->mISDNport->ntmode)?1:0;
-				/* default is_earlyb */
-				if (ifport->interface->is_earlyb)
-					ifport->mISDNport->is_earlyb = (ifport->interface->is_earlyb==IS_YES);
-				else
-					ifport->mISDNport->is_earlyb = (ifport->mISDNport->ntmode)?0:1;
-			}
+			ifport = ifport->next;
 		}
 		interface = interface->next;
 	}
 
+}
+
+
+/*
+ * load port
+ */
+void load_port(struct interface_port *ifport)
+{
+	struct mISDNport *mISDNport;
+
+	/* open new port */
+	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp, ifport->interface);
+	if (mISDNport)
+	{
+		/* link port */
+		ifport->mISDNport = mISDNport;
+		mISDNport->ifport = ifport;
+		
+		/* default channel selection list */
+		if (!ifport->out_channel)
+			default_out_channel(ifport);
+		if (!ifport->in_channel)
+			default_in_channel(ifport);
+		/* default is_tones */
+		if (ifport->interface->is_tones)
+			ifport->mISDNport->tones = (ifport->interface->is_tones==IS_YES);
+		else
+			ifport->mISDNport->tones = (ifport->mISDNport->ntmode)?1:0;
+		/* default is_earlyb */
+		if (ifport->interface->is_earlyb)
+			ifport->mISDNport->earlyb = (ifport->interface->is_earlyb==IS_YES);
+		else
+			ifport->mISDNport->earlyb = (ifport->mISDNport->ntmode)?0:1;
+	} else
+	{
+		ifport->block = 2; /* not available */
+	}
 }
 
 /*
@@ -1150,5 +1165,4 @@ void doc_interface(void)
 		ifparam++;
 	}
 }
-
 

@@ -63,6 +63,7 @@ class CallPBX : public Call
 	char c_dialed[1024];		/* dial string of (all) number(s) */
 	char c_todial[32];		/* overlap dialing (part not signalled yet) */
 	
+	int c_pid;			/* pid of call to generate bridge id */
 	int c_updatebridge;		/* bridge must be updated */
 	struct call_relation *c_relation; /* list of endpoints that are related to the call */
 

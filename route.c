@@ -2047,7 +2047,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				goto match_string;
 
 				case MATCH_DIALING:
-				string = e_dialinginfo.number;
+				string = e_dialinginfo.id;
 				goto match_string_prefix;
 
 				case MATCH_ENBLOCK:
@@ -2387,7 +2387,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			/* set timeout in the furture */
 			e_match_timeout = timeout;
 			e_match_to_action = rule->action_first;
-			e_match_to_extdialing = e_dialinginfo.number + dialing_required;
+			e_match_to_extdialing = e_dialinginfo.id + dialing_required;
 			match = 0; /* matches in the future */
 		}
 		if (match == 1)
@@ -2396,7 +2396,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			action = rule->action_first;
 			e_match_timeout = 0; /* no timeout */
 			e_match_to_action = NULL;
-			e_extdialing = e_dialinginfo.number + dialing_required;
+			e_extdialing = e_dialinginfo.id + dialing_required;
 			break;
 		}
 		if (match == 2)

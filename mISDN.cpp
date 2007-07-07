@@ -141,9 +141,9 @@ void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *ms
 {
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:0,
-		    mISDNport?mISDNport->ifport->interface:NULL,
+		    (mISDNport)?((mISDNport->ifport)?mISDNport->ifport->interface:NULL):NULL,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
-		    port?port->p_dialinginfo.number:NULL,
+		    port?port->p_dialinginfo.id:NULL,
 		    direction,
 		    CATEGORY_CH,
 		    port?port->p_serial:0,
@@ -245,7 +245,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 	start_trace(mISDNport?mISDNport->portnum:0,
 		    mISDNport?mISDNport->ifport->interface:NULL,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
-		    port?port->p_dialinginfo.number:NULL,
+		    port?port->p_dialinginfo.id:NULL,
 		    direction,
 		    CATEGORY_CH,
 		    port?port->p_serial:0,
@@ -304,15 +304,15 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	mISDN_pid_t pid;
 	int ret;
 
-	if (mISDNport->b_stid[i])
+	if (!mISDNport->b_stid[i])
 	{
-		PERROR("Error: no stack for index");
-		return(-1);
+		PERROR("Error: no stack for index %d\n", i);
+		return(0);
 	}
 	if (mISDNport->b_addr[i])
 	{
-		PERROR("Error: stack already created");
-		return(-1);
+		PERROR("Error: stack already created for index %d\n", i);
+		return(0);
 	}
 
 	/* create new layer */
@@ -363,15 +363,15 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 		goto stack_error;
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL create stack", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "%d", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "%d", mISDNport->b_addr[i]);
+	add_trace("stack", "id", "0x%8x", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "0x%8x", mISDNport->b_addr[i]);
 	end_trace();
 
-	return(0);
+	return(1);
 
 failed:
 	mISDNport->b_addr[i] = 0;
-	return(-1);
+	return(0);
 }
 
 
@@ -466,8 +466,8 @@ static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
 
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove stack", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "%d", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "%d", mISDNport->b_addr[i]);
+	add_trace("stack", "id", "0x%8x", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "0x%8x", mISDNport->b_addr[i]);
 	end_trace();
 	/* remove our stack only if set */
 	PDEBUG(DEBUG_BCHANNEL, "free stack (b_addr=0x%x)\n", mISDNport->b_addr[i]);
@@ -533,14 +533,15 @@ All actions taken on these events depend on the current bchannel's state and if 
 void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 {
 	int state = mISDNport->b_state[i];
-	
+
+printf("event=%d state=%d\n", event, state);	
 	switch(event)
 	{
 		case B_EVENT_ACTIVATE:
-		/* port may not be used by any other bchannel */
-		if (mISDNport->b_port[i])
+		/* port must be linked in order to allow activation */
+		if (!mISDNport->b_port[i])
 		{
-			PERROR("SOFTWARE ERROR: bchannel must not be linked to a Port class\n");
+			PERROR("SOFTWARE ERROR: bchannel must be linked to a Port class\n");
 			exit(-1);
 		}
 		switch(state)
@@ -775,7 +776,7 @@ int PmISDN::handler(void)
 
 	inbuffer = (p_m_fromup_buffer_writep - p_m_fromup_buffer_readp) & FROMUP_BUFFER_MASK;
 	/* send tone data to isdn device only if we have data */
-	if (p_tone_fh>=0 || p_tone_fetched || p_m_crypt_msg_loops || inbuffer)
+	if (p_tone_name[0] || p_m_crypt_msg_loops || inbuffer)
 	{
 		/* calculate how much to transmit */
 		if (!p_last_tv_sec)
@@ -793,13 +794,14 @@ int PmISDN::handler(void)
 		}
 		if (elapsed >= ISDN_TRANSMIT)
 		{
-			unsigned char buf[mISDN_HEADER_LEN+ISDN_PRELOAD], *p = buf;
+			unsigned char buf[mISDN_HEADER_LEN+ISDN_PRELOAD];
 			iframe_t *frm = (iframe_t *)buf;
+			unsigned char *p = buf+mISDN_HEADER_LEN;
 
 			p_last_tv_sec = now_tv.tv_sec;
 			p_last_tv_msec = now_tv.tv_usec/1000;
 
-			/* read tones */
+			/* read tones or fill with silence */
 			length = read_audio(p, elapsed);
 
 			/*
@@ -810,6 +812,7 @@ int PmISDN::handler(void)
 			 */
 			if (inbuffer)
 			{
+				printf("nix\n");
 				/* inbuffer might be less than we skip due to audio */
 				if (inbuffer <= length)
 				{
@@ -840,6 +843,7 @@ int PmISDN::handler(void)
 			/* overwrite buffer with crypto stuff */
 			if (p_m_crypt_msg_loops)
 			{
+				printf("nix2\n");
 				/* send pending message */
 				int tosend;
 
@@ -853,7 +857,7 @@ int PmISDN::handler(void)
 					length = tosend;
 
 				/* copy message (part) to buffer */
-				memcpy(buf, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
+				memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
 				p_m_crypt_msg_current += tosend;
 				if (p_m_crypt_msg_current == p_m_crypt_msg_len)
 				{
@@ -865,7 +869,6 @@ int PmISDN::handler(void)
 			frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
 			frm->dinfo = 0;
 			frm->len = length;
-			memcpy(&frm->data.p, buf, length);
 			mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
 
 			if (p_debug_nothingtosend)
@@ -1009,7 +1012,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	 * the call is connected OR tones feature is enabled.
 	 */
 	if (p_state!=PORT_STATE_CONNECT
-	 && !p_m_mISDNport->is_tones)
+	 && !p_m_mISDNport->tones)
 		return;
 
 #if 0
@@ -1501,6 +1504,10 @@ int mISDN_handler(void)
 		mISDNport = mISDNport->next;
 	} 
 
+	/* no device, no read */
+	if (mISDNdevice < 0)
+		return(0);
+
 	/* get message from kernel */
 	if (!(msg = alloc_msg(MAX_MSG_SIZE)))
 		return(1);
@@ -1525,6 +1532,7 @@ int mISDN_handler(void)
 	/* global prim */
 	switch(frm->prim)
 	{
+		case MGR_DELLAYER | CONFIRM:
 		case MGR_INITTIMER | CONFIRM:
 		case MGR_ADDTIMER | CONFIRM:
 		case MGR_DELTIMER | CONFIRM:
@@ -1776,7 +1784,7 @@ int mISDN_handler(void)
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, int ptp, int ptmp)
+struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *interface)
 {
 	int ret;
 	unsigned char buff[1025];
@@ -1911,7 +1919,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp)
 	/* add mISDNport structure */
 	mISDNportp = &mISDNport_first;
 	while(*mISDNportp)
-		mISDNportp = &mISDNport->next;
+		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)calloc(1, sizeof(struct mISDNport));
 	if (!mISDNport)
 	{
@@ -2075,7 +2083,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp)
 	PDEBUG(DEBUG_BCHANNEL, "using 'mISDN_dsp.o' module\n");
 
 	start_trace(mISDNport->portnum,
-		    mISDNport->ifport->interface,
+		    interface,
 		    NULL,
 		    NULL,
 		    DIRECTION_NONE,
@@ -2126,21 +2134,25 @@ void mISDNport_close(struct mISDNport *mISDNport)
 		port = port->next;
 	}
 
-	start_trace(mISDNport->portnum,
-		    mISDNport->ifport->interface,
-		    NULL,
-		    NULL,
-		    DIRECTION_NONE,
-		    CATEGORY_CH,
-		    0,
-		    "PORT (close)");
-	end_trace();
+	/* only if we are already part of interface */
+	if (mISDNport->ifport)
+	{
+		start_trace(mISDNport->portnum,
+			    mISDNport->ifport->interface,
+			    NULL,
+			    NULL,
+			    DIRECTION_NONE,
+			    CATEGORY_CH,
+			    0,
+			    "PORT (close)");
+		end_trace();
+	}
 
 	/* free bchannels */
 	i = 0;
 	while(i < mISDNport->b_num)
 	{
-		if (mISDNport->b_stid[i])
+		if (mISDNport->b_addr[i])
 		{
 			_bchannel_destroy(mISDNport, i);
 			PDEBUG(DEBUG_BCHANNEL, "freeing %s port %d bchannel (index %d).\n", (mISDNport->ntmode)?"NT":"TE", mISDNport->portnum, i);
@@ -2171,9 +2183,8 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	PDEBUG(DEBUG_BCHANNEL, "freeing d-stack.\n");
 	if (mISDNport->d_stid)
 	{
-//		mISDN_clear_stack(mISDNdevice, mISDNport->d_stid);
-		if (mISDNport->lower_id)
-			mISDN_write_frame(mISDNdevice, buf, mISDNport->lower_id, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
+		if (mISDNport->upper_id)
+			mISDN_write_frame(mISDNdevice, buf, mISDNport->upper_id | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 	}
 
 	/* remove from list */
@@ -2183,12 +2194,13 @@ void mISDNport_close(struct mISDNport *mISDNport)
 		if (*mISDNportp == mISDNport)
 		{
 			*mISDNportp = (*mISDNportp)->next;
+			mISDNportp = NULL;
 			break;
 		}
 		mISDNportp = &((*mISDNportp)->next);
 	}
 
-	if (!(*mISDNportp))
+	if (mISDNportp)
 	{
 		PERROR("software error, mISDNport not in list\n");
 		exit(-1);

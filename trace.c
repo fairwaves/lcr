@@ -11,9 +11,8 @@
 
 #include "main.h"
 
-trace auch ein printdebug
 struct trace trace;
-char trace_string[MX_TRACE_ELEMENTS * 100 + 400];
+char trace_string[MAX_TRACE_ELEMENTS * 100 + 400];
 
 static char *spaces[11] = {
 	"          ",
@@ -37,10 +36,10 @@ void start_trace(int port, struct interface *interface, char *caller, char *dial
 {
 	if (trace.name[0])
 		PERROR("trace already started (name=%s)\n", trace.name);
-	memset(trace, 0, sizeof(struct trace));
+	memset(&trace, 0, sizeof(struct trace));
 	trace.port = port;
-	if (interface) if (interface[0])
-		SCPY(trace.interface, interface);
+	if (interface)
+		SCPY(trace.interface, interface->name);
 	if (caller) if (caller[0])
 		SCPY(trace.caller, caller);
 	if (dialing) if (dialing[0])
@@ -60,7 +59,7 @@ void start_trace(int port, struct interface *interface, char *caller, char *dial
  * if subelement is given, element will also contain a subelement
  * if multiple subelements belong to same element, name must be equal for all subelements
  */
-void add_trace(char *name, char *sub, const char *fmt, ...);
+void add_trace(char *name, char *sub, const char *fmt, ...)
 {
 	va_list args;
 
@@ -73,7 +72,7 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
 	if (!name[0])
 	{
 		nostring:
-		PERROR("trace with name=%s gets element with no string\n", trace->name);
+		PERROR("trace with name=%s gets element with no string\n", trace.name);
 		return;
 	}
 	
@@ -84,7 +83,7 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
 	if (fmt) if (fmt[0])
 	{
 		va_start(args, fmt);
-		VUNPRINT(trace.element[trace.element].value, sizeof(trace.element[trace.elements].value)-1, fmt, args);
+		VUNPRINT(trace.element[trace.elements].value, sizeof(trace.element[trace.elements].value)-1, fmt, args);
 		va_end(args);
 	}
 
@@ -94,51 +93,33 @@ void add_trace(char *name, char *sub, const char *fmt, ...);
 
 
 /*
- * trace ends
- * this function will put the trace to sockets and logfile, if requested
- */
-void end_trace(void);
-{
-	if (!trace.name[0])
-		PERROR("trace not started\n");
-	
-	/* process log file */
-	if (options.log[0])
-	{
-		string = print_trace(1, 0, NULL, NULL, NULL, -1, "AP", CATEGORY_EP);
-		fwrite(string, strlen(string), 1, fp);
-		if (options.deb)
-			debug(NULL, 0, "trace", string);
-	}
-
-	memset(trace, 0, sizeof(struct trace));
-}
-
-
-/*
  * prints trace to socket or log
  * detail: 1 = brief, 2=short, 3=long
  */
-static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, int category);
+static char *print_trace(int detail, int port, char *interface, char *caller, char *dialing, int category)
 {
-	trace_string[0] = '\0';
 	char buffer[256];
+	time_t ti = trace.sec;
 	struct tm *tm;
+	struct mISDNport *mISDNport;
+	int i;
+
+	trace_string[0] = '\0'; // always clear string
 
 	if (detail < 1)
-		return;
+		return(NULL);
 
 	/* filter trace */
 	if (port && trace.port)
-		if (port != trace.port) return;
-	if (interface && interface[0] && trace.interface[0])
-		if (!!strcasecmp(interface, trace.interface)) return;
-	if (caller && caller[0] && trace.caller[0])
-		if (!!strcasecmp(caller, trace.caller)) return;
-	if (dialing && dialing[0] && trace.dialing[0])
-		if (!!strcasecmp(dialing, trace.dialing)) return;
-	if (category && category[0] && trace.category[0])
-		if (!!strcasecmp(category, trace.category)) return;
+		if (port != trace.port) return(NULL);
+	if (interface) if (interface[0] && trace.interface[0])
+		if (!!strcasecmp(interface, trace.interface)) return(NULL);
+	if (caller) if (caller[0] && trace.caller[0])
+		if (!!strcasecmp(caller, trace.caller)) return(NULL);
+	if (dialing) if (dialing[0] && trace.dialing[0])
+		if (!!strcasecmp(dialing, trace.dialing)) return(NULL);
+	if (category && trace.category)
+		if (category != trace.category) return(NULL);
 
 	/* head */
 	if (detail >= 3)
@@ -149,12 +130,12 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 			mISDNport = mISDNport_first;
 			while(mISDNport)
 			{
-				if (mISDNport->number == trace.port)
+				if (mISDNport->portnum == trace.port)
 					break;
 				mISDNport = mISDNport->next;
 			}
 			if (mISDNport)
-				SPRINT(buffer, "Port: %d (%s %s %s)", port, (mISDNport->pri)?"PRI":"BRI", (mISDNport->ptp)?"PTP":"PTMP", (mISDNport->nt)?"NT":"TE");
+				SPRINT(buffer, "Port: %d (%s %s %s)", port, (mISDNport->pri)?"PRI":"BRI", (mISDNport->ptp)?"PTP":"PTMP", (mISDNport->ntmode)?"NT":"TE");
 			else
 				SPRINT(buffer, "Port: %d (does not exist}\n", port);
 			SCAT(trace_string, buffer);
@@ -178,8 +159,8 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 			SCAT(trace_string, "  Caller: ---\n");
 
 		/* "Time: 25.08.73 05:14:39.282" */
-		tm = localtime(&trace.sec);
-		SPRINT(buffer, "Time: %02d.%02d.%02d %02d:%02d:%02d.%03d", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100, tm->tm_hour, tm->tm_min, tm->tm_sec, trace->usec/1000);
+		tm = localtime(&ti);
+		SPRINT(buffer, "Time: %02d.%02d.%02d %02d:%02d:%02d.%03d", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100, tm->tm_hour, tm->tm_min, tm->tm_sec, trace.usec/1000);
 		SCAT(trace_string, buffer);
 
 		if (trace.direction)
@@ -232,14 +213,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				buffer[0] = '\0';
 			SCAT(trace_string, buffer);
 			if (trace.element[i].sub[0])
-				SPRINT(buffer, " %s=", trace.element[i].sub, value);
+				SPRINT(buffer, " %s=", trace.element[i].sub);
 			else
-				SPRINT(buffer, " ", value);
+				SPRINT(buffer, " ");
 			SCAT(trace_string, buffer);
-			if (strchr(value, ' '))
-				SPRINT(buffer, "'%s'", value);
+			if (strchr(trace.element[i].value, ' '))
+				SPRINT(buffer, "'%s'", trace.element[i].value);
 			else
-				SPRINT(buffer, "%s", value);
+				SPRINT(buffer, "%s", trace.element[i].value);
 			SCAT(trace_string, buffer);
 			i++;
 		}
@@ -257,14 +238,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				SPRINT(buffer, "           ");
 			SCAT(trace_string, buffer);
 			if (trace.element[i].sub[0])
-				SPRINT(buffer, " : %s%s = ", trace.element[i].sub, spaces[strlen(trace.element[i].sub)], value);
+				SPRINT(buffer, " : %s%s = ", trace.element[i].sub, spaces[strlen(trace.element[i].sub)]);
 			else
-				SPRINT(buffer, " :              ", value);
+				SPRINT(buffer, " :              ");
 			SCAT(trace_string, buffer);
-			if (strchr(value, ' '))
-				SPRINT(buffer, "'%s'\n", value);
+			if (strchr(trace.element[i].value, ' '))
+				SPRINT(buffer, "'%s'\n", trace.element[i].value);
 			else
-				SPRINT(buffer, "%s\n", value);
+				SPRINT(buffer, "%s\n", trace.element[i].value);
 			SCAT(trace_string, buffer);
 			i++;
 		}
@@ -274,12 +255,38 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	/* end */
 	if (detail >= 3)
 		SCAT(trace_string, "\n");
+	return(trace_string);
+}
+
+
+/*
+ * trace ends
+ * this function will put the trace to sockets and logfile, if requested
+ */
+void end_trace(void)
+{
+	char *string;
+
+	if (!trace.name[0])
+		PERROR("trace not started\n");
+	
+	/* process log file */
+	if (options.deb)
+	{
+		string = print_trace(1, 0, NULL, NULL, NULL, 0);
+		if (string)
+		{
+			debug(NULL, 0, "trace", string);
+		}
+	}
+printf("%s", print_trace(3, 0, NULL, NULL, NULL, 0));
+#warning trace auch zum socket
+//	fwrite(string, strlen(string), 1, fp);
+
+	memset(&trace, 0, sizeof(struct trace));
 }
 
 
 
-^todo:
-socket
-file open
 
 

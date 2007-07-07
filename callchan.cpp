@@ -38,7 +38,7 @@ CallChan::CallChan(class Endpoint *epoint) : Call(epoint)
 
 	PDEBUG(DEBUG_CALL, "creating new call and connecting it to the endpoint.\n");
 
-	c_type = CALL_TYPE_CHAN;
+	c_type = CALL_TYPE_ASTERISK;
 	c_epoint_id = epoint->ep_serial;
 
 	PDEBUG(DEBUG_CALL, "Constructor(new call)");

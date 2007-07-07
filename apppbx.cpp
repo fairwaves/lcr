@@ -60,7 +60,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
 	e_match_timeout = 0;
 	e_match_to_action = NULL;
         e_select = 0;
-        e_extdialing = e_dialinginfo.number;
+        e_extdialing = e_dialinginfo.id;
 //        e_knocking = 0;
 //        e_knocktime = 0;
 	e_hold = 0;
@@ -150,7 +150,7 @@ void EndpointAppPBX::trace_header(char *name, int direction)
 	start_trace(ea_endpoint->ep_serial,
 		    NULL,
 		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype),
-		    e_dialinginfo.number,
+		    e_dialinginfo.id,
 		    direction,
 		    CATEGORY_EP,
 		    ea_endpoint->ep_serial,
@@ -409,7 +409,7 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 			e_match_timeout = 0;
 			e_match_to_action = NULL;
 			//e_select = 0;
-        		e_extdialing = e_dialinginfo.number;
+        		e_extdialing = e_dialinginfo.id;
 			e_connectedmode = 0;
 			e_dtmf = 0;
 			e_dtmf_time = 0;
@@ -438,7 +438,7 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 			{
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) preparing callback to internal: %s interface %s\n", ea_endpoint->ep_serial, e_ext.number, e_extension_interface);
 				/* create callback to the current terminal */
-				SCPY(e_dialinginfo.number, e_ext.number);
+				SCPY(e_dialinginfo.id, e_ext.number);
 				SCPY(e_dialinginfo.interfaces, e_extension_interface);
 				e_dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 				e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
@@ -446,15 +446,15 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 			{
 				if (e_cbto[0])
 				{
-					SCPY(e_dialinginfo.number, e_cbto);
+					SCPY(e_dialinginfo.id, e_cbto);
 				} else
 				{
 					/* numberrize caller id and use it to dial to the callback */
-					SCPY(e_dialinginfo.number, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype));
+					SCPY(e_dialinginfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype));
 				}
 				e_dialinginfo.itype = INFO_ITYPE_ISDN;
 				e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) preparing callback to external: %s\n", ea_endpoint->ep_serial, e_dialinginfo.number);
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) preparing callback to external: %s\n", ea_endpoint->ep_serial, e_dialinginfo.id);
 			}
 			return;
 		}
@@ -467,9 +467,9 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 
 
 /* cancel callerid if restricted, unless anon-ignore is enabled at extension or port is of type external (so called police gets caller id :)*/
-void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *voip, char *extension, char *name)
+void apply_callerid_restriction(int anon_ignore, char *id, int *ntype, int *present, int *screen, char *extension, char *name)
 {
-	PDEBUG(DEBUG_EPOINT, "id='%s' ntype=%d present=%d screen=%d voip='%s' extension='%s' name='%s'\n", (id)?id:"NULL", (ntype)?*ntype:-1, (present)?*present:-1, (screen)?*screen:-1, (voip)?voip:"NULL", (extension)?extension:"NULL", (name)?name:"NULL");
+	PDEBUG(DEBUG_EPOINT, "id='%s' ntype=%d present=%d screen=%d extension='%s' name='%s'\n", (id)?id:"NULL", (ntype)?*ntype:-1, (present)?*present:-1, (screen)?*screen:-1, (extension)?extension:"NULL", (name)?name:"NULL");
 
 	/* caller id is not restricted, so we do nothing */
 	if (*present != INFO_PRESENT_RESTRICTED)
@@ -503,19 +503,17 @@ void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *n
 }
 
 /* used display message to display callerid as available */
-char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *voip, char *extension, char *name)
+char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *extension, char *name)
 {
 	static char display[81];
 
 	display[0] = '\0';
 	char *cid = numberrize_callerinfo(id, ntype);
 
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d voip='%s' extension='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (voip)?voip:"NULL", (extension)?extension:"NULL", (name)?name:"NULL");
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d extension='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (extension)?extension:"NULL", (name)?name:"NULL");
 
 	if (!id)
 		id = "";
-	if (!voip)
-		voip = "";
 	if (!extension)
 		extension = "";
 	if (!name)
@@ -537,7 +535,7 @@ char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int
 	}
 
 	/* external caller id */
-	if (!extension[0] && !voip[0] && e_ext.display_ext)
+	if (!extension[0] && e_ext.display_ext)
 	{
 		if (!display[0])
 		{
@@ -551,16 +549,6 @@ char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int
 			else
 				SCAT(display, cid);
 		}
-	}
-
-	/* voip caller id */
-	if (voip[0] && e_ext.display_voip)
-	{
-		if (!display[0] && cid[0])
-				SCAT(display, cid);
-		if (display[0])
-				SCAT(display, " ");
-		SCAT(display, voip);
 	}
 
 	/* display if callerid is anonymouse but available due anon-ignore */
@@ -769,7 +757,9 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 {
 	struct interface *interface;
 	struct interface_port *ifport, *ifport_start;
+	struct select_channel *selchannel; 
 	struct mISDNport *mISDNport;
+	int index, i;
 
 	interface = interface_first;
 
@@ -787,7 +777,7 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			trace_header("CHANNEL SELECTION (found interface)", DIRECTION_NONE);
 			add_trace("interface", NULL, "%s", ifname);
 			end_trace();
-			goto found;
+			goto foundif;
 		}
 
 	} else
@@ -798,12 +788,13 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			trace_header("CHANNEL SELECTION (found non extension interface)", DIRECTION_NONE);
 			add_trace("interface", NULL, "%s", interface->name);
 			end_trace();
-			goto found;
+			goto foundif;
 		}
 	}
 
 	interface = interface->next;
 	goto checknext;
+foundif:
 
 	/* see if interface has ports */
 	if (!interface->ifport)
@@ -817,14 +808,14 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	}
 
 	/* select port by algorithm */
-	ifport_start = interface->port;
+	ifport_start = interface->ifport;
 	index = 0;
 	if (interface->hunt == HUNT_ROUNDROBIN)
 	{
 		while(ifport_start->next && index<interface->hunt_next)
 		{
 			ifport_start = ifport_start->next;
-			i++;
+			index++;
 		}
 		trace_header("CHANNEL SELECTION (starting round-robin)", DIRECTION_NONE);
 		add_trace("port", NULL, "%d", ifport_start->portnum);
@@ -847,8 +838,6 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	}
 	mISDNport = ifport->mISDNport;
 
-#warning admin block auch bei incomming calls
-#warning calls releasen, wenn port entfernt wird, geblockt wird
 	/* see if port is administratively blocked */
 	if (ifport->block)
 	{
@@ -871,13 +860,13 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 
 	/* check for channel form selection list */
 	*channel = 0;
-	selchannel = ifport->selchannel;
+	selchannel = ifport->out_channel;
 	while(selchannel)
 	{
 		switch(selchannel->channel)
 		{
 			case CHANNEL_FREE: /* free channel */
-			if (mISDNport->b_inuse >= mISDNport->b_num)
+			if (mISDNport->b_reserved >= mISDNport->b_num)
 				break; /* all channel in use or reserverd */
 			/* find channel */
 			i = 0;
@@ -898,7 +887,7 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			break;
 
 			case CHANNEL_ANY: /* don't ask for channel */
-			if (mISDNport->b_inuse >= mISDNport->b_num)
+			if (mISDNport->b_reserved >= mISDNport->b_num)
 			{
 				break; /* all channel in use or reserverd */
 			}
@@ -906,7 +895,7 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			add_trace("port", NULL, "%d", ifport->portnum);
 			add_trace("position", NULL, "%d", index);
 			end_trace();
-			*channel = SEL_CHANNEL_ANY;
+			*channel = CHANNEL_ANY;
 			break;
 
 			case CHANNEL_NO: /* call waiting */
@@ -914,7 +903,7 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 			add_trace("port", NULL, "%d", ifport->portnum);
 			add_trace("position", NULL, "%d", index);
 			end_trace();
-			*channel = SEL_CHANNEL_NO;
+			*channel = CHANNEL_NO;
 			break;
 
 			default:
@@ -996,12 +985,11 @@ void EndpointAppPBX::out_setup(void)
 	class EndpointAppPBX	*atemp;
 //	char			allowed_ports[256];
 //	char			exten[256];
-	int			i, ii;
-	int			use;
 	char			ifname[sizeof(e_ext.interfaces)],
 				number[256];
 	struct port_settings	port_settings;
 	int			channel = 0;
+	int			earlyb;
 
 	/* create settings for creating port */
 	memset(&port_settings, 0, sizeof(port_settings));
@@ -1046,13 +1034,13 @@ void EndpointAppPBX::out_setup(void)
 		/* FALL THROUGH !!!! */
 		case INFO_ITYPE_VBOX:
 		/* get dialed extension's info */
-//		SCPY(exten, e_dialinginfo.number);
+//		SCPY(exten, e_dialinginfo.id);
 //		if (strchr(exten, ','))
 //			*strchr(exten, ',') = '\0';
 //		if (!read_extension(&e_ext, exten))
-		if (!read_extension(&e_ext, e_dialinginfo.number))
+		if (!read_extension(&e_ext, e_dialinginfo.id))
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) extension %s not configured\n", ea_endpoint->ep_serial, e_dialinginfo.number);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) extension %s not configured\n", ea_endpoint->ep_serial, e_dialinginfo.id);
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
 			return; /* must exit here */
 		}
@@ -1125,7 +1113,7 @@ void EndpointAppPBX::out_setup(void)
 
 		/* call to all internal interfaces */
 		p = e_ext.interfaces;
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) generating multiple calls for extension %s to interfaces %s\n", ea_endpoint->ep_serial, e_dialinginfo.number, p);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) generating multiple calls for extension %s to interfaces %s\n", ea_endpoint->ep_serial, e_dialinginfo.id, p);
 		while(*p)
 		{
 			ifname[0] = '\0';
@@ -1146,20 +1134,20 @@ void EndpointAppPBX::out_setup(void)
 				continue;
 			}
 			/* creating INTERNAL port */
-			SPRINT(portname, "%s-%d-out", mISDNport->interface_name, mISDNport->portnum);
-			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport.channel_force);
+			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
 			if (!port)
 			{
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port '%s' failed to create\n", ea_endpoint->ep_serial, mISDNport->interface_name);
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port '%s' failed to create\n", ea_endpoint->ep_serial, mISDNport->ifport->interface->name);
 				goto check_anycall_intern;
 			}
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
-			SCPY(dialinginfo.number, e_dialinginfo.number);
+			SCPY(dialinginfo.id, e_dialinginfo.id);
 			dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			/* create port_list relation */
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->is_earlyb);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
 			if (!portlist)
 			{
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1175,20 +1163,20 @@ void EndpointAppPBX::out_setup(void)
 			}
 //			dss1 = (class Pdss1 *)port;
 			/* message */
-//printf("INTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.number);
+//printf("INTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.id);
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
 			memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
-//terminal			if (e_dialinginfo.number)
-//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
+//terminal			if (e_dialinginfo.id)
+//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 			/* handle restricted caller ids */
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name);
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, NULL, message->param.setup.redirinfo.voip, message->param.setup.redirinfo.intern, 0);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
-			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name));
+			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 //printf("\n\ndisplay = %s\n\n\n",message->param.setup.callerinfo.display);
 			/* use cnip, if enabld */
 			if (!e_ext.centrex)
@@ -1201,9 +1189,9 @@ void EndpointAppPBX::out_setup(void)
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
 			/* use internal caller id */
-			if (e_callerinfo.intern[0] && (message->param.setup.callerinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
+			if (e_callerinfo.extension[0] && (message->param.setup.callerinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
 			{
-				SCPY(message->param.setup.callerinfo.id, e_callerinfo.intern);
+				SCPY(message->param.setup.callerinfo.id, e_callerinfo.extension);
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
 			message_put(message);
@@ -1225,12 +1213,12 @@ void EndpointAppPBX::out_setup(void)
 		cfu_only: /* entry point for cfu */
 		cfb_only: /* entry point for cfb */
 		cfnr_only: /* entry point for cfnr */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call extension %s for external destiantion(s) '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.number, p);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call extension %s for external destiantion(s) '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.id, p);
 //		i=0;
 		while(*p)
 		{
-			/* only if vbox should be dialed, and terminal is given */
 			earlyb = 0;
+			/* only if vbox should be dialed, and terminal is given */
 			if (!strcmp(p, "vbox") && e_ext.number[0])
 			{
 				/* go to the end of p */
@@ -1253,63 +1241,16 @@ void EndpointAppPBX::out_setup(void)
 					SCCAT(cfp, *p++);
 				if (*p == ',')
 					p++;
-		hier auch wie oben
 				/* external call */
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cfp external %s\n", ea_endpoint->ep_serial, cfp);
 				/* hunt for mISDNport and create Port */
-				mISDNport = mISDNport_first;
-				port = NULL;
-				while(mISDNport)
-				{
-					/* check for external or given interface */
-					if (((!e_dialinginfo.interfaces[0])&&mISDNport->iftype==IF_EXTERN) || !strcmp(mISDNport->interface_name, e_dialinginfo.interfaces))
-					{
-						PDEBUG(DEBUG_EPOINT, "EPOINT(%d) interface '%s' found\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-						cause = CAUSE_NOCHANNEL; /* when failing: out of channels */
-						/* if PTP, skip all down links */
-						if (mISDNport->ptp && !mISDNport->l2link)
-						{
-							trace_header("INTERFACE (layer 2 is down)", DIRECTION_NONE);
-							add_trace("interface", NULL, "%s", mISDNport->interface_name);
-							end_trace();
-							mISDNport = mISDNport->next;
-							continue;
-						}
-						/* if no channel is available */
-						if (mISDNport->multilink || !mISDNport->ntmode || mISDNport->ptp)
-						{
-							use = 0;
-							i = 0;
-							ii = mISDNport->b_num;
-							while(i < ii)
-							{
-								if (mISDNport->b_state[i])
-									use++;
-								i++;
-							}
-							if (use >= mISDNport->b_num)
-							{
-								trace_header("INTERFACE (no free channel)", DIRECTION_NONE);
-								add_trace("interface", NULL, "%s", mISDNport->interface_name);
-								end_trace();
-								mISDNport = mISDNport->next;
-								continue;
-							}
-						}
-						/* found interface */
-						trace_header("INTERFACE (found)", DIRECTION_NONE);
-						add_trace("interface", NULL, "%s", mISDNport->interface_name);
-						end_trace();
-						break;
-					}
-					mISDNport = mISDNport->next;
-				}
+				mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
 				if (mISDNport)
 				{
 					/* creating EXTERNAL port*/
-					SPRINT(portname, "%s-%d-out", mISDNport->interface_name, mISDNport->portnum);
-					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings);
-					earlyb = mISDNport->is_earlyb;
+					SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
+					earlyb = mISDNport->earlyb;
 				} else
 				{
 					port = NULL;
@@ -1325,8 +1266,8 @@ void EndpointAppPBX::out_setup(void)
 			}
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) found or created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
-			SCPY(dialinginfo.number, cfp);
-			dialinginfo.itype = INFO_ITYPE_EXTERN;
+			SCPY(dialinginfo.id, cfp);
+			dialinginfo.itype = INFO_ITYPE_ISDN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, earlyb);
 			if (!portlist)
@@ -1335,7 +1276,7 @@ void EndpointAppPBX::out_setup(void)
 				delete port;
 				goto check_anycall_intern;
 			}
-//printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.number);
+//printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.id);
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
 			memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
@@ -1344,19 +1285,19 @@ void EndpointAppPBX::out_setup(void)
 			if (e_ext.clip==CLIP_HIDE && port->p_type!=PORT_TYPE_VBOX_OUT)
 			{
 				SCPY(message->param.setup.callerinfo.id, e_ext.callerid);
-				SCPY(message->param.setup.callerinfo.intern, e_ext.number);
+				SCPY(message->param.setup.callerinfo.extension, e_ext.number);
 				message->param.setup.callerinfo.ntype = e_ext.callerid_type;
 				message->param.setup.callerinfo.present = e_ext.callerid_present;
 			}
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
-//terminal			if (e_dialinginfo.number)
-//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
+//terminal			if (e_dialinginfo.id)
+//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 				/* handle restricted caller ids */
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name);
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, NULL, message->param.setup.redirinfo.voip, message->param.setup.redirinfo.intern, 0);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
-			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name));
+			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 			message_put(message);
 			logmessage(message);
 			anycall = 1;
@@ -1377,9 +1318,9 @@ void EndpointAppPBX::out_setup(void)
 
 		/* *********************** external call */
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing external: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing external: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.id);
 		/* call to extenal interfaces */
-		p = e_dialinginfo.number;
+		p = e_dialinginfo.id;
 		do
 		{
 			number[0] = '\0';
@@ -1390,63 +1331,21 @@ void EndpointAppPBX::out_setup(void)
 			/* found number */
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) calling to number '%s' interface '%s'\n", ea_endpoint->ep_serial, number, e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
 			/* hunt for mISDNport and create Port */
-			mISDNport = mISDNport_first;
-			port = NULL;
-			while(mISDNport)
+			/* hunt for mISDNport and create Port */
+			mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
+			if (mISDNport)
 			{
-				/* check for external or given interface */
-				if ((!e_dialinginfo.interfaces[0]&&mISDNport->iftype==IF_EXTERN) || !strcmp(mISDNport->interface_name, e_dialinginfo.interfaces))
-				{
-					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) interface '%s' found\n", ea_endpoint->ep_serial, mISDNport->interface_name);
-					cause = CAUSE_NOCHANNEL; /* when failing: out of channels */
-					/* if PTP, skip all down links */
-					if (mISDNport->ptp && !mISDNport->l2link)
-					{
-						trace_header("INTERFACE (layer 2 is down)", DIRECTION_NONE);
-						add_trace("interface", NULL, "%s", mISDNport->interface_name);
-						end_trace();
-						mISDNport = mISDNport->next;
-						continue;
-					}
-					/* if no channel is available */
-					if (mISDNport->multilink || !mISDNport->ntmode || mISDNport->ptp)
-					{
-						use = 0;
-						i = 0;
-						ii = mISDNport->b_num;
-						while(i < ii)
-						{
-							if (mISDNport->b_state[i])
-								use++;
-							i++;
-						}
-						if (use >= mISDNport->b_num)
-						{
-							trace_header("INTERFACE (no free channel)", DIRECTION_NONE);
-							add_trace("interface", NULL, "%s", mISDNport->interface_name);
-							end_trace();
-							mISDNport = mISDNport->next;
-							continue;
-						}
-					}
-					/* found interface */
-					trace_header("INTERFACE (found)", DIRECTION_NONE);
-					add_trace("interface", NULL, "%s", mISDNport->interface_name);
-					end_trace();
-					break;
-				}
-				mISDNport = mISDNport->next;
-			}
-			if (!mISDNport)
+				/* creating EXTERNAL port*/
+				SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
+				earlyb = mISDNport->earlyb;
+			} else
 			{
 				trace_header("INTERFACE (too busy)", DIRECTION_NONE);
 				add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
 				end_trace();
 				goto check_anycall_extern;
 			}
-			/* creating EXTERNAL port*/
-			SPRINT(portname, "%s-%d-out", mISDNport->interface_name, mISDNport->portnum);
-			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings);
 			if (!port)	
 			{
 				PERROR("EPOINT(%d) no memory for external port, exitting\n", ea_endpoint->ep_serial);
@@ -1454,10 +1353,10 @@ void EndpointAppPBX::out_setup(void)
 			}
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
-			SCPY(dialinginfo.number, number);
-			dialinginfo.itype = INFO_ITYPE_EXTERN;
+			SCPY(dialinginfo.id, number);
+			dialinginfo.itype = INFO_ITYPE_ISDN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->is_earlyb);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
 			if (!portlist)
 			{
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
@@ -1465,21 +1364,21 @@ void EndpointAppPBX::out_setup(void)
 				goto check_anycall_extern;
 			}
 //			dss1 = (class Pdss1 *)port;
-//printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.number);
+//printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.id);
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
 			memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
-			SCPY(message->param.setup.dialinginfo.number, number);
+			SCPY(message->param.setup.dialinginfo.id, number);
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
-//terminal			if (e_dialinginfo.number)
-//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.number);
+//terminal			if (e_dialinginfo.id)
+//terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 				/* handle restricted caller ids */
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name);
-			apply_callerid_restriction(e_ext.anon_ignore, port->p_type, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, NULL, message->param.setup.redirinfo.voip, message->param.setup.redirinfo.intern, 0);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(e_ext.anon_ignore, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
-			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.voip, message->param.setup.callerinfo.intern, message->param.setup.callerinfo.name));
+			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 			message_put(message);
 			logmessage(message);
 			anycall = 1;
@@ -1708,10 +1607,10 @@ void EndpointAppPBX::hookflash(void)
 	e_action = NULL;
 	new_state(EPOINT_STATE_IN_OVERLAP);
 	e_connectedmode = 1;
-	SCPY(e_dialinginfo.number, e_ext.prefix);
-        e_extdialing = e_dialinginfo.number;
+	SCPY(e_dialinginfo.id, e_ext.prefix);
+        e_extdialing = e_dialinginfo.id;
 	e_call_pattern = 0;
-	if (e_dialinginfo.number[0])
+	if (e_dialinginfo.id[0])
 	{
 		set_tone(ea_endpoint->ep_portlist, "dialing");
 		process_dialing();
@@ -1731,9 +1630,6 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 {
 	struct message		*message;
 	char			buffer[256];
-	char			extension[32];
-	char			extension1[32];
-	char			*p;
 	int			writeext;		/* flags need to write extension after modification */
 	class Port		*port;
 
@@ -1746,23 +1642,22 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 
 	/* screen incoming caller id */
 	screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
-colp, outclip, outcolp
 
 	/* process extension */
-	if (e_callerinfo.itype == INFO_ITYPE_INTERN)
+	if (e_callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is extension\n", ea_endpoint->ep_serial);
 		/* port makes call from extension */
-		SCPY(e_callerinfo.intern, e_callerinfo.id);
-		SCPY(e_ext.number, e_callerinfo.intern);
+		SCPY(e_callerinfo.extension, e_callerinfo.id);
+		SCPY(e_ext.number, e_callerinfo.extension);
 		SCPY(e_extension_interface, e_callerinfo.interface);
 	} else
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is external or voip\n", ea_endpoint->ep_serial);
 	}
 	trace_header("SETUP", DIRECTION_IN);
-	if (e_callerinfo.intern[0])
-		add_trace("extension", NULL, "%s", e_callerinfo.intern);
+	if (e_callerinfo.extension[0])
+		add_trace("extension", NULL, "%s", e_callerinfo.extension);
 	add_trace("caller id", "number", "%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
 	if (e_callerinfo.present == INFO_PRESENT_RESTRICTED)
 		add_trace("caller id", "present", "restricted");
@@ -1772,11 +1667,11 @@ colp, outclip, outcolp
 		if (e_redirinfo.present == INFO_PRESENT_RESTRICTED)
 			add_trace("redir'ing", "present", "restricted");
 	}
-	if (e_dialinginfo.number)
-		add_trace("dialing", "number", "%s", e_dialinginfo.number));
+	if (e_dialinginfo.id)
+		add_trace("dialing", "number", "%s", e_dialinginfo.id);
 	end_trace();
 
-	if (e_callerinfo.itype == INFO_ITYPE_INTERN)
+	if (e_callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call from extension '%s'\n", ea_endpoint->ep_serial, e_ext.number);
 
@@ -1795,20 +1690,20 @@ colp, outclip, outcolp
 		}
 		writeext = 0;
 
-		/* put prefix (next) in front of e_dialinginfo.number */
+		/* put prefix (next) in front of e_dialinginfo.id */
 		if (e_ext.next[0])
 		{
-			SPRINT(buffer, "%s%s", e_ext.next, e_dialinginfo.number);
-			SCPY(e_dialinginfo.number, buffer);
+			SPRINT(buffer, "%s%s", e_ext.next, e_dialinginfo.id);
+			SCPY(e_dialinginfo.id, buffer);
 			e_ext.next[0] = '\0';
 			writeext = 1;
 		} else if (e_ext.prefix[0])
 		{
-			SPRINT(buffer, "%s%s", e_ext.prefix, e_dialinginfo.number);
-			SCPY(e_dialinginfo.number, buffer);
+			SPRINT(buffer, "%s%s", e_ext.prefix, e_dialinginfo.id);
+			SCPY(e_dialinginfo.id, buffer);
 		}
 
-		/* screen caller id */
+		/* screen caller id by extension's config */
 		e_callerinfo.screen = INFO_SCREEN_NETWORK;
 		if (e_ext.name[0])
 			SCPY(e_callerinfo.name, e_ext.name);
@@ -1838,7 +1733,7 @@ colp, outclip, outcolp
 			write_extension(&e_ext, e_ext.number);
 
 		/* set volume of rx and tx */
-		if (param->setup.callerinfo.itype == INFO_ITYPE_INTERN)
+		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 		if (e_ext.txvol!=256 || e_ext.rxvol!=256)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
@@ -1876,9 +1771,9 @@ colp, outclip, outcolp
 	if (e_ruleset)
        		e_rule = e_ruleset->rule_first;
 	e_action = NULL;
-        e_extdialing = e_dialinginfo.number;
+        e_extdialing = e_dialinginfo.id;
 	new_state(EPOINT_STATE_IN_SETUP);
-	if (e_dialinginfo.number[0])
+	if (e_dialinginfo.id[0])
 	{
 		set_tone(portlist, "dialing");
 	} else
@@ -1903,7 +1798,7 @@ colp, outclip, outcolp
 void EndpointAppPBX::port_information(struct port_list *portlist, int message_type, union parameter *param)
 {
 	trace_header("INFORMATION", DIRECTION_IN);
-	add_trace("dialing", NULL, "%s", param->information.number);
+	add_trace("dialing", NULL, "%s", param->information.id);
 	if (param->information.sending_complete)
 		add_trace("complete", NULL, NULL);
 	end_trace();
@@ -1912,7 +1807,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
 	if (e_dtmf)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received dialing information, so dtmf is now disabled, to prevent double detection by keypad+dtmf.\n", ea_endpoint->ep_serial, param->information.number, e_ext.number, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received dialing information, so dtmf is now disabled, to prevent double detection by keypad+dtmf.\n", ea_endpoint->ep_serial, param->information.id, e_ext.number, e_callerinfo.id);
 		e_dtmf = 0;
 	}
 
@@ -1921,7 +1816,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	if (e_action->index == ACTION_VBOX_PLAY)
 	{
 		/* concat dialing string */
-		SCAT(e_dialinginfo.number, param->information.number);
+		SCAT(e_dialinginfo.id, param->information.id);
 		process_dialing();
 		return;
 	}
@@ -1929,9 +1824,9 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* keypad when disconnect but in connected mode */
 	if (e_state==EPOINT_STATE_OUT_DISCONNECT && e_connectedmode)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received after disconnect: %s.\n", ea_endpoint->ep_serial, param->information.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received after disconnect: %s.\n", ea_endpoint->ep_serial, param->information.id);
 		/* processing keypad function */
-		if (param->information.number[0] == '0')
+		if (param->information.id[0] == '0')
 		{
 			hookflash();
 		}
@@ -1941,14 +1836,14 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* keypad when connected */
 	if (e_state == EPOINT_STATE_CONNECT && e_ext.keypad)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
 		/* processing keypad function */
-		if (param->information.number[0] == '0')
+		if (param->information.id[0] == '0')
 		{
 			hookflash();
 		}
-		if (param->information.number[0])
-			keypad_function(param->information.number[0]);
+		if (param->information.id[0])
+			keypad_function(param->information.id[0]);
 		return;
 	}
 	if (e_state != EPOINT_STATE_IN_OVERLAP)
@@ -1956,9 +1851,9 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in overlap, or connect state.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (!param->information.number[0])
+	if (!param->information.id[0])
 		return;
-	if (e_dialinginfo.number[0]=='\0' && !e_action)
+	if (e_dialinginfo.id[0]=='\0' && !e_action)
 	{
 		set_tone(portlist, "dialing");
 	}
@@ -1972,7 +1867,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 			set_tone(portlist, "dialing");
 	}
 	/* concat dialing string */
-	SCAT(e_dialinginfo.number, param->information.number);
+	SCAT(e_dialinginfo.id, param->information.id);
 	process_dialing();
 }
 
@@ -1996,10 +1891,10 @@ NOTE: vbox is now handled due to overlap state
 	if (e_action->index == ACTION_VBOX_PLAY)
 	{
 		/* concat dialing string */
-		if (strlen(e_dialinginfo.number)+1 < sizeof(e_dialinginfo.number))
+		if (strlen(e_dialinginfo.id)+1 < sizeof(e_dialinginfo.id))
 		{
-			e_dialinginfo.number[strlen(e_dialinginfo.number)+1] = '\0';
-			e_dialinginfo.number[strlen(e_dialinginfo.number)] = param->dtmf;
+			e_dialinginfo.id[strlen(e_dialinginfo.id)+1] = '\0';
+			e_dialinginfo.id[strlen(e_dialinginfo.id)] = param->dtmf;
 			process_dialing();
 		}
 		/* continue to process *X# sequences */
@@ -2079,15 +1974,15 @@ NOTE: vbox is now handled due to overlap state
 	/* dialing using dtmf digit */
 	if (e_state==EPOINT_STATE_IN_OVERLAP)// && e_state==e_connectedmode)
 	{
-		if (e_dialinginfo.number[0]=='\0' && !e_action)
+		if (e_dialinginfo.id[0]=='\0' && !e_action)
 		{
 			set_tone(portlist, "dialing");
 		}
 		/* concat dialing string */
-		if (strlen(e_dialinginfo.number)+1 < sizeof(e_dialinginfo.number))
+		if (strlen(e_dialinginfo.id)+1 < sizeof(e_dialinginfo.id))
 		{
-			e_dialinginfo.number[strlen(e_dialinginfo.number)+1] = '\0';
-			e_dialinginfo.number[strlen(e_dialinginfo.number)] = param->dtmf;
+			e_dialinginfo.id[strlen(e_dialinginfo.id)+1] = '\0';
+			e_dialinginfo.id[strlen(e_dialinginfo.id)] = param->dtmf;
 			process_dialing();
 		}
 	}
@@ -2118,14 +2013,14 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 		/* send what we have not dialed yet, because we had no setup complete */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing pending digits: '%s'\n", ea_endpoint->ep_serial, e_dialing_queue);
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_INFORMATION);
-		SCPY(message->param.information.number, e_dialing_queue);
+		SCPY(message->param.information.id, e_dialing_queue);
 		message->param.information.ntype = INFO_NTYPE_UNKNOWN;
 		message_put(message);
 		logmessage(message);
 		e_dialing_queue[0] = '\0';
 	}
 	/* check if pattern is available */
-	if (!ea_endpoint->ep_portlist->next && portlist->earlyb) /* one port_list relation and tones available */
+	if (!ea_endpoint->ep_portlist->next && portlist->early_b) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2168,7 +2063,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 	end_trace();
 	e_state = EPOINT_STATE_OUT_PROCEEDING;
 	/* check if pattern is availatle */
-	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
+	if (!ea_endpoint->ep_portlist->next && (portlist->early_b || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2210,7 +2105,7 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 	end_trace();
 	new_state(EPOINT_STATE_OUT_ALERTING);
 	/* check if pattern is available */
-	if (!ea_endpoint->ep_portlist->next && (portlist->earlyb || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
+	if (!ea_endpoint->ep_portlist->next && (portlist->early_b || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
@@ -2254,8 +2149,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_connectinfo));
 	trace_header("CONNECT", DIRECTION_IN);
-	if (e_connectinfo.intern[0])
-		add_trace("extension", NULL, "%s", e_connectinfo.intern);
+	if (e_connectinfo.extension[0])
+		add_trace("extension", NULL, "%s", e_connectinfo.extension);
 	add_trace("connect id", "number", "%s", numberrize_callerinfo(e_connectinfo.id, e_connectinfo.ntype));
 	if (e_connectinfo.present == INFO_PRESENT_RESTRICTED)
 		add_trace("connect id", "present", "restricted");
@@ -2282,7 +2177,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 	e_start = now;
 
-	/* screen incoming caller id */
+	/* screen incoming connected id */
 	screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
 
 	/* screen connected name */
@@ -2290,7 +2185,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		SCPY(e_connectinfo.name, e_ext.name);
 
 	/* add internal id to colp */
-	SCPY(e_connectinfo.intern, e_ext.number);
+	SCPY(e_connectinfo.extension, e_ext.number);
 
 	/* we store the connected port number */
 	SCPY(e_extension_interface, e_connectinfo.interfaces);
@@ -2299,8 +2194,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	if (portlist->port_type==PORT_TYPE_VBOX_OUT || e_ext.colp==COLP_HIDE)
 	{
 		SCPY(e_connectinfo.id, e_ext.callerid);
-		SCPY(e_connectinfo.intern, e_ext.number);
-		e_connectinfo.itype = INFO_ITYPE_INTERN;
+		SCPY(e_connectinfo.extension, e_ext.number);
+		e_connectinfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 		e_connectinfo.ntype = e_ext.callerid_type;
 		e_connectinfo.present = e_ext.callerid_present;
 	}
@@ -2337,7 +2232,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 				port = find_port_id(portlist->port_id);
 				if (port)
 				{
-					SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.number, &e_connectinfo.ntype));
+					SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype));
 					e_connectinfo.present = INFO_PRESENT_ALLOWED;
 				}
 			}
@@ -2372,13 +2267,13 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 
 		/* put prefix in front of e_cbdialing */
 		SPRINT(buffer, "%s%s", e_ext.prefix, e_cbdialing);
-		SCPY(e_dialinginfo.number, buffer);
-		e_dialinginfo.itype = INFO_ITYPE_EXTERN;
+		SCPY(e_dialinginfo.id, buffer);
+		e_dialinginfo.itype = INFO_ITYPE_ISDN;
 		e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 
 		/* use caller id (or if exist: id_next_call) for this call */
 		e_callerinfo.screen = INFO_SCREEN_NETWORK;
-		SCPY(e_callerinfo.intern, e_ext.number);
+		SCPY(e_callerinfo.extension, e_ext.number);
 		if (e_ext.id_next_call_present >= 0)
 		{
 			SCPY(e_callerinfo.id, e_ext.id_next_call);
@@ -2405,8 +2300,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			e_action = &action_password_write;
 			e_match_timeout = 0;
 			e_match_to_action = NULL;
-			e_dialinginfo.number[0] = '\0';
-			e_extdialing = strchr(e_dialinginfo.number, '\0');
+			e_dialinginfo.id[0] = '\0';
+			e_extdialing = strchr(e_dialinginfo.id, '\0');
 			e_password_timeout = now+20;
 			process_dialing();
 		} else
@@ -2416,8 +2311,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			if (e_ruleset)
 				e_rule = e_ruleset->rule_first;
 			e_action = NULL;
-			e_extdialing = e_dialinginfo.number;
-			if (e_dialinginfo.number[0])
+			e_extdialing = e_dialinginfo.id;
+			if (e_dialinginfo.id[0])
 			{
 				set_tone(portlist, "dialing");
 				process_dialing();
@@ -2458,7 +2353,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	/* signal to call tool */
 	admin_call_response(e_adminid, (message_type==MESSAGE_DISCONNECT)?ADMIN_CALL_DISCONNECT:ADMIN_CALL_RELEASE, "", param->disconnectinfo.cause, param->disconnectinfo.location, 0);
 
-	trace_header((message_type==MESSAGE_DISCONNECT)?"DISCONNECT":"RELEASE", DIRECTION_IN);
+	trace_header((message_type==MESSAGE_DISCONNECT)?(char *)"DISCONNECT":(char *)"RELEASE", DIRECTION_IN);
 	add_trace("cause", "value", "%d", param->disconnectinfo.cause);
 	add_trace("cause", "location", "%d", param->disconnectinfo.location);
 	end_trace();
@@ -2554,9 +2449,8 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 		int haspatterns = 0;
 		/* check if pattern is available */
 		if (ea_endpoint->ep_portlist)
-		if (!ea_endpoint->ep_portlist->next && ea_endpoint->ep_portlist->earlyb)
-#warning wie ist das bei einem asterisk, gibts auch tones?
-		if (callpbx_countrelations(ea_endpoint->ep_call_id)==2 // we must count relations, in order not to disturb the conference ; NOTE: 
+		if (!ea_endpoint->ep_portlist->next && ea_endpoint->ep_portlist->early_b)
+		if (callpbx_countrelations(ea_endpoint->ep_call_id)==2 // we must count relations, in order not to disturb the conference ; NOTE: asterisk always counts two, since it is a point to point call 
 		 && message_type != MESSAGE_RELEASE) // if we release, we are done
 			haspatterns = 1;
 		if (haspatterns)
@@ -2697,7 +2591,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		case INFO_NOTIFY_REMOTE_RETRIEVAL:
 		case INFO_NOTIFY_USER_RESUMED:
 		/* set volume of rx and tx */
-		if (param->setup.callerinfo.itype == INFO_ITYPE_INTERN)
+		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 		if (e_ext.txvol!=256 || e_ext.rxvol!=256)
 		if (portlist)
 		{
@@ -2869,7 +2763,6 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 {
 	struct port_list *portlist;
 	struct message *message;
-	class Port *port;
 
 	portlist = ea_endpoint->ep_portlist;
 	while(portlist)
@@ -2935,7 +2828,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends SETUP message */
 		case MESSAGE_SETUP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call from callerid=%s, dialing=%s\n", ea_endpoint->ep_serial, param->setup.callerinfo.id, param->setup.dialinginfo.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call from callerid=%s, dialing=%s\n", ea_endpoint->ep_serial, param->setup.callerinfo.id, param->setup.dialinginfo.id);
 		if (e_state!=EPOINT_STATE_IDLE)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in idle state.\n", ea_endpoint->ep_serial);
@@ -2946,7 +2839,7 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 
 		/* PORT sends INFORMATION message */
 		case MESSAGE_INFORMATION: /* additional digits received */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call dialing more=%s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->information.number, e_ext.number, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call dialing more=%s (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, param->information.id, e_ext.number, e_callerinfo.id);
 		port_information(portlist, message_type, param);
 		break;
 
@@ -3237,7 +3130,7 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 		memcpy(&message->param, param, sizeof(union parameter));
 		/* screen incoming caller id */
 		screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
-		memcpy(&message->param.connnectinfo, e_connectinfo);
+		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(e_connectinfo));
 
 		/* screen clip if prefix is required */
 		if (e_ext.number[0] && message->param.connectinfo.id[0] && e_ext.clip_prefix[0])
@@ -3248,16 +3141,16 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 		}
 
 		/* use internal caller id */
-		if (e_ext.number[0] && e_connectinfo.intern[0] && (message->param.connectinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
+		if (e_ext.number[0] && e_connectinfo.extension[0] && (message->param.connectinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
 		{
-			SCPY(message->param.connectinfo.id, e_connectinfo.intern);
+			SCPY(message->param.connectinfo.id, e_connectinfo.extension);
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 		}
 
 		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, portlist->port_type, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name);
+		apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 		/* display callerid if desired for extension */
-		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name));
+		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 
 		/* use conp, if enabld */
 		if (!e_ext.centrex)
@@ -3398,7 +3291,7 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we are in setup state, so we do overlap dialing.\n", ea_endpoint->ep_serial);
 		/* if digits changed, what we have already dialed */
-		if (!!strncmp(e_dialinginfo.number,param->setup.dialinginfo.number,strlen(e_dialinginfo.number)))
+		if (!!strncmp(e_dialinginfo.id,param->setup.dialinginfo.id,strlen(e_dialinginfo.id)))
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have dialed digits which have been changed or we have a new multidial, so we must redial.\n", ea_endpoint->ep_serial);
 			/* release all ports */
@@ -3431,7 +3324,7 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 		/* if we have a pending redial, so we just adjust the dialing number */
 		if (e_redial)
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) redial in progress, so we update the dialing number to %s.\n", ea_endpoint->ep_serial, param->setup.dialinginfo.number);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) redial in progress, so we update the dialing number to %s.\n", ea_endpoint->ep_serial, param->setup.dialinginfo.id);
 			memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 			return;
 		}
@@ -3446,15 +3339,15 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 		if (e_state == EPOINT_STATE_OUT_SETUP)
 		{
 			/* queue digits */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) digits '%s' are queued because we didn't receive a setup acknowledge.\n", ea_endpoint->ep_serial, param->setup.dialinginfo.number);
-			SCAT(e_dialing_queue, param->setup.dialinginfo.number + strlen(e_dialinginfo.number));
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) digits '%s' are queued because we didn't receive a setup acknowledge.\n", ea_endpoint->ep_serial, param->setup.dialinginfo.id);
+			SCAT(e_dialing_queue, param->setup.dialinginfo.id + strlen(e_dialinginfo.id));
 			
 		} else
 		{
 			/* get what we have not dialed yet */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have already dialed '%s', we received '%s', what's left '%s'.\n", ea_endpoint->ep_serial, e_dialinginfo.number, param->setup.dialinginfo.number, param->setup.dialinginfo.number+strlen(e_dialinginfo.number));
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have already dialed '%s', we received '%s', what's left '%s'.\n", ea_endpoint->ep_serial, e_dialinginfo.id, param->setup.dialinginfo.id, param->setup.dialinginfo.id+strlen(e_dialinginfo.id));
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_INFORMATION);
-			SCPY(message->param.information.number, param->setup.dialinginfo.number + strlen(e_dialinginfo.number));
+			SCPY(message->param.information.id, param->setup.dialinginfo.id + strlen(e_dialinginfo.id));
 			message->param.information.ntype = INFO_NTYPE_UNKNOWN;
 			message_put(message);
 			logmessage(message);
@@ -3470,8 +3363,8 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 		return;
 	}
 	/* if an internal extension is dialed, copy that number */
-	if (param->setup.dialinginfo.itype==INFO_ITYPE_INTERN || param->setup.dialinginfo.itype==INFO_ITYPE_VBOX)
-		SCPY(e_ext.number, param->setup.dialinginfo.number);
+	if (param->setup.dialinginfo.itype==INFO_ITYPE_ISDN_EXTENSION || param->setup.dialinginfo.itype==INFO_ITYPE_VBOX)
+		SCPY(e_ext.number, param->setup.dialinginfo.id);
 	/* if an internal extension is dialed, get extension's info about caller */
 	if (e_ext.number[0]) 
 	{
@@ -3569,9 +3462,9 @@ void EndpointAppPBX::call_notify(struct port_list *portlist, int message_type, u
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		memcpy(&message->param.notifyinfo, &param->notifyinfo, sizeof(struct notify_info));
 		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, portlist->port_type, message->param.notifyinfo.id, &message->param.notifyinfo.ntype, &message->param.notifyinfo.present, NULL, message->param.notifyinfo.voip, message->param.notifyinfo.intern, 0);
+		apply_callerid_restriction(e_ext.anon_ignore, message->param.notifyinfo.id, &message->param.notifyinfo.ntype, &message->param.notifyinfo.present, 0, message->param.notifyinfo.extension, NULL);
 		/* display callerid if desired for extension */
-		SCPY(message->param.notifyinfo.display, apply_callerid_display(message->param.notifyinfo.id, message->param.notifyinfo.itype, message->param.notifyinfo.ntype, message->param.notifyinfo.present, 0, message->param.notifyinfo.voip, message->param.notifyinfo.intern, NULL));
+		SCPY(message->param.notifyinfo.display, apply_callerid_display(message->param.notifyinfo.id, message->param.notifyinfo.itype, message->param.notifyinfo.ntype, message->param.notifyinfo.present, 0, message->param.notifyinfo.extension, NULL));
 		message_put(message);
 		logmessage(message);
 		portlist = portlist->next;
@@ -3623,7 +3516,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends INFORMATION message */
 		case MESSAGE_INFORMATION:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->information.number);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->information.id);
 		call_information(portlist, message_type, param);
 		break;
 
@@ -3690,7 +3583,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 
 		/* CALL sends SETUP message */
 		case MESSAGE_SETUP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received setup from terminal='%s',id='%s' to id='%s' (dialing itype=%d)\n", ea_endpoint->ep_serial, param->setup.callerinfo.intern, param->setup.callerinfo.id, param->setup.dialinginfo.number, param->setup.dialinginfo.itype);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received setup from terminal='%s',id='%s' to id='%s' (dialing itype=%d)\n", ea_endpoint->ep_serial, param->setup.callerinfo.extension, param->setup.callerinfo.id, param->setup.dialinginfo.id, param->setup.dialinginfo.itype);
 		call_setup(portlist, message_type, param);
 		return;
 		break;
@@ -3961,9 +3854,9 @@ reject:
 	message->param.connectinfo.itype = eapp->e_callerinfo.itype;
 	message->param.connectinfo.ntype = eapp->e_callerinfo.ntype;
 	/* handle restricted caller ids */
-	apply_callerid_restriction(e_ext.anon_ignore, ea_endpoint->ep_portlist->port_type, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name);
+	apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 	/* display callerid if desired for extension */
-	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype,  message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.voip, message->param.connectinfo.intern, message->param.connectinfo.name));
+	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype,  message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 	message_put(message);
 
 	/* we send a connect to the audio path (not for vbox) */
@@ -3972,7 +3865,7 @@ reject:
 	message_put(message);
 
 	/* beeing paranoid, we make call update */
-	callpbx->c_mixer = 1;
+	callpbx->c_updatebridge = 1;
 
 	if (options.deb & DEBUG_EPOINT)
 	{
@@ -4177,7 +4070,7 @@ void EndpointAppPBX::join_call(void)
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-call completely removed!\n");
 
 	/* mixer must update */
-	our_callpbx->c_mixer = 1; /* update mixer flag */
+	our_callpbx->c_updatebridge = 1; /* update mixer flag */
 
 	/* we send a retrieve to that endpoint */
 	// mixer will update the hold-state of the call and send it to the endpoints is changes
@@ -4291,8 +4184,6 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 
 void EndpointAppPBX::logmessage(struct message *message)
 {
-	class Port *port;
-	class Pdss1 *pdss1;
 	char *logtext = "unknown";
 	char buffer[64];
 
@@ -4306,19 +4197,19 @@ void EndpointAppPBX::logmessage(struct message *message)
 	{
 		case MESSAGE_SETUP:
 		trace_header("SETUP", DIRECTION_OUT);
-		if (message->param.setup.callerinfo.intern[0])
-			add_trace("extension", NULL, "%s", message->param.setup.callerinfo.intern);
+		if (message->param.setup.callerinfo.extension[0])
+			add_trace("extension", NULL, "%s", message->param.setup.callerinfo.extension);
 		add_trace("caller id", "number", "%s", numberrize_callerinfo(message->param.setup.callerinfo.id, message->param.setup.callerinfo.ntype));
 		if (message->param.setup.callerinfo.present == INFO_PRESENT_RESTRICTED)
 			add_trace("caller id", "present", "restricted");
-		if (message->param.setup.redirinfo.number[0])
+		if (message->param.setup.redirinfo.id[0])
 		{
 			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(message->param.setup.redirinfo.id, message->param.setup.redirinfo.ntype));
 			if (message->param.setup.redirinfo.present == INFO_PRESENT_RESTRICTED)
 				add_trace("redir'ing", "present", "restricted");
 		}
-		if (message->param.setup.dialinginfo.number[0])
-			add_trace("dialing", NULL, "%s", message->param.setup.dialinginfo.number);
+		if (message->param.setup.dialinginfo.id[0])
+			add_trace("dialing", NULL, "%s", message->param.setup.dialinginfo.id);
 		end_trace();
 		break;
 
@@ -4339,8 +4230,8 @@ void EndpointAppPBX::logmessage(struct message *message)
 
 		case MESSAGE_CONNECT:
 		trace_header("CONNECT", DIRECTION_OUT);
-		if (message->param.connectinfo.intern[0])
-			add_trace("extension", NULL, "%s", message->param.connectinfo.intern);
+		if (message->param.connectinfo.extension[0])
+			add_trace("extension", NULL, "%s", message->param.connectinfo.extension);
 		add_trace("connect id", "number", "%s", numberrize_callerinfo(message->param.connectinfo.id, message->param.connectinfo.ntype));
 		if (message->param.connectinfo.present == INFO_PRESENT_RESTRICTED)
 			add_trace("connect id", "present", "restricted");
@@ -4444,7 +4335,7 @@ void EndpointAppPBX::logmessage(struct message *message)
 		trace_header("NOTIFY", DIRECTION_OUT);
 		if (message->param.notifyinfo.notify)
 			add_trace("indicator", NULL, "%s", logtext);
-		if (message->param.notifyinfo.number[0])
+		if (message->param.notifyinfo.id[0])
 		{
 			add_trace("redir'on", "number", "%s", numberrize_callerinfo(message->param.notifyinfo.id, message->param.notifyinfo.ntype));
 			if (message->param.notifyinfo.present == INFO_PRESENT_RESTRICTED)
@@ -4457,7 +4348,7 @@ void EndpointAppPBX::logmessage(struct message *message)
 
 		case MESSAGE_INFORMATION:
 		trace_header("INFORMATION", DIRECTION_OUT);
-		add_trace("dialing", NULL, "%s", message->param.information.number);
+		add_trace("dialing", NULL, "%s", message->param.information.id);
 		end_trace();
 		break;
 

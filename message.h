@@ -141,7 +141,7 @@ struct caller_info {
 
 /* call-info structure DIALING */
 struct dialing_info {
-	char number[256];		/* number dialing (so far) */
+	char id[256];			/* number dialing (so far) */
 	char interfaces[128];		/* interfaces for extenal calls */
 	int itype;			/* type of interface */
 	int ntype;			/* type of number */
@@ -151,7 +151,6 @@ struct dialing_info {
 /* call-info structure CONNECT */
 struct connect_info {
 	char id[32];			/* id of caller (user number) */
-	char voip[64];			/* URI of voip (or gateway) */
 	char extension[32];		/* internal id */
 	char name[16];
 	int isdn_port;			/* internal/external port (if call is isdn) */
@@ -173,8 +172,7 @@ struct disconnect_info {
 /* call-info structure REDIR */
 struct redir_info {
 	char id[32];			/* id of caller (user number) */
-	char voip[64];			/* host of voip (or gateway) */
-	char intern[32];		/* internal id */
+	char extension[32];		/* internal id */
 	int isdn_port;			/* internal/external port (if call is isdn) */
 	int itype;			/* type of interface */
 	int ntype;			/* type of number */
@@ -196,8 +194,7 @@ struct capa_info {
 struct notify_info {
 	int notify;			/* notifications (see INFO_NOTIFY_*) */
 	char id[32];			/* redirection id (user number) */
-	char voip[64];			/* host of voip (or gateway) */
-	char intern[32];		/* internal id */
+	char extension[32];		/* internal id */
 	int isdn_port;			/* internal/external port (if call is isdn) */
 	int itype;			/* type of interface */
 	int ntype;			/* type of number */

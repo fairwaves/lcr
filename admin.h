@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/
 
-#define SOCKET_NAME "/var/run/PBX4Linux.socket"
+#define SOCKET_NAME "/var/run/LCR.socket"
 
 /* structures that define message between admin-tool and pbx */
 
@@ -22,6 +22,8 @@ enum { /* messages */
 	ADMIN_RESPONSE_CMD_DIAL,
 	ADMIN_REQUEST_CMD_RELEASE,
 	ADMIN_RESPONSE_CMD_RELEASE,
+	ADMIN_REQUEST_CMD_BLOCK,
+	ADMIN_RESPONSE_CMD_BLOCK,
 	ADMIN_REQUEST_STATE,
 	ADMIN_RESPONSE_STATE,
 	ADMIN_RESPONSE_S_INTERFACE,
@@ -44,6 +46,8 @@ enum { /* messages */
 struct admin_response_cmd {
 	int		error;		/* error code 0 = ok*/
 	char		message[256];	/* info / response text */
+	int		block;
+	int		portnum;
 };
 
 struct admin_response_state {
@@ -57,12 +61,13 @@ struct admin_response_state {
 };
 
 struct admin_response_interface {
-	int		portnum;
 	char		interface_name[32];
+	int		portnum;
+	int		block;
 	int		ntmode;
 	int		ptp;
 	int		pri;
-	int		iftype;
+	int		extension;
 	int		use; /* number of ports that use this interface */
 	int		l1link; /* down(0) or up(1) */
 	int		l2link; /* down(0) or up(1) */

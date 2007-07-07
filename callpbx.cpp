@@ -403,8 +403,8 @@ void CallPBX::bridge(void)
 		 */
 		message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 		message->param.mISDNsignal.message = mISDNSIGNAL_CALLDATA;
-		message->param.mISDNsignal.calldata = (relnum==2 && !allmISDN);
-		PDEBUG(DEBUG_CALL, "call %d sets 'calldata' on port %s to %d\n", c_serial, port->p_name, calldata);
+		message->param.mISDNsignal.calldata = (relations==2 && !allmISDN);
+		PDEBUG(DEBUG_CALL, "call %d sets 'calldata' on port %s to %d\n", c_serial, port->p_name, message->param.mISDNsignal.calldata);
 		message_put(message);
 
 		relation = relation->next;
@@ -597,6 +597,9 @@ int callpbx_countrelations(unsigned long call_id)
 	if (!call)
 		return(0);
 
+	if (call->c_type != CALL_TYPE_ASTERISK)
+		return(2);
+
 	if (call->c_type != CALL_TYPE_PBX)
 		return(0);
 	callpbx = (class CallPBX *)call;
@@ -681,8 +684,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 	int new_state;
 	struct message *message;
 //	int size, writesize, oldpointer;
-	class Endpoint *epoint;
-	char *number;
+	char *number, *numbers;
 
 	if (!epoint_id)
 	{
@@ -833,9 +835,10 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		switch(message_type)
 		{
 			case MESSAGE_SETUP:
-			if (param->dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION)
+			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 			{
-				while(number = strsep(&param->dialinginfo.number, ','))
+				numbers = param->setup.dialinginfo.id;
+				while((number = strsep(&numbers, ",")))
 				{
 					if (out_setup(epoint_id, message_type, param, number))
 						return; // call destroyed
@@ -938,8 +941,8 @@ int CallPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 		relation = c_relation;
 		while(relation)
 		{
-			message = message_create(c_serial, releation->epoint_id, CALL_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = (relation->epoint_id==epoint_id)CAUSE_RESSOURCEUNAVAIL?:CAUSE_NORMAL; 
+			message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = (relation->epoint_id==epoint_id)?CAUSE_RESSOURCEUNAVAIL:CAUSE_NORMAL; 
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			message_put(message);
 			relation = relation->next;
@@ -973,14 +976,9 @@ int CallPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, message_type);
 	memcpy(&message->param, param, sizeof(union parameter));
 	if (newnumber)
-		SCPY(message->param.setup.dialinginfo.number, newnumber);
-	PDEBUG(DEBUG_CALL, "setup message sent to ep %d with number='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.number);
+		SCPY(message->param.setup.dialinginfo.id, newnumber);
+	PDEBUG(DEBUG_CALL, "setup message sent to ep %d with number='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.id);
 	message_put(message);
 	return(0);
 }
-
-todo: beim release von einem relation_type_setup muss der cause gesammelt werden, bis keine weitere setup-relation mehr existiert
-beim letzten den collected cause senden
-bridge kann ruhig loslegen, das aber dokumentieren
-bridge überdenken: wer sendet, welche töne verfügbar sind, u.s.w
 

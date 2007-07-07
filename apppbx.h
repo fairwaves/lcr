@@ -225,7 +225,8 @@ class EndpointAppPBX : public EndpointApp
 	void keypad_function(char digit);
 	void set_tone(struct port_list *portlist, char *tone);
 	void out_setup(void);
-	char *apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *h323, char *intern, char *name);
+	struct mISDNport *hunt_port(char *ifname, int *channel);
+	char *apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *extension, char *name);
 	void auth(int job, int bit_num);
 
 	/* vbox playback stuff */
@@ -352,7 +353,7 @@ class EndpointAppPBX : public EndpointApp
 
 char *nationalize_callerinfo(char *string, int *type);
 char *numberrize_callerinfo(char *string, int type);
-void apply_callerid_restriction(int anon_ignore, int port_type, char *id, int *ntype, int *present, int *screen, char *voip, char *intern, char *name);
+void apply_callerid_restriction(int anon_ignore, char *id, int *ntype, int *present, int *screen, char *extension, char *name);
 void send_mail(char *filename, char *callerid, char *callerintern, char *callername, char *vbox_email, int vbox_year, int vbox_mon, int vbox_mday, int vbox_hour, int vbox_min, char *terminal);
 
 
