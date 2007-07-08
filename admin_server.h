@@ -22,10 +22,12 @@ struct admin_list {
 	struct admin_list *next;
 	int sock;
 	int sockserial;
+	struct admin_trace_req trace; /* stores trace, if detail != 0 */
 	unsigned long epointid;
 	struct admin_queue *response;
 };
 
+extern struct admin_list *admin_list;
 int admin_init(void);
 void admin_cleanup(void);
 int admin_handle(void);

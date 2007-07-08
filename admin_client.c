@@ -1251,7 +1251,7 @@ char *admin_trace(int sock, int argc, char *argv[])
 	int i;
 
 	/* show help */
-	if (!strcasecmp(argv[2], "help"))
+	if (argc > 2) if (!strcasecmp(argv[2], "help"))
 	{
 		printf("Trace Help\n----------\n");
 		printf("%s trace [brief|short] [<filter>=<value> [...]]\n\n", argv[0]);
@@ -1284,7 +1284,7 @@ char *admin_trace(int sock, int argc, char *argv[])
 		else if (!strcasecmp(argv[i], "short"))
 			msg.u.trace_req.detail = 2;
 		else if (!strncasecmp(argv[i], "category=", 9))
-			SCPY(msg.u.trace_req.category, argv[i]+9);
+			msg.u.trace_req.category = atoi(argv[i]+9);
 		else if (!strncasecmp(argv[i], "port=", 5))
 			msg.u.trace_req.port = atoi(argv[i]+5);
 		else if (!strncasecmp(argv[i], "interface=", 10))

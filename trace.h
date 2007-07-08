@@ -39,6 +39,7 @@ struct trace {
 
 #define	CATEGORY_CH	0x01
 #define	CATEGORY_EP	0x02
+//#define CATEGORY_BC	0x04 check lcradmin help
 
 
 void start_trace(int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);

@@ -127,8 +127,7 @@ struct admin_call {
 
 struct admin_trace_req {
 	int		detail;
-	char		category[4];
-	char		name[64];
+	char		category;
 	int		port;
 	char		interface[64];
 	char		caller[34];
@@ -136,7 +135,7 @@ struct admin_trace_req {
 };
 
 struct admin_trace_rsp {
-	char		text[512];
+	char		text[1024];
 };
 
 //struct admin_msg {

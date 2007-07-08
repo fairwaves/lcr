@@ -310,7 +310,8 @@ void CallPBX::bridge(void)
 	class Endpoint *epoint;
 	struct port_list *portlist;
 	class Port *port;
-	int allmISDN = 0; // relations that are no mISDN
+	int allmISDN = 0; // set until a non-mISDN relation is found
+fix:
 
 	relation = c_relation;
 	while(relation)
@@ -329,7 +330,7 @@ void CallPBX::bridge(void)
 		portlist = epoint->ep_portlist;
 		if (!portlist)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation without port object.\n");
+			PDEBUG(DEBUG_CALL, "CALL%d ignoring relation without port object.\n", c_serial);
 //#warning testing: keep on hold until single audio stream available
 			relation->channel_state = CHANNEL_STATE_HOLD;
 			relation = relation->next;
@@ -337,7 +338,7 @@ void CallPBX::bridge(void)
 		}
 		if (portlist->next)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation with ep%d due to port_list.\n", epoint->ep_serial);
+			PDEBUG(DEBUG_CALL, "CALL%d ignoring relation with ep%d due to port_list.\n", c_serial, epoint->ep_serial);
 //#warning testing: keep on hold until single audio stream available
 			relation->channel_state = CHANNEL_STATE_HOLD;
 			relation = relation->next;
@@ -346,24 +347,26 @@ void CallPBX::bridge(void)
 		port = find_port_id(portlist->port_id);
 		if (!port)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation without existing port object.\n");
+			PDEBUG(DEBUG_CALL, "CALL%d ignoring relation without existing port object.\n", c_serial);
 			relation = relation->next;
 			continue;
 		}
 		if ((port->p_type&PORT_CLASS_MASK)!=PORT_CLASS_mISDN)
 		{
-			PDEBUG((DEBUG_CALL|DEBUG_PORT), "ignoring relation ep%d because it's port is not mISDN.\n", epoint->ep_serial);
+			PDEBUG(DEBUG_CALL, "CALL%d ignoring relation ep%d because it's port is not mISDN.\n", c_serial, epoint->ep_serial);
 			if (allmISDN)
 			{
-				PDEBUG((DEBUG_CALL|DEBUG_PORT), "not all endpoints are mISDN.\n");
+				PDEBUG(DEBUG_CALL, "CALL%d not all endpoints are mISDN.\n", c_serial);
 				allmISDN = 0;
 			}
 			relation = relation->next;
 			continue;
 		}
+		
 		relation = relation->next;
 	}
 
+	PDEBUG(DEBUG_CALL, "CALL%d members=%d %s\n", c_serial, relations, (allmISDN)?"(all are mISDN-members)":"(not all are mISDN-members)");
 	/* we notify all relations about rxdata. */
 	relation = c_relation;
 	while(relation)
@@ -378,20 +381,20 @@ void CallPBX::bridge(void)
 		if (relation->channel_state == CHANNEL_STATE_CONNECT
 		 && relation->rx_state != NOTIFY_STATE_HOLD
 		 && relation->rx_state != NOTIFY_STATE_SUSPEND
-		 && relations>1 // no conf with on party
+		 && relations>1 // no conf with one member
 		 && allmISDN) // no conf if any member is not mISDN
 		{
 			message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
 			message->param.mISDNsignal.conf = c_serial<<16 | c_pid;
-			PDEBUG(DEBUG_CALL, "%s +on+ id: 0x%08x\n", port->p_name, message->param.mISDNsignal.conf);
+			PDEBUG(DEBUG_CALL, "CALL%d EP%d +on+ id: 0x%08x\n", c_serial, relation->epoint_id, message->param.mISDNsignal.conf);
 			message_put(message);
 		} else
 		{
 			message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
 			message->param.mISDNsignal.conf = 0;
-			PDEBUG(DEBUG_CALL, "%s +off+ id: 0x%08x\n", port->p_name, message->param.mISDNsignal.conf);
+			PDEBUG(DEBUG_CALL, "CALL%d EP%d +off+ id: 0x%08x\n", c_serial, relation->epoint_id, message->param.mISDNsignal.conf);
 			message_put(message);
 		}
 
@@ -404,7 +407,7 @@ void CallPBX::bridge(void)
 		message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 		message->param.mISDNsignal.message = mISDNSIGNAL_CALLDATA;
 		message->param.mISDNsignal.calldata = (relations==2 && !allmISDN);
-		PDEBUG(DEBUG_CALL, "call %d sets 'calldata' on port %s to %d\n", c_serial, port->p_name, message->param.mISDNsignal.calldata);
+		PDEBUG(DEBUG_CALL, "CALL%d EP%d set calldata=%d\n", c_serial, relation->epoint_id, message->param.mISDNsignal.calldata);
 		message_put(message);
 
 		relation = relation->next;
@@ -413,6 +416,7 @@ void CallPBX::bridge(void)
 	/* two people just exchange their states */
 	if (relations==2 && !c_partyline)
 	{
+		PDEBUG(DEBUG_CALL, "CALL%d 2 relations / no partyline\n", c_serial);
 		relation = c_relation;
 		relation->tx_state = notify_state_change(c_serial, relation->epoint_id, relation->tx_state, relation->next->rx_state);
 		relation->next->tx_state = notify_state_change(c_serial, relation->next->epoint_id, relation->next->tx_state, relation->rx_state);
@@ -420,6 +424,7 @@ void CallPBX::bridge(void)
 	/* one member in a call, so we put her on hold */
 	if (relations==1 || numconnect==1)
 	{
+		PDEBUG(DEBUG_CALL, "CALL%d 1 member or only 1 connected, put on hold\n");
 		relation = c_relation;
 		while(relation)
 		{
@@ -432,6 +437,7 @@ void CallPBX::bridge(void)
 	} else
 	/* if conference/partyline or (more than two members and more than one is connected), so we set conference state */ 
 	{
+		PDEBUG(DEBUG_CALL, "CALL%d %d members, %d connected, signal conference\n", relations, numconnect);
 		relation = c_relation;
 		while(relation)
 		{
@@ -472,7 +478,7 @@ void CallPBX::bridge_data(unsigned long epoint_from, struct call_relation *relat
 		relation_to = relation_to->next;
 	}
 
-	/* skip if destomatopm endpoint has NOT audio mode CONNECT */
+	/* skip if destination endpoint has NOT audio mode CONNECT */
 	if (relation_to->channel_state != CHANNEL_STATE_CONNECT)
 		return;
 
@@ -480,6 +486,7 @@ void CallPBX::bridge_data(unsigned long epoint_from, struct call_relation *relat
 	 * will be delivered to the port
 	 */
 //PDEBUG(DEBUG_CALL, "mixing from %d to %d\n", epoint_from, relation_to->epoint_id);
+printf("from %d, to %d\n", relation_from->epoint_id, relation_to->epoint_id);
 	message = message_create(c_serial, relation_to->epoint_id, CALL_TO_EPOINT, MESSAGE_DATA);
 	memcpy(&message->param, param, sizeof(union parameter));
 	message_put(message);

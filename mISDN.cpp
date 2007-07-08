@@ -794,6 +794,7 @@ int PmISDN::handler(void)
 				elapsed = ISDN_PRELOAD;
 			}
 		}
+printf("p%d elapsed=%d\n", p_serial, elapsed);
 		if (elapsed >= ISDN_TRANSMIT)
 		{
 			unsigned char buf[mISDN_HEADER_LEN+ISDN_PRELOAD];
@@ -812,9 +813,9 @@ int PmISDN::handler(void)
 			 * the part that is filles with tones (length) is skipped, so tones have priority
 			 * the length value is increased by the number of data copied from fromup_buffer
 			 */
+printf("p%d inbuffer=%d\n", p_serial, inbuffer);
 			if (inbuffer)
 			{
-				printf("nix\n");
 				/* inbuffer might be less than we skip due to audio */
 				if (inbuffer <= length)
 				{
@@ -833,6 +834,7 @@ int PmISDN::handler(void)
 					inbuffer = elapsed - length;
 				/* set length to what we actually have */
 				length = length + inbuffer;
+printf("p%d inbuffer=%d\n", p_serial, inbuffer);
 				/* now fill up with fromup_buffer */
 				while (inbuffer)
 				{
@@ -841,11 +843,11 @@ int PmISDN::handler(void)
 					inbuffer--;
 				}
 			}
+printf("p%d length=%d\n", p_serial, length);
 
 			/* overwrite buffer with crypto stuff */
 			if (p_m_crypt_msg_loops)
 			{
-				printf("nix2\n");
 				/* send pending message */
 				int tosend;
 
@@ -921,28 +923,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	unsigned char *p;
 	int l;
 	unsigned long cont;
-//	iframe_t rsp; /* response to possible indication */
-#if 0
-#warning BCHANNEL-DEBUG
-{
-	// check if we are part of all ports */
-	class Port *port = port_first;
-	while(port)
-	{
-		if (port==this)
-			break;
-		port=port->next;
-	}
-	if (!port)
-	{
-		PERROR_RUNTIME("**************************************************\n");
-		PERROR_RUNTIME("*** BCHANNEL-DEBUG: !this! is not in list of ports\n");
-		PERROR_RUNTIME("**************************************************\n");
-		return;
-	}
-}
-#endif
-
 
 	if (frm->prim == (PH_CONTROL | INDICATION))
 	{
@@ -952,7 +932,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			return;
 		}
 		cont = *((unsigned long *)&frm->data.p);
-		// PDEBUG(DEBUG_PORT, "PmISDN(%s) received a PH_CONTROL INDICATION 0x%x\n", p_name, cont);
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
 		{
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
@@ -1003,7 +982,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			end_trace();
 		}
 		return;
-	}	
+	}
 	if (frm->prim != (PH_DATA | INDICATION) && frm->prim != (DL_DATA | INDICATION))
 	{
 		PERROR("Bchannel received unknown primitve: 0x%x\n", frm->prim);
@@ -1011,17 +990,13 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	}
 
 	/* calls will not process any audio data unless
-	 * the call is connected OR tones feature is enabled.
+	 * the call is connected OR interface features audio during call setup.
 	 */
-	if (p_state!=PORT_STATE_CONNECT
-	 && !p_m_mISDNport->tones)
-		return;
-
+//printf("%d -> %d prim=%x calldata=%d tones=%d\n", p_serial, ACTIVE_EPOINT(p_epointlist), frm->prim, p_m_calldata, p_m_mISDNport->earlyb);	
+#warning "disabled for debug"
 #if 0
-	/* the bearer capability must be audio in order to send and receive
-	 * audio prior or after connect.
-	 */
-	if (!(p_bearerinfo.capability&CLASS_CAPABILITY_AUDIO) && p_state!=PORT_STATE_CONNECT)
+	if (p_state!=PORT_STATE_CONNECT
+	 && !p_m_mISDNport->earlyb)
 		return;
 #endif
 
@@ -1053,7 +1028,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	/* send data to epoint */
 	if (p_m_calldata && ACTIVE_EPOINT(p_epointlist)) /* only if we have an epoint object */
 	{
-//printf("we are port %s and sending to epoint %d\n", p_m_cardname, p_epoint->serial);
 		length_temp = frm->len;
 		data_temp = p;
 		while(length_temp)
@@ -1068,15 +1042,6 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			length_temp -= sizeof(message->param.data.data);
 		}
 	}
-#if 0
-	/* response to the data indication */
-	rsp.prim = frm->prim & 0xfffffffc | RESPONSE; 
-	rsp.addr = frm->addr & INST_ID_MASK | FLG_MSG_DOWN;
-	rsp.dinfo = frm->dinfo;
-	rsp.len = 0;
-	mISDN_write(mISDNdevice, &rsp, mISDN_HEADER_LEN+rsp.len, TIMEOUT_1SEC);
-//PDEBUG(DEBUG_ISDN, "written %d bytes.\n", length);
-#endif
 }
 
 
@@ -1222,7 +1187,8 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_TX, p_m_txvol, "DSP-TXVOL", p_m_txvol);
-		}
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have tx-volume shift=%d.\n", p_m_rxvol);
 		if (p_m_rxvol != param->mISDNsignal.rxvol)
 		{
 			p_m_rxvol = param->mISDNsignal.rxvol;
@@ -1230,7 +1196,8 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_RX, p_m_rxvol, "DSP-RXVOL", p_m_rxvol);
-		}
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have rx-volume shift=%d.\n", p_m_rxvol);
 		break;
 
 		case mISDNSIGNAL_CONF:
@@ -1243,7 +1210,8 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], (p_m_conf)?CMX_CONF_JOIN:CMX_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
-		}
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have conf=%d.\n", p_m_conf);
 		/* we must set, even if currently tone forbids conf */
 		p_m_conf = param->mISDNsignal.conf;
 //if (dddebug) PDEBUG(DEBUG_ISDN, "dddebug = %d\n", dddebug->type);
@@ -1254,7 +1222,8 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 		{
 			p_m_calldata = param->mISDNsignal.calldata;
 			PDEBUG(DEBUG_BCHANNEL, "we change to calldata=%d.\n", p_m_calldata);
-		}
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have calldata=%d.\n", p_m_calldata);
 		break;
 		
 		case mISDNSIGNAL_DELAY:
@@ -1265,7 +1234,8 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_channel)
 				if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
-		}
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have delay=%d.\n", p_m_delay);
 		break;
 
 		default:
@@ -1736,7 +1706,7 @@ int mISDN_handler(void)
 			}
 			if (i == mISDNport->b_num)
 			{
-				PERROR("unhandled b-message (address 0x%x).\n", frm->addr);
+				PERROR("unhandled b-message (prim 0x%x address 0x%x).\n", frm->prim, frm->addr);
 				break;
 			}
 			if (mISDNport->b_port[i])
@@ -1761,7 +1731,7 @@ int mISDN_handler(void)
 			}
 			if (i == mISDNport->b_num)
 			{
-				PERROR("unhandled b-establish (address 0x%x).\n", frm->addr);
+				PERROR("unhandled b-establish (prim 0x%x address 0x%x).\n", frm->prim, frm->addr);
 				break;
 			}
 			bchannel_event(mISDNport, i, B_EVENT_ACTIVATED);
@@ -1781,7 +1751,7 @@ int mISDN_handler(void)
 			}
 			if (i == mISDNport->b_num)
 			{
-				PERROR("unhandled b-release (address 0x%x).\n", frm->addr);
+				PERROR("unhandled b-release (prim 0x%x address 0x%x).\n", frm->prim, frm->addr);
 				break;
 			}
 			bchannel_event(mISDNport, i, B_EVENT_DEACTIVATED);

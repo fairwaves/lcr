@@ -200,6 +200,7 @@ int main(int argc, char *argv[])
 #endif
 	int			idletime = 0, idlecheck = 0;
 	char			debug_log[128];
+	char			tracetext[256];
 
 	/* current time */
 	GET_NOW();
@@ -458,7 +459,10 @@ int main(int argc, char *argv[])
 	created_signal = 1;
 
 	/*** main loop ***/
-	printf("%s %s started, waiting for calls...\n", NAME, VERSION_STRING);
+	SPRINT(tracetext, "%s %s started, waiting for calls...", NAME, VERSION_STRING);
+	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
+	printf("%s\n", tracetext);
+	end_trace();
 	GET_NOW();
 #ifdef DEBUG_DURATION
 	start_d = now_d;
@@ -782,6 +786,10 @@ free:
 #define MEMCHECK(a, b) \
 	if (b) \
 	{ \
+		SPRINT(tracetext, a, NAME); \
+		start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext); \
+		if (ret) add_trace("blocks", NULL, "%d", b); \
+		end_trace(); \
 		printf("\n******************************\n\007"); \
 		printf("\nERROR: %d %s\n", b, a); \
 		printf("\n******************************\n"); \
@@ -799,13 +807,13 @@ free:
 	MEMCHECK("file handler(s) left",fhuse)
 
 	/* take me out */
+	SPRINT(tracetext, "%s exit", NAME);
+	printf("%s\n", tracetext);
+	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
 	if (ret)
-		printf("LCR: Exit (code %d)\n", ret);
-#ifdef VOIP
-	return;
-#else
+		add_trace("error", NULL, "%d", ret);
+	end_trace();
 	return(ret);
-#endif
 }
 
 

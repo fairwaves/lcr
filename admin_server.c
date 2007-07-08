@@ -262,6 +262,7 @@ int admin_route(struct admin_queue **responsep)
 		   		CATEGORY_EP,
 				apppbx->ea_endpoint->ep_serial,
 				"KICK (reload routing)");
+			end_trace();
 		}
 
 		apppbx->e_action_timeout = NULL;
@@ -335,6 +336,16 @@ int admin_dial(struct admin_queue **responsep, char *message)
 	/* attach to response chain */
 	*responsep = response;
 	responsep = &response->next;
+	return(0);
+}
+
+
+/*
+ * do tracing
+ */
+int admin_trace(struct admin_list *admin, struct admin_trace_req *trace)
+{
+	memcpy(&admin->trace, trace, sizeof(struct admin_trace_req));
 	return(0);
 }
 
@@ -1043,6 +1054,14 @@ int admin_handle(void)
 			}
 			break;
 
+			case ADMIN_TRACE_REQUEST:
+			if (admin_trace(admin, &msg.u.trace_req) < 0)
+			{
+				PERROR("Failed to create trace response for socket %d.\n", admin->sock);
+				goto response_error;
+			}
+			break;
+
 			case ADMIN_REQUEST_CMD_BLOCK:
 			if (admin_block(&admin->response, msg.u.x.portnum, msg.u.x.block) < 0)
 			{
@@ -1077,7 +1096,7 @@ int admin_handle(void)
 			break;
 
 			case ADMIN_CALL_SETUP:
-			if (admin_call(admin, &msg))
+			if (admin_call(admin, &msg) < 0)
 			{
 				PERROR("Failed to create call for socket %d.\n", admin->sock);
 				response_error:

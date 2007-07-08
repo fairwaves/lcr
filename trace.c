@@ -115,11 +115,11 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	if (interface) if (interface[0] && trace.interface[0])
 		if (!!strcasecmp(interface, trace.interface)) return(NULL);
 	if (caller) if (caller[0] && trace.caller[0])
-		if (!!strcasecmp(caller, trace.caller)) return(NULL);
+		if (!!strncasecmp(caller, trace.caller, strlen(trace.caller))) return(NULL);
 	if (dialing) if (dialing[0] && trace.dialing[0])
-		if (!!strcasecmp(dialing, trace.dialing)) return(NULL);
+		if (!!strncasecmp(dialing, trace.dialing, strlen(trace.dialing))) return(NULL);
 	if (category && trace.category)
-		if (category != trace.category) return(NULL);
+		if (!(category & trace.category)) return(NULL);
 
 	/* head */
 	if (detail >= 3)
@@ -185,6 +185,13 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 			SCAT(trace_string, "  Dialing: ---\n");
 
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
+	}
+
+	if (detail < 3)
+	{
+		tm = localtime(&ti);
+		SPRINT(buffer, "%02d.%02d.%02d %02d:%02d:%02d.%03d ", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100, tm->tm_hour, tm->tm_min, tm->tm_sec, trace.usec/1000);
+		SCAT(trace_string, buffer);
 	}
 
 	/* "CH(45): CC_SETUP (net->user)" */
@@ -271,21 +278,70 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 void end_trace(void)
 {
 	char *string;
+	FILE *fp;
+	struct admin_list	*admin;
+	struct admin_queue	*response, **responsep;	/* response pointer */
 
 	if (!trace.name[0])
 		PERROR("trace not started\n");
 	
-	/* process log file */
-	if (options.deb)
+	if (options.deb || options.log[0])
 	{
 		string = print_trace(1, 0, NULL, NULL, NULL, 0);
 		if (string)
 		{
-			debug(NULL, 0, "trace", string);
+			/* process debug */
+			if (options.deb)
+				debug(NULL, 0, "trace", string);
+			/* process log */
+			if (options.log[0])
+			{
+				fp = fopen(options.log, "a");
+				if (fp)
+				{
+					fwrite(string, strlen(string), 1, fp);
+					fclose(fp);
+				}
+			}
 		}
 	}
-printf("%s", print_trace(3, 0, NULL, NULL, NULL, 0));
-#warning trace auch zum socket
+
+	/* process admin */
+	admin = admin_list;
+	while(admin)
+	{
+		if (admin->trace.detail)
+		{
+			string = print_trace(admin->trace.detail, admin->trace.port, admin->trace.interface, admin->trace.caller, admin->trace.dialing, admin->trace.category);
+			if (string)
+			{
+				/* seek to end of response list */
+				response = admin->response;
+				responsep = &admin->response;
+				while(response)
+				{
+					responsep = &response->next;
+					response = response->next;
+				}
+
+				/* create state response */
+				response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
+				if (!response)
+					return;
+				memuse++;
+				memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
+				response->num = 1;
+				/* message */
+				response->am[0].message = ADMIN_TRACE_RESPONSE;
+				SCPY(response->am[0].u.trace_rsp.text, string);
+
+				/* attach to response chain */
+				*responsep = response;
+				responsep = &response->next;
+			}
+		}
+		admin = admin->next;
+	}
 //	fwrite(string, strlen(string), 1, fp);
 
 	memset(&trace, 0, sizeof(struct trace));
