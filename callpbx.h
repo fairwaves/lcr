@@ -56,12 +56,13 @@ class CallPBX : public Call
 	~CallPBX();
 	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	int handler(void);
-	void release(unsigned long epoint_id, int hold, int location, int cause);
+	int release(struct call_relation *relation, int location, int cause);
 
 	char c_caller[32];		/* caller number */
 	char c_caller_id[32];		/* caller id to signal */
 	char c_dialed[1024];		/* dial string of (all) number(s) */
 	char c_todial[32];		/* overlap dialing (part not signalled yet) */
+	int c_multicause, c_multilocation;
 	
 	int c_pid;			/* pid of call to generate bridge id */
 	int c_updatebridge;		/* bridge must be updated */

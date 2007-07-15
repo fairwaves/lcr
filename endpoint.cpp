@@ -39,7 +39,7 @@ class Endpoint *find_epoint_id(unsigned long epoint_id)
 /*
  * endpoint constructor (link with either port or call id)
  */
-Endpoint::Endpoint(int port_id, int call_id)
+Endpoint::Endpoint(unsigned long port_id, unsigned long call_id, unsigned long use_epoint_id)
 {
 	class Port *port;
 	class Endpoint **epointpointer;
@@ -60,7 +60,10 @@ Endpoint::Endpoint(int port_id, int call_id)
 	*epointpointer = this;
 
 	/* serial */
-	ep_serial = epoint_serial++;
+	if (use_epoint_id)
+		ep_serial = use_epoint_id;
+	else
+		ep_serial = epoint_serial++;
 
 	/* link to call or port */
 	if (port_id)
@@ -71,10 +74,7 @@ Endpoint::Endpoint(int port_id, int call_id)
 			if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
 				earlyb = ((class PmISDN *)port)->p_m_mISDNport->earlyb;
 			if (!portlist_new(port_id, port->p_type, earlyb))
-			{
-				PERROR("no mem for portlist, exitting...\n");
-				exit(-1);
-			}
+				FATAL("No memory for portlist.\n");
 		}
 	}
 	ep_call_id = call_id;
@@ -117,7 +117,7 @@ Endpoint::~Endpoint(void)
 		mtemp = portlist;
 		portlist = portlist->next;
 		memset(mtemp, 0, sizeof(struct port_list));
-		free(mtemp);
+		FREE(mtemp, sizeof(struct port_list));
 		ememuse--;
 	}
 
@@ -133,10 +133,7 @@ Endpoint::~Endpoint(void)
 		temp = temp->next;
 	}
 	if (temp == 0)
-	{
-		PERROR("error: endpoint not in endpoint's list, exitting.\n");
-		exit(-1);
-	}
+		FATAL("Endpoint not in Endpoint's list.\n");
 	*tempp = next;
 
 	/* free */
@@ -150,15 +147,9 @@ struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type, i
 	struct port_list *portlist, **portlistpointer;
 
 	/* portlist structure */
-	portlist = (struct port_list *)calloc(1, sizeof(struct port_list));
-	if (!portlist)
-	{
-		PERROR("no mem for allocating port_list\n");
-		return(0);
-	}
+	portlist = (struct port_list *)MALLOC(sizeof(struct port_list));
 	ememuse++;
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocating port_list.\n", ep_serial);
-	memset(portlist, 0, sizeof(struct port_list));
 
 	/* add port_list to chain */
 	portlist->next = NULL;
@@ -192,18 +183,14 @@ void Endpoint::free_portlist(struct port_list *portlist)
 		tempp = &temp->next;
 		temp = temp->next;
 	}
-	if (temp == 0)
-	{
-		PERROR("port_list not in endpoint's list, exitting.\n");
-		exit(-1);
-	}
+	if (!temp)
+		FATAL("port_list not in Endpoint's list.\n");
 	/* detach */
 	*tempp=portlist->next;
 
 	/* free */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removed port_list from endpoint\n", ep_serial);
-	memset(portlist, 0, sizeof(struct port_list));
-	free(portlist);
+	FREE(portlist, sizeof(struct port_list));
 	ememuse--;
 }
 

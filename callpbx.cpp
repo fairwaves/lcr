@@ -237,16 +237,13 @@ void callpbx_debug(class CallPBX *callpbx, char *function)
  * constructor for a new call 
  * the call will have a relation to the calling endpoint
  */
-CallPBX::CallPBX(class Endpoint *epoint) : Call(epoint)
+CallPBX::CallPBX(class Endpoint *epoint) : Call()
 {
 	struct call_relation *relation;
 //	char filename[256];
 
 	if (!epoint)
-	{
-		PERROR("software error, epoint is NULL.\n");
-		exit(-1);
-	}
+		FATAL("epoint is NULL.\n");
 
 	PDEBUG(DEBUG_CALL, "creating new call and connecting it to the endpoint.\n");
 
@@ -258,16 +255,12 @@ CallPBX::CallPBX(class Endpoint *epoint) : Call(epoint)
 	c_pid = getpid();
 	c_updatebridge = 0;
 	c_partyline = 0;
+	c_multicause = CAUSE_NOUSER;
+	c_multilocation = LOCATION_PRIVATE_LOCAL;
 
 	/* initialize a relation only to the calling interface */
-	relation = c_relation = (struct call_relation *)calloc(1, sizeof(struct call_relation));
-	if (!relation)
-	{
-		PERROR("no memory, exitting..\n");
-		exit(-1);
-	}
+	relation = c_relation = (struct call_relation *)MALLOC(sizeof(struct call_relation));
 	cmemuse++;
-	memset(relation, 0, sizeof(struct call_relation));
 	relation->type = RELATION_TYPE_CALLING;
 	relation->channel_state = CHANNEL_STATE_HOLD; /* audio is assumed on a new call */
 	relation->tx_state = NOTIFY_STATE_ACTIVE; /* new calls always assumed to be active */
@@ -291,8 +284,7 @@ CallPBX::~CallPBX()
 	while(relation)
 	{
 		rtemp = relation->next;
-		memset(relation, 0, sizeof(struct call_relation));
-		free(relation);
+		FREE(relation, sizeof(struct call_relation));
 		cmemuse--;
 		relation = rtemp;
 	}
@@ -310,8 +302,11 @@ void CallPBX::bridge(void)
 	class Endpoint *epoint;
 	struct port_list *portlist;
 	class Port *port;
-	int allmISDN = 0; // set until a non-mISDN relation is found
-fix:
+#ifdef DEBUG_COREBRIDGE
+	int allmISDN = 0; // never set for debug purpose
+#else
+	int allmISDN = 1; // set until a non-mISDN relation is found
+#endif
 
 	relation = c_relation;
 	while(relation)
@@ -456,7 +451,6 @@ fix:
 void CallPBX::bridge_data(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param)
 {
 	struct call_relation *relation_to;
-	struct message *message;
 
 	/* if we are alone */
 	if (!c_relation->next)
@@ -485,79 +479,55 @@ void CallPBX::bridge_data(unsigned long epoint_from, struct call_relation *relat
 	/* now we may send our data to the endpoint where it
 	 * will be delivered to the port
 	 */
-//PDEBUG(DEBUG_CALL, "mixing from %d to %d\n", epoint_from, relation_to->epoint_id);
-printf("from %d, to %d\n", relation_from->epoint_id, relation_to->epoint_id);
-	message = message_create(c_serial, relation_to->epoint_id, CALL_TO_EPOINT, MESSAGE_DATA);
-	memcpy(&message->param, param, sizeof(union parameter));
-	message_put(message);
+//printf("from %d, to %d\n", relation_from->epoint_id, relation_to->epoint_id);
+	message_forward(c_serial, relation_to->epoint_id, CALL_TO_EPOINT, param);
 }
-
 
 /* release call from endpoint
  * if the call has two relations, all relations are freed and the call will be
- * destroyed 
+ * destroyed
+ * on outgoing relations, the cause is collected, if not connected
+ * returns if call has been destroyed
  */
-void CallPBX::release(unsigned long epoint_id, int hold, int location, int cause)
+int CallPBX::release(struct call_relation *relation, int location, int cause)
 {
-	struct call_relation *relation, **relationpointer;
+	struct call_relation *reltemp, **relationpointer;
 	struct message *message;
-
 	class Call *call;
-
-	if (!epoint_id)
-	{
-		PERROR("software error, epoint is NULL.\n");
-		return;
-	}
-
-	if (options.deb & DEBUG_CALL)
-		callpbx_debug(this, "call_release{before}");
-
-	/* find relation */
-	relation = c_relation;
-	while(relation)
-	{
-		if (relation->epoint_id == epoint_id)
-			break;
-		relation = relation->next;
-	}
-	if (!relation)
-	{
-		PERROR("software error, epoint has a call with no relation to the epoint.\n");
-		return;
-	}
+	int destroy = 0;
 
 	/* remove from bridge */
 	if (relation->channel_state != CHANNEL_STATE_HOLD)
 	{
 		relation->channel_state = CHANNEL_STATE_HOLD;
 		c_updatebridge = 1; /* update bridge flag */
+		// note: if call is not released, bridge must be updated
 	}
 
 	/* detach given interface */
-	relation = c_relation;
+	reltemp = c_relation;
 	relationpointer = &c_relation;
-	while(relation)
+	while(reltemp)
 	{
 		/* endpoint of function call */
-		if (relation->epoint_id == epoint_id)
-		{
-			*relationpointer = relation->next;
-			memset(relation, 0, sizeof(struct call_relation));
-			free(relation);
-			cmemuse--;
-			relation = *relationpointer;
-			continue;
-		}
-		relationpointer = &relation->next;
-		relation = relation->next;
+		if (relation == reltemp)
+			break;
+		relationpointer = &reltemp->next;
+		reltemp = reltemp->next;
 	}
+	if (!reltemp)
+		FATAL("relation not in list of our relations. this must not happen.\n");
+	*relationpointer = reltemp->next;
+	FREE(reltemp, sizeof(struct call_relation));
+	cmemuse--;
+	relation = reltemp = NULL; // just in case of reuse fault;
 
 	/* if no more relation */
 	if (!c_relation)
 	{
 		PDEBUG(DEBUG_CALL, "call is completely removed.\n");
 		/* there is no more endpoint related to the call */
+		destroy = 1;
 		delete this;
 		// end of call object!
 		PDEBUG(DEBUG_CALL, "call completely removed!\n");
@@ -575,6 +545,7 @@ void CallPBX::release(unsigned long epoint_id, int hold, int location, int cause
 		message->param.disconnectinfo.cause = cause;
 		message->param.disconnectinfo.location = location;
 		message_put(message);
+		destroy = 1;
 		delete this;
 		// end of call object!
 		PDEBUG(DEBUG_CALL, "call completely removed!\n");
@@ -588,6 +559,7 @@ void CallPBX::release(unsigned long epoint_id, int hold, int location, int cause
 		call = call->next;
 	}
 	PDEBUG(DEBUG_CALL, "call_release(): ended.\n");
+	return(destroy);
 }
 
 /* count number of relations in a call
@@ -646,8 +618,7 @@ void CallPBX::remove_relation(struct call_relation *relation)
 
 	PDEBUG(DEBUG_CALL, "removing relation.\n");
 	*tempp = relation->next;
-	memset(temp, 0, sizeof(struct call_relation));
-	free(temp);
+	FREE(temp, sizeof(struct call_relation));
 	cmemuse--;
 }	
 
@@ -665,14 +636,8 @@ struct call_relation *CallPBX::add_relation(void)
 	while(relation->next)
 		relation = relation->next;
 
-	relation->next = (struct call_relation *)calloc(1, sizeof(struct call_relation));
-	if (!relation->next)
-	{
-		PERROR("no memory\n");
-		return(NULL);
-	}
+	relation->next = (struct call_relation *)MALLOC(sizeof(struct call_relation));
 	cmemuse++;
-	memset(relation->next, 0, sizeof(struct call_relation));
 	/* the record pointer is set at the first time the data is received for the relation */
 
 //	if (options.deb & DEBUG_CALL)
@@ -686,7 +651,7 @@ struct call_relation *CallPBX::add_relation(void)
 void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
 {
 	class Call *cl;
-	struct call_relation *relation, *rel;
+	struct call_relation *relation, *reltemp;
 	int num;
 	int new_state;
 	struct message *message;
@@ -728,7 +693,7 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 	}
 	if (!relation)
 	{
-//		PERROR("no relation back to the endpoint found, ignoring (call=%d, endpoint=%d\n", c_serial, epoint_id);
+		PDEBUG(DEBUG_CALL, "no relation back to the endpoint found, ignoring (call=%d, endpoint=%d)\n", c_serial, epoint_id);
 		return;
 	}
 
@@ -768,16 +733,16 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 
 			default:
 			/* send notification to all other endpoints */
-			rel = c_relation;
-			while(rel)
+			reltemp = c_relation;
+			while(reltemp)
 			{
-				if (rel->epoint_id!=epoint_id && rel->epoint_id)
+				if (reltemp->epoint_id!=epoint_id && reltemp->epoint_id)
 				{
-					message = message_create(c_serial, rel->epoint_id, CALL_TO_EPOINT, MESSAGE_NOTIFY);
+					message = message_create(c_serial, reltemp->epoint_id, CALL_TO_EPOINT, MESSAGE_NOTIFY);
 					memcpy(&message->param, param, sizeof(union parameter));
 					message_put(message);
 				}
-				rel = rel->next;
+				reltemp = reltemp->next;
 			}
 		}
 		return;
@@ -787,6 +752,40 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		/* now send audio data to the other endpoint */
 		bridge_data(epoint_id, relation, param);
 		return;
+
+		/* relations sends a connect */
+		case MESSAGE_CONNECT:
+		/* outgoing setup type becomes connected */
+		if (relation->type == RELATION_TYPE_SETUP)
+			relation->type = RELATION_TYPE_CONNECT;
+		/* release other relations in setup state */
+		release_again:
+		relation = c_relation;
+		while(relation)
+		{
+			if (relation->type == RELATION_TYPE_SETUP)
+			{
+				if (release(relation, LOCATION_PRIVATE_LOCAL, CAUSE_NONSELECTED))
+					return; // must return, because call IS destroyed
+				goto release_again;
+			}
+			relation = relation->next;
+		}
+		break; // continue with our message
+
+		/* release is sent by endpoint */
+		case MESSAGE_RELEASE:
+		if (relation->type == RELATION_TYPE_SETUP)
+		{
+			/* collect cause and send collected cause */
+			collect_cause(&c_multicause, &c_multilocation, param->disconnectinfo.cause, param->disconnectinfo.location);
+			release(relation, c_multilocation, c_multicause);
+		} else
+		{
+			/* send current cause */
+			release(relation, param->disconnectinfo.location, param->disconnectinfo.cause);
+		}
+		return; // must return, because call may be destroyed
 	}
 
 	/* process party line */
@@ -804,12 +803,10 @@ void CallPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		if (message_type == MESSAGE_DISCONNECT)
 		{
 			PDEBUG(DEBUG_CALL, "releasing after receiving disconnect, because call in partyline mode.\n");
-//			remove_relation(relation);
 			message = message_create(c_serial, epoint_id, CALL_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = CAUSE_NORMAL;
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			message_put(message);
-//			c_updatebridge = 1; /* update bridge flag */
 			return;
 		}
 	}
@@ -942,39 +939,17 @@ int CallPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	PDEBUG(DEBUG_CALL, "no endpoint found, so we will create an endpoint and send the setup message we have.\n");
 	/* create a new relation */
 	if (!(relation=add_relation()))
-	{
-		/* release due to error */
-		ressource_error:
-		relation = c_relation;
-		while(relation)
-		{
-			message = message_create(c_serial, relation->epoint_id, CALL_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = (relation->epoint_id==epoint_id)?CAUSE_RESSOURCEUNAVAIL:CAUSE_NORMAL; 
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-			message_put(message);
-			relation = relation->next;
-		}
-		delete this;
-		return(-ENOMEM);
-	}
+		FATAL("No memory for relation.\n");
 	relation->type = RELATION_TYPE_SETUP;
 	relation->channel_state = CHANNEL_STATE_HOLD; /* audio is assumed on a new call */
 	relation->tx_state = NOTIFY_STATE_ACTIVE; /* new calls always assumed to be active */
 	relation->rx_state = NOTIFY_STATE_ACTIVE; /* new calls always assumed to be active */
 	/* create a new endpoint */
-	epoint = new Endpoint(0, c_serial);
+	epoint = new Endpoint(0, c_serial, 0);
 	if (!epoint)
-	{
-		remove_relation(relation);
-		goto ressource_error;
-	}
+		FATAL("No memory for Endpoint instance\n");
 	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
-	{
-		PERROR("ERROR:No endpoint's app.\n");
-		delete epoint;
-		remove_relation(relation);
-		goto ressource_error;
-	}
+		FATAL("No memory for Endpoint Application instance\n");
 	relation->epoint_id = epoint->ep_serial;
 	/* send setup message to new endpoint */
 //printf("JOLLY DEBUG: %d\n",call_countrelations(c_serial));
@@ -988,4 +963,5 @@ int CallPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	message_put(message);
 	return(0);
 }
+
 

@@ -22,7 +22,7 @@ struct port_list {
 class Endpoint
 {
 	public:
-	Endpoint(int port_id, int call_id);
+	Endpoint(unsigned long port_id, unsigned long call_id, unsigned long use_epoint_id);
 	~Endpoint();
 	class Endpoint		*next;		/* next in list */
 	unsigned long		ep_serial;	/* a unique serial to identify */

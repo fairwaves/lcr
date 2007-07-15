@@ -179,8 +179,7 @@ static void *mail_child(void *arg)
 	PDEBUG(DEBUG_EPOINT, "child process done for sending a mail\n");
 
 	/* exit process */
-	memset(args, 0, sizeof(struct mail_args));
-	free(args);
+	FREE(args, sizeof(struct mail_args));
 	amemuse--;
 	return(NULL);
 }
@@ -190,12 +189,7 @@ void send_mail(char *filename, char *callerid, char *callerintern, char *callern
 	struct mail_args *arg;
 	pthread_t tid;
 
-	arg = (struct mail_args *)calloc(1, sizeof(struct mail_args));
-	if (!arg)
-	{
-		PERROR("failed to alloc memory.\n");
-		return;
-	}
+	arg = (struct mail_args *)MALLOC(sizeof(struct mail_args));
 	amemuse++;
 
 	SCPY(arg->email, vbox_email);

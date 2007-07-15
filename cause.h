@@ -26,6 +26,7 @@
 #define CAUSE_NOUSER		18
 #define CAUSE_NOANSWER		19
 #define CAUSE_REJECTED		21
+#define CAUSE_NONSELECTED	26
 #define CAUSE_OUTOFORDER	27
 #define CAUSE_INVALID		28
 #define CAUSE_FACILITYREJECTED	29
@@ -49,3 +50,4 @@ struct isdn_location {
 extern struct isdn_cause isdn_cause[128];
 extern struct isdn_location isdn_location[16];
 char *get_isdn_cause(int cause, int location, int type);
+void collect_cause(int *multicause, int *multilocation, int newcause, int newlocation);

@@ -243,15 +243,8 @@ int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union para
 		memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 		/* link relation */
 		if (p_epointlist)
-		{
-			PERROR("PORT(%s) software error: epoint pointer is set in idle state, how bad!! exitting.\n", p_name);
-			exit(-1);
-		}
-		if (!(epointlist_new(epoint_id)))
-		{
-			PERROR("no memory for epointlist\n");
-			exit(-1);
-		}
+			FATAL("PORT(%s) Epoint pointer is set in idle state, how bad!!\n", p_name);
+		epointlist_new(epoint_id);
 
 		/* copy setup infos to port */
 		SCPY(p_vbox_extension, param->setup.dialinginfo.id);

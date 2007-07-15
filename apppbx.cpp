@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -126,10 +126,7 @@ EndpointAppPBX::~EndpointAppPBX(void)
 		temp = temp->next;
 	}
 	if (temp == 0)
-	{
-		PERROR("error: endpoint not in endpoint's list, exitting.\n");
-		exit(-1);
-	}
+		FATAL("Endpoint not in endpoint's list.\n");
 	*tempp = next;
 
 }
@@ -180,165 +177,152 @@ void EndpointAppPBX::new_state(int state)
 /* screen caller id
  * out==0: incomming caller id, out==1: outgoing caller id
  */
-void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *present)
+void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface)
 {
-	struct interface	*interface;
 	char			*msn1;
 	struct interface_msn	*ifmsn;
 	struct interface_screen	*ifscreen;
 	char suffix[64];
 
-	interface = interface_first;
-	while(interface)
+	/* screen incoming caller id */
+	if (!out)
 	{
-		if (!strcmp(e_callerinfo.interface, interface->name))
+		/* check for MSN numbers, use first MSN if no match */
+		msn1 = NULL;
+		ifmsn = interface->ifmsn;
+		while(ifmsn)
 		{
+			if (!msn1)
+				msn1 = ifmsn->msn;
+			if (!strcmp(ifmsn->msn, id))
+			{
+				break;
+			}
+			ifmsn = ifmsn->next;
+		}
+		if (ifmsn)
+		{
+			trace_header("SCREEN (found in list)", DIRECTION_IN);
+			add_trace("msn", NULL, "%s", id);
+			end_trace();
+		}
+		if (!ifmsn && msn1) // not in list, first msn given
+		{
+			trace_header("SCREEN (not found in list)", DIRECTION_IN);
+			add_trace("msn", "given", "%s", id);
+			add_trace("msn", "used", "%s", msn1);
+			end_trace();
+			UNCPY(id, msn1, idsize);
+			id[idsize-1] = '\0';
+		}
+	}
+
+	/* check screen list */
+	if (out)
+		ifscreen = interface->ifscreen_out;
+	else
+		ifscreen = interface->ifscreen_in;
+	while (ifscreen)
+	{
+		if (ifscreen->match_type==-1 || ifscreen->match_type==*type)
+		if (ifscreen->match_present==-1 || ifscreen->match_present==*present)
+		{
+			if (strchr(ifscreen->match,'%'))
+			{
+				if (!strncmp(ifscreen->match, id, strchr(ifscreen->match,'%')-ifscreen->match))
+					break;
+			} else
+			{
+				if (!strcmp(ifscreen->match, id))
+					break;
+			}
+		}
+		ifscreen = ifscreen->next;
+	}
+	if (ifscreen) // match
+	{
+		trace_header("SCREEN (found in list)", out?DIRECTION_OUT:DIRECTION_IN);
+		switch(*type)
+		{
+			case INFO_NTYPE_UNKNOWN:
+			add_trace("given", "type", "unknown");
+			break;
+			case INFO_NTYPE_SUBSCRIBER:
+			add_trace("given", "type", "subscriber");
+			break;
+			case INFO_NTYPE_NATIONAL:
+			add_trace("given", "type", "national");
+			break;
+			case INFO_NTYPE_INTERNATIONAL:
+			add_trace("given", "type", "international");
 			break;
 		}
-		interface = interface->next;
-	}
-	if (interface)
-	{
-		/* screen incoming caller id */
-		if (!out)
+		switch(*present)
 		{
-			/* check for MSN numbers, use first MSN if no match */
-			msn1 = NULL;
-			ifmsn = interface->ifmsn;
-			while(ifmsn)
-			{
-				if (!msn1)
-					msn1 = ifmsn->msn;
-				if (!strcmp(ifmsn->msn, id))
-				{
-					break;
-				}
-				ifmsn = ifmsn->next;
-			}
-			if (ifmsn)
-			{
-				trace_header("SCREEN (found in list)", DIRECTION_IN);
-				add_trace("msn", NULL, "%s", id);
-				end_trace();
-			}
-			if (!ifmsn && msn1) // not in list, first msn given
-			{
-				trace_header("SCREEN (not found in list)", DIRECTION_IN);
-				add_trace("msn", "given", "%s", id);
-				add_trace("msn", "used", "%s", msn1);
-				end_trace();
-				UNCPY(id, msn1, idsize);
-				id[idsize-1] = '\0';
-			}
+			case INFO_PRESENT_ALLOWED:
+			add_trace("given", "present", "allowed");
+			break;
+			case INFO_PRESENT_RESTRICTED:
+			add_trace("given", "present", "restricted");
+			break;
+			case INFO_PRESENT_NOTAVAIL:
+			add_trace("given", "present", "not available");
+			break;
 		}
-	
-		/* check screen list */
-		if (out)
-			ifscreen = interface->ifscreen_out;
-		else
-			ifscreen = interface->ifscreen_in;
-		while (ifscreen)
+		add_trace("given", "id", "%s", id[0]?id:"<empty>");
+		if (ifscreen->result_type != -1)
 		{
-			if (ifscreen->match_type==-1 || ifscreen->match_type==*type)
-			if (ifscreen->match_present==-1 || ifscreen->match_present==*present)
-			{
-				if (strchr(ifscreen->match,'%'))
-				{
-					if (!strncmp(ifscreen->match, id, strchr(ifscreen->match,'%')-ifscreen->match))
-						break;
-				} else
-				{
-					if (!strcmp(ifscreen->match, id))
-						break;
-				}
-			}
-			ifscreen = ifscreen->next;
-		}
-		if (ifscreen) // match
-		{
-			trace_header("SCREEN (found in list)", out?DIRECTION_OUT:DIRECTION_IN);
+			*type = ifscreen->result_type;
 			switch(*type)
 			{
 				case INFO_NTYPE_UNKNOWN:
-				add_trace("given", "type", "unknown");
+				add_trace("used", "type", "unknown");
 				break;
 				case INFO_NTYPE_SUBSCRIBER:
-				add_trace("given", "type", "subscriber");
+				add_trace("used", "type", "subscriber");
 				break;
 				case INFO_NTYPE_NATIONAL:
-				add_trace("given", "type", "national");
+				add_trace("used", "type", "national");
 				break;
 				case INFO_NTYPE_INTERNATIONAL:
-				add_trace("given", "type", "international");
+				add_trace("used", "type", "international");
 				break;
 			}
+		}
+		if (ifscreen->result_present != -1)
+		{
+			*present = ifscreen->result_present;
 			switch(*present)
 			{
 				case INFO_PRESENT_ALLOWED:
-				add_trace("given", "present", "allowed");
+				add_trace("used", "present", "allowed");
 				break;
 				case INFO_PRESENT_RESTRICTED:
-				add_trace("given", "present", "restricted");
+				add_trace("used", "present", "restricted");
 				break;
 				case INFO_PRESENT_NOTAVAIL:
-				add_trace("given", "present", "not available");
+				add_trace("used", "present", "not available");
 				break;
 			}
-			add_trace("given", "id", "%s", id[0]?id:"<empty>");
-			if (ifscreen->result_type != -1)
-			{
-				*type = ifscreen->result_type;
-				switch(*type)
-				{
-					case INFO_NTYPE_UNKNOWN:
-					add_trace("used", "type", "unknown");
-					break;
-					case INFO_NTYPE_SUBSCRIBER:
-					add_trace("used", "type", "subscriber");
-					break;
-					case INFO_NTYPE_NATIONAL:
-					add_trace("used", "type", "national");
-					break;
-					case INFO_NTYPE_INTERNATIONAL:
-					add_trace("used", "type", "international");
-					break;
-				}
-			}
-			if (ifscreen->result_present != -1)
-			{
-				*present = ifscreen->result_present;
-				switch(*present)
-				{
-					case INFO_PRESENT_ALLOWED:
-					add_trace("used", "present", "allowed");
-					break;
-					case INFO_PRESENT_RESTRICTED:
-					add_trace("used", "present", "restricted");
-					break;
-					case INFO_PRESENT_NOTAVAIL:
-					add_trace("used", "present", "not available");
-					break;
-				}
-			}
-			if (strchr(ifscreen->match,'%'))
-			{
-				SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
-				UNCPY(id, ifscreen->result, idsize);
-				id[idsize-1] = '\0';
-				if (strchr(ifscreen->result,'%'))
-				{
-					*strchr(ifscreen->result,'%') = '\0';
-					UNCAT(id, suffix, idsize);
-					id[idsize-1] = '\0';
-				}
-			} else
-			{
-				UNCPY(id, ifscreen->result, idsize);
-				id[idsize-1] = '\0';
-			}
-			add_trace("used", "id", "%s", id[0]?id:"<empty>");
-			end_trace();
 		}
+		if (strchr(ifscreen->match,'%'))
+		{
+			SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
+			UNCPY(id, ifscreen->result, idsize);
+			id[idsize-1] = '\0';
+			if (strchr(ifscreen->result,'%'))
+			{
+				*strchr(ifscreen->result,'%') = '\0';
+				UNCAT(id, suffix, idsize);
+				id[idsize-1] = '\0';
+			}
+		} else
+		{
+			UNCPY(id, ifscreen->result, idsize);
+			id[idsize-1] = '\0';
+		}
+		add_trace("used", "id", "%s", id[0]?id:"<empty>");
+		end_trace();
 	}
 }
 
@@ -349,7 +333,6 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 	struct port_list *portlist;
 	struct message *message;
 	char cause[16];
-	class Call *call;
 
 	/* message to test call */
 	admin_call_response(e_adminid, ADMIN_CALL_RELEASE, "", callcause, calllocation, 0);
@@ -360,11 +343,12 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): do pending release (callcause %d location %d)\n", ea_endpoint->ep_serial, callcause, calllocation);
 		if (ea_endpoint->ep_call_id)
 		{
-			call = find_call_id(ea_endpoint->ep_call_id);
-			if (call)
-				call->release(ea_endpoint->ep_serial, 0, calllocation, callcause);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = callcause;
+			message->param.disconnectinfo.location = calllocation;
+			message_put(message);
+			ea_endpoint->ep_call_id = 0;
 		}
-		ea_endpoint->ep_call_id = 0;
 		e_call_pattern = 0;
 #if 0
 		if (release != RELEASE_PORT_CALLONLY)
@@ -848,7 +832,7 @@ foundif:
 		goto portbusy;
 	}
 
-	/* see if link is up */
+	/* see if link is up on PTP*/
 	if (mISDNport->ptp && !mISDNport->l2link)
 	{
 		trace_header("CHANNEL SELECTION (port is ptp with layer 2 down, skipping)", DIRECTION_NONE);
@@ -1137,10 +1121,7 @@ void EndpointAppPBX::out_setup(void)
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
 			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
 			if (!port)
-			{
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port '%s' failed to create\n", ea_endpoint->ep_serial, mISDNport->ifport->interface->name);
-				goto check_anycall_intern;
-			}
+				FATAL("No memory for DSS1 Port instance\n");
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			SCPY(dialinginfo.id, e_dialinginfo.id);
@@ -1228,10 +1209,7 @@ void EndpointAppPBX::out_setup(void)
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) answering machine\n", ea_endpoint->ep_serial);
 				/* alloc port */
 				if (!(port = new VBoxPort(PORT_TYPE_VBOX_OUT, &port_settings)))
-				{
-					PERROR("EPOINT(%d) no mem for port\n", ea_endpoint->ep_serial);
-					break;
-				}
+					FATAL("No memory for VBOX Port instance\n");
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocated port %s\n", ea_endpoint->ep_serial, port->p_name);
 				UCPY(cfp, e_ext.number); /* cfp or any other direct forward/vbox */
 			} else
@@ -1249,7 +1227,8 @@ void EndpointAppPBX::out_setup(void)
 				{
 					/* creating EXTERNAL port*/
 					SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
+					if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force)))
+						FATAL("No memory for DSS1 Port instance\n");
 					earlyb = mISDNport->earlyb;
 				} else
 				{
@@ -1333,24 +1312,18 @@ void EndpointAppPBX::out_setup(void)
 			/* hunt for mISDNport and create Port */
 			/* hunt for mISDNport and create Port */
 			mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
-			if (mISDNport)
-			{
-				/* creating EXTERNAL port*/
-				SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
-				earlyb = mISDNport->earlyb;
-			} else
+			if (!mISDNport)
 			{
 				trace_header("INTERFACE (too busy)", DIRECTION_NONE);
 				add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
 				end_trace();
 				goto check_anycall_extern;
 			}
-			if (!port)	
-			{
-				PERROR("EPOINT(%d) no memory for external port, exitting\n", ea_endpoint->ep_serial);
-				exit(-1);
-			}
+			/* creating EXTERNAL port*/
+			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+			if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force)))
+				FATAL("No memory for DSS1 Port instance\n");
+			earlyb = mISDNport->earlyb;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			SCPY(dialinginfo.id, number);
@@ -1632,6 +1605,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	char			buffer[256];
 	int			writeext;		/* flags need to write extension after modification */
 	class Port		*port;
+	struct interface	*interface;
 
 	portlist->port_type = param->setup.port_type;
 	memcpy(&e_callerinfo, &param->setup.callerinfo, sizeof(e_callerinfo));
@@ -1641,7 +1615,17 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	e_dtmf = param->setup.dtmf;
 
 	/* screen incoming caller id */
-	screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
+	interface = interface_first;
+	while(interface)
+	{
+		if (!strcmp(e_callerinfo.interface, interface->name))
+		{
+			break;
+		}
+		interface = interface->next;
+	}
+	if (interface)
+		screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, interface);
 
 	/* process extension */
 	if (e_callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
@@ -2143,6 +2127,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	unsigned long port_id = portlist->port_id;
 	struct port_list *tportlist;
 	class Port *port;
+	struct interface	*interface;
 
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_CONNECT, numberrize_callerinfo(param->connectinfo.id,param->connectinfo.ntype), 0, 0, 0);
@@ -2162,12 +2147,9 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		if (tportlist->port_id == port_id) /* if the first portlist is the calling one, the second must be a different one */
 			tportlist = tportlist->next;
 		if (tportlist->port_id == port_id)
-		{
-			PERROR("EPOINT(%d) software error: this should not happen since the portlist list must not have two links to the same port - exitting.\n");
-			exit(-1);
-		}
+			FATAL("EPOINT(%d) this should not happen since the portlist list must not have two links to the same port - exitting.\n");
 		message = message_create(ea_endpoint->ep_serial, tportlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
-		message->param.disconnectinfo.cause = 26; /* non selected user clearing */
+		message->param.disconnectinfo.cause = CAUSE_NONSELECTED; /* non selected user clearing */
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		logmessage(message);
@@ -2178,7 +2160,17 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	e_start = now;
 
 	/* screen incoming connected id */
-	screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
+	interface = interface_first;
+	while(interface)
+	{
+		if (!strcmp(e_connectinfo.interface, interface->name))
+		{
+			break;
+		}
+		interface = interface->next;
+	}
+	if (interface)
+		screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present, interface);
 
 	/* screen connected name */
 	if (e_ext.name[0])
@@ -2188,7 +2180,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	SCPY(e_connectinfo.extension, e_ext.number);
 
 	/* we store the connected port number */
-	SCPY(e_extension_interface, e_connectinfo.interfaces);
+	SCPY(e_extension_interface, e_connectinfo.interface);
 
 	/* for internal and am calls, we get the extension's id */
 	if (portlist->port_type==PORT_TYPE_VBOX_OUT || e_ext.colp==COLP_HIDE)
@@ -2367,31 +2359,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 
 	/* collect cause */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) current multipoint cause %d location %d, received cause %d location %d.\n", ea_endpoint->ep_serial, e_multipoint_cause, e_multipoint_location, param->disconnectinfo.cause, param->disconnectinfo.location);
-	if (param->disconnectinfo.cause == CAUSE_REJECTED) /* call rejected */
-	{
-		e_multipoint_cause = CAUSE_REJECTED;
-		e_multipoint_location = param->disconnectinfo.location;
-	} else
-	if (param->disconnectinfo.cause==CAUSE_NORMAL && e_multipoint_cause!=CAUSE_REJECTED) /* reject via hangup */
-	{
-		e_multipoint_cause = CAUSE_NORMAL;
-		e_multipoint_location = param->disconnectinfo.location;
-	} else
-	if (param->disconnectinfo.cause==CAUSE_BUSY && e_multipoint_cause!=CAUSE_REJECTED && e_multipoint_cause!=CAUSE_NORMAL) /* busy */
-	{
-		e_multipoint_cause = CAUSE_BUSY;
-		e_multipoint_location = param->disconnectinfo.location;
-	} else
-	if (param->disconnectinfo.cause==CAUSE_OUTOFORDER && e_multipoint_cause!=CAUSE_BUSY && e_multipoint_cause!=CAUSE_REJECTED && e_multipoint_cause!=CAUSE_NORMAL) /* no L1 */
-	{
-		e_multipoint_cause = CAUSE_OUTOFORDER;
-		e_multipoint_location = param->disconnectinfo.location;
-	} else
-	if (param->disconnectinfo.cause!=CAUSE_NOUSER && e_multipoint_cause!=CAUSE_OUTOFORDER && e_multipoint_cause!=CAUSE_BUSY && e_multipoint_cause!=CAUSE_REJECTED && e_multipoint_cause!=CAUSE_NORMAL) /* anything but not 18 */
-	{
-		e_multipoint_cause = param->disconnectinfo.cause;
-		e_multipoint_location = param->disconnectinfo.location;
-	}
+	collect_cause(&e_multipoint_cause, &e_multipoint_location, param->disconnectinfo.cause, param->disconnectinfo.location);
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) new multipoint cause %d location %d.\n", ea_endpoint->ep_serial, e_multipoint_cause, e_multipoint_location);
 
 	/* check if we have more than one portlist relation and we just ignore the disconnect */
@@ -2406,10 +2374,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			portlist = portlist->next;
 		}
 		if (!portlist)
-		{
-			PERROR("EPOINT(%d) software error: no portlist related to the calling port.\n", ea_endpoint->ep_serial);
-			exit(-1);
-		}
+			FATAL("EPOINT(%d) no portlist related to the calling port.\n", ea_endpoint->ep_serial);
 		if (message_type != MESSAGE_RELEASE)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
@@ -2421,14 +2386,16 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 		ea_endpoint->free_portlist(portlist);
 		return; /* one relation removed */ 
 	}
-	if (e_multipoint_cause)
+	if (e_state == EPOINT_STATE_CONNECT)
 	{
-		cause = e_multipoint_cause;
-		location = e_multipoint_location;
-	} else
-	{
+		/* use cause from port after connect */
 		cause = param->disconnectinfo.cause;
 		location = param->disconnectinfo.location;
+	} else
+	{
+		/* use multipoint cause if no connect yet */
+		cause = e_multipoint_cause;
+		location = e_multipoint_location;
 	}
 
 	e_cfnr_call = e_cfnr_release = 0;
@@ -2781,23 +2748,14 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 	switch(message_type)
 	{
 		case MESSAGE_DATA: /* data from port */
-		/* send back to source for recording */
-		if (port_id)
-		{
-			message = message_create(ea_endpoint->ep_serial, port_id, EPOINT_TO_PORT, message_type);
-			memcpy(&message->param, param, sizeof(union parameter));
-			message_put(message);
-		}
-
 		/* check if there is a call */
 		if (!ea_endpoint->ep_call_id)
 			break;
 		/* continue if only one portlist */
 		if (ea_endpoint->ep_portlist->next != NULL)
 			break;
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
-		memcpy(&message->param, param, sizeof(union parameter));
-		message_put(message);
+		/* forward message */
+		message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, param);  
 		break;
 
 		case MESSAGE_TONE_EOF: /* tone is end of file */
@@ -3117,6 +3075,7 @@ void EndpointAppPBX::call_alerting(struct port_list *portlist, int message_type,
 void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
+	struct interface	*interface;
 
 	new_state(EPOINT_STATE_CONNECT);
 //			UCPY(e_call_tone, "");
@@ -3129,7 +3088,17 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param, param, sizeof(union parameter));
 		/* screen incoming caller id */
-		screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present);
+		interface = interface_first;
+		while(interface)
+		{
+			if (!strcmp(e_connectinfo.interface, interface->name))
+			{
+				break;
+			}
+			interface = interface->next;
+		}
+		if (interface)
+			screen(1, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present, interface);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(e_connectinfo));
 
 		/* screen clip if prefix is required */
@@ -3284,6 +3253,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
+	struct interface	*interface;
 
 	/* if we already in setup state, we just update the dialing with new digits */
 	if (e_state == EPOINT_STATE_OUT_SETUP
@@ -3381,7 +3351,17 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
 
 	/* screen incoming caller id */
-	screen(1, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present);
+	interface = interface_first;
+	while(interface)
+	{
+		if (!strcmp(e_callerinfo.interface, interface->name))
+		{
+			break;
+		}
+		interface = interface->next;
+	}
+	if (interface)
+		screen(1, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, interface);
 
 	/* process (voice over) data calls */
 	if (e_ext.datacall && e_capainfo.bearer_capa!=INFO_BC_SPEECH && e_capainfo.bearer_capa!=INFO_BC_AUDIO)
@@ -3487,9 +3467,9 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 	portlist = ea_endpoint->ep_portlist;
 
 	/* send MESSAGE_DATA to port */
-	if (call_id == ea_endpoint->ep_call_id)
+	if (message_type == MESSAGE_DATA)
 	{
-		if (message_type == MESSAGE_DATA)
+		if (call_id == ea_endpoint->ep_call_id) // still linked with call
 		{
 			/* skip if no port relation */
 			if (!portlist)
@@ -3497,10 +3477,8 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			/* skip if more than one port relation */
 			if (portlist->next)
 				return;
-			/* send audio data to port */
-			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DATA);
-			memcpy(&message->param, param, sizeof(union parameter));
-			message_put(message);
+			/* forward audio data to port */
+			message_forward(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, param);
 			return;
 		}
 	}
@@ -3833,7 +3811,7 @@ reject:
 
 	/* now we send a release to the ringing endpoint */
 	message = message_create(ea_endpoint->ep_call_id, eapp->ea_endpoint->ep_serial, CALL_TO_EPOINT, MESSAGE_RELEASE);
-	message->param.disconnectinfo.cause = 26; /* non selected user clearing */
+	message->param.disconnectinfo.cause = CAUSE_NONSELECTED; /* non selected user clearing */
 	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	message_put(message);
 
@@ -4023,8 +4001,7 @@ void EndpointAppPBX::join_call(void)
 		{
 		/* detach other endpoint on hold */
 			*other_relation_pointer = other_relation->next;
-			memset(other_relation, 0, sizeof(struct call_relation));
-			free(other_relation);
+			FREE(other_relation, sizeof(struct call_relation));
 			cmemuse--;
 			other_relation = *other_relation_pointer;
 			other_eapp->ea_endpoint->ep_call_id = NULL;

@@ -67,12 +67,13 @@ char *numberrize_callerinfo(char *string, int ntype)
 
 
 /*
- * process init 'internal' / 'external' / 'chan' / 'vbox-record' / 'partyline'...
+ * process init 'internal' / 'external' / 'asterisk' / 'vbox-record' / 'partyline'...
  */
-void EndpointAppPBX::_action_init_call(int chan)
+void EndpointAppPBX::_action_init_call(int asterisk)
 {
 	class Call		*call;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
+	struct admin_list	*admin;
 
 	/* a created call, this should never happen */
 	if (ea_endpoint->ep_call_id)
@@ -84,18 +85,29 @@ void EndpointAppPBX::_action_init_call(int chan)
 
 	/* create call */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new call instance.\n", ea_endpoint->ep_serial);
-	if (chan)
-		call = new CallChan(ea_endpoint);
+	if (asterisk)
+	{
+		admin = admin_list;
+		while(admin)
+		{
+			if (admin->asterisk)
+				break;
+			admin = admin->next;
+		}
+		if (!admin)
+		{
+			/* resource not available */
+			message_disconnect_port(portlist, CAUSE_RESSOURCEUNAVAIL, LOCATION_PRIVATE_LOCAL, "");
+			new_state(EPOINT_STATE_OUT_DISCONNECT);
+			set_tone(portlist,"cause_22");
+			return;
+		}
+		call = new CallAsterisk(ea_endpoint->ep_serial);
+	}
 	else
 		call = new CallPBX(ea_endpoint);
 	if (!call)
-	{
-		/* resource not available */
-		message_disconnect_port(portlist, CAUSE_RESSOURCEUNAVAIL, LOCATION_PRIVATE_LOCAL, "");
-		new_state(EPOINT_STATE_OUT_DISCONNECT);
-		set_tone(portlist,"cause_22");
-		return;
-	}
+		FATAL("No memoy for Call instance.\n");
 	ea_endpoint->ep_call_id = call->c_serial;
 }
 void EndpointAppPBX::action_init_call(void)
@@ -527,19 +539,13 @@ void EndpointAppPBX::action_init_partyline(void)
 		/* create call */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new call instance.\n", ea_endpoint->ep_serial);
 		if (!(call = new CallPBX(ea_endpoint)))
-		{
-			PERROR("no memory for call, exitting");
-			exit(-1);
-		}
+			FATAL("No memory for Call object\n");
 	} else
 	{
 //NOTE: callpbx must be set here
 		/* add relation to existing call */
 		if (!(relation=callpbx->add_relation()))
-		{
-			PERROR("no memory for call relation, exitting");
-			exit(-1);
-		}
+			FATAL("No memory for Call relation\n");
 		relation->type = RELATION_TYPE_SETUP;
 		relation->channel_state = CHANNEL_STATE_CONNECT;
 		relation->rx_state = NOTIFY_STATE_ACTIVE;

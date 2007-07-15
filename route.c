@@ -91,7 +91,11 @@ struct cond_defs cond_defs[] = {
 	{ "busy",	MATCH_BUSY,	COND_TYPE_STRING,
 	  "busy=<extension>[,...]","Matches if any of the given extension is busy."},
 	{ "notbusy",	MATCH_IDLE,	COND_TYPE_STRING,
-	  "notbusy<extension>[,...]","Matches if any of the given extension is not busy."},
+	  "notbusy=<extension>[,...]","Matches if any of the given extension is not busy."},
+	{ "asterisk",	MATCH_ASTERISK,	COND_TYPE_NULL,
+	  "asterisk","Matches if asterisk is not running with LCR channel driver."},
+	{ "notasterisk",MATCH_NOTASTERISK,COND_TYPE_NULL,
+	  "notasterisk","Matches if asterisk is not running with LCR channel driver."},
 	{ NULL, 0, 0, NULL}
 };
 
@@ -477,16 +481,16 @@ void ruleset_free(struct route_ruleset *ruleset_start)
 				cond = rule->cond_first;
 				if (cond->string_value)
 				{
-					free(cond->string_value);
+					FREE(cond->string_value, 0);
 					rmemuse--;
 				}
 				if (cond->string_value_to)
 				{
-					free(cond->string_value_to);
+					FREE(cond->string_value_to, 0);
 					rmemuse--;
 				}
 				rule->cond_first = cond->next;
-				free(cond);
+				FREE(cond, sizeof(struct route_cond));
 				rmemuse--;
 			}
 			while(rule->action_first)
@@ -499,19 +503,19 @@ void ruleset_free(struct route_ruleset *ruleset_start)
 					action->param_first = param->next;
 					if (param->string_value)
 					{
-						free(param->string_value);
+						FREE(param->string_value, 0);
 						rmemuse--;
 					}
-					free(param);
+					FREE(param, sizeof(struct route_param));
 					rmemuse--;
 				}
-				free(action);
+				FREE(action, sizeof(struct route_action));
 				rmemuse--;
 			}
-			free(rule);
+			FREE(rule, sizeof(struct route_rule));
 			rmemuse--;
 		}
-		free(ruleset);
+		FREE(ruleset, sizeof(struct route_ruleset));
 		rmemuse--;
 	}
 }
@@ -1002,14 +1006,8 @@ struct route_ruleset *ruleset_parse(void)
 			}
 
 			/* create ruleset */
-			ruleset = (struct route_ruleset *)malloc(sizeof(struct route_ruleset));
-			if (ruleset == NULL)
-			{
-				SPRINT(failure, "Out of memory.");
-				goto parse_error;
-			}
+			ruleset = (struct route_ruleset *)MALLOC(sizeof(struct route_ruleset));
 			rmemuse++;
-			memset(ruleset, 0, sizeof(struct route_ruleset));
 			*ruleset_pointer = ruleset;
 			ruleset_pointer = &(ruleset->next);
 			SCPY(ruleset->name, key);
@@ -1026,15 +1024,9 @@ struct route_ruleset *ruleset_parse(void)
 			goto new_ruleset;
 		}
 
-		/* alloc memory for rule */
-		rule = (struct route_rule *)malloc(sizeof(struct route_rule));
-		if (rule == NULL)
-		{
-			SPRINT(failure, "Out of memory.");
-			goto parse_error;
-		}
+		/* Alloc memory for rule */
+		rule = (struct route_rule *)MALLOC(sizeof(struct route_rule));
 		rmemuse++;
-		memset(rule, 0, sizeof(struct route_rule));
 		*rule_pointer = rule;
 		rule_pointer = &(rule->next);
 		cond_pointer = &(rule->cond_first);
@@ -1121,15 +1113,9 @@ struct route_ruleset *ruleset_parse(void)
 			}
 
 			nextcondvalue:
-			/* alloc memory for item */
-			cond = (struct route_cond *)malloc(sizeof(struct route_cond));
-			if (cond == NULL)
-			{
-				SPRINT(failure, "Out of memory.");
-				goto parse_error;
-			}
+			/* Alloc memory for item */
+			cond = (struct route_cond *)MALLOC(sizeof(struct route_cond));
 			rmemuse++;
-			memset(cond, 0, sizeof(struct route_cond));
 			*cond_pointer = cond;
 			cond_pointer = &(cond->next);
 			cond->index = index;
@@ -1314,22 +1300,12 @@ struct route_ruleset *ruleset_parse(void)
 					}
 				}
 				alloc_string:
-				cond->string_value = (char *)malloc(strlen(key)+1);
-				if (cond->string_value == NULL)
-				{
-					SPRINT(failure, "Out of memory.");
-					goto parse_error;
-				}
+				cond->string_value = (char *)MALLOC(strlen(key)+1);
 				rmemuse++;
 				UCPY(cond->string_value, key);
 				if (value_type == VALUE_TYPE_STRING_RANGE)
 				{
-					cond->string_value_to = (char *)malloc(strlen(key_to)+1);
-					if (cond->string_value_to == NULL)
-					{
-						SPRINT(failure, "Out of memory.");
-						goto parse_error;
-					}
+					cond->string_value_to = (char *)MALLOC(strlen(key_to)+1);
 					rmemuse++;
 					UCPY(cond->string_value_to, key_to);
 					cond->comp_string = strcmp(key, key_to);
@@ -1484,14 +1460,8 @@ struct route_ruleset *ruleset_parse(void)
 		}
 
 		/* alloc memory for action */
-		action = (struct route_action *)malloc(sizeof(struct route_action));
-		if (action == NULL)
-		{
-			SPRINT(failure, "Out of memory.");
-			goto parse_error;
-		}
+		action = (struct route_action *)MALLOC(sizeof(struct route_action));
 		rmemuse++;
-		memset(action, 0, sizeof(struct route_action));
 		*action_pointer = action;
 		action_pointer = &(action->next);
 		param_pointer = &(action->param_first);
@@ -1619,15 +1589,9 @@ struct route_ruleset *ruleset_parse(void)
 			}
 
 			nextparamvalue:
-			/* alloc memory for param */
-			param = (struct route_param *)malloc(sizeof(struct route_param));
-			if (param == NULL)
-			{
-				SPRINT(failure, "Out of memory.");
-				goto parse_error;
-			}
+			/* Alloc memory for param */
+			param = (struct route_param *)MALLOC(sizeof(struct route_param));
 			rmemuse++;
-			memset(param, 0, sizeof(struct route_param));
 			*param_pointer = param;
 			param_pointer = &(param->next);
 			param->index = index;
@@ -1864,12 +1828,7 @@ struct route_ruleset *ruleset_parse(void)
 					SPRINT(failure, "Value '%s' unknown. ('yes' or 'no')", key);
 					goto parse_error;
 				}
-				param->string_value = (char *)malloc(strlen(key)+1);
-				if (param->string_value == NULL)
-				{
-					SPRINT(failure, "Out of memory.");
-					goto parse_error;
-				}
+				param->string_value = (char *)MALLOC(strlen(key)+1);
 				rmemuse++;
 				UCPY(param->string_value, key);
 				param->value_type = VALUE_TYPE_STRING;
@@ -1991,6 +1950,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	FILE			*tfp;
 	double			timeout;
 	struct mISDNport	*mISDNport;
+	struct admin_list	*admin;
 
 	/* reset timeout action */
 	e_match_timeout = 0; /* no timeout */
@@ -2231,6 +2191,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				case MATCH_BUSY:
+				case MATCH_IDLE:
 				any = 0;
 				mISDNport = mISDNport_first;
 				while(mISDNport)
@@ -2241,21 +2202,24 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 						break;
 					mISDNport = mISDNport->next;
 				}
-				if (mISDNport)
+				if (mISDNport && cond->match==MATCH_BUSY)
+					istrue = 1;
+				if (!mISDNport && cond->match==MATCH_IDLE)
 					istrue = 1;
 				break;
 
-				case MATCH_IDLE:
-				mISDNport = mISDNport_first;
-				while(mISDNport)
+				case MATCH_ASTERISK:
+				case MATCH_NOTASTERISK:
+				admin = admin_list;
+				while(admin)
 				{
-					if (mISDNport->ifport)
-					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
-					if (mISDNport->use) /* break if in use */
+					if (admin->asterisk)
 						break;
-					mISDNport = mISDNport->next;
+					admin = admin->next;
 				}
-				if (!mISDNport)
+				if (admin && cond->match==MATCH_ASTERISK)
+					istrue = 1;
+				if (!admin && cond->match==MATCH_NOTASTERISK)
 					istrue = 1;
 				break;
 

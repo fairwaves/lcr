@@ -51,15 +51,10 @@ class Call *find_call_id(unsigned long call_id)
 /*
  * constructor for a new call 
  */
-Call::Call(class Endpoint *epoint)
+Call::Call(void)
 {
 	class Call **callp;
 
-	if (!epoint)
-	{
-		PERROR("software error, epoint is NULL.\n");
-		exit(-1);
-	}
 	c_serial = call_serial++;
 	c_type = CALL_TYPE_NONE;
 
@@ -93,10 +88,7 @@ Call::~Call()
 		cl = cl->next;
 	}
 	if (!cl)
-	{
-		PERROR("software error, call not in chain! exitting\n");
-		exit(-1);
-	}
+		FATAL("software error, call not in chain!\n");
 	*clp = cl->next; /* detach from chain */
 }
 
@@ -119,10 +111,6 @@ int Call::handler(void)
 	return(0);
 }
 
-void Call::release(unsigned long epoint_id, int hold, int location, int cause)
-{
-}
-	
 /* free all call structures */
 void call_free(void)
 {

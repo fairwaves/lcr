@@ -23,27 +23,11 @@ struct message **messagepointer_end = &message_first;
 struct message *message_create(int id_from, int id_to, int flow, int type)
 {
 	struct message *message;
-	int i = 0;
 
-	while(i < 10)
-	{
-		message = (struct message *)calloc(1, sizeof(struct message));
-		if (message)
-			break;
-
-		if (!i)
-			PERROR("no mem for message, retrying...\n");
-		i++;
-		usleep(300000);
-	}
+	message = (struct message *)MALLOC(sizeof(struct message));
 	if (!message)
-	{
-		PERROR("***Fatal error: no mem for message!!! exitting.\n");
-		exit(-1);
-	}
+		FATAL("No memory for message.\n");
 	mmemuse++;
-
-	memset(message, 0, sizeof(struct message));
 
 	message->id_from = id_from;
 	message->id_to = id_to;
@@ -70,6 +54,21 @@ void message_put(struct message *message)
 	messagepointer_end = &(message->next);
 }
 
+void message_forward(int id_from, int id_to, int flow, union parameter *param)
+{
+	struct message *message;
+
+	/* get point to message */
+	message = (struct message *)((unsigned long)param - ((unsigned long)(&message->param) - (unsigned long)message));
+
+	/* protect, so forwarded messages are not freed after handling */
+	message->keep = 1;
+
+	message->id_from = id_from;
+	message->id_to = id_to;
+	message->flow = flow;
+	message_put(message);
+}
 
 /* detaches the first messages from the message chain */
 struct message *message_get(void)
@@ -86,7 +85,10 @@ struct message *message_get(void)
 	if (!message_first)
 		messagepointer_end = &message_first;
 
+	message->keep = 0;
+
 	if ((options.deb&DEBUG_MSG) && message->type != MESSAGE_DATA)
+
 		PDEBUG(DEBUG_MSG, "message %s reading from %ld to %ld (memory %x)\n", messages_txt[message->type], message->id_from, message->id_to, message);
 
 	return(message);
@@ -95,8 +97,9 @@ struct message *message_get(void)
 /* free a message */
 void message_free(struct message *message)
 {
-	memset(message, 0, sizeof(struct message));
-	free(message);
+	if (message->keep)
+		return;
+	FREE(message, sizeof(struct message));
 	mmemuse--;
 }
 

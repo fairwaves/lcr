@@ -377,8 +377,7 @@ int read_tone(int fh, unsigned char *buffer, int codec, int len, signed long siz
 		break;
 
 		default:
-		PERROR("codec %d is not supported, exitting...\n", codec);
-		exit(-1);
+		FATAL("codec %d is not supported.\n", codec);
 	}
 
 	if (l>0 && left)
@@ -406,12 +405,12 @@ void free_tones(void)
 		{
 			temp = tonesettone_temp;
 			tonesettone_temp = tonesettone_temp->next;
-			free(temp);
+			FREE(temp, sizeof(struct tonesettone));
 			memuse--;
 		}
 		temp = toneset_temp;
 		toneset_temp = toneset_temp->next;
-		free(temp);
+		FREE(temp, sizeof(struct toneset));
 		memuse--;
 	}
 	toneset_first = NULL;
@@ -465,15 +464,9 @@ int fetch_tones(void)
 		printf("PBX: Fetching tones '%s'\n", p);
 		PDEBUG(DEBUG_PORT, "fetching tones directory '%s'\n", p);
 
-		*toneset_nextpointer = (struct toneset *)calloc(1, sizeof(struct toneset));
-		if (*toneset_nextpointer == NULL)
-		{
-			PERROR("No memory for tone set: '%s'\n",p);
-			return(0);
-		}
+		*toneset_nextpointer = (struct toneset *)MALLOC(sizeof(struct toneset));
 		memuse++;
 		memory += sizeof(struct toneset);
-		memset(*toneset_nextpointer, 0 , sizeof(struct toneset));
 		SCPY((*toneset_nextpointer)->directory, p);
 		tonesettone_nextpointer = &(*toneset_nextpointer)->first;
 
@@ -526,18 +519,10 @@ int fetch_tones(void)
 				continue;
 			}
 
-			/* allocate tone */
-			*tonesettone_nextpointer = (struct tonesettone *)calloc(1, sizeof(struct tonesettone)+tone_size);
-			if (*toneset_nextpointer == NULL)
-			{
-				PERROR("No memory for tone set: '%s'\n",p);
-				close(fh);
-				fduse--;
-				return(0);
-			}
+			/* Allocate tone */
+			*tonesettone_nextpointer = (struct tonesettone *)MALLOC(sizeof(struct tonesettone)+tone_size);
 			memuse++;
 //printf("tone:%s, %ld bytes\n", name, tone_size);
-			memset(*tonesettone_nextpointer, 0 , sizeof(struct tonesettone)+tone_size);
 			memory += sizeof(struct tonesettone)+tone_size;
 			samples ++;
 

@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 		printf("rules [action] = Get individual help for given action.\n");
 //		printf("route = Show current routing as it is parsed.\n");
 		printf("\n");
-		ret = 0;
+		ret = 999;
 		goto free;
 	}
 
@@ -807,6 +807,8 @@ free:
 	MEMCHECK("file handler(s) left",fhuse)
 
 	/* take me out */
+	if (ret == 999)
+		exit(0);
 	SPRINT(tracetext, "%s exit", NAME);
 	printf("%s\n", tracetext);
 	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);

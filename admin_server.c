@@ -86,11 +86,33 @@ int admin_init(void)
 
 /*
  * free connection
+ * also releases all asterisk joins
  */
 void free_connection(struct admin_list *admin)
 {
 	struct admin_queue *response;
 	void *temp;
+	union parameter param;
+	class Call *call, *callnext;
+
+	/* free asterisk joins */
+	if (admin->asterisk)
+	{
+		call = call_first;
+		while(call)
+		{
+			callnext = call->next;
+			if (call->c_type == CALL_TYPE_ASTERISK)
+			{
+				memset(&param, 0, sizeof(param));
+				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
+				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+				((class CallAsterisk *)call)->message_asterisk(0, MESSAGE_RELEASE, &param);
+				/* call is now destroyed, so we go to next call */
+			}
+			call = callnext;
+		}
+	}
 
 	if (admin->sock >= 0)
 	{
@@ -104,12 +126,12 @@ void free_connection(struct admin_list *admin)
 //#warning
 //	printf("%x\n", response);
 		temp = response->next;
-		free(response);
+		FREE(response, 0);
 		memuse--;
 		response = (struct admin_queue *)temp;
 	}
 //	printf("new2\n", response);
-	free(admin);
+	FREE(admin, 0);
 //	printf("new3\n", response);
 	memuse--;
 }
@@ -160,11 +182,8 @@ int admin_interface(struct admin_queue **responsep)
 		err = -1;
 	}
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_INTERFACE;
@@ -274,11 +293,8 @@ int admin_route(struct admin_queue **responsep)
 
 	response:
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_ROUTE;
@@ -304,11 +320,8 @@ int admin_dial(struct admin_queue **responsep, char *message)
 	char			*p;		/* pointer to dialing digits */
 
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_DIAL;
@@ -369,11 +382,8 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 	struct interface_port	*ifport;
 
 	/* create block response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_BLOCK;
@@ -461,11 +471,8 @@ int admin_release(struct admin_queue **responsep, char *message)
 	class EndpointAppPBX	*apppbx;
 
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_CMD_RELEASE;
@@ -504,14 +511,10 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 	class Endpoint		*epoint;
 	class EndpointAppPBX	*apppbx;
 
-	if (!(epoint = new Endpoint(0,0)))
-		return(-1);
-
-        if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint)))
-        {
-                PERROR("no memory for application\n");
-                exit(-1);
-        }
+	if (!(epoint = new Endpoint(0, 0, 0)))
+		FATAL("No memory for Endpoint instance\n");
+	if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint)))
+		FATAL("No memory for Endpoint Application instance\n");
 	apppbx->e_adminid = admin->sockserial;
 	admin->epointid = epoint->ep_serial;
 	SCPY(apppbx->e_callerinfo.id, nationalize_callerinfo(msg->u.call.callerid, &apppbx->e_callerinfo.ntype));
@@ -569,11 +572,8 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 	}
 
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return;
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = message;
@@ -587,6 +587,116 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 	/* attach to response chain */
 	*responsep = response;
 	responsep = &response->next;
+}
+
+
+/*
+ * send data to the asterisk join instance
+ */
+int admin_message_to_join(struct admin_msg *msg)
+{
+	class Call			*call;
+	struct admin_list		*admin;
+
+	/* dummy callref means: asterisk is here */
+	if (msg->type == MESSAGE_HELLO)
+	{
+		/* look for second asterisk */
+		admin = admin_list;
+		while(admin)
+		{
+			if (admin->asterisk)
+				break;
+			admin = admin->next;
+		}
+		if (admin)
+		{
+			PERROR("Asterisk connects twice??? (ignoring)\n");
+			return(-1);
+		}
+		/* set asterisk socket instance */
+		admin->asterisk = 1;
+	}
+
+	/* find call instance */
+	call = call_first;
+	while(call)
+	{
+		if (call->c_serial == msg->ref)
+			break;
+		call = call->next;
+	}
+
+	/* create call instance if not existing */
+	if (!call)
+	{
+		if (msg->ref < 2000000000)
+		{
+			PERROR("Asterisk sends us unknown ref %d below 2000000000.\n", msg->ref);
+			return(-1);
+		}
+
+		/* create new call instance */
+		call = new CallAsterisk(0); // must have no serial, because no endpoint is connected
+		if (!call)
+			FATAL("No memory for Asterisk Call instance\n");
+	}
+
+	/* send message */
+	if (call->c_type != CALL_TYPE_ASTERISK)
+		FATAL("Call instance %d must be of type Call Asterisk\n", call->c_serial);
+		((class CallAsterisk *)call)->message_asterisk(msg->ref, msg->type, &msg->param);
+
+	return(0);
+}
+
+
+/*
+ * this function is called for every message to asterisk
+ */
+int admin_message_from_join(unsigned long ref, int message_type, union parameter *param)
+{
+	struct admin_list	*admin;
+	struct admin_queue	*response, **responsep;	/* response pointer */
+
+	/* searching for admin id
+	 * maybe there is no asterisk instance
+	 */
+	admin = admin_list;
+	while(admin)
+	{
+		if (admin->asterisk)
+			break;
+		admin = admin->next;
+	}
+	/* no asterisk connected */
+	if (!admin)
+		return(-1);
+
+	/* seek to end of response list */
+	response = admin->response;
+	responsep = &admin->response;
+	while(response)
+	{
+		responsep = &response->next;
+		response = response->next;
+	}
+
+	/* create state response */
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
+	memuse++;
+	response->num = 1;
+
+	/* message */
+	response->am[0].u.msg.type = message_type;
+	response->am[0].u.msg.ref = ref;
+	memcpy(&response->am[0].u.msg.param, param, sizeof(union parameter));
+
+	/* attach to response chain */
+	*responsep = response;
+	responsep = &response->next;
+
+	return(0);
 }
 
 
@@ -609,11 +719,8 @@ int admin_state(struct admin_queue **responsep)
 	struct admin_queue	*response;
 
 	/* create state response */
-	response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 	response->num = 1;
 	/* message */
 	response->am[0].message = ADMIN_RESPONSE_STATE;
@@ -672,11 +779,8 @@ int admin_state(struct admin_queue **responsep)
 	num = (response->am[0].u.s.interfaces)+(response->am[0].u.s.calls)+(response->am[0].u.s.epoints)+(response->am[0].u.s.ports);
 	if (num == 0)
 		return(0);
-	response = (struct admin_queue *)malloc(sizeof(admin_queue)+(num*sizeof(admin_message)));
-	if (!response)
-		return(-1);
+	response = (struct admin_queue *)MALLOC(sizeof(admin_queue)+(num*sizeof(admin_message)));
 	memuse++;
-	memset(response, 0, sizeof(admin_queue)+(num*sizeof(admin_message)));
 	response->num = num;
 	*responsep = response;
 	responsep = &response->next;
@@ -917,26 +1021,21 @@ int admin_handle(void)
 	{
 		work = 1;
 		/* insert new socket */
-		admin = (struct admin_list *)malloc(sizeof(struct admin_list));
-		if (admin)
+		admin = (struct admin_list *)MALLOC(sizeof(struct admin_list));
+		if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0)
 		{
-			if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0)
-			{
 //#warning
 //	PERROR("DEBUG incomming socket %d, serial=%d\n", new_sock, sockserial);
-				memuse++;
-				fhuse++;
-				memset(admin, 0, sizeof(struct admin_list));
-				admin->sockserial = sockserial++;
-				admin->next = admin_list;
-				admin_list = admin;
-				admin->sock = new_sock;
-			} else {
-				close(new_sock);
-				free(admin);
-			}
-		} else
+			memuse++;
+			fhuse++;
+			admin->sockserial = sockserial++;
+			admin->next = admin_list;
+			admin_list = admin;
+			admin->sock = new_sock;
+		} else {
 			close(new_sock);
+			FREE(admin, sizeof(struct admin_list));
+		}
 	} else
 	{
 		if (errno != EWOULDBLOCK)
@@ -1070,15 +1169,12 @@ int admin_handle(void)
 			}
 			break;
 
-#warning interface tbd
-#if 0
 			case ADMIN_MESSAGE:
-			if (admin_message(&admin->response) < 0)
+			if (admin_message_to_join(&msg.u.msg) < 0)
 			{
-				PERROR("Failed to create message response for socket %d.\n", admin->sock);
+				PERROR("Failed to deliver message for socket %d.\n", admin->sock);
 				goto response_error;
 			}
-#endif
 #if 0
 #warning DEBUGGING
 {
@@ -1141,7 +1237,7 @@ int admin_handle(void)
 			{
 				temp = admin->response;
 				admin->response = admin->response->next;
-				free(temp);
+				FREE(temp, 0);
 				memuse--;
 			}
 		}

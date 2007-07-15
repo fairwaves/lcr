@@ -10,6 +10,7 @@
 #*****************************************************************************/ 
 
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
+WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
 # note: check your location and the names of libraries.
 
 # select location to install
@@ -32,6 +33,9 @@ LD = $(CC)
 WIZZARD = ./wizzard
 LCR = ./lcr
 LCRADMIN = ./lcradmin
+ifdef WITH-ASTERISK
+CHAN_LCR = ./chan_lcr
+endif
 LCRWATCH = ./lcrwatch
 GEN = ./gentones
 GENW = ./genwave
@@ -55,7 +59,7 @@ endif
 #	@echo Please report any bug. To compile use \"make beta\".
 #	@exit
 
-all: $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
+all: $(LCR) $(LCRADMIN) $(CHAN_LCR) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	@sh -c 'grep -n strcpy *.c* ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n strncpy *.c* ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n strcat *.c* ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
@@ -126,8 +130,8 @@ call.o: call.cpp *.h Makefile
 callpbx.o: callpbx.cpp *.h Makefile
 	$(CC) -c $(CFLAGS) callpbx.cpp -o callpbx.o
 
-callchan.o: callchan.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) callchan.cpp -o callchan.o
+callasterisk.o: callasterisk.cpp *.h Makefile
+	$(CC) -c $(CFLAGS) callasterisk.cpp -o callasterisk.o
 
 cause.o: cause.c *.h Makefile
 	$(CC) -c $(CFLAGS) cause.c -o cause.o
@@ -143,9 +147,6 @@ crypt.o: crypt.cpp *.h Makefile
 
 genext.o: genext.c *.h Makefile
 	$(CC) -c $(CFLAGS) genext.c -o genext.o
-
-#admin_client.o: admin_client.c *.h Makefile
-#	$(CC) -c $(CFLAGS) admin_client.c -o admin_client.o
 
 admin_server.o: admin_server.c *.h Makefile
 	$(CC) -c $(CFLAGS) admin_server.c -o admin_server.o
@@ -181,7 +182,7 @@ $(LCR): main.o \
 	mail.o \
 	call.o \
 	callpbx.o \
-	callchan.o \
+	callasterisk.o \
 	admin_server.o \
 	trace.o
 	$(LD) $(LIBDIR) \
@@ -208,7 +209,7 @@ $(LCR): main.o \
 	mail.o \
 	call.o \
 	callpbx.o \
-	callchan.o \
+	callasterisk.o \
 	admin_server.o \
 	trace.o \
 	$(LIBS) -o $(LCR) 
@@ -216,6 +217,10 @@ $(LCR): main.o \
 $(LCRADMIN): admin_client.c cause.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
 	-o $(LCRADMIN) 
+
+$(CHAN_LCR): asterisk_client.c *.h Makefile
+	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm asterisk_client.c \
+	-o $(CHAN_LCR) 
 
 $(LCRWATCH): watch.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) -lm watch.c \
@@ -245,6 +250,9 @@ install:
 	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)
+ifdef WITH_ASTERISK
+	cp $(CHAN_LCR) $(INSTALL_BIN)
+endif
 #	cp $(LCRWATCH) $(INSTALL_BIN)
 	cp $(GEN) $(INSTALL_BIN)
 	cp $(GENW) $(INSTALL_BIN)
@@ -276,7 +284,7 @@ install:
 
 clean:
 	touch *
-	rm -f $(LCR) $(LCRADMIN) $(LCRWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
+	rm -f $(LCR) $(LCRADMIN) $(CHAN_LCR) $(LCRWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	rm -f *.o
 	rm -f .*.c.sw* .*.cpp.sw* .*.h.sw*
 	rm -f bla nohup.out

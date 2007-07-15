@@ -144,9 +144,6 @@ class Port
 	struct port_settings p_settings;
 	
 	/* tone */
-	unsigned long p_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
-	unsigned long p_last_tv_msec;
-	int p_debug_nothingtosend;		/* used for debugging the, if we have currently nothing to send (used for ISDN) */
 	char p_tone_dir[256];			/* name of current directory */
 	char p_tone_name[256];			/* name of current tone */
 	char p_tone_fh;				/* file descriptor of current tone or -1 if not open */

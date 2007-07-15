@@ -1,5 +1,3 @@
-BUG: no channels after reload interfaces
-BUG: audio is corrupted, shall we use fh or name for state of tones?
 BUG: release to NT not always work
 
 make asterisk call implementation
@@ -8,7 +6,7 @@ avoid disconnect-collision (release if disconnect from both sides)
 
 display message during nothing/play
 
-Port -> Channel
+Port -> Proc
 Call -> Link
 
 maybe:
@@ -29,5 +27,8 @@ auto pick
 alarm clock (timer)
 sonderwahlton
 facility: diversion, 3pty, ...
+
+
+VLAN-Kamera
 
 

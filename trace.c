@@ -325,11 +325,8 @@ void end_trace(void)
 				}
 
 				/* create state response */
-				response = (struct admin_queue *)malloc(sizeof(struct admin_queue)+sizeof(admin_message));
-				if (!response)
-					return;
+				response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 				memuse++;
-				memset(response, 0, sizeof(admin_queue)+sizeof(admin_message));
 				response->num = 1;
 				/* message */
 				response->am[0].message = ADMIN_TRACE_RESPONSE;
@@ -346,7 +343,6 @@ void end_trace(void)
 
 	memset(&trace, 0, sizeof(struct trace));
 }
-
 
 
 

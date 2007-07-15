@@ -9,6 +9,10 @@
 **                                                                           **
 \*****************************************************************************/ 
 
+/* maximum number of redial/powerdial and reply numbers to remember
+ */
+#define MAX_REMEMBER	99
+
 /* display of callerid on internal numbers */
 
 enum {

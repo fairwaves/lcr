@@ -293,10 +293,7 @@ unsigned long crc32(unsigned char *data, int len)
 	unsigned long crc = 0xffffffff;
 
 	if (!crc_initialized)
-	{
-		PERROR("crc not initialized, exitting...");
-		exit(-1);
-	}
+		FATAL("crc not initialized, exitting...");
 
 	while (len--)
 		crc = (crc >> 8) ^ crc32_table[(crc & 0xFF) ^ *data++];
@@ -577,8 +574,7 @@ static void *keyengine_child(void *arg)
 
 	/* exit process */
 	apppbx->ea_endpoint->ep_use--;
-	memset(args, 0, sizeof(struct auth_args));
-	free(args);
+	FREE(args, sizeof(struct auth_args));
 	amemuse--;
 	return(NULL);
 }
@@ -595,14 +591,7 @@ void EndpointAppPBX::cryptman_keyengine(int job)
 		return;
 	}
 
-	arg = (struct auth_args *)calloc(1, sizeof(struct auth_args));
-	if (!arg)
-	{
-		PERROR("failed to alloc memory.\n");
-		e_crypt_keyengine_return = -1;
-		return;
-	}
-
+	arg = (struct auth_args *)MALLOC(sizeof(struct auth_args));
 	arg->apppbx = this;
 	arg->job = job;
 	e_crypt_keyengine_return = 0;
@@ -2043,4 +2032,5 @@ void EndpointAppPBX::encrypt_result(int msg, char *text)
 		PERROR("EPOINT(%d) crypt manager sends us an invalid message. (type = %d)\n", ea_endpoint->ep_serial, msg);
 	}
 }
+
 

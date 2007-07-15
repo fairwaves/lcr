@@ -20,9 +20,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <curses.h>
-#include "save.h"
+#include "macro.h"
 #include "call.h"
 #include "callpbx.h"
+#include "extension.h"
+#include "message.h"
 #include "admin.h"
 #include "cause.h"
 
@@ -482,11 +484,7 @@ char *admin_state(int sock)
 		return("Response not valid. Expecting state response.");
 	}
 	num = msg.u.s.interfaces + msg.u.s.calls + msg.u.s.epoints + msg.u.s.ports;
-	if (!(m = (struct admin_message *)malloc(num*sizeof(struct admin_message))))
-	{
-		cleanup_curses();
-		return("Not enough memory for messages.");
-	}
+	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
 	off=0;
 	if (num)
 	{
@@ -494,7 +492,7 @@ char *admin_state(int sock)
 		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
 		{
 			if (len <= 0) {
-				free(m);
+				FREE(m, 0);
 	//			fprintf(stderr, "got=%d expected=%d\n", i, num*sizeof(struct admin_message));
 				cleanup_curses();
 				return("Broken pipe while receiving state infos.");
@@ -514,7 +512,7 @@ char *admin_state(int sock)
 //		fprintf(stderr, "j=%d message=%d\n", j, m[j].message);
 		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE)
 		{
-			free(m);
+			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting interface information.");
 		}
@@ -526,7 +524,7 @@ char *admin_state(int sock)
 	{
 		if (m[j].message != ADMIN_RESPONSE_S_CALL)
 		{
-			free(m);
+			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting call information.");
 		}
@@ -538,7 +536,7 @@ char *admin_state(int sock)
 	{
 		if (m[j].message != ADMIN_RESPONSE_S_EPOINT)
 		{
-			free(m);
+			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting endpoint information.");
 		}
@@ -550,7 +548,7 @@ char *admin_state(int sock)
 	{
 		if (m[j].message != ADMIN_RESPONSE_S_PORT)
 		{
-			free(m);
+			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting port information.");
 		}
@@ -946,7 +944,7 @@ char *admin_state(int sock)
 
 	end:
 	/* free memory */
-	free(m);
+	FREE(m, 0);
 	/* display name/time */
 //	move(0, 0);
 //	hline(' ', COLS);

@@ -1521,7 +1521,7 @@ void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned cha
 				UPRINT(debug+(j*3), " %02x", centrex[i+1+j]);
 				i++;
 			}
-			add_trace("facility", "CENTREX", "unknown=0x%2x len=%d%s\n", centrex[i], centrex[i+1], debug);
+			add_trace("facility", "CENTREX", "unknown=0x%02x len=%d%s\n", centrex[i], centrex[i+1], debug);
 		}
 		i += 1+centrex[i+1];
 	}

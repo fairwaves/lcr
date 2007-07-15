@@ -53,7 +53,6 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
 	p_m_b_reserve = 0;
-	p_m_jittercheck = 0;
 	p_m_delete = 0;
 	p_m_hold = 0;
 	p_m_txvol = p_m_rxvol = 0;
@@ -68,9 +67,9 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_timeout = 0;
 	p_m_timer = 0;
 
-	/* audio from up */
-	p_m_fromup_buffer_readp = 0;
-	p_m_fromup_buffer_writep = 0;
+	/* audio */
+	p_m_load = 0;
+	p_m_last_tv_sec = 0;
 
 	/* crypt */
 	p_m_crypt = 0;
@@ -270,7 +269,10 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned lo
 	*d++ = c2;
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
 	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
-	add_trace(trace_name, NULL, "%d", trace_value);
+	if (c1 == CMX_CONF_JOIN)
+		add_trace(trace_name, NULL, "0x%08x", trace_value);
+	else
+		add_trace(trace_name, NULL, "%d", trace_value);
 	end_trace();
 }
 
@@ -363,8 +365,8 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 		goto stack_error;
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL create stack", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "0x%8x", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "0x%8x", mISDNport->b_addr[i]);
+	add_trace("stack", "id", "0x%08x", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
 	end_trace();
 
 	return(1);
@@ -465,8 +467,8 @@ static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
 
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove stack", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "0x%8x", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "0x%8x", mISDNport->b_addr[i]);
+	add_trace("stack", "id", "0x%08x", mISDNport->b_stid[i]);
+	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
 	end_trace();
 	/* remove our stack only if set */
 	PDEBUG(DEBUG_BCHANNEL, "free stack (b_addr=0x%x)\n", mISDNport->b_addr[i]);
@@ -538,10 +540,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		case B_EVENT_ACTIVATE:
 		/* port must be linked in order to allow activation */
 		if (!mISDNport->b_port[i])
-		{
-			PERROR("SOFTWARE ERROR: bchannel must be linked to a Port class\n");
-			exit(-1);
-		}
+			FATAL("bchannel must be linked to a Port class\n");
 		switch(state)
 		{
 			case B_STATE_IDLE:
@@ -590,10 +589,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 		case B_EVENT_DEACTIVATE:
 		if (!mISDNport->b_port[i])
-		{
-			PERROR("SOFTWARE ERROR: bchannel must be linked to a Port class\n");
-			exit(-1);
-		}
+			FATAL("bchannel must be linked to a Port class\n");
 		switch(state)
 		{
 			case B_STATE_IDLE:
@@ -722,7 +718,6 @@ seize:
 	p_m_b_index = i;
 	p_m_b_channel = channel;
 	p_m_b_exclusive = exclusive;
-	p_m_jittercheck = 0;
 
 	/* reserve channel */
 	if (!p_m_b_reserve)
@@ -765,130 +760,141 @@ void PmISDN::drop_bchannel(void)
 
 /*
  * handler
+
+audio transmission procedure:
+-----------------------------
+
+* priority
+three sources of audio transmission:
+- crypto-data high priority
+- tones high priority (also high)
+- remote-data low priority
+
+* elapsed
+a variable that temporarily shows the number of samples elapsed since last transmission process.
+p_m_last_tv_* is used to store that last timestamp. this is used to calculate the time elapsed.
+
+* load
+a variable that is increased whenever data is transmitted.
+it is decreased while time elapses. it stores the number of samples that
+are currently loaded to dsp module.
+since clock in dsp module is the same clock for user space process, these 
+times have no skew.
+
+* levels
+there are two levels:
+ISDN_LOAD will give the load that have to be kept in dsp.
+ISDN_MAXLOAD will give the maximum load before dropping.
+
+* procedure for low priority data
+see txfromup() for procedure
+in short: remote data is ignored during high priority tones
+
+* procedure for high priority data
+whenever load is below ISDN_LOAD, load is filled up to ISDN_LOAD
+if no more data is available, load becomes empty again.
+
+'load' variable:
+0                    ISDN_LOAD           ISDN_MAXLOAD
++--------------------+----------------------+
+|                    |                      |
++--------------------+----------------------+
+
+on empty load or on load below ISDN_LOAD, the load is inceased to ISDN_LOAD:
+0                    ISDN_LOAD           ISDN_MAXLOAD
++--------------------+----------------------+
+|TTTTTTTTTTTTTTTTTTTT|                      |
++--------------------+----------------------+
+
+on empty load, remote-audio causes the load with the remote audio to be increased to ISDN_LOAD.
+0                    ISDN_LOAD           ISDN_MAXLOAD
++--------------------+----------------------+
+|TTTTTTTTTTTTTTTTTTTTRRRRR                  |
++--------------------+----------------------+
+
  */
 int PmISDN::handler(void)
 {
 	struct message *message;
-	int elapsed, length;
+	int elapsed = 0;
 	int ret;
-	int inbuffer;
 
 	if ((ret = Port::handler()))
 		return(ret);
 
-	inbuffer = (p_m_fromup_buffer_writep - p_m_fromup_buffer_readp) & FROMUP_BUFFER_MASK;
-	/* send tone data to isdn device only if we have data */
-	if (p_tone_name[0] || p_m_crypt_msg_loops || inbuffer)
+	/* get elapsed */
+	if (p_m_last_tv_sec)
 	{
-		/* calculate how much to transmit */
-		if (!p_last_tv_sec)
+		elapsed = 8000 * (now_tv.tv_sec - p_m_last_tv_sec)
+			+ 8 * (now_tv.tv_usec/1000 - p_m_last_tv_msec);
+	} else
+	{
+		/* set clock of first process ever in this instance */
+		p_m_last_tv_sec = now_tv.tv_sec;
+		p_m_last_tv_msec = now_tv.tv_usec/1000;
+	}
+	/* process only if we have a minimum of samples, to make packets not too small */
+	if (elapsed >= ISDN_TRANSMIT)
+	{
+		/* set clock of last process! */
+		p_m_last_tv_sec = now_tv.tv_sec;
+		p_m_last_tv_msec = now_tv.tv_usec/1000;
+
+		/* update load */
+		if (elapsed < p_m_load)
+			p_m_load -= elapsed;
+		else
+			p_m_load = 0;
+
+		/* to send data, tone must be active OR crypt messages must be on */
+		if ((p_tone_name[0] || p_m_crypt_msg_loops) && p_m_load < ISDN_LOAD)
 		{
-			elapsed = ISDN_PRELOAD; /* preload for the first time */
-		} else
-		{
-			elapsed = 8000 * (now_tv.tv_sec - p_last_tv_sec)
-				+ 8 * (now_tv.tv_usec/1000 - p_last_tv_msec);
-			/* gap was greater preload, so only fill up to preload level */
-			if (elapsed > ISDN_PRELOAD)
-			{
-				elapsed = ISDN_PRELOAD;
-			}
-		}
-printf("p%d elapsed=%d\n", p_serial, elapsed);
-		if (elapsed >= ISDN_TRANSMIT)
-		{
-			unsigned char buf[mISDN_HEADER_LEN+ISDN_PRELOAD];
+			int tosend = ISDN_LOAD - p_m_load, length; 
+			unsigned char buf[mISDN_HEADER_LEN+tosend];
 			iframe_t *frm = (iframe_t *)buf;
 			unsigned char *p = buf+mISDN_HEADER_LEN;
 
-			p_last_tv_sec = now_tv.tv_sec;
-			p_last_tv_msec = now_tv.tv_usec/1000;
-
-			/* read tones or fill with silence */
-			length = read_audio(p, elapsed);
-
-			/*
-			 * get data from up
-			 * the fromup_buffer data is written to the beginning of the buffer
-			 * the part that is filles with tones (length) is skipped, so tones have priority
-			 * the length value is increased by the number of data copied from fromup_buffer
-			 */
-printf("p%d inbuffer=%d\n", p_serial, inbuffer);
-			if (inbuffer)
+			/* copy crypto loops */
+			while (p_m_crypt_msg_loops && tosend)
 			{
-				/* inbuffer might be less than we skip due to audio */
-				if (inbuffer <= length)
-				{
-					/* clear buffer */
-					p_m_fromup_buffer_readp = p_m_fromup_buffer_writep;
-					inbuffer = 0;
-				} else
-				{
-					/* skip what we already have with tones */
-					p_m_fromup_buffer_readp = (p_m_fromup_buffer_readp + length) & FROMUP_BUFFER_MASK;
-					inbuffer -= length;
-					p += length;
-				}
-				/* if we have more in buffer, than we send this time */
-				if (inbuffer > (elapsed-length))
-					inbuffer = elapsed - length;
-				/* set length to what we actually have */
-				length = length + inbuffer;
-printf("p%d inbuffer=%d\n", p_serial, inbuffer);
-				/* now fill up with fromup_buffer */
-				while (inbuffer)
-				{
-					*p++ = p_m_fromup_buffer[p_m_fromup_buffer_readp];
-					p_m_fromup_buffer_readp = (p_m_fromup_buffer_readp + 1) & FROMUP_BUFFER_MASK;
-					inbuffer--;
-				}
-			}
-printf("p%d length=%d\n", p_serial, length);
-
-			/* overwrite buffer with crypto stuff */
-			if (p_m_crypt_msg_loops)
-			{
-				/* send pending message */
-				int tosend;
-
 				/* how much do we have to send */
-				tosend = p_m_crypt_msg_len - p_m_crypt_msg_current;
-				if (tosend > elapsed)
-					tosend = elapsed;
+				length = p_m_crypt_msg_len - p_m_crypt_msg_current;
 
-				/* our length increases, if less */
-				if (length < tosend)
+				/* clip tosend */
+				if (length > tosend)
 					length = tosend;
 
 				/* copy message (part) to buffer */
-				memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, tosend);
-				p_m_crypt_msg_current += tosend;
+				memcpy(p, p_m_crypt_msg+p_m_crypt_msg_current, length);
+
+				/* new position */
+				p_m_crypt_msg_current += length;
 				if (p_m_crypt_msg_current == p_m_crypt_msg_len)
 				{
+					/* next loop */
 					p_m_crypt_msg_current = 0;
 					p_m_crypt_msg_loops--;
 				}
+
+				/* new length */
+				tosend -= length;
 			}
+
+			/* copy tones */
+			if (p_tone_name[0] && tosend)
+			{
+				tosend -= read_audio(p, tosend);
+			}
+
+			/* send data */
 			frm->prim = DL_DATA | REQUEST; 
 			frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
 			frm->dinfo = 0;
-			frm->len = length;
-			mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
-
-			if (p_debug_nothingtosend)
-			{
-				p_debug_nothingtosend = 0;
-				PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) start sending, because we have tones and/or remote audio.\n", p_name);
-			} 
-			return(1);
+			frm->len = ISDN_LOAD - p_m_load - tosend;
+			if (frm->len)
+				mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+			p_m_load += frm->len;
 		}
-	} else
-	{
-		if (!p_debug_nothingtosend)
-		{
-			p_debug_nothingtosend = 1;
-			PDEBUG((DEBUG_PORT | DEBUG_BCHANNEL), "PmISDN(%s) stop sending, because we have only silence.\n", p_name);
-		} 
 	}
 
 	// NOTE: deletion is done by the child class
@@ -968,8 +974,8 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			case CMX_TX_DATA:
 			if (!p_m_txdata)
 			{
-				/* if rx is off, it may happen that fifos send us pending informations, we just ignore them */
-				PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring rx data, because 'txdata' is turned off\n", p_name);
+				/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
+				PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring tx data, because 'txdata' is turned off\n", p_name);
 				return;
 			}
 			if (p_record)
@@ -993,8 +999,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	 * the call is connected OR interface features audio during call setup.
 	 */
 //printf("%d -> %d prim=%x calldata=%d tones=%d\n", p_serial, ACTIVE_EPOINT(p_epointlist), frm->prim, p_m_calldata, p_m_mISDNport->earlyb);	
-#warning "disabled for debug"
-#if 0
+#ifndef DEBUG_COREBRIDGE
 	if (p_state!=PORT_STATE_CONNECT
 	 && !p_m_mISDNport->earlyb)
 		return;
@@ -1489,8 +1494,7 @@ int mISDN_handler(void)
 		free_msg(msg);
 		if (errno == EAGAIN)
 			return(0);
-		PERROR("FATAL ERROR: failed to do mISDN_read()\n");
-		exit(-1); 
+		FATAL("Failed to do mISDN_read()\n");
 	}
 	if (!ret)
 	{
@@ -1804,8 +1808,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 		if (ret < (int)mISDN_HEADER_LEN)
 		{
 			noentity:
-			fprintf(stderr, "cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
-			exit(-1);
+			FATAL("Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
 		}
 		entity = frm->dinfo & 0xffff;
 		if (!entity)
@@ -1907,14 +1910,8 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 	mISDNportp = &mISDNport_first;
 	while(*mISDNportp)
 		mISDNportp = &((*mISDNportp)->next);
-	mISDNport = (struct mISDNport *)calloc(1, sizeof(struct mISDNport));
-	if (!mISDNport)
-	{
-		PERROR("Cannot alloc mISDNport structure\n");
-		return(NULL);
-	}
+	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
 	pmemuse++;
-	memset(mISDNport, 0, sizeof(mISDNport));
 	*mISDNportp = mISDNport;
 
 	/* allocate ressources of port */
@@ -2163,7 +2160,7 @@ void mISDNport_close(struct mISDNport *mISDNport)
 			/* phd */
 			msg_queue_purge(&nst->down_queue);
 			if (nst->phd_down_msg)
-				free(nst->phd_down_msg);
+				FREE(nst->phd_down_msg, 0);
 		}
 	}
 
@@ -2188,13 +2185,9 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	}
 
 	if (mISDNportp)
-	{
-		PERROR("software error, mISDNport not in list\n");
-		exit(-1);
-	}
+		FATAL("mISDNport not in list\n");
 	
-	memset(mISDNport, 0, sizeof(struct mISDNport));
-	free(mISDNport);
+	FREE(mISDNport, sizeof(struct mISDNport));
 	pmemuse--;
 
 	/* close mISDNdevice, if no port */
@@ -2227,7 +2220,7 @@ void mISDN_port_info(void)
 	if ((device = mISDN_open()) < 0)
 	{
 		fprintf(stderr, "cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", device, errno, strerror(errno));
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* get number of stacks */
@@ -2376,10 +2369,7 @@ void mISDN_port_info(void)
 
 	/* close mISDN */
 	if ((err = mISDN_close(device)))
-	{
-		fprintf(stderr, "mISDN_close() failed: err=%d '%s'\n", err, strerror(err));
-		exit(-1);
-	}
+		FATAL("mISDN_close() failed: err=%d '%s'\n", err, strerror(err));
 }
 
 
@@ -2388,26 +2378,44 @@ void mISDN_port_info(void)
  */
 void PmISDN::txfromup(unsigned char *data, int length)
 {
-	int avail;
-	/* no data */
-	if (!length)
+	unsigned char buf[mISDN_HEADER_LEN+((length>ISDN_LOAD)?length:ISDN_LOAD)];
+	iframe_t *frm = (iframe_t *)buf;
+
+	/* configure frame */
+	frm->prim = DL_DATA | REQUEST; 
+	frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
+	frm->dinfo = 0;
+
+	/* check if high priority tones exist
+	 * ignore data in this case
+	 */
+	if (p_tone_name[0] || p_m_crypt_msg_loops)
 		return;
 
-	/* get free samples in buffer */
-	avail = ((p_m_fromup_buffer_readp - p_m_fromup_buffer_writep - 1) & FROMUP_BUFFER_MASK);
-	if (avail < length)
+	/* preload procedure
+	 * if transmit buffer in DSP module is empty,
+	 * preload it to DSP_LOAD to prevent jitter gaps.
+	 */
+	if (p_m_load==0 && ISDN_LOAD>0)
 	{
-		PDEBUG(DEBUG_PORT, "Port(%d): fromup_buffer overflows, this shall not happen under normal conditions\n", p_serial);
-		return;
+
+		memcpy(buf+mISDN_HEADER_LEN, data, ISDN_LOAD);
+		frm->len = ISDN_LOAD;
+		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+		p_m_load += frm->len;
 	}
 
-	/* write data to buffer and return */
-	while(length)
-	{
-		p_m_fromup_buffer[p_m_fromup_buffer_writep] = *data++;
-		p_m_fromup_buffer_writep = (p_m_fromup_buffer_writep + 1) & FROMUP_BUFFER_MASK;
-		length--;
-	}
-	return; // must return, because length is 0
+	/* drop if load would exceed ISDN_MAXLOAD
+	 * this keeps the delay not too high
+	 */
+	if (p_m_load+length > ISDN_MAXLOAD)
+		return;
+
+	/* load data to buffer
+	 */
+	memcpy(buf+mISDN_HEADER_LEN, data, length);
+	frm->len = length;
+	mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+	p_m_load += frm->len;
 }
 

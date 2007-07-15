@@ -75,7 +75,6 @@ Pdss1::~Pdss1()
  */
 static msg_t *create_l3msg(int prim, int mt, int dinfo, int size, int ntmode)
 {
-	int i = 0;
 	msg_t *dmsg;
 	Q931_info_t *qi;
 	iframe_t *frm;
@@ -83,57 +82,42 @@ static msg_t *create_l3msg(int prim, int mt, int dinfo, int size, int ntmode)
 	if (!ntmode)
 		size = sizeof(Q931_info_t)+2;
 
-	while(i < 10)
+	if (ntmode)
 	{
-		if (ntmode)
+		dmsg = prep_l3data_msg(prim, dinfo, size, 256, NULL);
+		if (dmsg)
 		{
-			dmsg = prep_l3data_msg(prim, dinfo, size, 256, NULL);
-			if (dmsg)
-			{
-				return(dmsg);
-			}
-		} else
-		{
-			dmsg = alloc_msg(size+256+mISDN_HEADER_LEN+DEFAULT_HEADROOM);
-			if (dmsg)
-			{
-				memset(msg_put(dmsg,size+mISDN_HEADER_LEN), 0, size+mISDN_HEADER_LEN);
-				frm = (iframe_t *)dmsg->data;
-				frm->prim = prim;
-				frm->dinfo = dinfo;
-				qi = (Q931_info_t *)(dmsg->data + mISDN_HEADER_LEN);
-				qi->type = mt;
-				return(dmsg);
-			}
+			return(dmsg);
 		}
-
-		if (!i)
-			PERROR("cannot allocate memory, trying again...\n");
-		i++;
-		usleep(50000);
+	} else
+	{
+		dmsg = alloc_msg(size+256+mISDN_HEADER_LEN+DEFAULT_HEADROOM);
+		if (dmsg)
+		{
+			memset(msg_put(dmsg,size+mISDN_HEADER_LEN), 0, size+mISDN_HEADER_LEN);
+			frm = (iframe_t *)dmsg->data;
+			frm->prim = prim;
+			frm->dinfo = dinfo;
+			qi = (Q931_info_t *)(dmsg->data + mISDN_HEADER_LEN);
+			qi->type = mt;
+			return(dmsg);
+		}
 	}
-	PERROR("cannot allocate memory, system overloaded.\n");
-	exit(-1);
+
+	FATAL("Cannot allocate memory, system overloaded.\n");
+	exit(0); // make gcc happy
 }
 
 msg_t *create_l2msg(int prim, int dinfo, int size) /* NT only */
 {
-	int i = 0;
 	msg_t *dmsg;
 
-	while(i < 10)
-	{
-		dmsg = prep_l3data_msg(prim, dinfo, size, 256, NULL);
-		if (dmsg)
-			return(dmsg);
+	dmsg = prep_l3data_msg(prim, dinfo, size, 256, NULL);
+	if (dmsg)
+		return(dmsg);
 
-		if (!i)
-			PERROR("cannot allocate memory, trying again...\n");
-		i++;
-		usleep(50000);
-	}
-	PERROR("cannot allocate memory, system overloaded.\n");
-	exit(-1);
+	FATAL("Cannot allocate memory, system overloaded.\n");
+	exit(0); // make gcc happy
 }
 
 /*
@@ -336,7 +320,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 	dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 	release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 	l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-	enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
+	enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 	new_state(PORT_STATE_RELEASE);
@@ -501,10 +485,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	{
 		/* nt-library now gives us the id via CC_SETUP */
 		if (dinfo&(~0xff) == 0xff00)
-		{
-			PERROR("fatal software error: l3-stack gives us a process id 0xff00-0xffff\n");
-			exit(-1);
-		}
+			FATAL("l3-stack gives us a process id 0xff00-0xffff\n");
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | INDICATION, DIRECTION_IN);
 		if (p_m_d_l3id)
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
@@ -541,7 +522,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 27); /* temporary unavailable */
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 27); /* temporary unavailable */
 		add_trace("reason", NULL, "port blocked");
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -743,7 +724,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
@@ -754,34 +735,13 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	/* create endpoint */
 	if (p_epointlist)
-	{
-		PERROR("SOFTWARE ERROR: incoming call but already got an endpoint, exitting...\n");
-		exit(-1);
-	}
-	if (!(epoint = new Endpoint(p_serial, 0)))
-	{
-		RELEASE_COMPLETE_t *release_complete;
-
-		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
-		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 41); /* temporary failure */
-		end_trace();
-		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
-		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
-		return;
-	}
+		FATAL("Incoming call but already got an endpoint.\n");
+	if (!(epoint = new Endpoint(p_serial, 0, 0)))
+		FATAL("No memory for Endpoint instance\n");
 	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
-	{
-		PERROR("no memory for application\n");
-		exit(-1);
-	}
-	if (!(epointlist_new(epoint->ep_serial)))
-	{
-		PERROR("no memory for epointlist\n");
-		exit(-1);
-	}
+		FATAL("No memory for Endpoint Application instance\n");
+	epointlist_new(epoint->ep_serial);
+
 	/* send setup message to endpoit */
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
@@ -1118,7 +1078,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 	}
 	p_connectinfo.isdn_port = p_m_portnum;
-	SCPY(p_connectinfo.interfaces, p_m_mISDNport->ifport->interface->name);
+	SCPY(p_connectinfo.interface, p_m_mISDNport->ifport->interface->name);
 
 	/* only in nt-mode we send connect ack. in te-mode it is done by stack itself or optional */
 	if (p_m_d_ntmode)
@@ -1154,6 +1114,8 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_progress(disconnect->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &proglocation, &progress);
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 	end_trace();
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 
 	if (cause < 0)
 		cause = 16;
@@ -1167,7 +1129,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, dinfo, sizeof(RELEASE_t), p_m_d_ntmode);
 		release = (RELEASE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&release->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
+		enc_ie_cause(&release->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
 		add_trace("reason", NULL, "no remote patterns");
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -1223,33 +1185,11 @@ void Pdss1::disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data
 	}
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 	end_trace();
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 
 	/* collect cause */
-	if (cause == CAUSE_REJECTED) /* call rejected */
-	{
-		p_m_d_collect_cause = CAUSE_REJECTED;
-		p_m_d_collect_location = location;
-	} else
-	if (cause==CAUSE_NORMAL && p_m_d_collect_cause!=CAUSE_REJECTED) /* reject via hangup */
-	{
-		p_m_d_collect_cause = CAUSE_NORMAL;
-		p_m_d_collect_location = location;
-	} else
-	if (cause==CAUSE_BUSY && p_m_d_collect_cause!=CAUSE_REJECTED && p_m_d_collect_cause!=CAUSE_NORMAL) /* busy */
-	{
-		p_m_d_collect_cause = CAUSE_BUSY;
-		p_m_d_collect_location = location;
-	} else
-	if (cause==CAUSE_OUTOFORDER && p_m_d_collect_cause!=CAUSE_BUSY && p_m_d_collect_cause!=CAUSE_REJECTED && p_m_d_collect_cause!=CAUSE_NORMAL) /* no L1 */
-	{
-		p_m_d_collect_cause = CAUSE_OUTOFORDER;
-		p_m_d_collect_location = location;
-	} else
-	if (cause!=0 && cause!=CAUSE_NOUSER && p_m_d_collect_cause!=CAUSE_OUTOFORDER && p_m_d_collect_cause!=CAUSE_BUSY && p_m_d_collect_cause!=CAUSE_REJECTED && p_m_d_collect_cause!=CAUSE_NORMAL) /* anything if cause exists and not 18 */
-	{
-		p_m_d_collect_cause = cause;
-		p_m_d_collect_location = location;
-	}
+	collect_cause(&p_m_d_collect_cause, &p_m_d_collect_location, cause, location);
 	add_trace("new-cause", "location", "%d", p_m_d_collect_location);
 	add_trace("new-cause", "value", "%d", p_m_d_collect_cause);
 
@@ -1267,6 +1207,8 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 	dec_ie_cause(release->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 	end_trace();
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 
 	if (cause < 0)
 		cause = 16;
@@ -1291,7 +1233,7 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 	}
@@ -1311,6 +1253,8 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 	dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 	end_trace();
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 
 	if (cause < 0)
 		cause = 16;
@@ -1429,7 +1373,7 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_HOLD_REJECT | REQUEST, MT_HOLD_REJECT, dinfo, sizeof(HOLD_REJECT_t), p_m_d_ntmode);
 		hold_reject = (HOLD_REJECT_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_HOLD_REJECT | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&hold_reject->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, p_m_hold?101:31); /* normal unspecified / incompatible state */
+		enc_ie_cause(&hold_reject->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, p_m_hold?101:31); /* normal unspecified / incompatible state */
 		add_trace("reason", NULL, "no endpoint");
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
@@ -1493,7 +1437,7 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RETRIEVE_REJECT | REQUEST, MT_RETRIEVE_REJECT, dinfo, sizeof(RETRIEVE_REJECT_t), p_m_d_ntmode);
 		retrieve_reject = (RETRIEVE_REJECT_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RETRIEVE_REJECT | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&retrieve_reject->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, cause);
+		enc_ie_cause(&retrieve_reject->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, cause);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -1558,7 +1502,7 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_SUSPEND_REJECT | REQUEST, MT_SUSPEND_REJECT, dinfo, sizeof(SUSPEND_REJECT_t), p_m_d_ntmode);
 		suspend_reject = (SUSPEND_REJECT_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_SUSPEND_REJECT | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&suspend_reject->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
+		enc_ie_cause(&suspend_reject->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 
@@ -1638,10 +1582,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	{
 		/* nt-library now gives us the id via CC_RESUME */
 		if (dinfo&(~0xff) == 0xff00)
-		{
-			PERROR("fatal software error: l3-stack gives us a process id 0xff00-0xffff\n");
-			exit(-1);
-		}
+			FATAL("l3-stack gives us a process id 0xff00-0xffff\n");
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | INDICATION, DIRECTION_IN);
 		if (p_m_d_l3id)
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
@@ -1685,7 +1626,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RESUME_REJECT | REQUEST, MT_RESUME_REJECT, dinfo, sizeof(RESUME_REJECT_t), p_m_d_ntmode);
 		resume_reject = (RESUME_REJECT_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RESUME_REJECT | REQUEST, DIRECTION_OUT);
-		enc_ie_cause(&resume_reject->CAUSE, dmsg, (p_m_d_ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
+		enc_ie_cause(&resume_reject->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 		if (ret == -27)
 			add_trace("reason", NULL, "port blocked");
 		end_trace();
@@ -1698,10 +1639,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	/* create endpoint */
 	if (p_epointlist)
-	{
-		PERROR("SOFTWARE ERROR: incoming resume but already got an endpoint, exitting...\n");
-		exit(-1);
-	}
+		FATAL("Incoming resume but already got an endpoint.\n");
 	ret = -85; /* no call suspended */
 	epoint = epoint_first;
 	while(epoint)
@@ -1718,16 +1656,9 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	if (!epoint)
 		goto reject;
 
-	if (!(epointlist_new(epoint->ep_serial)))
-	{
-		PERROR("no memory for epointlist\n");
-		exit(-1);
-	}
+	epointlist_new(epoint->ep_serial);
 	if (!(epoint->portlist_new(p_serial, p_type, p_m_mISDNport->earlyb)))
-	{
-		PERROR("no memory for portlist\n");
-		exit(-1);
-	}
+		FATAL("No memory for portlist\n");
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RESUME);
 	message_put(message);
 
@@ -2139,13 +2070,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 		epointlist = epointlist->next;
 	}
 	if (!epointlist)
-	{
-		if (!(epointlist_new(epoint_id)))
-		{
-			PERROR("no memory for epointlist\n");
-			exit(-1);
-		}
-	}
+		epointlist_new(epoint_id);
 
 	/* get channel */
 	exclusive = 0;
@@ -2758,7 +2683,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
 		/* send cause */
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
@@ -2798,7 +2723,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	if (p_m_mISDNport->tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
-	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 	/* send display */
 	if (param->disconnectinfo.display[0])
 		p = param->disconnectinfo.display;
@@ -2829,7 +2754,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		release = (RELEASE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
 		/* send cause */
-		enc_ie_cause(&release->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		enc_ie_cause(&release->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
@@ -2847,7 +2772,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
 		/* send cause */
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
@@ -2898,7 +2823,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	if (p_m_mISDNport->tones)
 		enc_ie_progress(&disconnect->PROGRESS, dmsg, 0, p_m_d_ntmode?1:5, 8);
 	/* send cause */
-	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_d_ntmode && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 	/* send display */
 	epoint = find_epoint_id(epoint_id);
 	if (param->disconnectinfo.display[0])
@@ -2966,10 +2891,7 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 			break;
 		}
 		if (p_epointlist && p_state==PORT_STATE_IDLE)
-		{
-			PERROR("Pdss1(%s): software error: epoint pointer is set in idle state, how bad!! exitting.\n", p_name);
-			exit(-1);
-		}
+			FATAL("Pdss1(%s): epoint pointer is set in idle state, how bad!!\n", p_name);
 		/* note: pri is a special case, because links must be up for pri */ 
 		if (p_m_mISDNport->l1link || p_m_mISDNport->pri || !p_m_mISDNport->ntmode || p_state!=PORT_STATE_IDLE)
 		{
@@ -2982,10 +2904,7 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 			memcpy(&p_m_d_queue->param, param, sizeof(union parameter));
 			/* attach us */
 			if (!(epointlist_new(epoint_id)))
-			{
-				PERROR("no memory for epointlist\n");
-				exit(-1);
-			}
+				FATAL("No memory for epointlist\n");
 			/* activate link */
 			PDEBUG(DEBUG_ISDN, "the L1 is down, we try to establish the link NT portnum=%d (%s).\n", p_m_mISDNport->portnum, p_name);
 			act.prim = PH_ACTIVATE | REQUEST; 
@@ -3192,19 +3111,8 @@ int stack2manager_nt(void *dat, void *arg)
 		/* creating port object */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
 		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
-		{
-			RELEASE_COMPLETE_t *release_complete;
-			msg_t *dmsg;
 
-			PERROR("FATAL ERROR: cannot create port object.\n");
-			dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, hh->dinfo, sizeof(RELEASE_COMPLETE_t), mISDNport->ntmode);
-			release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + mISDN_HEADER_LEN);
-			l1l2l3_trace_header(mISDNport, NULL, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-			enc_ie_cause_standalone(mISDNport->ntmode?&release_complete->CAUSE:NULL, dmsg, (mISDNport->ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 47);
-			end_trace();
-			msg_queue_tail(&mISDNport->downqueue, dmsg);
-			break;
-		}
+			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(hh->prim, hh->dinfo, msg->data);
 		break;
 
@@ -3212,19 +3120,7 @@ int stack2manager_nt(void *dat, void *arg)
 		/* creating port object */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
 		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
-		{
-			SUSPEND_REJECT_t *suspend_reject;
-			msg_t *dmsg;
-
-			PERROR("FATAL ERROR: cannot create port object.\n");
-			dmsg = create_l3msg(CC_SUSPEND_REJECT | REQUEST, MT_SUSPEND_REJECT, hh->dinfo, sizeof(SUSPEND_REJECT_t), mISDNport->ntmode);
-			suspend_reject = (SUSPEND_REJECT_t *)(dmsg->data + mISDN_HEADER_LEN);
-			l1l2l3_trace_header(mISDNport, NULL, CC_SUSPEND_REJECT | REQUEST, DIRECTION_OUT);
-			enc_ie_cause_standalone(mISDNport->ntmode?&suspend_reject->CAUSE:NULL, dmsg, (mISDNport->ntmode)?1:0, 47);
-			end_trace();
-			msg_queue_tail(&mISDNport->downqueue, dmsg);
-			break;
-		}
+			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(hh->prim, hh->dinfo, msg->data);
 		break;
 
@@ -3289,20 +3185,7 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)
 		/* creating port object */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
 		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_TE_IN, mISDNport, name, NULL, 0, 0)))
-		{
-			RELEASE_COMPLETE_t *release_complete;
-			msg_t *dmsg;
-
-			PERROR("FATAL ERROR: cannot create port object.\n");
-			dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, frm->dinfo, sizeof(RELEASE_COMPLETE_t), mISDNport->ntmode);
-			release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + mISDN_HEADER_LEN);
-			l1l2l3_trace_header(mISDNport, NULL, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
-			enc_ie_cause_standalone(mISDNport->ntmode?&release_complete->CAUSE:NULL, dmsg, (mISDNport->ntmode)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 47);
-			end_trace();
-			msg_queue_tail(&mISDNport->downqueue, dmsg);
-			free_msg(msg);
-			return(0);
-		}
+			FATAL("Cannot create Port instance.\n");
 		/* l3id will be set from dinfo at message_isdn */
 		pdss1->message_isdn(frm->prim, frm->dinfo, msg->data);
 		free_msg(msg);

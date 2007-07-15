@@ -23,14 +23,8 @@ void default_out_channel(struct interface_port *ifport)
 {
 	struct select_channel *selchannel, **selchannelp;
 
-	selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-	if (!selchannel)
-	{
-		PERROR("No memory!");
-		return;
-	}
+	selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 	memuse++;
-	memset(selchannel, 0, sizeof(struct select_channel));
 	
 	if (ifport->mISDNport->ntmode)
 		selchannel->channel = CHANNEL_FREE;
@@ -43,14 +37,8 @@ void default_out_channel(struct interface_port *ifport)
 	if (!ifport->mISDNport->ptp && ifport->mISDNport->ntmode)
 	{
 		selchannelp = &(selchannel->next);
-		selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-		if (!selchannel)
-		{
-			PERROR("No memory!");
-			return;
-		}
+		selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 		memuse++;
-		memset(selchannel, 0, sizeof(struct select_channel));
 		selchannel->channel = CHANNEL_NO; // call waiting
 		*selchannelp = selchannel;
 	}
@@ -62,14 +50,8 @@ void default_in_channel(struct interface_port *ifport)
 {
 	struct select_channel *selchannel;
 
-	selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-	if (!selchannel)
-	{
-		PERROR("No memory!");
-		return;
-	}
+	selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 	memuse++;
-	memset(selchannel, 0, sizeof(struct select_channel));
 	
 	selchannel->channel = CHANNEL_FREE;
 	
@@ -281,14 +263,8 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 		searchif = searchif->next;
 	}
 	/* alloc port substructure */
-	ifport = (struct interface_port *)malloc(sizeof(struct interface_port));
-	if (!ifport)
-	{
-		SPRINT(interface_error, "No memory!");
-		return(-1);
-	}
+	ifport = (struct interface_port *)MALLOC(sizeof(struct interface_port));
 	memuse++;
-	memset(ifport, 0, sizeof(struct interface_port));
 	ifport->interface = interface;
 	/* set value */
 	ifport->portnum = val;
@@ -360,14 +336,8 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 			}
 			selchannel:
 			/* add to select-channel list */
-			selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-			if (!selchannel)
-			{
-				SPRINT(interface_error, "No memory!");
-				return(-1);
-			}
+			selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 			memuse++;
-			memset(selchannel, 0, sizeof(struct select_channel));
 			/* set value */
 			selchannel->channel = val;
 			/* tail port */
@@ -426,14 +396,8 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 			}
 			selchannel:
 			/* add to select-channel list */
-			selchannel = (struct select_channel *)malloc(sizeof(struct select_channel));
-			if (!selchannel)
-			{
-				SPRINT(interface_error, "No memory!");
-				return(-1);
-			}
+			selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 			memuse++;
-			memset(selchannel, 0, sizeof(struct select_channel));
 			/* set value */
 			selchannel->channel = val;
 			/* tail port */
@@ -468,14 +432,8 @@ static int inter_msn(struct interface *interface, char *filename, int line, char
 		el = p;
 		p = get_seperated(p);
 		/* add MSN to list */
-		ifmsn = (struct interface_msn *)malloc(sizeof(struct interface_msn));
-		if (!ifmsn)
-		{
-			SPRINT(interface_error, "No memory!");
-			return(-1);
-		}
+		ifmsn = (struct interface_msn *)MALLOC(sizeof(struct interface_msn));
 		memuse++;
-		memset(ifmsn, 0, sizeof(struct interface_msn));
 		/* set value */
 		SCPY(ifmsn->msn, el);
 		/* tail port */
@@ -500,14 +458,8 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 	el = p;
 	p = get_seperated(p);
 	/* add screen entry to list*/
-	ifscreen = (struct interface_screen *)malloc(sizeof(struct interface_screen));
-	if (!ifscreen)
-	{
-		SPRINT(interface_error, "No memory!");
-		return(-1);
-	}
+	ifscreen = (struct interface_screen *)MALLOC(sizeof(struct interface_screen));
 	memuse++;
-	memset(ifscreen, 0, sizeof(struct interface_screen));
 	ifscreen->match_type = -1; /* unchecked */
 	ifscreen->match_present = -1; /* unchecked */
 	ifscreen->result_type = -1; /* unchanged */
@@ -788,10 +740,7 @@ struct interface *read_interfaces(void)
 	struct interface_param	*ifparam;
 
 	if (interface_newlist != NULL)
-	{
-		PERROR("software error, list is not empty.\n");
-		exit(-1);
-	}
+		FATAL("list is not empty.\n");
 	interface_error[0] = '\0';
 	SPRINT(filename, "%s/interface.conf", INSTALL_DATA);
 
@@ -894,14 +843,8 @@ struct interface *read_interfaces(void)
 			}
 
 			/* append interface to new list */
-			interface = (struct interface *)malloc(sizeof(struct interface));
-			if (!interface)
-			{
-				SPRINT(interface_error, "No memory!");
-				goto error;
-			}
+			interface = (struct interface *)MALLOC(sizeof(struct interface));
 			memuse++;
-			memset(interface, 0, sizeof(struct interface));
 
 			/* name interface */
 			SCPY(interface->name, parameter+1);
@@ -964,8 +907,7 @@ void free_interfaces(struct interface *interface)
 			{
 				temp = selchannel;
 				selchannel = selchannel->next;
-				memset(temp, 0, sizeof(struct select_channel));
-				free(temp);
+				FREE(temp, sizeof(struct select_channel));
 				memuse--;
 			}
 			selchannel = ifport->out_channel;
@@ -973,14 +915,12 @@ void free_interfaces(struct interface *interface)
 			{
 				temp = selchannel;
 				selchannel = selchannel->next;
-				memset(temp, 0, sizeof(struct select_channel));
-				free(temp);
+				FREE(temp, sizeof(struct select_channel));
 				memuse--;
 			}
 			temp = ifport;
 			ifport = ifport->next;
-			memset(temp, 0, sizeof(struct interface_port));
-			free(temp);
+			FREE(temp, sizeof(struct interface_port));
 			memuse--;
 		}
 		ifmsn = interface->ifmsn;
@@ -988,8 +928,7 @@ void free_interfaces(struct interface *interface)
 		{
 			temp = ifmsn;
 			ifmsn = ifmsn->next;
-			memset(temp, 0, sizeof(struct interface_msn));
-			free(temp);
+			FREE(temp, sizeof(struct interface_msn));
 			memuse--;
 		}
 		ifscreen = interface->ifscreen_in;
@@ -997,8 +936,7 @@ void free_interfaces(struct interface *interface)
 		{
 			temp = ifscreen;
 			ifscreen = ifscreen->next;
-			memset(temp, 0, sizeof(struct interface_screen));
-			free(temp);
+			FREE(temp, sizeof(struct interface_screen));
 			memuse--;
 		}
 		ifscreen = interface->ifscreen_out;
@@ -1006,8 +944,7 @@ void free_interfaces(struct interface *interface)
 		{
 			temp = ifscreen;
 			ifscreen = ifscreen->next;
-			memset(temp, 0, sizeof(struct interface_screen));
-			free(temp);
+			FREE(temp, sizeof(struct interface_screen));
 			memuse--;
 		}
 		iffilter = interface->iffilter;
@@ -1015,16 +952,41 @@ void free_interfaces(struct interface *interface)
 		{
 			temp = iffilter;
 			iffilter = iffilter->next;
-			memset(temp, 0, sizeof(struct interface_filter));
-			free(temp);
+			FREE(temp, sizeof(struct interface_filter));
 			memuse--;
 		}
 		temp = interface;
 		interface = interface->next;
-		memset(temp, 0, sizeof(struct interface));
-		free(temp);
+		FREE(temp, sizeof(struct interface));
 		memuse--;
 	}
+}
+
+/*
+ * defaults of ports if not specified by config
+ */
+static void set_defaults(struct interface_port *ifport)
+{
+	/* default channel selection list */
+	if (!ifport->out_channel)
+		default_out_channel(ifport);
+	if (!ifport->in_channel)
+		default_in_channel(ifport);
+	/* default is_tones */
+	if (ifport->interface->is_tones)
+		ifport->mISDNport->tones = (ifport->interface->is_tones==IS_YES);
+	else
+		ifport->mISDNport->tones = (ifport->mISDNport->ntmode)?1:0;
+	/* default is_earlyb */
+	if (ifport->interface->is_earlyb)
+		ifport->mISDNport->earlyb = (ifport->interface->is_earlyb==IS_YES);
+	else
+		ifport->mISDNport->earlyb = (ifport->mISDNport->ntmode)?0:1;
+	/* set locally flag */
+	if (ifport->interface->extension)
+		ifport->mISDNport->locally = 1;
+	else
+		ifport->mISDNport->locally = 0;
 }
 
 
@@ -1061,6 +1023,7 @@ void relink_interfaces(void)
 				{
 					ifport->mISDNport = mISDNport;
 					mISDNport->ifport = ifport;
+					set_defaults(ifport);
 				}
 				mISDNport = mISDNport->next;
 			}
@@ -1117,22 +1080,7 @@ void load_port(struct interface_port *ifport)
 		/* link port */
 		ifport->mISDNport = mISDNport;
 		mISDNport->ifport = ifport;
-		
-		/* default channel selection list */
-		if (!ifport->out_channel)
-			default_out_channel(ifport);
-		if (!ifport->in_channel)
-			default_in_channel(ifport);
-		/* default is_tones */
-		if (ifport->interface->is_tones)
-			ifport->mISDNport->tones = (ifport->interface->is_tones==IS_YES);
-		else
-			ifport->mISDNport->tones = (ifport->mISDNport->ntmode)?1:0;
-		/* default is_earlyb */
-		if (ifport->interface->is_earlyb)
-			ifport->mISDNport->earlyb = (ifport->interface->is_earlyb==IS_YES);
-		else
-			ifport->mISDNport->earlyb = (ifport->mISDNport->ntmode)?0:1;
+		set_defaults(ifport);
 	} else
 	{
 		ifport->block = 2; /* not available */

@@ -154,7 +154,7 @@ struct connect_info {
 	char extension[32];		/* internal id */
 	char name[16];
 	int isdn_port;			/* internal/external port (if call is isdn) */
-	char interfaces[128];		/* interfaces for extenal calls */
+	char interface[128];		/* interface for extenal calls */
 	int itype;			/* type of interface */
 	int ntype;			/* type of number */
 	int present;			/* presentation */
@@ -311,6 +311,7 @@ struct message {
 	int flow; /* from where to where */
 	unsigned long id_from; /* in case of flow==PORT_TO_EPOINT: id_from is the port's serial, id_to is the epoint's serial */
 	unsigned long id_to;
+	int keep;
 	union parameter param;
 };
 
@@ -348,6 +349,7 @@ enum { /* messages between entities */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */
 	MESSAGE_TONE_COUNTER,	/* tone counter (for VBOX tone use) */
 	MESSAGE_TONE_EOF,	/* tone is end of file */
+	MESSAGE_HELLO,		/* hello message for asterisk */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -379,11 +381,13 @@ enum { /* messages between entities */
 	"MESSAGE_VBOX_TONE", \
 	"MESSAGE_TONE_COUNTER", \
 	"MESSAGE_TONE_EOF", \
+	"MESSAGE_HELLO", \
 };
 
 
 struct message *message_create(int id_from, int id_to, int flow, int type);
 void message_put(struct message *message);
+void message_forward(int id_from, int id_to, int flow, union parameter *param);
 struct message *message_get(void);
 void message_free(struct message *message);
 

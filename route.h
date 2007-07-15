@@ -72,6 +72,8 @@ enum { /* what to check during runtime */
 	MATCH_UP,
 	MATCH_BUSY,
 	MATCH_IDLE,
+	MATCH_ASTERISK,
+	MATCH_NOTASTERISK,
 };
 
 enum { /* how to parse text file during startup */

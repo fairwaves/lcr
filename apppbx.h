@@ -347,7 +347,7 @@ class EndpointAppPBX : public EndpointApp
 	void message_disconnect_port(struct port_list *portlist, int cause, int location, char *display);
 	void logmessage(struct message *messsage);
 	void trace_header(char *name, int direction);
-	void screen(int out, char *id, int idsize, int *type, int *present);
+	void screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface);
 };
 
 

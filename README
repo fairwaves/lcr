@@ -1,5 +1,5 @@
 
-Read the documentation at ./doc/ and visit http://www.linux-call-router.de
+Read the documentation at http://www.linux-call-router.de
 
 
 Changes in Version 20021228 
@@ -334,4 +334,27 @@ Changes in Version 3.4
 - Timeout condition seems to work now.
 - Timeout action seems to work now.
 
+New Verion for new name: LCR
+
+Changes in Version 1.0
+- Statefull b-channel open and closing
+- Rebuild audio flow
+  Made much simpler
+  Preloading and keeping transmit buffer for seamless tones and patterns.
+  Recording of what is actually transmitted and received by party.
+- Logging is replaced by trace
+- New isdn interface and port structure with many features
+  Interfaces can be changed at runtime.
+  Interfaces can be loaded and unloaded at runtime.
+- mISDN stack fixes
+- DDI in and out on all stacks
+- Layer 1 over IP supports interconnection via IP
+- Rebuild line and b-channel hunting with individual lists
+- Screen lists for changing caller IDs
+- Asterisk channel driver integrated
+- Multiplexing calls to multiple extensions
+- Removed all VoIP stuff to make core fast and stable (Use Asterisk for VoIP.)
+- Many bug fixes
+- Many minor improvements
+- New bugs of course...
 

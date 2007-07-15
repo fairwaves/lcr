@@ -88,8 +88,7 @@ void Port::free_epointlist(struct epoint_list *epointlist)
 
 	/* free */
 	PDEBUG(DEBUG_EPOINT, "PORT(%d) removed epoint from port\n", p_serial);
-	memset(temp, 0, sizeof(struct epoint_list));
-	free(temp);
+	FREE(temp, sizeof(struct epoint_list));
 	ememuse--;
 }
 
@@ -110,7 +109,7 @@ void Port::free_epointid(unsigned long epoint_id)
 	}
 	if (temp == 0)
 	{
-		PERROR("epoint_id not in port's list, exitting.\n");
+		PERROR("epoint_id not in port's list.\n");
 		return;
 	}
 	/* detach */
@@ -118,8 +117,7 @@ void Port::free_epointid(unsigned long epoint_id)
 
 	/* free */
 	PDEBUG(DEBUG_EPOINT, "PORT(%d) removed epoint from port\n", p_serial);
-	memset(temp, 0, sizeof(struct epoint_list));
-	free(temp);
+	FREE(temp, sizeof(struct epoint_list));
 	ememuse--;
 }
 
@@ -131,15 +129,11 @@ struct epoint_list *Port::epointlist_new(unsigned long epoint_id)
 	struct epoint_list *epointlist, **epointlistpointer;
 
 	/* epointlist structure */
-	epointlist = (struct epoint_list *)calloc(1, sizeof(struct epoint_list));
+	epointlist = (struct epoint_list *)MALLOC(sizeof(struct epoint_list));
 	if (!epointlist)
-	{
-		PERROR("no mem for allocating epoint_list\n");
-		return(0);
-	}
+		FATAL("No memory for epointlist\n");
 	ememuse++;
 	PDEBUG(DEBUG_EPOINT, "PORT(%d) allocating epoint_list.\n", p_serial);
-	memset(epointlist, 0, sizeof(struct epoint_list));
 
 	/* add epoint_list to chain */
 	epointlist->next = NULL;
@@ -175,11 +169,8 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 	}
 	SCPY(p_name, portname);
 	SCPY(p_tone_dir, p_settings.tones_dir); // just to be sure
-	p_last_tv_sec = 0;
-	p_last_tv_msec = 0;
 	p_type = type;
 	p_serial = port_serial++;
-	p_debug_nothingtosend = 0;
 	p_tone_fh = -1;
 	p_tone_fetched = NULL;
 	p_tone_name[0] = '\0';
@@ -255,10 +246,7 @@ Port::~Port(void)
 		temp = temp->next;
 	}
 	if (temp == NULL)
-	{
-		PERROR("PORT(%s) port not in port's list.\n", p_name);
-		exit(-1);
-	}
+		FATAL("PORT(%s) port not in port's list.\n", p_name);
 	/* detach */
 	*tempp=this->next;
 
@@ -495,7 +483,7 @@ void Port::set_vbox_speed(int speed)
 
 /*
  * read from the given file as specified in port_set_tone and return sample data
- * silence is appended if sample ends, but only the number of samples with tones are returned
+ * if the tone ends, the result may be less samples than requested
  */
 int Port::read_audio(unsigned char *buffer, int length)
 {
@@ -511,12 +499,8 @@ int Port::read_audio(unsigned char *buffer, int length)
 	len = length;
 
 	/* if there is no tone set, use silence */
-	if (p_tone_name[0] == 0)
-	{
-rest_is_silence:
-		memset(buffer, (options.law=='a')?0x2a:0xff, len); /* silence */
-		goto done;
-	}
+	if (!p_tone_name[0])
+		return(0);
 
 	/* if the file pointer is not open, we open it */
 	if (p_tone_fh<0 && p_tone_fetched==NULL)
@@ -586,7 +570,7 @@ read_more:
 	}
 
 	if (len==0)
-		goto done;
+		return(length-len);
 
 	if (p_tone_fh >= 0)
 	{
@@ -605,7 +589,7 @@ read_more:
 		PDEBUG(DEBUG_PORT, "PORT(%s) 0-length loop: %s\n", p_name, filename);
 		p_tone_name[0]=0;
 		p_tone_dir[0]=0;
-		goto rest_is_silence;
+		return(length-len);
 	}
 
 	/* if eof is reached, or if the normal file cannot be opened, continue with the loop file if possible */
@@ -630,7 +614,7 @@ try_loop:
 				PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 				p_tone_dir[0] = '\0';
 				p_tone_name[0] = '\0';
-				goto rest_is_silence;
+				return(length-len);
 			}
 			fhuse++;
 		}
@@ -643,7 +627,7 @@ try_loop:
 			PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 			p_tone_dir[0] = '\0';
 			p_tone_name[0] = '\0';
-			goto rest_is_silence;
+			return(length-len);
 		}
 		fhuse++;
 	}
@@ -652,9 +636,6 @@ try_loop:
 
 	/* now we have opened the loop */
 	goto read_more;
-
-done:
-	return(length-len);
 }
 
 

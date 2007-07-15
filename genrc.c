@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "save.h"
+#include "macro.h"
 
 char mode[256];
 int type[256];
@@ -166,7 +166,7 @@ int main(void)
 	if (!(fp=fopen(name, "w")))
 	{
 		fprintf(stderr, "\nError: Failed to open '%s', try again.\n", name);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	fprintf(fp, "# rc script for mISDN driver\n\n");
 	fprintf(fp, "case \"$1\" in\n");

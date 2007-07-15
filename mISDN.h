@@ -58,6 +58,7 @@ struct mISDNport {
 	int b_addr[128];
 	int b_state[128]; /* state 0 = IDLE */
 	int procids[128]; /* keep track of free ids */
+	int locally; /* local causes are sent as local causes not remote */
 	msg_queue_t downqueue;		/* l4->l3 */
 };
 extern mISDNport *mISDNport_first;
@@ -119,9 +120,12 @@ class PmISDN : public Port
 	int p_m_dtmf;				/* dtmf decoding is enabled */
 	int p_m_calldata;			/* the call requires data due to no briging capability */
 
-	int p_m_fromup_buffer_readp;		/* buffer for audio from remote endpoint */
-	int p_m_fromup_buffer_writep;
-	unsigned char p_m_fromup_buffer[FROMUP_BUFFER_SIZE];
+	int p_m_load;				/* current data in dsp tx buffer */
+	unsigned long p_m_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
+	unsigned long p_m_last_tv_msec;
+//	int p_m_fromup_buffer_readp;		/* buffer for audio from remote endpoint */
+//	int p_m_fromup_buffer_writep;
+//	unsigned char p_m_fromup_buffer[FROMUP_BUFFER_SIZE];
 	void txfromup(unsigned char *data, int length);
 
 	int p_m_crypt;				/* encryption is enabled */
@@ -146,8 +150,8 @@ class PmISDN : public Port
 	int p_m_b_channel;			/* number 1,2 1..15,17... */
 	int p_m_b_exclusive;			/* if bchannel is exclusive */
 	int p_m_b_reserve;			/* set if channel is reserved */
-	long long p_m_jittercheck;		/* time of audio data */
-	long long p_m_jitterdropped;		/* number of bytes dropped */
+//	long long p_m_jittercheck;		/* time of audio data */
+//	long long p_m_jitterdropped;		/* number of bytes dropped */
 	int p_m_delete;				/* true if obj. must del. */
 	int p_m_hold;				/* if port is on hold */
 	unsigned long p_m_timeout;		/* timeout of timers */

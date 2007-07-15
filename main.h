@@ -32,6 +32,7 @@ extern int fhuse;
 #define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, 0, fmt, ## arg)
 void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...);
 void _printerror(const char *function, int line, const char *fmt, ...);
+#define DEBUG_FUNC
 void debug(const char *function, int line, char *prefix, char *buffer);
 
 #define DEBUG_CONFIG	0x0001
@@ -59,23 +60,17 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 #define DEBUG_LOG	0x7fff
 
 /*
- * preload transmit buffer to avoid gaps at the beginning due to jitter
- * this is also the maximum load that will be kept in tx-buffer
+ * load transmit buffer to avoid gaps at the beginning due to jitter
+ * also the maximum load that will be kept in tx-buffer
+ * also the (minimum) number of data to transmit in a frame
  */
-#define ISDN_PRELOAD	1024 // samples
-
-/* 
- * interval for refreshing transmit buffer
- */
+#define ISDN_LOAD	1024 // samples
+#define ISDN_MAXLOAD	2048 // samples
 #define ISDN_TRANSMIT	256 // samples
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */
 #define SENDMAIL	"sendmail"
-
-/* maximum number of redial/powerdial and reply numbers to remember
- */
-#define MAX_REMEMBER	50
 
 /* leave it above 1024, because lower values can be unsafe, higher valuse cause
  * data larger than 512 bytes of hex strings.
@@ -87,6 +82,11 @@ void debug(const char *function, int line, char *prefix, char *buffer);
  * increase it ONLY IF you have a deeper tree of rule sets, than the value given here.
  */
 #define RULE_NESTING	10
+
+/* to debug core bridging, rather than mISDN dsp bridging, enable.
+ * this is for debugging only, bridging conferences will not work
+ */
+//#define DEBUG_COREBRIDGE
 
 /* special debugging for buffer overflow bugs
  * note: whenever a buffer gets strange values, the budetect function must
@@ -117,7 +117,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#include "save.h"
+#include "macro.h"
 #include "options.h"
 #include "interface.h"
 #include "extension.h"
@@ -132,7 +132,7 @@ extern "C" {
 #include "vbox.h"
 #include "call.h"
 #include "callpbx.h"
-#include "callchan.h"
+#include "callasterisk.h"
 #include "cause.h"
 #include "alawulaw.h"
 #include "tones.h"

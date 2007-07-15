@@ -72,7 +72,7 @@ struct admin_response_interface {
 	int		l1link; /* down(0) or up(1) */
 	int		l2link; /* down(0) or up(1) */
 	int		channels;
-	int		busy[256]; /* if port is idle(0) busy(1) */
+	char		busy[256]; /* if port is idle(0) busy(1) */
 	unsigned long	port[256]; /* current port */
 };
 
@@ -138,11 +138,11 @@ struct admin_trace_rsp {
 	char		text[1024];
 };
 
-//struct admin_msg {
-//	int		type; /* type of message */
-//	unsigned long	ref; /* reference to individual endpoints */
-//	union parameter	param; /* parameter union */
-//};
+struct admin_msg {
+	int		type; /* type of message */
+	unsigned long	ref; /* reference to individual endpoints */
+	union parameter	param; /* parameter union */
+};
 
 struct admin_message {
 	int message; /* type of admin message */
@@ -154,7 +154,7 @@ struct admin_message {
 		struct admin_response_epoint	e;
 		struct admin_response_call	c;
 		struct admin_call		call;
-//		struct admin_msg		msg;
+		struct admin_msg		msg;
 		struct admin_trace_req		trace_req;
 		struct admin_trace_rsp		trace_rsp;
 	} u;
