@@ -1,11 +1,12 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** Macros to do save string operations to avoid buffer overflows.            **
+** Macros to do safe string operations to avoid buffer overflows             **
+** Macros for memory allocation, feeing and error handling                   **
 **                                                                           **
 \*****************************************************************************/ 
 
@@ -61,4 +62,46 @@ extern __inline__ void sprint(char *dst, unsigned int siz, char *fmt, ...)
 #define UPRINT sprintf
 #define UNPRINT snprintf
 #define VUNPRINT vsnprintf
+
+/* fatal error with error message and exit */
+#define FATAL(fmt, arg...) fatal(__FUNCTION__, __LINE__, fmt, ##arg)
+extern __inline__ void fatal(const char *function, int line, char *fmt, ...)
+{
+	va_list args;
+	char buffer[256];
+
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+	buffer[sizeof(buffer)-1] = '\0';
+	fprintf(stderr, "FATAL ERROR in function %s, line %d: %s", function, line, buffer);
+	fprintf(stderr, "This error is not recoverable, must exit here.\n");
+#ifdef DEBUG_FUNC
+	debug(function, line, "FATAL ERROR", buffer);
+	debug(function, line, "FATAL ERROR", "This error is not recoverable, must exit here.\n");
+#endif
+	exit(EXIT_FAILURE);
+}
+
+/* memory allocation with setting to zero */
+#define MALLOC(size) _malloc(size, __FUNCTION__, __LINE__)
+extern __inline__ void *_malloc(unsigned long size, const char *function, int line)
+{
+	void *addr;
+	addr = malloc(size);
+	if (!addr)
+		fatal(function, line, "No memory for %d bytes.\n", size);
+	memset(addr, 0, size);
+	return(addr);
+}
+
+/* memory freeing with clearing memory to prevent using freed memory */
+#define FREE(addr, size) _free(addr, size)
+extern __inline void _free(void *addr, int size)
+{
+	if (size)
+		memset(addr, 0, size);
+	free(addr);
+}
+
 

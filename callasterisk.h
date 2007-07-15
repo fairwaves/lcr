@@ -1,22 +1,22 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** call header file for channel interface                                    **
+** call header file for Asterisk interface                                   **
 **                                                                           **
 \*****************************************************************************/ 
 
-class CallChan : public Call
+class CallAsterisk : public Call
 {
 	public:
-	CallChan(class Endpoint *epoint);
-	~CallChan();
+	CallAsterisk(unsigned long serial);
+	~CallAsterisk();
 	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
+	void message_asterisk(unsigned long callref, int message_type, union parameter *param);
 	int handler(void);
-	void release(unsigned long epoint_id, int hold, int location, int cause);
 
 	unsigned long c_epoint_id;
 }; 
