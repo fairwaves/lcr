@@ -1,11 +1,11 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** call functions for channel driver                                         **
+** join functions for channel driver                                         **
 **                                                                           **
 \*****************************************************************************/ 
 
@@ -25,41 +25,41 @@
 
 
 /*
- * constructor for a new call 
- * the call will have a relation to the calling endpoint
+ * constructor for a new join 
+ * the join will have a relation to the calling endpoint
  */
-CallAsterisk::CallAsterisk(unsigned long serial) : Call()
+JoinAsterisk::JoinAsterisk(unsigned long serial) : Join()
 {
-	PDEBUG(DEBUG_CALL, "Constructor(new call)");
+	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
 
-	c_type = CALL_TYPE_ASTERISK;
+	c_type = JOIN_TYPE_ASTERISK;
 
 	c_epoint_id = serial;
 	if (c_epoint_id)
-		PDEBUG(DEBUG_CALL, "New call connected to endpoint id %lu\n", c_epoint_id);
+		PDEBUG(DEBUG_JOIN, "New join connected to endpoint id %lu\n", c_epoint_id);
 }
 
 
 /*
- * call descructor
+ * join descructor
  */
-CallAsterisk::~CallAsterisk()
+JoinAsterisk::~JoinAsterisk()
 {
 
 }
 
 
-/* call process is called from the main loop
+/* join process is called from the main loop
  * it processes the current calling state.
- * returns 0 if call nothing was done
+ * returns 0 if join nothing was done
  */
-int CallAsterisk::handler(void)
+int JoinAsterisk::handler(void)
 {
 	return(0);
 }
 
 
-void CallAsterisk::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void JoinAsterisk::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
 {
 	/* if endpoint has just been removed, but still a message in the que */
 	if (epoint_id != c_epoint_id)
@@ -68,7 +68,7 @@ void CallAsterisk::message_epoint(unsigned long epoint_id, int message_type, uni
 	/* look for asterisk's interface */
 	if (admin_message_from_join(epoint_id, message_type, param)<0)
 	{
-		PERROR("No socket with asterisk found, this shall not happen. Closing socket shall cause release of all asterisk calls\n");
+		PERROR("No socket with asterisk found, this shall not happen. Closing socket shall cause release of all asterisk joins\n");
 		return;		
 	}
 
@@ -79,7 +79,7 @@ void CallAsterisk::message_epoint(unsigned long epoint_id, int message_type, uni
 	}
 }
 
-void CallAsterisk::message_asterisk(unsigned long callref, int message_type, union parameter *param)
+void JoinAsterisk::message_asterisk(unsigned long ref, int message_type, union parameter *param)
 {
 	struct message *message;
 
@@ -88,13 +88,13 @@ void CallAsterisk::message_asterisk(unsigned long callref, int message_type, uni
 	{
 		class Endpoint		*epoint;
 
-		if (!(epoint = new Endpoint(0, c_serial, callref)))
+		if (!(epoint = new Endpoint(0, c_serial, ref)))
 			FATAL("No memory for Endpoint instance\n");
 		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
 			FATAL("No memory for Endpoint Application instance\n");
 	}
 
-	message = message_create(c_serial, c_epoint_id, CALL_TO_EPOINT, message_type);
+	message = message_create(c_serial, c_epoint_id, JOIN_TO_EPOINT, message_type);
 	memcpy(&message->param, param, sizeof(message->param));
 	message_put(message);
 

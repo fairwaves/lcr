@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -22,7 +22,7 @@ struct port_list {
 class Endpoint
 {
 	public:
-	Endpoint(unsigned long port_id, unsigned long call_id, unsigned long use_epoint_id);
+	Endpoint(unsigned long port_id, unsigned long join_id, unsigned long use_epoint_id);
 	~Endpoint();
 	class Endpoint		*next;		/* next in list */
 	unsigned long		ep_serial;	/* a unique serial to identify */
@@ -36,8 +36,8 @@ class Endpoint
 	struct port_list *portlist_new(unsigned long port_id, int port_type, int earlyb);
 	void free_portlist(struct port_list *portlist);
 
-	/* call relation */
-	unsigned long 		ep_call_id;	/* link to call */
+	/* join relation */
+	unsigned long 		ep_join_id;	/* link to join */
 
 	/* if still used by threads */
 	int			ep_use;

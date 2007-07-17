@@ -1121,7 +1121,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		cause = 16;
 
 	/* release if we are remote sends us no tones */
-	if (p_m_mISDNport->earlyb)
+	if (!p_m_mISDNport->earlyb)
 	{
 		RELEASE_t *release;
 		msg_t *dmsg;
@@ -1242,7 +1242,7 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 	p_m_delete = 1;
 }
 
-/* CC_RELEASE_COMPLETE INDICATION */
+/* CC_RELEASE_COMPLETE INDICATION (a reject) */
 void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
@@ -1867,9 +1867,10 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		}
 		p_m_d_l3id = 0;
 		p_m_delete = 1;
+#warning remove me
+PDEBUG(DEBUG_LOG, "JOLLY release cr %d\n", p_serial);
 		/* sending release to endpoint in case we still have an endpoint
-		 * NOTE: this only happens if the stack releases due to layer1
-		 * or layer2 breakdown. otherwhise a release is received first.
+		 * this is because we don't get any response if a release_complete is received (or a release in release state)
 		 */
 		while(p_epointlist)
 		{
@@ -1968,12 +1969,17 @@ int Pdss1::handler(void)
 {
 	int ret;
 
+if (p_m_delete && p_m_d_l3id==0)
+	printf("ping! %d", p_serial);
 	if ((ret = PmISDN::handler()))
 		return(ret);
 
 	/* handle destruction */
 	if (p_m_delete && p_m_d_l3id==0)
 	{
+#warning remove 
+PDEBUG(DEBUG_LOG, "JOLLY destroy object %d\n", p_serial);
+
 		delete this;
 		return(-1);
 	}
@@ -2665,8 +2671,8 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	char *p = NULL;
 
 	/* we reject during incoming setup when we have no tones. also if we are in outgoing setup state */
-	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->tones)
-	 || p_state==PORT_STATE_OUT_SETUP)
+//	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->tones)
+if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 	{
 		/* sending release to endpoint */
 		while(p_epointlist)
@@ -2691,7 +2697,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 		return;
 	}
 
-	/* NT-MODE in setup state we must send PROCEEDING first */
+	/* workarround: NT-MODE in setup state we must send PROCEEDING first to make it work */
 	if (p_state==PORT_STATE_IN_SETUP)
 	{
 		CALL_PROCEEDING_t *proceeding;
@@ -2745,9 +2751,11 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	class Endpoint *epoint;
 	char *p = NULL;
 
-	/* if we have incoming disconnected, we may release */
-	if (p_state==PORT_STATE_IN_DISCONNECT
-	 || p_state==PORT_STATE_OUT_DISCONNECT)
+	/*
+	 * we may only release during incomming disconnect state.
+	 * this means that the endpoint doesnt require audio anymore
+	 */
+	if (p_state == PORT_STATE_IN_DISCONNECT)
 	{
 		/* sending release */
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, p_m_d_l3id, sizeof(RELEASE_t), p_m_d_ntmode);
@@ -2758,16 +2766,24 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
+		/* remove epoint */
+		free_epointid(epoint_id);
+		// wait for callref to be released
 		return;
 
 	}
-	/* if we are on outgoing/incoming call setup, we may release complete */
-	if (p_state==PORT_STATE_OUT_SETUP
-	 || p_state==PORT_STATE_IN_SETUP
-// NOTE: a bug in mISDNuser (see disconnect_req_out !!!)
-	 || p_state==PORT_STATE_OUT_PROCEEDING)
+	/*
+	 * if we are on incoming call setup, we may reject by sending a release_complete
+	 * also on outgoing call setup, we send a release complete, BUT this is not conform. (i don't know any other way)
+	 */
+	if (p_state==PORT_STATE_IN_SETUP
+	 || p_state==PORT_STATE_OUT_SETUP)
+// // NOTE: a bug in mISDNuser (see disconnect_req_out !!!)
+//	 || p_state==PORT_STATE_OUT_DISCO)
 	{
-		/* sending release */
+#warning remove me
+PDEBUG(DEBUG_LOG, "JOLLY sending release complete %d\n", p_serial);
+		/* sending release complete */
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
@@ -2776,9 +2792,10 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 		new_state(PORT_STATE_RELEASE);
-
 		/* remove epoint */
 		free_epointid(epoint_id);
+#if 0
+		/* remove process */
 		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_CR | REQUEST, DIRECTION_OUT);
 		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
 		end_trace();
@@ -2789,9 +2806,13 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		}
 		p_m_d_l3id = 0;
 		p_m_delete = 1;
+#endif
+		// wait for callref to be released
 		return;
 	}
 
+#if 0
+wirklich erst proceeding?:
 	/* NT-MODE in setup state we must send PROCEEDING first */
 	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP)
 	{
@@ -2811,6 +2832,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		end_trace();
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 	}
+#endif
 
 	/* sending disconnect */
 	dmsg = create_l3msg(CC_DISCONNECT | REQUEST, MT_DISCONNECT, p_m_d_l3id, sizeof(DISCONNECT_t), p_m_d_ntmode);
@@ -2832,9 +2854,12 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		enc_ie_display(&disconnect->DISPLAY, dmsg, (unsigned char *)p);
 	end_trace();
 	msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
-	new_state(PORT_STATE_RELEASE);
+	new_state(PORT_STATE_OUT_DISCONNECT);
+	/* remove epoint */
 	free_epointid(epoint_id);
-//	p_m_delete = 1;
+	// wait for release and callref to be released
+#warning remove me
+PDEBUG(DEBUG_LOG, "JOLLY sending disconnect %d\n", p_serial);
 }
 
 

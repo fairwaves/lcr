@@ -1,11 +1,11 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** The Endpoint is the link between the call and the port.                   **
+** The Endpoint is the link between the join and the port.                   **
 **                                                                           **
 \*****************************************************************************/ 
 
@@ -37,16 +37,16 @@ class Endpoint *find_epoint_id(unsigned long epoint_id)
 
 
 /*
- * endpoint constructor (link with either port or call id)
+ * endpoint constructor (link with either port or join id)
  */
-Endpoint::Endpoint(unsigned long port_id, unsigned long call_id, unsigned long use_epoint_id)
+Endpoint::Endpoint(unsigned long port_id, unsigned long join_id, unsigned long use_epoint_id)
 {
 	class Port *port;
 	class Endpoint **epointpointer;
 	int earlyb = 0;
 
 	/* epoint structure */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Allocating enpoint %d and connecting it with:%s%s\n", epoint_serial, epoint_serial, (port_id)?" ioport":"", (call_id)?" call":"");
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Allocating enpoint %d and connecting it with:%s%s\n", epoint_serial, epoint_serial, (port_id)?" ioport":"", (join_id)?" join":"");
 
         ep_portlist = NULL;
 	ep_app = NULL;
@@ -65,7 +65,7 @@ Endpoint::Endpoint(unsigned long port_id, unsigned long call_id, unsigned long u
 	else
 		ep_serial = epoint_serial++;
 
-	/* link to call or port */
+	/* link to join or port */
 	if (port_id)
 	{
 		port = find_port_id(port_id);
@@ -77,7 +77,7 @@ Endpoint::Endpoint(unsigned long port_id, unsigned long call_id, unsigned long u
 				FATAL("No memory for portlist.\n");
 		}
 	}
-	ep_call_id = call_id;
+	ep_join_id = join_id;
 
 	ep_park = 0;
 	ep_park_len = 0;
@@ -101,9 +101,9 @@ Endpoint::~Endpoint(void)
 		delete ep_app;
 	
 	/* free relations */
-	if (ep_call_id)
+	if (ep_join_id)
 	{
-		PERROR("warning: still relation to call.\n");
+		PERROR("warning: still relation to join.\n");
 	}
 
 	/* free portlist */
@@ -158,7 +158,7 @@ struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type, i
 		portlistpointer = &((*portlistpointer)->next);
 	*portlistpointer = portlist;
 
-	/* link to call or port */
+	/* link to join or port */
 	portlist->port_id = port_id;
 	portlist->port_type = port_type;
 	portlist->early_b = earlyb;

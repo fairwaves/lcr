@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** LCR                                                                       **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -21,8 +21,8 @@
 #include <sys/un.h>
 #include <curses.h>
 #include "macro.h"
-#include "call.h"
-#include "callpbx.h"
+#include "join.h"
+#include "joinpbx.h"
 #include "extension.h"
 #include "message.h"
 #include "admin.h"
@@ -73,7 +73,7 @@ char	red = 1,
 	white = 7;
 
 #define LOGLINES 128
-char logline[LOGLINES][256];
+char logline[LOGLINES][512];
 unsigned long logcur = 0;
 int logfh = -1;
 char logfile[128];
@@ -357,7 +357,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 	}
 	/* loop all related ports */
 	ltee = 0;
-	j = msg->u.s.interfaces+msg->u.s.calls+msg->u.s.epoints;
+	j = msg->u.s.interfaces+msg->u.s.joins+msg->u.s.epoints;
 	jj = j + msg->u.s.ports;
 	while(j < jj)
 	{
@@ -388,39 +388,39 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 
 	return(line);
 }
-int debug_call(struct admin_message *msg, struct admin_message *m, int line, int i)
+int debug_join(struct admin_message *msg, struct admin_message *m, int line, int i)
 {
-	unsigned long	call = m[i].u.c.serial;
+	unsigned long	join = m[i].u.j.serial;
 	char		buffer[256];
 	int		j, jj;
 
 	color(white);
-	SPRINT(buffer,"CALL(%d)", call);
+	SPRINT(buffer,"JOIN(%d)", join);
 	addstr(buffer);
-	if (m[i].u.c.partyline)
+	if (m[i].u.j.partyline)
 	{
 		color(cyan);
 		addstr(" partyline=");
 		color(white);
-		SPRINT(buffer, "%d\n", m[i].u.c.partyline);
+		SPRINT(buffer, "%d\n", m[i].u.j.partyline);
 		addstr(buffer);
 	}
 	/* find number of epoints */
-	j = msg->u.s.interfaces+msg->u.s.calls;
+	j = msg->u.s.interfaces+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
 	i = 0;
 	while(j < jj)
 	{
-		if (m[j].u.e.call == call)
+		if (m[j].u.e.join == join)
 			i++;
 		j++;
 	}
 	/* loop all related endpoints */
-	j = msg->u.s.interfaces+msg->u.s.calls;
+	j = msg->u.s.interfaces+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
 	while(j < jj)
 	{
-		if (m[j].u.e.call == call)
+		if (m[j].u.e.join == join)
 		{
 			i--;
 			move(++line>1?line:1, 1);
@@ -443,7 +443,7 @@ char *admin_state(int sock)
 {
 	struct admin_message	msg,
 				*m;
-	char			buffer[256],
+	char			buffer[512],
 				*p;
 	int			line, offset = 0;
 	int			i, ii, j, jj, k;
@@ -483,7 +483,7 @@ char *admin_state(int sock)
 		cleanup_curses();
 		return("Response not valid. Expecting state response.");
 	}
-	num = msg.u.s.interfaces + msg.u.s.calls + msg.u.s.epoints + msg.u.s.ports;
+	num = msg.u.s.interfaces + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
 	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
 	off=0;
 	if (num)
@@ -520,9 +520,9 @@ char *admin_state(int sock)
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.calls)
+	while(i < msg.u.s.joins)
 	{
-		if (m[j].message != ADMIN_RESPONSE_S_CALL)
+		if (m[j].message != ADMIN_RESPONSE_S_JOIN)
 		{
 			FREE(m, 0);
 			cleanup_curses();
@@ -705,7 +705,7 @@ char *admin_state(int sock)
 							if (m[i].u.i.port[j])
 							{
 								/* search for port */
-								l = msg.u.s.interfaces+msg.u.s.calls+msg.u.s.epoints;
+								l = msg.u.s.interfaces+msg.u.s.joins+msg.u.s.epoints;
 								ll = l+msg.u.s.ports;
 								while(l < ll)
 								{
@@ -769,12 +769,12 @@ char *admin_state(int sock)
 	if (show_calls == 1)
 	{
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.calls;
+		i = msg.u.s.interfaces+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
 		while(i < ii)
 		{
 			/* for each endpoint... */
-			if (!m[i].u.e.call)
+			if (!m[i].u.e.join)
 			{
 				move(++line>1?line:1, 0);
 				color(white);
@@ -809,20 +809,20 @@ char *admin_state(int sock)
 			anything = 1;
 		}
 		j = msg.u.s.interfaces;
-		jj = j+msg.u.s.calls;
+		jj = j+msg.u.s.joins;
 		while(j < jj)
 		{
 			/* for each call... */
 			move(++line>1?line:1, 0);
 			color(white);
-			SPRINT(buffer, "(%d):", m[j].u.c.serial);
+			SPRINT(buffer, "(%d):", m[j].u.j.serial);
 			addstr(buffer);
-			i = msg.u.s.interfaces+msg.u.s.calls;
+			i = msg.u.s.interfaces+msg.u.s.joins;
 			ii = i+msg.u.s.epoints;
 			while(i < ii)
 			{
 				/* for each endpoint... */
-				if (m[i].u.e.call == m[j].u.c.serial)
+				if (m[i].u.e.join == m[j].u.j.serial)
 				{
 					color(white);
 					SPRINT(buffer, " (%d)", m[i].u.e.serial);
@@ -859,7 +859,7 @@ char *admin_state(int sock)
 	{
 		/* show all ports with no epoint */
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.calls+msg.u.s.epoints;
+		i = msg.u.s.interfaces+msg.u.s.joins+msg.u.s.epoints;
 		ii = i+msg.u.s.ports;
 		while(i < ii)
 		{
@@ -879,11 +879,11 @@ char *admin_state(int sock)
 
 		/* show all epoints with no call */
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.calls;
+		i = msg.u.s.interfaces+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
 		while(i < ii)
 		{
-			if (!m[i].u.e.call)
+			if (!m[i].u.e.join)
 			{
 				move(++line>1?line:1, 4);
 				if (line+2 >= LINES) goto end;
@@ -897,15 +897,15 @@ char *admin_state(int sock)
 			line++;
 		if (line+2 >= LINES) goto end;
 
-		/* show all calls */
+		/* show all joins */
 		anything = 0;
 		i = msg.u.s.interfaces;
-		ii = i+msg.u.s.calls;
+		ii = i+msg.u.s.joins;
 		while(i < ii)
 		{
 			move(++line>1?line:1, 0);
 			if (line+2 >= LINES) goto end;
-			line = debug_call(&msg, m, line, i);
+			line = debug_join(&msg, m, line, i);
 			if (line+2 >= LINES) goto end;
 			i++;
 			anything = 1;
@@ -934,7 +934,7 @@ char *admin_state(int sock)
 			{
 				move(line++>1?line-1:1, 0);
 				SCPY(buffer, logline[l % LOGLINES]);
-				if (COLS < (int)sizeof(buffer))
+				if (COLS < (int)strlen(buffer))
 					buffer[COLS] = '\0';
 				addstr(buffer);
 				l++;

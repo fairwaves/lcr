@@ -120,7 +120,7 @@ enum { /* diversion types */
 enum { /* isdnsignal */
 	mISDNSIGNAL_VOLUME,		/* change volume */
 	mISDNSIGNAL_CONF,		/* joint/split conference */
-	mISDNSIGNAL_CALLDATA,		/* data required by call instance */
+	mISDNSIGNAL_JOINDATA,		/* data required by join instance */
 	mISDNSIGNAL_ECHO,		/* enable/disable echoe */
 	mISDNSIGNAL_DELAY,		/* use delay or adaptive jitter */
 };
@@ -261,7 +261,7 @@ struct param_mISDNsignal {
 	int rxvol;
 	int txvol;
 	int conf;
-	int calldata;
+	int joindata;
 	int tone;
 	int echo;
 	int delay;
@@ -287,7 +287,7 @@ union parameter {
 	struct park_info parkinfo; /* MESSAGE_SUSPEND, MESSAGE_RESUME */
 	int state; /* MESSAGE_TIMEOUT */
 	int knock; /* MESSAGE_KNOCK 0=off !0=on */
-	int channel; /* MESSAGE_CHANNEL see RELATION_CHANNEL_* (call.h) */
+	int channel; /* MESSAGE_CHANNEL see RELATION_CHANNEL_* (join.h) */
 	struct param_data data; /* MESSAGE_DATA */
 	struct param_play play; /* MESSAGE_VBOX_PLAY */
 	int speed; /* MESSAGE_VBOX_PLAY_SPEED */
@@ -299,8 +299,8 @@ union parameter {
 
 enum { /* message flow */
 	PORT_TO_EPOINT,
-	EPOINT_TO_CALL,
-	CALL_TO_EPOINT,
+	EPOINT_TO_JOIN,
+	JOIN_TO_EPOINT,
 	EPOINT_TO_PORT,
 };
 

@@ -102,7 +102,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 		e_dtmf = 1;
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 
 	/* initialize the vbox */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) initializing answering vbox state\n", ea_endpoint->ep_serial);
@@ -679,7 +679,7 @@ void EndpointAppPBX::vbox_handler(void)
 		SPRINT(message->param.notifyinfo.display, e_vbox_display, counter);
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s pending display:%s\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 	}
 }
 

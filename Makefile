@@ -124,14 +124,14 @@ endpointapp.o: endpointapp.cpp *.h Makefile
 apppbx.o: apppbx.cpp *.h Makefile
 	$(CC) -c $(CFLAGS) apppbx.cpp -o apppbx.o
 
-call.o: call.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) call.cpp -o call.o
+join.o: join.cpp *.h Makefile
+	$(CC) -c $(CFLAGS) join.cpp -o join.o
 
-callpbx.o: callpbx.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) callpbx.cpp -o callpbx.o
+joinpbx.o: joinpbx.cpp *.h Makefile
+	$(CC) -c $(CFLAGS) joinpbx.cpp -o joinpbx.o
 
-callasterisk.o: callasterisk.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) callasterisk.cpp -o callasterisk.o
+joinasterisk.o: joinasterisk.cpp *.h Makefile
+	$(CC) -c $(CFLAGS) joinasterisk.cpp -o joinasterisk.o
 
 cause.o: cause.c *.h Makefile
 	$(CC) -c $(CFLAGS) cause.c -o cause.o
@@ -180,9 +180,9 @@ $(LCR): main.o \
 	action_vbox.o \
 	action_efi.o \
 	mail.o \
-	call.o \
-	callpbx.o \
-	callasterisk.o \
+	join.o \
+	joinpbx.o \
+	joinasterisk.o \
 	admin_server.o \
 	trace.o
 	$(LD) $(LIBDIR) \
@@ -207,9 +207,9 @@ $(LCR): main.o \
 	action_vbox.o \
 	action_efi.o \
 	mail.o \
-	call.o \
-	callpbx.o \
-	callasterisk.o \
+	join.o \
+	joinpbx.o \
+	joinasterisk.o \
 	admin_server.o \
 	trace.o \
 	$(LIBS) -o $(LCR) 

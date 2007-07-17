@@ -1,11 +1,11 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** Socket link                                                               **
+** Socket link server                                                        **
 **                                                                           **
 \*****************************************************************************/
 
@@ -93,24 +93,24 @@ void free_connection(struct admin_list *admin)
 	struct admin_queue *response;
 	void *temp;
 	union parameter param;
-	class Call *call, *callnext;
+	class Join *join, *joinnext;
 
 	/* free asterisk joins */
 	if (admin->asterisk)
 	{
-		call = call_first;
-		while(call)
+		join = join_first;
+		while(join)
 		{
-			callnext = call->next;
-			if (call->c_type == CALL_TYPE_ASTERISK)
+			joinnext = join->next;
+			if (join->c_type == JOIN_TYPE_ASTERISK)
 			{
 				memset(&param, 0, sizeof(param));
 				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
 				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				((class CallAsterisk *)call)->message_asterisk(0, MESSAGE_RELEASE, &param);
-				/* call is now destroyed, so we go to next call */
+				((class JoinAsterisk *)join)->message_asterisk(0, MESSAGE_RELEASE, &param);
+				/* join is now destroyed, so we go to next join */
 			}
-			call = callnext;
+			join = joinnext;
 		}
 	}
 
@@ -595,7 +595,7 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
  */
 int admin_message_to_join(struct admin_msg *msg)
 {
-	class Call			*call;
+	class Join			*join;
 	struct admin_list		*admin;
 
 	/* dummy callref means: asterisk is here */
@@ -618,17 +618,17 @@ int admin_message_to_join(struct admin_msg *msg)
 		admin->asterisk = 1;
 	}
 
-	/* find call instance */
-	call = call_first;
-	while(call)
+	/* find join instance */
+	join = join_first;
+	while(join)
 	{
-		if (call->c_serial == msg->ref)
+		if (join->c_serial == msg->ref)
 			break;
-		call = call->next;
+		join = join->next;
 	}
 
-	/* create call instance if not existing */
-	if (!call)
+	/* create join instance if not existing */
+	if (!join)
 	{
 		if (msg->ref < 2000000000)
 		{
@@ -636,16 +636,16 @@ int admin_message_to_join(struct admin_msg *msg)
 			return(-1);
 		}
 
-		/* create new call instance */
-		call = new CallAsterisk(0); // must have no serial, because no endpoint is connected
-		if (!call)
-			FATAL("No memory for Asterisk Call instance\n");
+		/* create new join instance */
+		join = new JoinAsterisk(0); // must have no serial, because no endpoint is connected
+		if (!join)
+			FATAL("No memory for Asterisk join instance\n");
 	}
 
 	/* send message */
-	if (call->c_type != CALL_TYPE_ASTERISK)
-		FATAL("Call instance %d must be of type Call Asterisk\n", call->c_serial);
-		((class CallAsterisk *)call)->message_asterisk(msg->ref, msg->type, &msg->param);
+	if (join->c_type != JOIN_TYPE_ASTERISK)
+		FATAL("join instance %d must be of type join Asterisk\n", join->c_serial);
+		((class JoinAsterisk *)join)->message_asterisk(msg->ref, msg->type, &msg->param);
 
 	return(0);
 }
@@ -708,7 +708,7 @@ int admin_state(struct admin_queue **responsep)
 
 	class Port		*port;
 	class EndpointAppPBX	*apppbx;
-	class Call		*call;
+	class Join		*join;
 	class Pdss1		*pdss1;
 	struct interface	*interface;
 	struct interface_port	*ifport;
@@ -744,15 +744,15 @@ int admin_state(struct admin_queue **responsep)
 		interface = interface->next;
 	}
 	response->am[0].u.s.interfaces = i;
-	/* call count */
-	call = call_first;
+	/* join count */
+	join = join_first;
 	i = 0;
-	while(call)
+	while(join)
 	{
 		i++;
-		call = call->next;
+		join = join->next;
 	}
-	response->am[0].u.s.calls = i;
+	response->am[0].u.s.joins = i;
 	/* apppbx count */
 	apppbx = apppbx_first;
 	i = 0;
@@ -776,7 +776,7 @@ int admin_state(struct admin_queue **responsep)
 	responsep = &response->next;
 
 	/* create response for all interfaces */
-	num = (response->am[0].u.s.interfaces)+(response->am[0].u.s.calls)+(response->am[0].u.s.epoints)+(response->am[0].u.s.ports);
+	num = (response->am[0].u.s.interfaces)+(response->am[0].u.s.joins)+(response->am[0].u.s.epoints)+(response->am[0].u.s.ports);
 	if (num == 0)
 		return(0);
 	response = (struct admin_queue *)MALLOC(sizeof(admin_queue)+(num*sizeof(admin_message)));
@@ -837,19 +837,19 @@ int admin_state(struct admin_queue **responsep)
 		interface = interface->next;
 	}
 
-	/* create response for all calls */
-	call = call_first;
-	while(call)
+	/* create response for all joins */
+	join = join_first;
+	while(join)
 	{
 		/* message */
-		response->am[num].message = ADMIN_RESPONSE_S_CALL;
+		response->am[num].message = ADMIN_RESPONSE_S_JOIN;
 		/* serial */
-		response->am[num].u.c.serial = call->c_serial;
+		response->am[num].u.j.serial = join->c_serial;
 		/* partyline */
-		if (call->c_type == CALL_TYPE_PBX)
-			response->am[num].u.c.partyline = ((class CallPBX *)call)->c_partyline;
+		if (join->c_type == JOIN_TYPE_PBX)
+			response->am[num].u.j.partyline = ((class JoinPBX *)join)->c_partyline;
 		/* */
-		call = call->next;
+		join = join->next;
 		num++;
 	}
 
@@ -861,8 +861,8 @@ int admin_state(struct admin_queue **responsep)
 		response->am[num].message = ADMIN_RESPONSE_S_EPOINT;
 		/* serial */
 		response->am[num].u.e.serial = apppbx->ea_endpoint->ep_serial;
-		/* call */
-		response->am[num].u.e.call = apppbx->ea_endpoint->ep_call_id;
+		/* join */
+		response->am[num].u.e.join = apppbx->ea_endpoint->ep_join_id;
 		/* rx notification */
 		response->am[num].u.e.rx_state = apppbx->e_rx_state;
 		/* tx notification */

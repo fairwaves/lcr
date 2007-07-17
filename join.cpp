@@ -5,7 +5,7 @@
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** call functions                                                            **
+** join functions                                                            **
 **                                                                           **
 \*****************************************************************************/ 
 
@@ -23,25 +23,25 @@
 //#define __u32 unsigned long
 //#include "linux/isdnif.h"
 
-unsigned long call_serial = 1; /* must be 1, because 0== no call */
+unsigned long join_serial = 1; /* must be 1, because 0== no join */
 
-//CALL_STATES
+//JOIN_STATES
 
-class Call *call_first = NULL;
+class Join *join_first = NULL;
 
 /*
- * find the call with call_id
+ * find the join with join_id
  */ 
-class Call *find_call_id(unsigned long call_id)
+class Join *find_join_id(unsigned long join_id)
 {
-	class Call *call = call_first;
+	class Join *join = join_first;
 
-	while(call)
+	while(join)
 	{
-//printf("comparing: '%s' with '%s'\n", name, call->c_name);
-		if (call->c_serial == call_id)
-			return(call);
-		call = call->next;
+//printf("comparing: '%s' with '%s'\n", name, join->c_name);
+		if (join->c_serial == join_id)
+			return(join);
+		join = join->next;
 	}
 
 	return(NULL);
@@ -49,37 +49,37 @@ class Call *find_call_id(unsigned long call_id)
 
 
 /*
- * constructor for a new call 
+ * constructor for a new join 
  */
-Call::Call(void)
+Join::Join(void)
 {
-	class Call **callp;
+	class Join **joinp;
 
-	c_serial = call_serial++;
-	c_type = CALL_TYPE_NONE;
+	c_serial = join_serial++;
+	c_type = JOIN_TYPE_NONE;
 
 	/* attach to chain */
 	next = NULL;
-	callp = &call_first;
-	while(*callp)
-		callp = &((*callp)->next);
-	*callp = this;
+	joinp = &join_first;
+	while(*joinp)
+		joinp = &((*joinp)->next);
+	*joinp = this;
 
 	classuse++;
 }
 
 
 /*
- * call descructor
+ * join descructor
  */
-Call::~Call()
+Join::~Join()
 {
-	class Call *cl, **clp;
+	class Join *cl, **clp;
 
 	classuse--;
 
-	cl = call_first;
-	clp = &call_first;
+	cl = join_first;
+	clp = &join_first;
 	while(cl)
 	{
 		if (cl == this)
@@ -88,46 +88,46 @@ Call::~Call()
 		cl = cl->next;
 	}
 	if (!cl)
-		FATAL("software error, call not in chain!\n");
+		FATAL("software error, join not in chain!\n");
 	*clp = cl->next; /* detach from chain */
 }
 
 
 
-/* epoint sends a message to a call
+/* epoint sends a message to a join
  *
  */
-void Call::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void Join::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
 {
 }
 
 
-/* call process is called from the main loop
+/* join process is called from the main loop
  * it processes the current calling state.
- * returns 0 if call nothing was done
+ * returns 0 if nothing was done
  */
-int Call::handler(void)
+int Join::handler(void)
 {
 	return(0);
 }
 
-/* free all call structures */
-void call_free(void)
+/* free all join structures */
+void join_free(void)
 {
 
-	if (!call_first)
+	if (!join_first)
 	{
-		PDEBUG(DEBUG_CALL, "no more pending call(s), done!\n");
+		PDEBUG(DEBUG_JOIN, "no more pending join(s), done!\n");
 		return;
 	}
-	while(call_first)
+	while(join_first)
 	{
-		if (options.deb & DEBUG_CALL)
+		if (options.deb & DEBUG_JOIN)
 		{
-			PDEBUG(DEBUG_CALL, "freeing pending call\n");
+			PDEBUG(DEBUG_JOIN, "freeing pending join\n");
 		}
 
-		delete call_first;
+		delete join_first;
 	}
 }
 

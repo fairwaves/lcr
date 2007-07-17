@@ -71,12 +71,12 @@ char *numberrize_callerinfo(char *string, int ntype)
  */
 void EndpointAppPBX::_action_init_call(int asterisk)
 {
-	class Call		*call;
+	class Join		*join;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 	struct admin_list	*admin;
 
 	/* a created call, this should never happen */
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
 		if (options.deb & DEBUG_EPOINT)
 			PERROR("EPOINT(%d): We already have a call instance, this should never happen!\n", ea_endpoint->ep_serial);
@@ -102,13 +102,13 @@ void EndpointAppPBX::_action_init_call(int asterisk)
 			set_tone(portlist,"cause_22");
 			return;
 		}
-		call = new CallAsterisk(ea_endpoint->ep_serial);
+		join = new JoinAsterisk(ea_endpoint->ep_serial);
 	}
 	else
-		call = new CallPBX(ea_endpoint);
-	if (!call)
+		join = new JoinPBX(ea_endpoint);
+	if (!join)
 		FATAL("No memoy for Call instance.\n");
-	ea_endpoint->ep_call_id = call->c_serial;
+	ea_endpoint->ep_join_id = join->c_serial;
 }
 void EndpointAppPBX::action_init_call(void)
 {
@@ -137,7 +137,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	set_tone(portlist, "proceeding");
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	new_state(EPOINT_STATE_IN_PROCEEDING);
 
 	/* create bearer/caller/dialinginfo */
@@ -217,7 +217,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	trace_header("ACTION extension (calling)", DIRECTION_NONE);
 	add_trace("extension", NULL, dialinginfo.id);
 	end_trace();
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
@@ -342,7 +342,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	{
 		trace_header("ACTION extern (calling denied)", DIRECTION_NONE);
 		end_trace();
-		release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 		set_tone(portlist, "cause_82");
 		denied:
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
@@ -359,7 +359,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		{
 			trace_header("ACTION extern (national calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 			set_tone(portlist, "cause_83");
 			goto denied;
 		}
@@ -373,7 +373,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		{
 			trace_header("ACTION extern (international calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
 			set_tone(portlist, "cause_84");
 			goto denied;
 		}
@@ -385,7 +385,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	if (dialinginfo.interfaces[0])
 		add_trace("interfaces", NULL, dialinginfo.interfaces);
 	end_trace();
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
@@ -457,7 +457,7 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
 	set_tone(portlist, "proceeding");
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	new_state(EPOINT_STATE_IN_PROCEEDING);
 
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
@@ -477,7 +477,7 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
 	trace_header("ACTION vbox-record (calling)", DIRECTION_NONE);
 	add_trace("extension", NULL, "%s", dialinginfo.id);
 	end_trace();
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
@@ -491,13 +491,13 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
  */
 void EndpointAppPBX::action_init_partyline(void)
 {
-	class Call *call;
-	class CallPBX *callpbx;
+	class Join *join;
+	class JoinPBX *joinpbx;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	struct message *message;
 	struct route_param *rparam;
 	int partyline;
-	struct call_relation *relation;
+	struct join_relation *relation;
 
 	portlist = ea_endpoint->ep_portlist;
 
@@ -522,30 +522,30 @@ void EndpointAppPBX::action_init_partyline(void)
 	}
 	partyline = rparam->integer_value;
 
-	/* don't create call if partyline exists */
-	call = call_first;
-	while(call)
+	/* don't create join if partyline exists */
+	join = join_first;
+	while(join)
 	{
-		if (call->c_type == CALL_TYPE_PBX)
+		if (join->c_type == JOIN_TYPE_PBX)
 		{
-			callpbx = (class CallPBX *)call;
-			if (callpbx->c_partyline == rparam->integer_value)
+			joinpbx = (class JoinPBX *)join;
+			if (joinpbx->c_partyline == rparam->integer_value)
 				break;
 		}
-		call = call->next;
+		join = join->next;
 	}
-	if (!call)
+	if (!join)
 	{
-		/* create call */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new call instance.\n", ea_endpoint->ep_serial);
-		if (!(call = new CallPBX(ea_endpoint)))
-			FATAL("No memory for Call object\n");
+		/* create join */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new join instance.\n", ea_endpoint->ep_serial);
+		if (!(join = new JoinPBX(ea_endpoint)))
+			FATAL("No memory for join object\n");
 	} else
 	{
-//NOTE: callpbx must be set here
-		/* add relation to existing call */
-		if (!(relation=callpbx->add_relation()))
-			FATAL("No memory for Call relation\n");
+//NOTE: joinpbx must be set here
+		/* add relation to existing join */
+		if (!(relation=joinpbx->add_relation()))
+			FATAL("No memory for join relation\n");
 		relation->type = RELATION_TYPE_SETUP;
 		relation->channel_state = CHANNEL_STATE_CONNECT;
 		relation->rx_state = NOTIFY_STATE_ACTIVE;
@@ -553,19 +553,19 @@ void EndpointAppPBX::action_init_partyline(void)
 		relation->epoint_id = ea_endpoint->ep_serial;
 
 	}
-	ea_endpoint->ep_call_id = call->c_serial;
+	ea_endpoint->ep_join_id = join->c_serial;
 
 	set_tone(portlist, "proceeding");
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	new_state(EPOINT_STATE_IN_PROCEEDING);
 
-	/* send setup to call */
+	/* send setup to join */
 	trace_header("ACTION partyline (calling)", DIRECTION_NONE);
 	add_trace("room", NULL, "%d", partyline);
 	end_trace();
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_SETUP);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	message->param.setup.partyline = partyline;
 	memcpy(&message->param.setup.dialinginfo, &e_dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
@@ -683,7 +683,7 @@ void EndpointAppPBX::action_dialing_login(void)
 	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 	message->param.connectinfo.ntype = e_ext.callerid_type;
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 
 	/* set our caller id */
 	SCPY(e_callerinfo.id, e_ext.callerid);
@@ -1047,7 +1047,7 @@ void EndpointAppPBX::_action_redial_reply(int in)
 		SPRINT(message->param.notifyinfo.display, "(%d) %s", e_select+1, (last[0])?last:"- empty -");
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s sending display:%s\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 }
 
 /* process dialing redial
@@ -1120,7 +1120,7 @@ void EndpointAppPBX::action_dialing_powerdial(void)
 	memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 
 	/* do dialing */
 	SCPY(e_dialinginfo.id, e_ext.last_out[0]);
@@ -1321,7 +1321,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		set_tone(portlist, "proceeding");
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		break;
 		
 		case '2':
@@ -1332,7 +1332,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		set_tone(portlist, "ringpbx");
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_ALERTING);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		break;
 		
 		case '3':
@@ -1357,7 +1357,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		/* display callerid if desired for extension */
 		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 
 		port = find_port_id(portlist->port_id);
 		if (port)
@@ -1376,7 +1376,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		set_tone(portlist, "test");
 		break;
 		
@@ -1390,7 +1390,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		set_tone(portlist, "hold");
 		break;
 		
@@ -1412,7 +1412,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		set_tone(portlist, causestr);
 		break;
 		
@@ -1459,7 +1459,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(message->param.connectinfo));
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		set_tone(portlist, "hold");
 		break;
 	}
@@ -1752,7 +1752,7 @@ void EndpointAppPBX::action_dialing_calculator(void)
 	SPRINT(message->param.notifyinfo.display, ">%s", e_extdialing);
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s' internal values: %f %f\n", ea_endpoint->ep_serial, e_ext.number, e_extdialing, value1, value2);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 
 }
 
@@ -1906,7 +1906,7 @@ void EndpointAppPBX::action_dialing_disconnect(void)
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SCPY(message->param.notifyinfo.display, display);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 	}
 	e_action = NULL;
 }
@@ -1988,7 +1988,7 @@ nesting?:
 	SPRINT(message->param.notifyinfo.display, ">%s %s%s%s", numbering->prefix, numb_actions[numbering->action], (numbering->param[0])?" ":"", numbering->param);
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' sending display:%s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], message->param.notifyinfo.display);
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, message->paramea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 #endif
 }
 
@@ -2112,7 +2112,7 @@ void EndpointAppPBX::action_init_pick(void)
 	if (extensions) if (extensions[0])
 		add_trace("extensions", NULL, "%s", extensions);
 	end_trace();
-	pick_call(extensions);
+	pick_join(extensions);
 }
 
 
@@ -2238,7 +2238,7 @@ void EndpointAppPBX::process_dialing(void)
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 			goto end;
 		}
-		release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, 0);
 		e_action = e_action->next;
 		if (!e_action)
 		{
@@ -2287,7 +2287,7 @@ void EndpointAppPBX::process_dialing(void)
 					SCPY(message->param.notifyinfo.display,get_isdn_cause(LOCATION_PRIVATE_LOCAL, epoint->e_ext.display_cause, param->disconnectinfo.location, param->disconnectinfo.cause));
 				}
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, message->param, portlist->port_id, DIRECTION_OUT);
 		}
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		set_tone(portlist,"cause_1c");
@@ -2397,7 +2397,7 @@ void EndpointAppPBX::process_dialing(void)
 			memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		} else
 		if ((rparam = routeparam(e_action, PARAM_ALERTING)))
 		{
@@ -2405,7 +2405,7 @@ void EndpointAppPBX::process_dialing(void)
 			memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_ALERTING);
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		} else
 		if ((rparam = routeparam(e_action, PARAM_PROCEEDING)))
 		{
@@ -2413,7 +2413,7 @@ void EndpointAppPBX::process_dialing(void)
 			memset(&e_connectinfo, 0, sizeof(e_connectinfo));
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		}
 
 		if (action_defs[e_action->index].init_func)
@@ -2468,7 +2468,7 @@ void EndpointAppPBX::process_dialing(void)
 
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s displaying interpreted dialing '%s'\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 
 end:

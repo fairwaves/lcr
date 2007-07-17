@@ -1,34 +1,34 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** call header file for pbx calls                                            **
+** join header file for pbx joins                                            **
 **                                                                           **
 \*****************************************************************************/ 
 
 
-/* call
+/* join
  *
- * calls connect interfaces together
- * calls are linked in a chain
- * interfaces can have 0, 1 or more references to a call
- * the call can have many references to interfaces
- * calls receive and send messages
+ * joins connect interfaces together
+ * joins are linked in a chain
+ * interfaces can have 0, 1 or more references to a join
+ * the join can have many references to interfaces
+ * joins receive and send messages
  */
 
 #define RECORD_BUFFER_SIZE	16000
 
 enum { /* relation types */
-	RELATION_TYPE_CALLING,	/* initiator of a call */
+	RELATION_TYPE_CALLING,	/* initiator of a join */
 	RELATION_TYPE_SETUP,	/* interface which is to be set up */
 	RELATION_TYPE_CONNECT,	/* interface is connected */
 };
 
 enum { /* relation audio state */
-	CHANNEL_STATE_CONNECT,	/* endpoint is connected to the call voice transmission in both dirs */
+	CHANNEL_STATE_CONNECT,	/* endpoint is connected to the join voice transmission in both dirs */
 	CHANNEL_STATE_HOLD,	/* endpoint is on hold state, no audio */
 };
 
@@ -40,23 +40,23 @@ enum { /* states that results from last notification */
 };
 
 
-struct call_relation { /* relation to an interface */
-	struct call_relation *next;	/* next node */
+struct join_relation { /* relation to an interface */
+	struct join_relation *next;	/* next node */
 	int type;			/* type of relation */
-	unsigned long epoint_id;	/* interface to link call to */
+	unsigned long epoint_id;	/* interface to link join to */
 	int channel_state;		/* if audio is available */
 	int rx_state;			/* current state of what we received from endpoint */
 	int tx_state;			/* current state of what we sent to endpoint */
 };
 
-class CallPBX : public Call
+class JoinPBX : public Join
 {
 	public:
-	CallPBX(class Endpoint *epoint);
-	~CallPBX();
+	JoinPBX(class Endpoint *epoint);
+	~JoinPBX();
 	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	int handler(void);
-	int release(struct call_relation *relation, int location, int cause);
+	int release(struct join_relation *relation, int location, int cause);
 
 	char c_caller[32];		/* caller number */
 	char c_caller_id[32];		/* caller id to signal */
@@ -64,20 +64,20 @@ class CallPBX : public Call
 	char c_todial[32];		/* overlap dialing (part not signalled yet) */
 	int c_multicause, c_multilocation;
 	
-	int c_pid;			/* pid of call to generate bridge id */
+	int c_pid;			/* pid of join to generate bridge id */
 	int c_updatebridge;		/* bridge must be updated */
-	struct call_relation *c_relation; /* list of endpoints that are related to the call */
+	struct join_relation *c_relation; /* list of endpoints that are related to the join */
 
-	int c_partyline;		/* if set, call is conference room */
+	int c_partyline;		/* if set, join is conference room */
 
 	void bridge(void);
-	void bridge_data(unsigned long epoint_from, struct call_relation *relation_from, union parameter *param);
-	void remove_relation(struct call_relation *relation);
-	struct call_relation *add_relation(void);
+	void bridge_data(unsigned long epoint_from, struct join_relation *relation_from, union parameter *param);
+	void remove_relation(struct join_relation *relation);
+	struct join_relation *add_relation(void);
 	int out_setup(unsigned long epoint_id, int message, union parameter *param, char *newnumber);
 }; 
 
-void callpbx_debug(class CallPBX *callpbx, char *function);
-int callpbx_countrelations(unsigned long call_id);
+void joinpbx_debug(class JoinPBX *joinpbx, char *function);
+int joinpbx_countrelations(unsigned long join_id);
 int track_notify(int oldstate, int notify);
 

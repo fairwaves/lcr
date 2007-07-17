@@ -27,7 +27,7 @@ struct trace {
 	
 	/* type */
 	int category;
-	int serial;
+	unsigned long serial;
 	char name[64];
 
 	/* elements */

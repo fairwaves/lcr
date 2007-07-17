@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -118,7 +118,7 @@ class PmISDN : public Port
 //	int p_m_nodata;				/* all parties within a conf are isdn ports, so pure bridging is possible */
 	int p_m_txdata;				/* get what we transmit */
 	int p_m_dtmf;				/* dtmf decoding is enabled */
-	int p_m_calldata;			/* the call requires data due to no briging capability */
+	int p_m_joindata;			/* the call requires data due to no briging capability */
 
 	int p_m_load;				/* current data in dsp tx buffer */
 	unsigned long p_m_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */

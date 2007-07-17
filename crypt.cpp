@@ -1524,7 +1524,7 @@ void EndpointAppPBX::cryptman_msg2user(int msg, char *text)
 {
 	struct message *message;
 	/* send message */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 	message->param.crypt.type = msg;
 	if (!text)
 		text = "";
@@ -1803,7 +1803,7 @@ void EndpointAppPBX::encrypt_shared(void)
 	if (e_crypt != CRYPT_OFF)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption in progress, so we request the current message.\n", ea_endpoint->ep_serial);
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 		message->param.crypt.type = CU_INFO_REQ;
 		message_put(message);
 		return;
@@ -1885,7 +1885,7 @@ void EndpointAppPBX::encrypt_shared(void)
 //	SPRINT(e_crypt_display, "Shared Key");
 	e_crypt = CRYPT_SWAIT;
 	/* sending activation */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 	message->param.crypt.type = CU_ACTS_REQ;
 	message->param.crypt.len = key_len;
 	memcpy(message->param.crypt.data, key, key_len);
@@ -1905,7 +1905,7 @@ void EndpointAppPBX::encrypt_keyex(void)
 	if (e_crypt != CRYPT_OFF)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption in progress, so we request the current message.\n", ea_endpoint->ep_serial);
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 		message->param.crypt.type = CU_INFO_REQ;
 		message_put(message);
 		return;
@@ -1937,7 +1937,7 @@ void EndpointAppPBX::encrypt_keyex(void)
 	message_put(message);
 	e_crypt = CRYPT_KWAIT;
 	/* sending activation */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 	message->param.crypt.type = CU_ACTK_REQ;
 	message_put(message);
 #endif /* CRYPTO */
@@ -1975,7 +1975,7 @@ void EndpointAppPBX::encrypt_off(void)
 	message_put(message);
 	e_crypt = CRYPT_RELEASE;
 	/* sending activation */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CRYPT);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 	message->param.crypt.type = CU_DACT_REQ;
 	message_put(message);
 }

@@ -1,14 +1,24 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** h323gw header file                                                        **
+** join header file for Asterisk interface                                   **
 **                                                                           **
 \*****************************************************************************/ 
 
-char *parse_h323gateway(char *ip, char *opt, int opt_size);
+class JoinAsterisk : public Join
+{
+	public:
+	JoinAsterisk(unsigned long serial);
+	~JoinAsterisk();
+	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
+	void message_asterisk(unsigned long ref, int message_type, union parameter *param);
+	int handler(void);
+
+	unsigned long c_epoint_id;
+}; 
 
 

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -12,9 +12,9 @@
 
 enum { /* release actions: see epoint.release */
 	RELEASE_NONE,
-	RELEASE_CALL,		/* call, hold */
-	RELEASE_PORT_CALLONLY,	/* call, port */
-	RELEASE_ALL,		/* call, hold, port */
+	RELEASE_JOIN,		/* join, hold */
+	RELEASE_PORT_JOINONLY,	/* join, port */
+	RELEASE_ALL,		/* join, hold, port */
 };
 
 enum { /* states as viewed from io port (state of calls are always connected) */
@@ -92,8 +92,8 @@ class EndpointAppPBX : public EndpointApp
 //	int e_knocking;				/* true, if knocking */
 //	double e_knocktime;			/* next time to knock */
 
-//	char e_call_tone[64], e_hold_tone[64];	/* current tone */
-	int e_call_pattern/*, e_hold_pattern*/;	/* pattern available */
+//	char e_join_tone[64], e_hold_tone[64];	/* current tone */
+	int e_join_pattern/*, e_hold_pattern*/;	/* pattern available */
 
 	/* action */
 	char e_dialing_queue[32];		/* holds dialing during setup state */
@@ -111,9 +111,9 @@ class EndpointAppPBX : public EndpointApp
 	int e_multipoint_cause;			/* cause value of disconnected multiport calls (highest priority) */
 	int e_multipoint_location;		/* location of cause with highest priority */
 
-	/* call relation */
-	int e_call_cause;
-	int e_call_location;	
+	/* join relation */
+	int e_join_cause;
+	int e_join_location;	
 
 	/* callback */
 	char e_cbdialing[256];			/* dialing information after callback */
@@ -205,22 +205,22 @@ class EndpointAppPBX : public EndpointApp
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);
-	void ea_message_call(unsigned long call_id, int message, union parameter *param);
-	void call_crypt(struct port_list *portlist, int message_type, union parameter *param);
-	void call_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param);
-	void call_setup(struct port_list *portlist, int message_type, union parameter *param);
-	void call_information(struct port_list *portlist, int message_type, union parameter *param);
-	void call_overlap(struct port_list *portlist, int message_type, union parameter *param);
-	void call_proceeding(struct port_list *portlist, int message_type, union parameter *param);
-	void call_alerting(struct port_list *portlist, int message_type, union parameter *param);
-	void call_connect(struct port_list *portlist, int message_type, union parameter *param);
-	void call_disconnect_release(struct port_list *portlist, int message_type, union parameter *param);
-	void call_notify(struct port_list *portlist, int message_type, union parameter *param);
-	void call_facility(struct port_list *portlist, int message_type, union parameter *param);
+	void ea_message_join(unsigned long join_id, int message, union parameter *param);
+	void join_crypt(struct port_list *portlist, int message_type, union parameter *param);
+	void join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param);
+	void join_setup(struct port_list *portlist, int message_type, union parameter *param);
+	void join_information(struct port_list *portlist, int message_type, union parameter *param);
+	void join_overlap(struct port_list *portlist, int message_type, union parameter *param);
+	void join_proceeding(struct port_list *portlist, int message_type, union parameter *param);
+	void join_alerting(struct port_list *portlist, int message_type, union parameter *param);
+	void join_connect(struct port_list *portlist, int message_type, union parameter *param);
+	void join_disconnect_release(struct port_list *portlist, int message_type, union parameter *param);
+	void join_notify(struct port_list *portlist, int message_type, union parameter *param);
+	void join_facility(struct port_list *portlist, int message_type, union parameter *param);
 
 	/* epoint */
 	void new_state(int state);
-	void release(int release, int calllocation, int callcause, int portlocation, int portcause);
+	void release(int release, int joinlocation, int joincause, int portlocation, int portcause);
 	void notify_active(void);
 	void keypad_function(char digit);
 	void set_tone(struct port_list *portlist, char *tone);
@@ -297,8 +297,8 @@ class EndpointAppPBX : public EndpointApp
 	void process_hangup(int cause, int location);
 
 	/* facility function */
-	void pick_call(char *extension);
-	void join_call(void);
+	void pick_join(char *extension);
+	void join_join(void);
 	void encrypt_shared(void);
 	void encrypt_keyex(void);
 	void encrypt_off(void);
@@ -345,7 +345,7 @@ class EndpointAppPBX : public EndpointApp
 	void cryptman_timeout(int secs);
 
 	void message_disconnect_port(struct port_list *portlist, int cause, int location, char *display);
-	void logmessage(struct message *messsage);
+	void logmessage(int message_type, union parameter *param, unsigned long port_id, int dir);
 	void trace_header(char *name, int direction);
 	void screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface);
 };

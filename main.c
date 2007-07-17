@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 	struct message		*message;
 	class Port		*port;
 	class Endpoint		*epoint;
-	class Call		*call;
+	class Join		*join;
 	int			i;
 	int			all_idle;
 	char			prefix_string[64];
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
         			created_lock = 0, created_signal = 0, created_debug = 0;
 #ifdef DEBUG_DURATION
 	time_t			durationupdate;
-	double			idle_duration, isdn_duration, port_duration, epoint_duration, call_duration, message_duration, admin_duration;
+	double			idle_duration, isdn_duration, port_duration, epoint_duration, join_duration, message_duration, admin_duration;
 	double			start_d;
 #endif
 	int			idletime = 0, idlecheck = 0;
@@ -527,23 +527,23 @@ BUDETECT
 		start_d = now_d;
 #endif
 
-		/* loop through all calls and call their handler */
-		call_again:
-		call = call_first;
-		while(call)
+		/* loop through all joins and call their handler */
+		join_again:
+		join = join_first;
+		while(join)
 		{
-			debug_prefix = "call";
+			debug_prefix = "join";
 			debug_count++;
-			ret = call->handler();
+			ret = join->handler();
 			if (ret)
 				all_idle = 0;
-			if (ret < 0) /* call has been destroyed */
-				goto call_again;
-			call = call->next;
+			if (ret < 0) /* join has been destroyed */
+				goto join_again;
+			join = join->next;
 		}
 #ifdef DEBUG_DURATION
 		GET_NOW();
-		call_duration += (now_d - start_d);
+		join_duration += (now_d - start_d);
 		start_d = now_d;
 #endif
 
@@ -575,33 +575,33 @@ BUDETECT
 				}
 				break;
 
-				case EPOINT_TO_CALL:
-				debug_prefix = "msg epoint->call";
-				call = find_call_id(message->id_to);
-				if (call)
+				case EPOINT_TO_JOIN:
+				debug_prefix = "msg epoint->join";
+				join = find_join_id(message->id_to);
+				if (join)
 				{
-					call->message_epoint(message->id_from, message->type, &message->param);
+					join->message_epoint(message->id_from, message->type, &message->param);
 				} else
 				{
-					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to call %d. call doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
+					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to join %d. join doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
 
-				case CALL_TO_EPOINT:
-				debug_prefix = "msg call->epoint";
+				case JOIN_TO_EPOINT:
+				debug_prefix = "msg join->epoint";
 				epoint = find_epoint_id(message->id_to);
 				if (epoint)
 				{
 					if (epoint->ep_app)
 					{
-						epoint->ep_app->ea_message_call(message->id_from, message->type, &message->param);
+						epoint->ep_app->ea_message_join(message->id_from, message->type, &message->param);
 					} else
 					{
-						PDEBUG(DEBUG_MSG, "Warning: message %s from call %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
+						PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
 					}
 				} else
 				{
-					PDEBUG(DEBUG_MSG, "Warning: message %s from call %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
+					PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
 
@@ -665,15 +665,15 @@ BUDETECT
 		if (durationupdate != now)
 		{
 			durationupdate = now;
-			printf("Idle:%3d ISDN:%3d Port:%3d Epoint:%3d Call:%3d Message:%3d Admin:%3d\n",
+			printf("Idle:%3d ISDN:%3d Port:%3d Epoint:%3d Join:%3d Message:%3d Admin:%3d\n",
 				(int)(idle_duration*100),
 				(int)(isdn_duration*100),
 				(int)(port_duration*100),
 				(int)(epoint_duration*100),
-				(int)(call_duration*100),
+				(int)(join_duration*100),
 				(int)(message_duration*100),
 				(int)(admin_duration*100));
-			idle_duration = isdn_duration = port_duration = epoint_duration = call_duration = message_duration = admin_duration = 0;
+			idle_duration = isdn_duration = port_duration = epoint_duration = join_duration = message_duration = admin_duration = 0;
 		}
 #else
 		GET_NOW();
@@ -686,7 +686,12 @@ BUDETECT
 			idletime += 4000;
 		}
 	}
-	printf("LCR terminated\n");
+	SPRINT(tracetext, "%s terminated", NAME);
+	printf("%s\n", tracetext);
+	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
+	if (ret)
+		add_trace("error", NULL, "%d", ret);
+	end_trace();
 	ret=0;
 
 	/* free all */
@@ -725,7 +730,7 @@ free:
 	}
 	epoint_first = NULL;
 	debug_count++;
-	call_free();
+	join_free();
 
 	/* free interfaces */
 	if (interface_first)
@@ -796,9 +801,9 @@ free:
 		ret = -1; \
 	}
 	MEMCHECK("",memuse)
-	MEMCHECK("memory block(s) left (port.cpp)",pmemuse)
-	MEMCHECK("memory block(s) left (epoint.cpp)",ememuse)
-	MEMCHECK("memory block(s) left (call.cpp)",cmemuse)
+	MEMCHECK("memory block(s) left (port.cpp ...)",pmemuse)
+	MEMCHECK("memory block(s) left (epoint*.cpp ...)",ememuse)
+	MEMCHECK("memory block(s) left (join*.cpp)",cmemuse)
 	MEMCHECK("memory block(s) left (message.c)",mmemuse)
 	MEMCHECK("memory block(s) left (route.c)",rmemuse)
 	MEMCHECK("memory block(s) left (args)",amemuse)
@@ -807,14 +812,6 @@ free:
 	MEMCHECK("file handler(s) left",fhuse)
 
 	/* take me out */
-	if (ret == 999)
-		exit(0);
-	SPRINT(tracetext, "%s exit", NAME);
-	printf("%s\n", tracetext);
-	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
-	if (ret)
-		add_trace("error", NULL, "%d", ret);
-	end_trace();
 	return(ret);
 }
 

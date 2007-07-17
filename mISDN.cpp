@@ -62,7 +62,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
-	p_m_calldata = 0;
+	p_m_joindata = 0;
 	p_m_dtmf = !mISDNport->ifport->nodtmf;
 	p_m_timeout = 0;
 	p_m_timer = 0;
@@ -910,8 +910,8 @@ int PmISDN::handler(void)
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TIMEOUT);
 			message->param.state = p_state;
 			message_put(message);
+			return(1);
 		}
-		return(1);
 	}
 	
 	return(0); /* nothing done */
@@ -998,7 +998,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	/* calls will not process any audio data unless
 	 * the call is connected OR interface features audio during call setup.
 	 */
-//printf("%d -> %d prim=%x calldata=%d tones=%d\n", p_serial, ACTIVE_EPOINT(p_epointlist), frm->prim, p_m_calldata, p_m_mISDNport->earlyb);	
+//printf("%d -> %d prim=%x joindata=%d tones=%d\n", p_serial, ACTIVE_EPOINT(p_epointlist), frm->prim, p_m_joindata, p_m_mISDNport->earlyb);	
 #ifndef DEBUG_COREBRIDGE
 	if (p_state!=PORT_STATE_CONNECT
 	 && !p_m_mISDNport->earlyb)
@@ -1031,7 +1031,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	p = (unsigned char *)&frm->data.p;
 
 	/* send data to epoint */
-	if (p_m_calldata && ACTIVE_EPOINT(p_epointlist)) /* only if we have an epoint object */
+	if (p_m_joindata && ACTIVE_EPOINT(p_epointlist)) /* only if we have an epoint object */
 	{
 		length_temp = frm->len;
 		data_temp = p;
@@ -1222,13 +1222,13 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 //if (dddebug) PDEBUG(DEBUG_ISDN, "dddebug = %d\n", dddebug->type);
 		break;
 
-		case mISDNSIGNAL_CALLDATA:
-		if (p_m_calldata != param->mISDNsignal.calldata)
+		case mISDNSIGNAL_JOINDATA:
+		if (p_m_joindata != param->mISDNsignal.joindata)
 		{
-			p_m_calldata = param->mISDNsignal.calldata;
-			PDEBUG(DEBUG_BCHANNEL, "we change to calldata=%d.\n", p_m_calldata);
+			p_m_joindata = param->mISDNsignal.joindata;
+			PDEBUG(DEBUG_BCHANNEL, "we change to joindata=%d.\n", p_m_joindata);
 		} else
-			PDEBUG(DEBUG_BCHANNEL, "we already have calldata=%d.\n", p_m_calldata);
+			PDEBUG(DEBUG_BCHANNEL, "we already have joindata=%d.\n", p_m_joindata);
 		break;
 		
 		case mISDNSIGNAL_DELAY:
@@ -1370,7 +1370,7 @@ int mISDN_handler(void)
 			if (isdnport)
 			{
 				/* call bridges in user space OR crypto OR recording */
-				if (isdnport->p_m_calldata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
+				if (isdnport->p_m_joindata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record)
 				{
 					/* rx IS required */
 					if (isdnport->p_m_rxoff)

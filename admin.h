@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -29,7 +29,7 @@ enum { /* messages */
 	ADMIN_RESPONSE_S_INTERFACE,
 	ADMIN_RESPONSE_S_PORT,
 	ADMIN_RESPONSE_S_EPOINT,
-	ADMIN_RESPONSE_S_CALL,
+	ADMIN_RESPONSE_S_JOIN,
 	ADMIN_CALL_SETUP,
 	ADMIN_CALL_SETUP_ACK,
 	ADMIN_CALL_PROCEEDING,
@@ -55,7 +55,7 @@ struct admin_response_state {
 	struct tm	tm;
 	char		logfile[128];
 	int		interfaces;
-	int		calls;
+	int		joins;
 	int		epoints;
 	int		ports;
 };
@@ -76,16 +76,16 @@ struct admin_response_interface {
 	unsigned long	port[256]; /* current port */
 };
 
-struct admin_response_call {
-	unsigned long	serial; /* call serial number */
+struct admin_response_join {
+	unsigned long	serial; /* join serial number */
 	unsigned long	partyline;
 };
 
 struct admin_response_epoint {
 	unsigned long	serial;
-	unsigned long	call; /* link to call */
-//	int		call_notify; /* if relation notified on hold */
-//	int		call_hold; /* if relation on hold */
+	unsigned long	join; /* link to join */
+//	int		join_notify; /* if relation notified on hold */
+//	int		join_hold; /* if relation on hold */
 	int		rx_state;
 	int		tx_state;
 	int		state;
@@ -152,7 +152,7 @@ struct admin_message {
 		struct admin_response_interface	i;
 		struct admin_response_port	p;
 		struct admin_response_epoint	e;
-		struct admin_response_call	c;
+		struct admin_response_join	j;
 		struct admin_call		call;
 		struct admin_msg		msg;
 		struct admin_trace_req		trace_req;

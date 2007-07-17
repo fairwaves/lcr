@@ -354,7 +354,9 @@ Changes in Version 1.0
 - Asterisk channel driver integrated
 - Multiplexing calls to multiple extensions
 - Removed all VoIP stuff to make core fast and stable (Use Asterisk for VoIP.)
+- Fixed a bug that caused some isdn connections to hang during disconnect
 - Many bug fixes
 - Many minor improvements
 - New bugs of course...
+- Rename of 'Call' instances to 'Join', because they join parties together.
 

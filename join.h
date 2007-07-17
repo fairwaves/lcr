@@ -1,38 +1,38 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** call header file                                                          **
+** join header file                                                          **
 **                                                                           **
 \*****************************************************************************/ 
 
-enum { CALL_TYPE_NONE, CALL_TYPE_PBX, CALL_TYPE_ASTERISK};
+enum { JOIN_TYPE_NONE, JOIN_TYPE_PBX, JOIN_TYPE_ASTERISK};
 
-/* call
+/* join
  *
  * abstraction for pbx calls and asterisk calls
  */
 
 
-class Call
+class Join
 {
 	public:
-	Call();
-	virtual ~Call();
-	class Call *next;		/* next node in list of calls */
+	Join();
+	virtual ~Join();
+	class Join *next;		/* next node in list of joins */
 	virtual void message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	virtual int handler(void);
 
-	unsigned long c_type;		/* call type (pbx or asterisk) */
-	unsigned long c_serial;		/* serial/unique number of call */
+	unsigned long c_type;		/* join type (pbx or asterisk) */
+	unsigned long c_serial;		/* serial/unique number of join */
 }; 
 
-void call_free(void);
+void join_free(void);
 
-extern class Call *call_first;
+extern class Join *join_first;
 
-class Call *find_call_id(unsigned long call_id);
+class Join *find_join_id(unsigned long join_id);
 

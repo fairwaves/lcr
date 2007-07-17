@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** LCR                                                                       **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -19,7 +19,6 @@
 #include <unistd.h>
 #include <poll.h>
 #include "main.h"
-
 
 class EndpointAppPBX *apppbx_first = NULL;
 
@@ -64,8 +63,8 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
 //        e_knocking = 0;
 //        e_knocktime = 0;
 	e_hold = 0;
-//        e_call_tone[0] = e_hold_tone[0] = '\0';
-        e_call_pattern /*= e_hold_pattern*/ = 0;
+//        e_join_tone[0] = e_hold_tone[0] = '\0';
+        e_join_pattern /*= e_hold_pattern*/ = 0;
         e_redial = 0;
 	e_tone[0] = '\0';
 	e_adminid = 0; // will be set, if call was initiated via admin socket
@@ -95,7 +94,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
 	e_vbox[0] = '\0';
 	e_tx_state = NOTIFY_STATE_ACTIVE;
 	e_rx_state = NOTIFY_STATE_ACTIVE;
-	e_call_cause = e_call_location = 0;
+	e_join_cause = e_join_location = 0;
 /*********************************
  *********************************
  ********* ATTENTION *************
@@ -326,40 +325,40 @@ void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *prese
 	}
 }
 
-/* release call and port (as specified)
+/* release join and port (as specified)
  */
-void EndpointAppPBX::release(int release, int calllocation, int callcause, int portlocation, int portcause)
+void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause)
 {
 	struct port_list *portlist;
 	struct message *message;
 	char cause[16];
 
 	/* message to test call */
-	admin_call_response(e_adminid, ADMIN_CALL_RELEASE, "", callcause, calllocation, 0);
+	admin_call_response(e_adminid, ADMIN_CALL_RELEASE, "", joincause, joinlocation, 0);
 
 	/* if a release is pending */
-	if (release==RELEASE_CALL || release==RELEASE_ALL || release==RELEASE_PORT_CALLONLY)
+	if (release==RELEASE_JOIN || release==RELEASE_ALL || release==RELEASE_PORT_JOINONLY)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): do pending release (callcause %d location %d)\n", ea_endpoint->ep_serial, callcause, calllocation);
-		if (ea_endpoint->ep_call_id)
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): do pending release (joincause %d location %d)\n", ea_endpoint->ep_serial, joincause, joinlocation);
+		if (ea_endpoint->ep_join_id)
 		{
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = callcause;
-			message->param.disconnectinfo.location = calllocation;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = joincause;
+			message->param.disconnectinfo.location = joinlocation;
 			message_put(message);
-			ea_endpoint->ep_call_id = 0;
+			ea_endpoint->ep_join_id = 0;
 		}
-		e_call_pattern = 0;
+		e_join_pattern = 0;
 #if 0
-		if (release != RELEASE_PORT_CALLONLY)
+		if (release != RELEASE_PORT_JOINONLY)
 		{
 			if (e_hold_id)
-				call_release(e_hold_id, ea_endpoint->ep_serial, 1, calllocation, callcause);
+				join_release(e_hold_id, ea_endpoint->ep_serial, 1, joinlocation, joincause);
 			e_hold_id = 0;
 		}
 #endif
 	}
-	if (release==RELEASE_ALL || release==RELEASE_PORT_CALLONLY)
+	if (release==RELEASE_ALL || release==RELEASE_PORT_JOINONLY)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) do pending release (portcause %d portlocation)\n", ea_endpoint->ep_serial, portcause, portlocation);
 		while((portlist = ea_endpoint->ep_portlist))
@@ -372,7 +371,7 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 				message->param.disconnectinfo.cause = portcause;
 				message->param.disconnectinfo.location = portlocation;
 				message_put(message);
-				logmessage(message);
+				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			}
 			ea_endpoint->free_portlist(portlist);
 		}
@@ -412,7 +411,7 @@ void EndpointAppPBX::release(int release, int calllocation, int callcause, int p
 			e_vbox[0] = '\0';
 			e_tx_state = NOTIFY_STATE_ACTIVE;
 			e_rx_state = NOTIFY_STATE_ACTIVE;
-			e_call_cause = e_call_location = 0;
+			e_join_cause = e_join_location = 0;
 			e_rule_nesting = 0;
 			/* the caller info of the callback user */
 			memcpy(&e_callbackinfo, &e_callerinfo, sizeof(e_callbackinfo));
@@ -631,7 +630,7 @@ void EndpointAppPBX::notify_active(void)
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		message->param.notifyinfo.notify = notify;
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		portlist = portlist->next;
 	}
 }
@@ -654,13 +653,13 @@ void EndpointAppPBX::keypad_function(char digit)
 	{
 		/* join conference */
 		case '3':
-		if (ea_endpoint->ep_call_id == 0)
+		if (ea_endpoint->ep_join_id == 0)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad received during connect but not during a call.\n", ea_endpoint->ep_serial);
 			break;
 		}
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join call with call on hold\n", ea_endpoint->ep_serial);
-		join_call();
+		join_join();
 		break;
 
 		/* crypt shared */
@@ -704,7 +703,7 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
 		return;
 	}
 
-	if (e_call_pattern /* pattern are provided */
+	if (e_join_pattern /* pattern are provided */
 	 && !(e_ext.own_setup && e_state == EPOINT_STATE_IN_SETUP)
 	 && !(e_ext.own_setup && e_state == EPOINT_STATE_IN_OVERLAP)
 	 && !(e_ext.own_proceeding && e_state == EPOINT_STATE_IN_PROCEEDING)
@@ -727,7 +726,7 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
 		SCPY(message->param.tone.dir, e_ext.tones_dir[0]?e_ext.tones_dir:options.tones_dir);
 		SCPY(message->param.tone.name, tone);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 }
 
@@ -1011,7 +1010,7 @@ void EndpointAppPBX::out_setup(void)
 			if (atemp)
 			{
 				PERROR("EPOINT(%d) noknocking and currently a call\n", ea_endpoint->ep_serial);
-				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYSPE_ call, port */
+				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYSPE_ join, port */
 				return; /* must exit here */
 			}
 		}
@@ -1025,7 +1024,7 @@ void EndpointAppPBX::out_setup(void)
 		if (!read_extension(&e_ext, e_dialinginfo.id))
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) extension %s not configured\n", ea_endpoint->ep_serial, e_dialinginfo.id);
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 
@@ -1097,7 +1096,7 @@ void EndpointAppPBX::out_setup(void)
 
 		/* call to all internal interfaces */
 		p = e_ext.interfaces;
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) generating multiple calls for extension %s to interfaces %s\n", ea_endpoint->ep_serial, e_dialinginfo.id, p);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) generating multiple joins for extension %s to interfaces %s\n", ea_endpoint->ep_serial, e_dialinginfo.id, p);
 		while(*p)
 		{
 			ifname[0] = '\0';
@@ -1176,7 +1175,7 @@ void EndpointAppPBX::out_setup(void)
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			anycall = 1;
 		}
 
@@ -1278,7 +1277,7 @@ void EndpointAppPBX::out_setup(void)
 			/* display callerid if desired for extension */
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			anycall = 1;
 		}
 
@@ -1288,9 +1287,9 @@ void EndpointAppPBX::out_setup(void)
 		{
 			trace_header("INTERFACE (no extension's interface)", DIRECTION_NONE);
 			end_trace();
-			if (!ea_endpoint->ep_call_id)
+			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1353,7 +1352,7 @@ void EndpointAppPBX::out_setup(void)
 			/* display callerid if desired for extension */
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			anycall = 1;
 		} while(*p);
 
@@ -1363,9 +1362,9 @@ void EndpointAppPBX::out_setup(void)
 		{
 			trace_header("INTERFACE (no free ports found)", DIRECTION_NONE);
 			end_trace();
-			if (!ea_endpoint->ep_call_id)
+			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1402,7 +1401,7 @@ int EndpointAppPBX::handler(void)
 				e_multipoint_cause = CAUSE_NOUSER;
 				e_multipoint_location = LOCATION_PRIVATE_LOCAL;
 				new_state(EPOINT_STATE_IN_OVERLAP);
-				e_call_pattern = 0;
+				e_join_pattern = 0;
 				process_dialing();
 				return(1); /* we must exit, because our endpoint might be gone */
 			} else
@@ -1474,17 +1473,17 @@ int EndpointAppPBX::handler(void)
 				message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal clearing */
 				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 				message_put(message);
-				logmessage(message);
+				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 				ea_endpoint->free_portlist(portlist);
 			}
 			/* put on hold */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_HOLD;
 			message_put(message);
 			/* indicate no patterns */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
 			message_put(message);
-			/* set setup state, since we have no response from the new call */
+			/* set setup state, since we have no response from the new join */
 			new_state(EPOINT_STATE_OUT_SETUP);
 		}
 	} else
@@ -1562,7 +1561,7 @@ void EndpointAppPBX::hookflash(void)
 		return;
 	}
 	/* dialtone after pressing the hash key */
-	process_hangup(e_call_cause, e_call_location);
+	process_hangup(e_join_cause, e_join_location);
 	e_multipoint_cause = CAUSE_NOUSER;
 	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
 	port = find_port_id(ea_endpoint->ep_portlist->port_id);
@@ -1570,9 +1569,9 @@ void EndpointAppPBX::hookflash(void)
 	{
 		port->set_echotest(0);
 	}
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
-		release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 	}
 	e_ruleset = ruleset_main;
 	if (e_ruleset)
@@ -1582,7 +1581,7 @@ void EndpointAppPBX::hookflash(void)
 	e_connectedmode = 1;
 	SCPY(e_dialinginfo.id, e_ext.prefix);
         e_extdialing = e_dialinginfo.id;
-	e_call_pattern = 0;
+	e_join_pattern = 0;
 	if (e_dialinginfo.id[0])
 	{
 		set_tone(ea_endpoint->ep_portlist, "dialing");
@@ -1607,6 +1606,8 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	class Port		*port;
 	struct interface	*interface;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+	
 	portlist->port_type = param->setup.port_type;
 	memcpy(&e_callerinfo, &param->setup.callerinfo, sizeof(e_callerinfo));
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
@@ -1639,21 +1640,6 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming call is external or voip\n", ea_endpoint->ep_serial);
 	}
-	trace_header("SETUP", DIRECTION_IN);
-	if (e_callerinfo.extension[0])
-		add_trace("extension", NULL, "%s", e_callerinfo.extension);
-	add_trace("caller id", "number", "%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
-	if (e_callerinfo.present == INFO_PRESENT_RESTRICTED)
-		add_trace("caller id", "present", "restricted");
-	if (e_redirinfo.id[0])
-	{
-		add_trace("redir'ing", "number", "%s", numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype));
-		if (e_redirinfo.present == INFO_PRESENT_RESTRICTED)
-			add_trace("redir'ing", "present", "restricted");
-	}
-	if (e_dialinginfo.id)
-		add_trace("dialing", "number", "%s", e_dialinginfo.id);
-	end_trace();
 
 	if (e_callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
 	{
@@ -1774,18 +1760,15 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 		new_state(EPOINT_STATE_IN_OVERLAP);
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_OVERLAP);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 }
 
 /* port MESSAGE_INFORMATION */
 void EndpointAppPBX::port_information(struct port_list *portlist, int message_type, union parameter *param)
 {
-	trace_header("INFORMATION", DIRECTION_IN);
-	add_trace("dialing", NULL, "%s", param->information.id);
-	if (param->information.sending_complete)
-		add_trace("complete", NULL, NULL);
-	end_trace();
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	e_overlap = 1;
 
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
@@ -1987,11 +1970,11 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 {
 	struct message *message;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_SETUP_ACK, "", 0, 0, 0);
 
-	trace_header("SETUP ACKNOWLEDGE", DIRECTION_IN);
-	end_trace();
 	if (e_dialing_queue[0] && portlist)
 	{
 		/* send what we have not dialed yet, because we had no setup complete */
@@ -2000,36 +1983,36 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 		SCPY(message->param.information.id, e_dialing_queue);
 		message->param.information.ntype = INFO_NTYPE_UNKNOWN;
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 		e_dialing_queue[0] = '\0';
 	}
 	/* check if pattern is available */
 	if (!ea_endpoint->ep_portlist->next && portlist->early_b) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PATTERN);
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
 		/* indicate no patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	new_state(EPOINT_STATE_OUT_OVERLAP);
-	/* if we are in a call */
-	if (ea_endpoint->ep_call_id)
+	/* if we are in a join */
+	if (ea_endpoint->ep_join_id)
 	{ 
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 		memcpy(&message->param, param, sizeof(union parameter));
 		message_put(message);
 	}
@@ -2040,38 +2023,38 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 {
 	struct message *message;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_PROCEEDING, "", 0, 0, 0);
 
-	trace_header("PROCEEDING", DIRECTION_IN);
-	end_trace();
 	e_state = EPOINT_STATE_OUT_PROCEEDING;
 	/* check if pattern is availatle */
 	if (!ea_endpoint->ep_portlist->next && (portlist->early_b || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PATTERN);
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
 		/* indicate no patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	/* if we are in a call */
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{ 
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 		memcpy(&message->param, param, sizeof(union parameter));
 		message_put(message);
 	}
@@ -2082,38 +2065,38 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 {
 	struct message *message;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_ALERTING, "", 0, 0, 0);
 
-	trace_header("ALERTING", DIRECTION_IN);
-	end_trace();
 	new_state(EPOINT_STATE_OUT_ALERTING);
 	/* check if pattern is available */
 	if (!ea_endpoint->ep_portlist->next && (portlist->early_b || portlist->port_type==PORT_TYPE_VBOX_OUT)) /* one port_list relation and tones available */
 	{
 		/* indicate patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PATTERN);
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
 		/* indicate no patterns */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOPATTERN);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	/* if we are in a call */
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{ 
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 		memcpy(&message->param, param, sizeof(union parameter));
 		message_put(message);
 	}
@@ -2129,17 +2112,12 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	class Port *port;
 	struct interface	*interface;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_CONNECT, numberrize_callerinfo(param->connectinfo.id,param->connectinfo.ntype), 0, 0, 0);
 
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_connectinfo));
-	trace_header("CONNECT", DIRECTION_IN);
-	if (e_connectinfo.extension[0])
-		add_trace("extension", NULL, "%s", e_connectinfo.extension);
-	add_trace("connect id", "number", "%s", numberrize_callerinfo(e_connectinfo.id, e_connectinfo.ntype));
-	if (e_connectinfo.present == INFO_PRESENT_RESTRICTED)
-		add_trace("connect id", "present", "restricted");
-	end_trace();
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing all other ports (start)\n", ea_endpoint->ep_serial);
 	while(ea_endpoint->ep_portlist->next) /* as long as we have at least two ports */
 	{
@@ -2152,7 +2130,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		message->param.disconnectinfo.cause = CAUSE_NONSELECTED; /* non selected user clearing */
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, tportlist->port_id, DIRECTION_OUT);
 		ea_endpoint->free_portlist(tportlist);
 	}
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing all other ports (end)\n", ea_endpoint->ep_serial);
@@ -2212,7 +2190,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	e_cfnr_call = e_cfnr_release = 0;
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
-//		if (call_countrelations(ea_endpoint->ep_call_id) == 2)
+//		if (call_countrelations(ea_endpoint->ep_join_id) == 2)
 	{
 		/* modify colp */
 		/* other calls with no caller id (or not available for the extension) and force colp */
@@ -2229,13 +2207,13 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 				}
 			}
 		}
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(struct connect_info));
 		message_put(message);
 	}
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else if (!e_adminid)
@@ -2342,13 +2320,10 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	int		cause,
 			location;
 
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* signal to call tool */
 	admin_call_response(e_adminid, (message_type==MESSAGE_DISCONNECT)?ADMIN_CALL_DISCONNECT:ADMIN_CALL_RELEASE, "", param->disconnectinfo.cause, param->disconnectinfo.location, 0);
-
-	trace_header((message_type==MESSAGE_DISCONNECT)?(char *)"DISCONNECT":(char *)"RELEASE", DIRECTION_IN);
-	add_trace("cause", "value", "%d", param->disconnectinfo.cause);
-	add_trace("cause", "location", "%d", param->disconnectinfo.location);
-	end_trace();
 
 //#warning does this work? only disconnect when incoming port hat not already disconnected yet?
 	if (e_state==EPOINT_STATE_IN_DISCONNECT && message_type!=MESSAGE_RELEASE)// || e_state==EPOINT_STATE_OUT_DISCONNECT || e_state==EPOINT_STATE_IDLE)
@@ -2381,7 +2356,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal clearing */
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		}
 		ea_endpoint->free_portlist(portlist);
 		return; /* one relation removed */ 
@@ -2401,7 +2376,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	e_cfnr_call = e_cfnr_release = 0;
 
 	/* process hangup */
-	process_hangup(e_call_cause, e_call_location);
+	process_hangup(e_join_cause, e_join_location);
 	e_multipoint_cause = 0;
 	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
 
@@ -2411,27 +2386,27 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 		set_tone(ea_endpoint->ep_portlist, buffer);
 
 	new_state(EPOINT_STATE_IN_DISCONNECT);
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
 		int haspatterns = 0;
 		/* check if pattern is available */
 		if (ea_endpoint->ep_portlist)
 		if (!ea_endpoint->ep_portlist->next && ea_endpoint->ep_portlist->early_b)
-		if (callpbx_countrelations(ea_endpoint->ep_call_id)==2 // we must count relations, in order not to disturb the conference ; NOTE: asterisk always counts two, since it is a point to point call 
+		if (joinpbx_countrelations(ea_endpoint->ep_join_id)==2 // we must count relations, in order not to disturb the conference ; NOTE: asterisk always counts two, since it is a point to point call 
 		 && message_type != MESSAGE_RELEASE) // if we release, we are done
 			haspatterns = 1;
 		if (haspatterns)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) the port has patterns.\n", ea_endpoint->ep_serial);
 			/* indicate patterns */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_PATTERN);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PATTERN);
 			message_put(message);
 			/* connect audio, if not already */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_CONNECT;
 			message_put(message);
 			/* send disconnect */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, message_type);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 			memcpy(&message->param, param, sizeof(union parameter));
 			message_put(message);
 			/* disable encryption if disconnected */
@@ -2494,6 +2469,14 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 		return; /* must exit here */
 
+		case PORT_STATE_CONNECT:
+		add_trace("state", NULL, "connect");
+		end_trace();
+		param->disconnectinfo.cause = CAUSE_NORMAL; /* normal */
+		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		return; /* must exit here */
+
 		case PORT_STATE_IN_ALERTING:
 		add_trace("state", NULL, "incoming alerting");
 		param->disconnectinfo.cause = CAUSE_NOANSWER;
@@ -2514,7 +2497,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 	}
 	end_trace();
 	/* release call, disconnect isdn */
-	e_call_pattern = 0;
+	e_join_pattern = 0;
 	new_state(EPOINT_STATE_OUT_DISCONNECT);
 	SPRINT(cause, "cause_%02x", param->disconnectinfo.cause);
 	SCPY(e_tone, cause);
@@ -2524,12 +2507,14 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		message_disconnect_port(portlist, param->disconnectinfo.cause, param->disconnectinfo.location, "");
 		portlist = portlist->next;
 	}
-	release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+	release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 }
 
 /* port MESSAGE_NOTIFY */
 void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, union parameter *param)
 {
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	struct message *message;
 	char *logtext = "";
 	char buffer[64];
@@ -2547,9 +2532,9 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		case INFO_NOTIFY_REMOTE_HOLD:
 		case INFO_NOTIFY_USER_SUSPENDED:
 		/* tell call about it */
-		if (ea_endpoint->ep_call_id)
+		if (ea_endpoint->ep_join_id)
 		{
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_HOLD;
 			message_put(message);
 		}
@@ -2572,9 +2557,9 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		if (portlist)
 			set_tone(portlist, e_tone);
 		/* tell call about it */
-		if (ea_endpoint->ep_call_id)
+		if (ea_endpoint->ep_join_id)
 		{
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_CONNECT;
 			message_put(message);
 		}
@@ -2661,23 +2646,11 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		logtext = buffer;
 
 	}
-	trace_header("NOTIFY", DIRECTION_IN);
-	if (param->notifyinfo.notify)
-		add_trace("indicator", NULL, "%s", logtext);
-	if (param->notifyinfo.id)
-	{
-		add_trace("redir'on", "number", "%s", numberrize_callerinfo(param->notifyinfo.id, param->notifyinfo.ntype));
-		if (param->notifyinfo.present == INFO_PRESENT_RESTRICTED)
-			add_trace("redir'on", "present", "restricted");
-	}
-	if (param->notifyinfo.display[0])
-		add_trace("display", NULL, "%s", param->notifyinfo.display);
-	end_trace();
 
 	/* notify call if available */
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_NOTIFY);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOTIFY);
 		memcpy(&message->param.notifyinfo, &param->notifyinfo, sizeof(struct notify_info));
 		message_put(message);
 	}
@@ -2687,12 +2660,11 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 /* port MESSAGE_FACILITY */
 void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type, union parameter *param)
 {
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	struct message *message;
 
-	trace_header("FACILITY", DIRECTION_IN);
-	end_trace();
-
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_FACILITY);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_FACILITY);
 	memcpy(&message->param.facilityinfo, &param->facilityinfo, sizeof(struct facility_info));
 	message_put(message);
 }
@@ -2701,8 +2673,8 @@ void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type,
 /* NOTE: before supending, the inactive-notification must be done in order to set call mixer */
 void EndpointAppPBX::port_suspend(struct port_list *portlist, int message_type, union parameter *param)
 {
-	trace_header("SUSPEND", DIRECTION_IN);
-	end_trace();
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* epoint is now parked */
 	ea_endpoint->ep_park = 1;
 	memcpy(ea_endpoint->ep_park_callid, param->parkinfo.callid, sizeof(ea_endpoint->ep_park_callid));
@@ -2716,8 +2688,8 @@ void EndpointAppPBX::port_suspend(struct port_list *portlist, int message_type, 
 /* NOTE: before resume, the active-notification must be done in order to set call mixer */
 void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, union parameter *param)
 {
-	trace_header("RESUME", DIRECTION_IN);
-	end_trace();
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
 	/* epoint is now resumed */
 	ea_endpoint->ep_park = 0;
 
@@ -2749,13 +2721,13 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 	{
 		case MESSAGE_DATA: /* data from port */
 		/* check if there is a call */
-		if (!ea_endpoint->ep_call_id)
+		if (!ea_endpoint->ep_join_id)
 			break;
 		/* continue if only one portlist */
 		if (ea_endpoint->ep_portlist->next != NULL)
 			break;
 		/* forward message */
-		message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, param);  
+		message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, param);  
 		break;
 
 		case MESSAGE_TONE_EOF: /* tone is end of file */
@@ -2914,10 +2886,10 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 }
 
 
-/* messages from port
+/* messages from join
  */
-/* call MESSAGE_CRYPT */
-void EndpointAppPBX::call_crypt(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_CRYPT */
+void EndpointAppPBX::join_crypt(struct port_list *portlist, int message_type, union parameter *param)
 {
 	switch(param->crypt.type)
 	{
@@ -2945,8 +2917,8 @@ void EndpointAppPBX::call_crypt(struct port_list *portlist, int message_type, un
 	}
 }
 
-/* call MESSAGE_INFORMATION */
-void EndpointAppPBX::call_information(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_INFORMATION */
+void EndpointAppPBX::join_information(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
@@ -2957,13 +2929,13 @@ void EndpointAppPBX::call_information(struct port_list *portlist, int message_ty
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_INFORMATION);
 		memcpy(&message->param.information, &param->information, sizeof(struct dialing_info));
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		portlist = portlist->next;
 	}
 }
 
-/* call MESSAGE_FACILITY */
-void EndpointAppPBX::call_facility(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_FACILITY */
+void EndpointAppPBX::join_facility(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
@@ -2977,23 +2949,23 @@ void EndpointAppPBX::call_facility(struct port_list *portlist, int message_type,
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_FACILITY);
 		memcpy(&message->param.facilityinfo, &param->facilityinfo, sizeof(struct facility_info));
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		portlist = portlist->next;
 	}
 }
 
-/* call MESSAGE_MORE */
-void EndpointAppPBX::call_overlap(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_MORE */
+void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
 	new_state(EPOINT_STATE_IN_OVERLAP);
 	
 	/* own dialtone */
-	if (e_call_pattern && e_ext.own_setup)
+	if (e_join_pattern && e_ext.own_setup)
 	{
 		/* disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
@@ -3008,46 +2980,46 @@ void EndpointAppPBX::call_overlap(struct port_list *portlist, int message_type, 
 		set_tone(portlist, "dialtone");
 }
 
-/* call MESSAGE_PROCEEDING */
-void EndpointAppPBX::call_proceeding(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_PROCEEDING */
+void EndpointAppPBX::join_proceeding(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
 	new_state(EPOINT_STATE_IN_PROCEEDING);
 
 	/* own proceeding tone */
-	if (e_call_pattern)
+	if (e_join_pattern)
 	{
 		/* connect / disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		if (e_ext.own_proceeding)
 			message->param.channel = CHANNEL_STATE_HOLD;
 		else
 			message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	}
-//			UCPY(e_call_tone, "proceeding");
+//			UCPY(e_join_tone, "proceeding");
 	if (portlist)
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 	set_tone(portlist, "proceeding");
 }
 
-/* call MESSAGE_ALERTING */
-void EndpointAppPBX::call_alerting(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_ALERTING */
+void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
 	new_state(EPOINT_STATE_IN_ALERTING);
 
 	/* own alerting tone */
-	if (e_call_pattern)
+	if (e_join_pattern)
 	{
 		/* connect / disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		if (e_ext.own_alerting)
 			message->param.channel = CHANNEL_STATE_HOLD;
 		else
@@ -3058,7 +3030,7 @@ void EndpointAppPBX::call_alerting(struct port_list *portlist, int message_type,
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_ALERTING);
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 	if (e_action) if (e_action->index == ACTION_OUTDIAL || e_action->index == ACTION_EXTERNAL)
 	{
@@ -3071,14 +3043,14 @@ void EndpointAppPBX::call_alerting(struct port_list *portlist, int message_type,
 		set_tone(portlist, "ringing");
 }
 
-/* call MESSAGE_CONNECT */
-void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_CONNECT */
+void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 	struct interface	*interface;
 
 	new_state(EPOINT_STATE_CONNECT);
-//			UCPY(e_call_tone, "");
+//			UCPY(e_join_tone, "");
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
 	e_powerdialing = 0;
@@ -3127,18 +3099,18 @@ void EndpointAppPBX::call_connect(struct port_list *portlist, int message_type, 
 
 		/* send connect */
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	}
 	set_tone(portlist, NULL);
-	e_call_pattern = 0;
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+	e_join_pattern = 0;
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 	message->param.channel = CHANNEL_STATE_CONNECT;
 	message_put(message);
 	e_start = now;
 }
 
-/* call MESSAGE_DISCONNECT MESSAGE_RELEASE */
-void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_DISCONNECT MESSAGE_RELEASE */
+void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int message_type, union parameter *param)
 {
 	char cause[16];
 	struct message *message;
@@ -3151,7 +3123,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 	/* we are powerdialing, if e_powerdialing is set and limit is not exceeded if given */
 	if (e_powerdialing && ((e_powercount+1)<e_powerlimit || e_powerlimit<1))
 	{
-		release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
 
 		/* set time for power dialing */
 		e_powerdialing = now_d + e_powerdelay; /* set redial in the future */
@@ -3160,7 +3132,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 		/* set redial tone */
 		if (ea_endpoint->ep_portlist)
 		{
-			e_call_pattern = 0;
+			e_join_pattern = 0;
 		}
 		set_tone(ea_endpoint->ep_portlist, "redial");
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') redialing in %d seconds\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (int)e_powerdelay);
@@ -3172,7 +3144,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 			{
 				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 				message_put(message);
-				logmessage(message);
+				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			}
 /* caused the error, that the first knock sound was not there */
 /*					set_tone(portlist, "proceeding"); */
@@ -3188,7 +3160,7 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 				else
 					SPRINT(message->param.notifyinfo.display, "Retry %d", e_powercount);
 				message_put(message);
-				logmessage(message);
+				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 				portlist = portlist->next;
 			}
 		}
@@ -3206,36 +3178,36 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 	 || !ea_endpoint->ep_portlist) /* or no port */
 	{
 		process_hangup(param->disconnectinfo.cause, param->disconnectinfo.location);
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause); /* RELEASE_TYPE, call, port */
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause); /* RELEASE_TYPE, join, port */
 		return; /* must exit here */
 	}
 	/* save cause */
-	if (!e_call_cause)
+	if (!e_join_cause)
 	{
-		e_call_cause = param->disconnectinfo.cause;
-		e_call_location = param->disconnectinfo.location;
+		e_join_cause = param->disconnectinfo.cause;
+		e_join_location = param->disconnectinfo.location;
 	}
 
 	/* on release we need the audio again! */
 	if (message_type == MESSAGE_RELEASE)
 	{
-		e_call_pattern = 0;
-		ea_endpoint->ep_call_id = 0;
+		e_join_pattern = 0;
+		ea_endpoint->ep_join_id = 0;
 	}
 	/* disconnect and select tone */
 	new_state(EPOINT_STATE_OUT_DISCONNECT);
 	SPRINT(cause, "cause_%02x", param->disconnectinfo.cause);
-	/* if own_cause, we must release the call */
+	/* if own_cause, we must release the join */
 	if (e_ext.own_cause /* own cause */
-	 || !e_call_pattern) /* no patterns */
+	 || !e_join_pattern) /* no patterns */
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have own cause or we have no patterns. (own_cause=%d pattern=%d)\n", ea_endpoint->ep_serial, e_ext.own_cause, e_call_pattern);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have own cause or we have no patterns. (own_cause=%d pattern=%d)\n", ea_endpoint->ep_serial, e_ext.own_cause, e_join_pattern);
 		if (message_type != MESSAGE_RELEASE)
-			release(RELEASE_CALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, call, port */
-		e_call_pattern = 0;
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+		e_join_pattern = 0;
 	} else /* else we enable audio */
 	{
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	}
@@ -3249,8 +3221,8 @@ void EndpointAppPBX::call_disconnect_release(struct port_list *portlist, int mes
 	}
 }
 
-/* call MESSAGE_SETUP */
-void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_SETUP */
+void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 	struct interface	*interface;
@@ -3271,12 +3243,12 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 				message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal clearing */
 				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 				message_put(message);
-				logmessage(message);
+				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 				ea_endpoint->free_portlist(portlist);
 			}
 
 			/* disconnect audio */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_HOLD;
 			message_put(message);
 
@@ -3320,7 +3292,7 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 			SCPY(message->param.information.id, param->setup.dialinginfo.id + strlen(e_dialinginfo.id));
 			message->param.information.ntype = INFO_NTYPE_UNKNOWN;
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 		}
 		/* always store what we have dialed or queued */
 		memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
@@ -3378,8 +3350,8 @@ void EndpointAppPBX::call_setup(struct port_list *portlist, int message_type, un
 	out_setup();
 }
 
-/* call MESSAGE_mISDNSIGNAL */
-void EndpointAppPBX::call_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_mISDNSIGNAL */
+void EndpointAppPBX::join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 
@@ -3392,8 +3364,8 @@ void EndpointAppPBX::call_mISDNsignal(struct port_list *portlist, int message_ty
 	}
 }
 
-/* call MESSAGE_NOTIFY */
-void EndpointAppPBX::call_notify(struct port_list *portlist, int message_type, union parameter *param)
+/* join MESSAGE_NOTIFY */
+void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
 	int new_state;
@@ -3446,19 +3418,19 @@ void EndpointAppPBX::call_notify(struct port_list *portlist, int message_type, u
 		/* display callerid if desired for extension */
 		SCPY(message->param.notifyinfo.display, apply_callerid_display(message->param.notifyinfo.id, message->param.notifyinfo.itype, message->param.notifyinfo.ntype, message->param.notifyinfo.present, 0, message->param.notifyinfo.extension, NULL));
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		portlist = portlist->next;
 	}
 }
 
 /* call sends messages to the endpoint
  */
-void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, union parameter *param)
+void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
 	struct message *message;
 
-	if (!call_id)
+	if (!join_id)
 	{
 		PERROR("EPOINT(%d) error: call == NULL.\n", ea_endpoint->ep_serial);
 		return;
@@ -3469,7 +3441,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 	/* send MESSAGE_DATA to port */
 	if (message_type == MESSAGE_DATA)
 	{
-		if (call_id == ea_endpoint->ep_call_id) // still linked with call
+		if (join_id == ea_endpoint->ep_join_id) // still linked with call
 		{
 			/* skip if no port relation */
 			if (!portlist)
@@ -3489,19 +3461,19 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		/* CALL SENDS CRYPT message */
 		case MESSAGE_CRYPT:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);
-		call_crypt(portlist, message_type, param);
+		join_crypt(portlist, message_type, param);
 		break;
 
 		/* CALL sends INFORMATION message */
 		case MESSAGE_INFORMATION:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->information.id);
-		call_information(portlist, message_type, param);
+		join_information(portlist, message_type, param);
 		break;
 
 		/* CALL sends FACILITY message */
 		case MESSAGE_FACILITY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received facility\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		call_facility(portlist, message_type, param);
+		join_facility(portlist, message_type, param);
 		break;
 
 		/* CALL sends OVERLAP message */
@@ -3513,7 +3485,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup state.\n", ea_endpoint->ep_serial);
 			break;
 		}
-		call_overlap(portlist, message_type, param);
+		join_overlap(portlist, message_type, param);
 		break;
 
 		/* CALL sends PROCEEDING message */
@@ -3524,7 +3496,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup state.\n", ea_endpoint->ep_serial);
 			break;
 		}
-		call_proceeding(portlist, message_type, param);
+		join_proceeding(portlist, message_type, param);
 		break;
 
 		/* CALL sends ALERTING message */
@@ -3536,7 +3508,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup or proceeding state.\n", ea_endpoint->ep_serial);
 			break;
 		}
-		call_alerting(portlist, message_type, param);
+		join_alerting(portlist, message_type, param);
 		break;
 
 		/* CALL sends CONNECT message */
@@ -3549,36 +3521,36 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in setup, proceeding or alerting state.\n", ea_endpoint->ep_serial);
 			break;
 		}
-		call_connect(portlist, message_type, param);
+		join_connect(portlist, message_type, param);
 		break;
 
 		/* CALL sends DISCONNECT/RELEASE message */
 		case MESSAGE_DISCONNECT: /* call disconnect */
 		case MESSAGE_RELEASE: /* call releases */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received %s with cause %d location %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (message_type==MESSAGE_DISCONNECT)?"disconnect":"release", param->disconnectinfo.cause, param->disconnectinfo.location);
-		call_disconnect_release(portlist, message_type, param);
+		join_disconnect_release(portlist, message_type, param);
 		break;
 
 		/* CALL sends SETUP message */
 		case MESSAGE_SETUP:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received setup from terminal='%s',id='%s' to id='%s' (dialing itype=%d)\n", ea_endpoint->ep_serial, param->setup.callerinfo.extension, param->setup.callerinfo.id, param->setup.dialinginfo.id, param->setup.dialinginfo.itype);
-		call_setup(portlist, message_type, param);
+		join_setup(portlist, message_type, param);
 		return;
 		break;
 
 		/* CALL sends special mISDNSIGNAL message */
 		case MESSAGE_mISDNSIGNAL: /* isdn message to port */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received mISDNsignal message.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		call_mISDNsignal(portlist, message_type, param);
+		join_mISDNsignal(portlist, message_type, param);
 		break;
 
 		/* CALL has pattern available */
 		case MESSAGE_PATTERN: /* indicating pattern available */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern availability.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		if (!e_call_pattern)
+		if (!e_join_pattern)
 		{
 			PDEBUG(DEBUG_EPOINT, "-> pattern becomes available\n");
-			e_call_pattern = 1;
+			e_join_pattern = 1;
 			SCPY(e_tone, "");
 			while(portlist)
 			{
@@ -3586,11 +3558,11 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 				portlist = portlist->next;
 			}
 			/* connect our audio tx and rx (blueboxing should be possibe before connect :)*/
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_CONNECT;
 			message_put(message);
 //			/* tell remote epoint to connect audio also, because we like to hear the patterns */
-//			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_REMOTE_AUDIO);
+//			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_REMOTE_AUDIO);
 //			message->param.channel = CHANNEL_STATE_CONNECT;
 //			message_put(message);
 // patterns are available, remote already connected audio
@@ -3600,12 +3572,12 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		/* CALL has no pattern available */
 		case MESSAGE_NOPATTERN: /* indicating no pattern available */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern NOT available.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		if (e_call_pattern)
+		if (e_join_pattern)
 		{
 			PDEBUG(DEBUG_EPOINT, "-> pattern becomes unavailable\n");
-			e_call_pattern = 0;
+			e_join_pattern = 0;
 			/* disconnect our audio tx and rx */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 			message->param.channel = CHANNEL_STATE_HOLD;
 			message_put(message);
 		}
@@ -3615,7 +3587,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		/* CALL (dunno at the moment) */
 		case MESSAGE_REMOTE_AUDIO:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 		message->param.channel = param->channel;
 		message_put(message);
 		break;
@@ -3624,7 +3596,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 		/* CALL sends a notify message */
 		case MESSAGE_NOTIFY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		call_notify(portlist, message_type, param);
+		join_notify(portlist, message_type, param);
 		break;
 
 		default:
@@ -3633,7 +3605,7 @@ void EndpointAppPBX::ea_message_call(unsigned long call_id, int message_type, un
 }
 
 
-/* pick_call will connect the first incoming call found. the endpoint
+/* pick_join will connect the first incoming call found. the endpoint
  * will receivce a MESSAGE_CONNECT.
  */
 int match_list(char *list, char *item)
@@ -3671,15 +3643,15 @@ int match_list(char *list, char *item)
 	}
 }
 
-void EndpointAppPBX::pick_call(char *extensions)
+void EndpointAppPBX::pick_join(char *extensions)
 {
 	struct message *message;
 	struct port_list *portlist;
 	class Port *port;
 	class EndpointAppPBX *eapp, *found;
-	class Call *call;
-	class CallPBX *callpbx;
-	struct call_relation *relation;
+	class Join *join;
+	class JoinPBX *joinpbx;
+	struct join_relation *relation;
 	int vbox;
 
 	/* find an endpoint that is ringing internally or vbox with higher priority */
@@ -3731,32 +3703,32 @@ reject:
 	}
 	eapp = found;
 
-	if (ea_endpoint->ep_call_id)
+	if (ea_endpoint->ep_join_id)
 	{
-		PERROR("EPOINT(%d) we already have a call. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
+		PERROR("EPOINT(%d) we already have a join. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	if (!eapp->ea_endpoint->ep_call_id)
+	if (!eapp->ea_endpoint->ep_join_id)
 	{
-		PERROR("EPOINT(%d) ringing endpoint has no call.\n", ea_endpoint->ep_serial);
+		PERROR("EPOINT(%d) ringing endpoint has no join.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	call = find_call_id(eapp->ea_endpoint->ep_call_id);
-	if (!call)
+	join = find_join_id(eapp->ea_endpoint->ep_join_id);
+	if (!join)
 	{
-		PERROR("EPOINT(%d) ringing endpoint's call not found.\n", ea_endpoint->ep_serial);
+		PERROR("EPOINT(%d) ringing endpoint's join not found.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	if (callpbx->c_type != CALL_TYPE_PBX)
+	if (joinpbx->c_type != JOIN_TYPE_PBX)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ringing endpoint's call is not a PBX call, so we must reject.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ringing endpoint's join is not a PBX join, so we must reject.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	callpbx = (class CallPBX *)call;
-	relation = callpbx->c_relation;
+	joinpbx = (class JoinPBX *)join;
+	relation = joinpbx->c_relation;
 	if (!relation)
 	{
-		PERROR("EPOINT(%d) ringing endpoint's call has no relation. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
+		PERROR("EPOINT(%d) ringing endpoint's join has no relation. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
 	while (relation->epoint_id != eapp->ea_endpoint->ep_serial)
@@ -3764,7 +3736,7 @@ reject:
 		relation = relation->next;
 		if (!relation)
 		{
-			PERROR("EPOINT(%d) ringing endpoint's call has no relation to that call. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
+			PERROR("EPOINT(%d) ringing endpoint's join has no relation to that join. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
 			goto reject;
 		}
 	}
@@ -3773,22 +3745,22 @@ reject:
 
 	if (options.deb & DEBUG_EPOINT)
 	{
-		class Call *debug_c = call_first;
+		class Join *debug_c = join_first;
 		class Endpoint *debug_e = epoint_first;
 		class Port *debug_p = port_first;
 
-		callpbx_debug(callpbx, "EndpointAppPBX::pick_call(before)");
+		joinpbx_debug(joinpbx, "EndpointAppPBX::pick_join(before)");
 
-		PDEBUG(DEBUG_EPOINT, "showing all calls:\n");
+		PDEBUG(DEBUG_EPOINT, "showing all joins:\n");
 		while(debug_c)
 		{
-			PDEBUG(DEBUG_EPOINT, "call=%ld\n", debug_c->c_serial);
+			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->c_serial);
 			debug_c = debug_c->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all endpoints:\n");
 		while(debug_e)
 		{
-			PDEBUG(DEBUG_EPOINT, "ep=%ld, call=%ld\n", debug_e->ep_serial, debug_e->ep_call_id);
+			PDEBUG(DEBUG_EPOINT, "ep=%ld, join=%ld\n", debug_e->ep_serial, debug_e->ep_join_id);
 			debug_e = debug_e->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all ports:\n");
@@ -3799,10 +3771,10 @@ reject:
 		}
 	}
 
-	/* relink call */
-	ea_endpoint->ep_call_id = eapp->ea_endpoint->ep_call_id; /* we get the call */
-	relation->epoint_id = ea_endpoint->ep_serial; /* the call gets us */
-	eapp->ea_endpoint->ep_call_id = 0; /* the ringing endpoint will get disconnected */
+	/* relink join */
+	ea_endpoint->ep_join_id = eapp->ea_endpoint->ep_join_id; /* we get the join */
+	relation->epoint_id = ea_endpoint->ep_serial; /* the join gets us */
+	eapp->ea_endpoint->ep_join_id = 0; /* the ringing endpoint will get disconnected */
 
 	/* connnecting our endpoint */
 	new_state(EPOINT_STATE_CONNECT);
@@ -3810,13 +3782,13 @@ reject:
 	set_tone(ea_endpoint->ep_portlist, NULL);
 
 	/* now we send a release to the ringing endpoint */
-	message = message_create(ea_endpoint->ep_call_id, eapp->ea_endpoint->ep_serial, CALL_TO_EPOINT, MESSAGE_RELEASE);
+	message = message_create(ea_endpoint->ep_join_id, eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
 	message->param.disconnectinfo.cause = CAUSE_NONSELECTED; /* non selected user clearing */
 	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	message_put(message);
 
-	/* we send a connect to the call with our caller id */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CONNECT);
+	/* we send a connect to the join with our caller id */
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CONNECT);
 	SCPY(message->param.connectinfo.id, e_callerinfo.id);
 	message->param.connectinfo.present = e_callerinfo.present;
 	message->param.connectinfo.screen = e_callerinfo.screen;
@@ -3838,31 +3810,31 @@ reject:
 	message_put(message);
 
 	/* we send a connect to the audio path (not for vbox) */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_call_id, EPOINT_TO_CALL, MESSAGE_CHANNEL);
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
 	message->param.channel = CHANNEL_STATE_CONNECT;
 	message_put(message);
 
 	/* beeing paranoid, we make call update */
-	callpbx->c_updatebridge = 1;
+	joinpbx->c_updatebridge = 1;
 
 	if (options.deb & DEBUG_EPOINT)
 	{
-		class Call *debug_c = call_first;
+		class Join *debug_c = join_first;
 		class Endpoint *debug_e = epoint_first;
 		class Port *debug_p = port_first;
 
-		callpbx_debug(callpbx, "EndpointAppPBX::pick_call(after)");
+		joinpbx_debug(joinpbx, "EndpointAppPBX::pick_join(after)");
 
-		PDEBUG(DEBUG_EPOINT, "showing all calls:\n");
+		PDEBUG(DEBUG_EPOINT, "showing all joins:\n");
 		while(debug_c)
 		{
-			PDEBUG(DEBUG_EPOINT, "call=%ld\n", debug_c->c_serial);
+			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->c_serial);
 			debug_c = debug_c->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all endpoints:\n");
 		while(debug_e)
 		{
-			PDEBUG(DEBUG_EPOINT, "ep=%ld, call=%ld\n", debug_e->ep_serial, debug_e->ep_call_id);
+			PDEBUG(DEBUG_EPOINT, "ep=%ld, join=%ld\n", debug_e->ep_serial, debug_e->ep_join_id);
 			debug_e = debug_e->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all ports:\n");
@@ -3875,32 +3847,32 @@ reject:
 }
 
 
-/* join calls (look for a call that is on hold (same isdn interface/terminal))
+/* join calls (look for a join that is on hold (same isdn interface/terminal))
  */
-void EndpointAppPBX::join_call(void)
+void EndpointAppPBX::join_join(void)
 {
 	struct message *message;
-	struct call_relation *our_relation, *other_relation;
-	struct call_relation **our_relation_pointer, **other_relation_pointer;
-	class Call *our_call, *other_call;
-	class CallPBX *our_callpbx, *other_callpbx;
+	struct join_relation *our_relation, *other_relation;
+	struct join_relation **our_relation_pointer, **other_relation_pointer;
+	class Join *our_join, *other_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx;
 	class EndpointAppPBX *other_eapp; class Endpoint *temp_epoint;
 	class Port *our_port, *other_port;
 	class Pdss1 *our_pdss1, *other_pdss1;
 
-	/* are we a candidate to join a call */
-	our_call = find_call_id(ea_endpoint->ep_call_id);
-	if (!our_call)
+	/* are we a candidate to join a join */
+	our_join = find_join_id(ea_endpoint->ep_join_id);
+	if (!our_join)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our call doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (our_call->c_type != CALL_TYPE_PBX)
+	if (our_join->c_type != JOIN_TYPE_PBX)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: call is not a pbx call.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: join is not a pbx join.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	our_callpbx = (class CallPBX *)our_call;
+	our_joinpbx = (class JoinPBX *)our_join;
 	if (!ea_endpoint->ep_portlist)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we have no port.\n", ea_endpoint->ep_serial);
@@ -3933,10 +3905,10 @@ void EndpointAppPBX::join_call(void)
 			other_eapp = other_eapp->next;
 			continue;
 		}
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s call=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_call_id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s join=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_join_id);
 		if (other_eapp->e_ext.number[0] /* has terminal */
 		 && other_eapp->ea_endpoint->ep_portlist /* has port */
-		 && other_eapp->ea_endpoint->ep_call_id) /* has call */
+		 && other_eapp->ea_endpoint->ep_join_id) /* has join */
 		{
 			other_port = find_port_id(other_eapp->ea_endpoint->ep_portlist->port_id);
 			if (other_port) /* port still exists */
@@ -3968,89 +3940,89 @@ void EndpointAppPBX::join_call(void)
 	}
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port on hold found.\n", ea_endpoint->ep_serial);
 
-	/* if we have the same call */
-	if (other_eapp->ea_endpoint->ep_call_id == ea_endpoint->ep_call_id)
+	/* if we have the same join */
+	if (other_eapp->ea_endpoint->ep_join_id == ea_endpoint->ep_join_id)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we an the other have the same call.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we an the other have the same join.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	other_call = find_call_id(other_eapp->ea_endpoint->ep_call_id);
-	if (!other_call)
+	other_join = find_join_id(other_eapp->ea_endpoint->ep_join_id);
+	if (!other_join)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other call doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (other_call->c_type != CALL_TYPE_PBX)
+	if (other_join->c_type != JOIN_TYPE_PBX)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other call is not a pbx call.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join is not a pbx join.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	other_callpbx = (class CallPBX *)other_call;
-	if (our_callpbx->c_partyline && other_callpbx->c_partyline)
+	other_joinpbx = (class JoinPBX *)other_join;
+	if (our_joinpbx->c_partyline && other_joinpbx->c_partyline)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both calls are partylines.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both joins are partylines.\n", ea_endpoint->ep_serial);
 		return;
 	}
 
-	/* remove relation to endpoint for call on hold */
-	other_relation = other_callpbx->c_relation;
-	other_relation_pointer = &other_callpbx->c_relation;
+	/* remove relation to endpoint for join on hold */
+	other_relation = other_joinpbx->c_relation;
+	other_relation_pointer = &other_joinpbx->c_relation;
 	while(other_relation)
 	{
 		if (other_relation->epoint_id == other_eapp->ea_endpoint->ep_serial)
 		{
 		/* detach other endpoint on hold */
 			*other_relation_pointer = other_relation->next;
-			FREE(other_relation, sizeof(struct call_relation));
+			FREE(other_relation, sizeof(struct join_relation));
 			cmemuse--;
 			other_relation = *other_relation_pointer;
-			other_eapp->ea_endpoint->ep_call_id = NULL;
+			other_eapp->ea_endpoint->ep_join_id = NULL;
 			continue;
 		}
 
-		/* change call/hold pointer of endpoint to the new call */
+		/* change join/hold pointer of endpoint to the new join */
 		temp_epoint = find_epoint_id(other_relation->epoint_id);
 		if (temp_epoint)
 		{
-			if (temp_epoint->ep_call_id == other_call->c_serial)
-				temp_epoint->ep_call_id = our_call->c_serial;
+			if (temp_epoint->ep_join_id == other_join->c_serial)
+				temp_epoint->ep_join_id = our_join->c_serial;
 		}
 
 		other_relation_pointer = &other_relation->next;
 		other_relation = other_relation->next;
 	}
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint on hold removed, other enpoints on call relinked (to our call).\n", ea_endpoint->ep_serial);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint on hold removed, other enpoints on join relinked (to our join).\n", ea_endpoint->ep_serial);
 
 	/* join call relations */
-	our_relation = our_callpbx->c_relation;
-	our_relation_pointer = &our_callpbx->c_relation;
+	our_relation = our_joinpbx->c_relation;
+	our_relation_pointer = &our_joinpbx->c_relation;
 	while(our_relation)
 	{
 		our_relation_pointer = &our_relation->next;
 		our_relation = our_relation->next;
 	}
-	*our_relation_pointer = other_callpbx->c_relation;
-	other_callpbx->c_relation = NULL;
+	*our_relation_pointer = other_joinpbx->c_relation;
+	other_joinpbx->c_relation = NULL;
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) relations joined.\n", ea_endpoint->ep_serial);
 
 	/* release endpoint on hold */
-	message = message_create(other_callpbx->c_serial, other_eapp->ea_endpoint->ep_serial, CALL_TO_EPOINT, MESSAGE_RELEASE);
+	message = message_create(other_joinpbx->c_serial, other_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
 	message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal */
 	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	message_put(message);
 	
-	/* if we are not a partyline, we get partyline state from other call */
-	our_callpbx->c_partyline += other_callpbx->c_partyline; 
+	/* if we are not a partyline, we get partyline state from other join */
+	our_joinpbx->c_partyline += other_joinpbx->c_partyline; 
 
-	/* remove empty call */
-	delete other_call;
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-call completely removed!\n");
+	/* remove empty join */
+	delete other_join;
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-join completely removed!\n");
 
 	/* mixer must update */
-	our_callpbx->c_updatebridge = 1; /* update mixer flag */
+	our_joinpbx->c_updatebridge = 1; /* update mixer flag */
 
 	/* we send a retrieve to that endpoint */
-	// mixer will update the hold-state of the call and send it to the endpoints is changes
+	// mixer will update the hold-state of the join and send it to the endpoints is changes
 }
 
 
@@ -4059,9 +4031,9 @@ void EndpointAppPBX::join_call(void)
  */
 int EndpointAppPBX::check_external(char **errstr, class Port **port)
 {
-	struct call_relation *relation;
-	class Call *call;
-	class CallPBX *callpbx;
+	struct join_relation *relation;
+	class Join *join;
+	class JoinPBX *joinpbx;
 	class Endpoint *epoint;
 
 	/* some paranoia check */
@@ -4078,37 +4050,37 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 		return(1);
 	}
 
-	/* check if we have a call with 2 parties */
-	call = find_call_id(ea_endpoint->ep_call_id);
-	if (!call)
+	/* check if we have a join with 2 parties */
+	join = find_join_id(ea_endpoint->ep_join_id);
+	if (!join)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have currently no call.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have currently no join.\n", ea_endpoint->ep_serial);
 		*errstr = "No Call";
 		return(1);
 	}
-	if (call->c_type != CALL_TYPE_PBX)
+	if (join->c_type != JOIN_TYPE_PBX)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call is nto a pbx call.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join is not a pbx join.\n", ea_endpoint->ep_serial);
 		*errstr = "No PBX Call";
 		return(1);
 	}
-	callpbx = (class CallPBX *)call;
-	relation = callpbx->c_relation;
+	joinpbx = (class JoinPBX *)join;
+	relation = joinpbx->c_relation;
 	if (!relation)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call has no relation.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join has no relation.\n", ea_endpoint->ep_serial);
 		*errstr = "No Call";
 		return(1);
 	}
 	if (!relation->next)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call has no 2nd relation.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join has no 2nd relation.\n", ea_endpoint->ep_serial);
 		*errstr = "No Call";
 		return(1);
 	}
 	if (relation->next->next)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call has more than two relations.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join has more than two relations.\n", ea_endpoint->ep_serial);
 		*errstr = "Err: Conference";
 		return(1);
 	}
@@ -4117,7 +4089,7 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 		relation = relation->next;
 		if (relation->epoint_id == ea_endpoint->ep_serial)
 		{
-			PERROR("EPOINT(%d) SOFTWARE ERROR: both call relations are related to our endpoint.\n", ea_endpoint->ep_serial);
+			PERROR("EPOINT(%d) SOFTWARE ERROR: both join relations are related to our endpoint.\n", ea_endpoint->ep_serial);
 			*errstr = "Software Error";
 			return(1);
 		}
@@ -4127,7 +4099,7 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 	epoint = find_epoint_id(relation->epoint_id);
 	if (!epoint)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call has no 2nd endpoint.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join has no 2nd endpoint.\n", ea_endpoint->ep_serial);
 		*errstr = "No Call";
 		return(1);
 	}
@@ -4159,78 +4131,148 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 	return(0);
 }
 
-void EndpointAppPBX::logmessage(struct message *message)
+void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsigned long port_id, int dir)
 {
 	char *logtext = "unknown";
 	char buffer[64];
 
-	if (message->flow != EPOINT_TO_PORT)
-	{
-		PERROR("EPOINT(%d) message not of correct flow type-\n", ea_endpoint->ep_serial);
-		return;
-	}
-
-	switch(message->type)
+	switch(message_type)
 	{
 		case MESSAGE_SETUP:
-		trace_header("SETUP", DIRECTION_OUT);
-		if (message->param.setup.callerinfo.extension[0])
-			add_trace("extension", NULL, "%s", message->param.setup.callerinfo.extension);
-		add_trace("caller id", "number", "%s", numberrize_callerinfo(message->param.setup.callerinfo.id, message->param.setup.callerinfo.ntype));
-		if (message->param.setup.callerinfo.present == INFO_PRESENT_RESTRICTED)
-			add_trace("caller id", "present", "restricted");
-		if (message->param.setup.redirinfo.id[0])
+		trace_header("SETUP", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		if (param->setup.callerinfo.extension[0])
+			add_trace("extension", NULL, "%s", param->setup.callerinfo.extension);
+		add_trace("caller id", "number", "%s", numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype));
+		switch(param->setup.callerinfo.present)
 		{
-			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(message->param.setup.redirinfo.id, message->param.setup.redirinfo.ntype));
-			if (message->param.setup.redirinfo.present == INFO_PRESENT_RESTRICTED)
-				add_trace("redir'ing", "present", "restricted");
+		      	case INFO_PRESENT_RESTRICTED:
+			add_trace("caller id", "present", "restricted");
+			break;
+		      	case INFO_PRESENT_ALLOWED:
+			add_trace("caller id", "present", "allowed");
+			break;
+		      	default:
+			add_trace("caller id", "present", "not available");
 		}
-		if (message->param.setup.dialinginfo.id[0])
-			add_trace("dialing", NULL, "%s", message->param.setup.dialinginfo.id);
+		if (param->setup.redirinfo.id[0])
+		{
+			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(param->setup.redirinfo.id, param->setup.redirinfo.ntype));
+			switch(param->setup.redirinfo.present)
+			{
+				case INFO_PRESENT_RESTRICTED:
+				add_trace("redir'ing", "present", "restricted");
+				break;
+				case INFO_PRESENT_ALLOWED:
+				add_trace("redir'ing", "present", "allowed");
+				break;
+				default:
+				add_trace("redir'ing", "present", "not available");
+			}
+		}
+		if (param->setup.dialinginfo.id[0])
+			add_trace("dialing", NULL, "%s", param->setup.dialinginfo.id);
 		end_trace();
 		break;
 
 		case MESSAGE_OVERLAP:
-		trace_header("SETUP ACKNOWLEDGE", DIRECTION_OUT);
+		trace_header("SETUP ACKNOWLEDGE", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
 		end_trace();
 		break;
 
 		case MESSAGE_PROCEEDING:
-		trace_header("PROCEEDING", DIRECTION_OUT);
+		trace_header("PROCEEDING", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
 		end_trace();
 		break;
 
 		case MESSAGE_ALERTING:
-		trace_header("ALERTING", DIRECTION_OUT);
+		trace_header("ALERTING", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
 		end_trace();
 		break;
 
 		case MESSAGE_CONNECT:
-		trace_header("CONNECT", DIRECTION_OUT);
-		if (message->param.connectinfo.extension[0])
-			add_trace("extension", NULL, "%s", message->param.connectinfo.extension);
-		add_trace("connect id", "number", "%s", numberrize_callerinfo(message->param.connectinfo.id, message->param.connectinfo.ntype));
-		if (message->param.connectinfo.present == INFO_PRESENT_RESTRICTED)
+		trace_header("CONNECT", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		if (param->connectinfo.extension[0])
+			add_trace("extension", NULL, "%s", param->connectinfo.extension);
+		add_trace("connect id", "number", "%s", numberrize_callerinfo(param->connectinfo.id, param->connectinfo.ntype));
+		switch(param->connectinfo.present)
+		{
+		      	case INFO_PRESENT_RESTRICTED:
 			add_trace("connect id", "present", "restricted");
+			break;
+		      	case INFO_PRESENT_ALLOWED:
+			add_trace("connect id", "present", "allowed");
+			break;
+		      	default:
+			add_trace("connect id", "present", "not available");
+		}
 		end_trace();
 		break;
 
 		case MESSAGE_DISCONNECT:
-		trace_header("DISCONNECT", DIRECTION_OUT);
-		add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
-		add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
-		end_trace();
-		break;
-
 		case MESSAGE_RELEASE:
-		trace_header("RELEASE", DIRECTION_OUT);
-		add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
-		add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+		if (message_type == MESSAGE_DISCONNECT)
+			trace_header("DISCONNECT", dir);
+		else
+			trace_header("RELEASE", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		add_trace("cause", "value", "%d", param->disconnectinfo.cause);
+		switch(param->disconnectinfo.location)
+		{
+			case LOCATION_USER:
+			add_trace("cause", "location", "0-User");
+			break;
+			case LOCATION_PRIVATE_LOCAL:
+			add_trace("cause", "location", "1-Local-PBX");
+			break;
+			case LOCATION_PUBLIC_LOCAL:
+			add_trace("cause", "location", "2-Local-Exchange");
+			break;
+			case LOCATION_TRANSIT:
+			add_trace("cause", "location", "3-Transit");
+			break;
+			case LOCATION_PUBLIC_REMOTE:
+			add_trace("cause", "location", "4-Remote-PBX");
+			break;
+			case LOCATION_PRIVATE_REMOTE:
+			add_trace("cause", "location", "5-Remote-Exchange");
+			break;
+			case LOCATION_INTERNATIONAL:
+			add_trace("cause", "location", "7-International-Exchange");
+			break;
+			case LOCATION_BEYOND:
+			add_trace("cause", "location", "10-Beyond-Interworking");
+			break;
+			default:
+			add_trace("cause", "location", "%d", param->disconnectinfo.location);
+		}
 		end_trace();
 		break;
 
 		case MESSAGE_NOTIFY:
-		switch(message->param.notifyinfo.notify)
+		switch(param->notifyinfo.notify)
 		{
 			case 0x00:
 			logtext = "NULL";
@@ -4305,48 +4347,88 @@ void EndpointAppPBX::logmessage(struct message *message)
 			logtext = "CALL_IS_DIVERTING";
 			break;
 			default:
-			SPRINT(buffer, "%d", message->param.notifyinfo.notify - 0x80);
+			SPRINT(buffer, "%d", param->notifyinfo.notify - 0x80);
 			logtext = buffer;
 
 		}
-		trace_header("NOTIFY", DIRECTION_OUT);
-		if (message->param.notifyinfo.notify)
+		trace_header("NOTIFY", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		if (param->notifyinfo.notify)
 			add_trace("indicator", NULL, "%s", logtext);
-		if (message->param.notifyinfo.id[0])
+		if (param->notifyinfo.id[0])
 		{
-			add_trace("redir'on", "number", "%s", numberrize_callerinfo(message->param.notifyinfo.id, message->param.notifyinfo.ntype));
-			if (message->param.notifyinfo.present == INFO_PRESENT_RESTRICTED)
+			add_trace("redir'on", "number", "%s", numberrize_callerinfo(param->notifyinfo.id, param->notifyinfo.ntype));
+			switch(param->notifyinfo.present)
+			{
+				case INFO_PRESENT_RESTRICTED:
 				add_trace("redir'on", "present", "restricted");
+				break;
+				case INFO_PRESENT_ALLOWED:
+				add_trace("redir'on", "present", "allowed");
+				break;
+				default:
+				add_trace("redir'on", "present", "not available");
+			}
 		}
-		if (message->param.notifyinfo.display[0])
-			add_trace("display", NULL, "%s", message->param.notifyinfo.display);
+		if (param->notifyinfo.display[0])
+			add_trace("display", NULL, "%s", param->notifyinfo.display);
 		end_trace();
 		break;
 
 		case MESSAGE_INFORMATION:
-		trace_header("INFORMATION", DIRECTION_OUT);
-		add_trace("dialing", NULL, "%s", message->param.information.id);
+		trace_header("INFORMATION", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		add_trace("dialing", NULL, "%s", param->information.id);
 		end_trace();
 		break;
 
 		case MESSAGE_FACILITY:
-		trace_header("FACILITY", DIRECTION_OUT);
+		trace_header("FACILITY", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
 		end_trace();
 		break;
 
 		case MESSAGE_TONE:
-		trace_header("TONE", DIRECTION_OUT);
-		if (message->param.tone.name[0])
+		trace_header("TONE", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		if (param->tone.name[0])
 		{
-			add_trace("directory", NULL, "%s", message->param.tone.dir[0]?message->param.tone.dir:"default");
-			add_trace("name", NULL, "%s", message->param.tone.name);
+			add_trace("directory", NULL, "%s", param->tone.dir[0]?param->tone.dir:"default");
+			add_trace("name", NULL, "%s", param->tone.name);
 		} else
 			add_trace("off", NULL, NULL);
 		end_trace();
 		break;
 
+		case MESSAGE_SUSPEND:
+		case MESSAGE_RESUME:
+		if (message_type == MESSAGE_SUSPEND)
+			trace_header("SUSPEND", dir);
+		else
+			trace_header("RESUME", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		if (param->parkinfo.len)
+			add_trace("length", NULL, "%d", param->parkinfo.len);
+		end_trace();
+		break;
+
 		default:
-		PERROR("EPOINT(%d) message not of correct type (%d)\n", ea_endpoint->ep_serial, message->type);
+		PERROR("EPOINT(%d) message not of correct type (%d)\n", ea_endpoint->ep_serial, message_type);
 	}
 }
 
@@ -4377,5 +4459,7 @@ void EndpointAppPBX::message_disconnect_port(struct port_list *portlist, int cau
 			SCPY(message->param.notifyinfo.display, get_isdn_cause(cause, location, e_ext.display_cause));
 	}
 	message_put(message);
-	logmessage(message);
+	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 }
+
+

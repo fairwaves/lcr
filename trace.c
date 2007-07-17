@@ -208,7 +208,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		SCAT(trace_string, "--");
 	}
 	if (trace.serial)
-		SPRINT(buffer, "(%d): %s", trace.serial, trace.name[0]?trace.name:"<unknown>");
+		SPRINT(buffer, "(%lu): %s", trace.serial, trace.name[0]?trace.name:"<unknown>");
 	else
 		SPRINT(buffer, ": %s", trace.name[0]?trace.name:"<unknown>");
 	SCAT(trace_string, buffer);

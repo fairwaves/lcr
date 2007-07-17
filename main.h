@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** LCR                                                                       **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -44,7 +44,7 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 //#define DEBUG_KNOCK	0x0140
 #define DEBUG_VBOX	0x0180
 #define DEBUG_EPOINT 	0x0200
-#define DEBUG_CALL 	0x0400
+#define DEBUG_JOIN 	0x0400
 #define DEBUG_VERSATEL 	0x0800
 #define DEBUG_CRYPT	0x1000
 #define DEBUG_ROUTE	0x2000
@@ -130,9 +130,9 @@ extern "C" {
 #include "mISDN.h"
 #include "dss1.h"
 #include "vbox.h"
-#include "call.h"
-#include "callpbx.h"
-#include "callasterisk.h"
+#include "join.h"
+#include "joinpbx.h"
+#include "joinasterisk.h"
 #include "cause.h"
 #include "alawulaw.h"
 #include "tones.h"

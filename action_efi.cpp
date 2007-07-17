@@ -43,7 +43,7 @@ void EndpointAppPBX::action_init_efi(void)
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message->param.disconnectinfo.cause = CAUSE_FACILITYREJECTED;
 		message_put(message);
-		logmessage(message);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		set_tone(portlist,"cause_22");
 		return;
@@ -114,7 +114,7 @@ void EndpointAppPBX::efi_message_eof(void)
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			message->param.disconnectinfo.cause = CAUSE_NORMAL;
 			message_put(message);
-			logmessage(message);
+			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist,"cause_10");
 //			set_tone_efi("ich_wiederhole");
