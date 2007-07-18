@@ -1120,7 +1120,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	if (cause < 0)
 		cause = 16;
 
-	/* release if we are remote sends us no tones */
+	/* release if remote sends us no tones */
 	if (!p_m_mISDNport->earlyb)
 	{
 		RELEASE_t *release;

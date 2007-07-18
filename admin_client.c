@@ -439,13 +439,13 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 
 	return(line);
 }
-char *admin_state(int sock)
+char *admin_state(int sock, char *argv[])
 {
 	struct admin_message	msg,
 				*m;
 	char			buffer[512],
 				*p;
-	int			line, offset = 0;
+	int			line, offset = 0, hoffset = 0;
 	int			i, ii, j, jj, k;
 	unsigned long		l, ll;
 	int			num;
@@ -453,6 +453,8 @@ char *admin_state(int sock)
 	int			off;
 	int			ltee;
 	int			anything;
+	int			enter = 0;
+	char			enter_string[128] = "", ch;
 
 	/* flush logfile name */
 	logfile[0] = '\0';
@@ -933,10 +935,19 @@ char *admin_state(int sock)
 			while(l!=ll)
 			{
 				move(line++>1?line-1:1, 0);
-				SCPY(buffer, logline[l % LOGLINES]);
+				if (strlen(logline[l % LOGLINES]) > hoffset)
+					SCPY(buffer, logline[l % LOGLINES] + hoffset);
+				else
+					buffer[0] = '\0';
 				if (COLS < (int)strlen(buffer))
-					buffer[COLS] = '\0';
-				addstr(buffer);
+				{
+					buffer[COLS-1] = '\0';
+					addstr(buffer);
+					color(red);
+					addch('*');
+					color(white);
+				} else
+					addstr(buffer);
 				l++;
 			}
 		}
@@ -972,13 +983,23 @@ char *admin_state(int sock)
 		color(red);
 		addstr(buffer);
 	}
+	if (hoffset)
+	{
+		move(1, 13);
+		SPRINT(buffer, "H-Offset +%d", hoffset);
+		color(red);
+		addstr(buffer);
+	}
 	/* display end */
 	move(LINES-2, 0);
 	color(white);
 	hline(ACS_HLINE, COLS);
 	move(LINES-1, 0);
 	color(white);
-	SPRINT(buffer, "i = interfaces '%s'  c = calls '%s'  l = log  q = quit  +/- = scroll", text_interfaces[show_interfaces], text_calls[show_calls]);
+	if (enter)
+		SPRINT(buffer, "-> %s", enter_string);
+	else
+		SPRINT(buffer, "i=interfaces '%s'  c=calls '%s'  l=log  q=quit  +-*/=scroll  enter", text_interfaces[show_interfaces], text_calls[show_calls]);
 	addstr(buffer);
 	refresh();
 
@@ -990,47 +1011,125 @@ char *admin_state(int sock)
 		goto again;
 	}
 
-	/* user input */
-	switch(getch())
+	if (enter)
 	{
-		case 12: /* refresh */
-		cleanup_curses();
-		init_curses();
-		goto again;
-		break;
+		/* user input in enter mode */
+		ch = getch();
+		if (ch == 10)
+		{
+			FILE *fp;
 
-		case 3: /* abort */
-		case 'q':
-		case 'Q':
-		break;
+			enter = 0;
+			if (!enter_string[0])
+				goto again;
 
-		case 'i': /* toggle interface */
-		show_interfaces++;
-		if (show_interfaces > 3) show_interfaces = 0;
-		goto again;
+			SPRINT(logline[logcur++ % LOGLINES], "> %s", enter_string);
+			if (!!strncmp(enter_string, "interface", 10) &&
+			    !!strncmp(enter_string, "route", 6) &&
+			    !!strncmp(enter_string, "release ", 8) &&
+			    !!strncmp(enter_string, "block ", 6) &&
+			    !!strncmp(enter_string, "unblock ", 8) &&
+			    !!strncmp(enter_string, "unload ", 7))
+			{
+				SPRINT(logline[logcur++ % LOGLINES], "usage:");
+				SPRINT(logline[logcur++ % LOGLINES], "interface (reload interface.conf)");
+				SPRINT(logline[logcur++ % LOGLINES], "route (reload routing.conf)");
+				SPRINT(logline[logcur++ % LOGLINES], "release <EP> (release endpoint with given ID)");
+				SPRINT(logline[logcur++ % LOGLINES], "block <port> (block port for further calls)");
+				SPRINT(logline[logcur++ % LOGLINES], "unblock <port> (unblock port for further calls, load if not loaded)");
+				SPRINT(logline[logcur++ % LOGLINES], "unload <port> (unload mISDN stack, release call calls)");
+			} else
+			{
+				/* applend output to log window */
+				SPRINT(buffer, "%s %s", argv[0], enter_string);
+				fp = popen(buffer, "r");
+				if (fp)
+				{
+					while(fgets(logline[logcur % LOGLINES], sizeof(logline[0]), fp))
+						logline[logcur++ % LOGLINES][sizeof(logline[0])-1] = '\0';
+					pclose(fp);
+				} else
+				{
+					SPRINT(logline[logcur++ % LOGLINES], "failed to execute '%s'", buffer);
+				}
+			}
+			logline[logcur % LOGLINES][0] = '\0';
+			enter_string[0] = '\0';
+			goto again;
+		}
+		if (ch>=32 && ch<=126)
+		{
+			SCCAT(enter_string, ch);
+			goto again;
+		} else
+		if (ch==8 || ch==127)
+		{
+			if (enter_string[0])
+				enter_string[strlen(enter_string)-1] = '\0';
+			goto again;
+		} else
+		if (ch != 3)
+		{
+			usleep(250000);
+			goto again;
+		}
+	} else
+	{
+		/* user input in normal mode */
+		switch(getch())
+		{
+			case 12: /* refresh */
+			cleanup_curses();
+			init_curses();
+			goto again;
+			break;
 
-		case 'c': /* toggle calls */
-		show_calls++;
-		if (show_calls > 2) show_calls = 0;
-		goto again;
+			case 3: /* abort */
+			case 'q':
+			case 'Q':
+			break;
 
-		case 'l': /* toggle log */
-		show_log++;
-		if (show_log > 1) show_log = 0;
-		goto again;
+			case 'i': /* toggle interface */
+			show_interfaces++;
+			if (show_interfaces > 3) show_interfaces = 0;
+			goto again;
 
-		case '+': /* scroll down */
-		offset++;
-		goto again;
-		
-		case '-': /* scroll up */
-		if (offset)
-			offset--;
-		goto again;
+			case 'c': /* toggle calls */
+			show_calls++;
+			if (show_calls > 2) show_calls = 0;
+			goto again;
 
-		default:
-		usleep(250000);
-		goto again;
+			case 'l': /* toggle log */
+			show_log++;
+			if (show_log > 1) show_log = 0;
+			goto again;
+
+			case '+': /* scroll down */
+			offset++;
+			goto again;
+			
+			case '-': /* scroll up */
+			if (offset)
+				offset--;
+			goto again;
+
+			case '*': /* scroll right */
+			hoffset += 2;
+			goto again;
+			
+			case '/': /* scroll left */
+			if (hoffset)
+				hoffset -= 2;
+			goto again;
+
+			case 10: /* entermode */
+			enter = 1;
+			goto again;
+
+			default:
+			usleep(250000);
+			goto again;
+		}
 	}
 
 	/* check for logfh */
@@ -1425,7 +1524,7 @@ int main(int argc, char *argv[])
 	switch(mode)
 	{
 		case MODE_STATE:
-		ret = admin_state(sock);
+		ret = admin_state(sock, argv);
 		break;
 	
 		case MODE_INTERFACE:

@@ -2380,12 +2380,16 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	e_multipoint_cause = 0;
 	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
 
-	/* tone to disconnected end */
-	SPRINT(buffer, "cause_%02x", cause);
-	if (ea_endpoint->ep_portlist)
-		set_tone(ea_endpoint->ep_portlist, buffer);
+	if (message_type == MESSAGE_DISCONNECT)
+	{
+		/* tone to disconnected end */
+		SPRINT(buffer, "cause_%02x", cause);
+		if (ea_endpoint->ep_portlist)
+			set_tone(ea_endpoint->ep_portlist, buffer);
 
-	new_state(EPOINT_STATE_IN_DISCONNECT);
+		new_state(EPOINT_STATE_IN_DISCONNECT);
+	}
+
 	if (ea_endpoint->ep_join_id)
 	{
 		int haspatterns = 0;
@@ -2419,6 +2423,8 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) the port has no patterns.\n", ea_endpoint->ep_serial);
 		}
 	}
+	if (message_type == MESSAGE_RELEASE)
+		ea_endpoint->free_portlist(portlist);
 	release(RELEASE_ALL, location, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, callcause, portcause */
 	return; /* must exit here */
 }

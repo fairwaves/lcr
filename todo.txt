@@ -1,8 +1,4 @@
-BUG: release to NT not always work
-
 make asterisk call implementation
-
-avoid disconnect-collision (release if disconnect from both sides)
 
 display message during nothing/play
 
