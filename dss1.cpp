@@ -812,7 +812,7 @@ void Pdss1::setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void 
 	end_trace();
 
 	/* process channel */
-	ret = received_first_reply_to_setup(prim, exclusive, channel);
+	ret = received_first_reply_to_setup(prim, channel, exclusive);
 	if (ret < 0)
 	{
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -849,7 +849,7 @@ void Pdss1::proceeding_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_redir_dn(proceeding->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
 	end_trace();
 
-	ret = received_first_reply_to_setup(prim, exclusive, channel);
+	ret = received_first_reply_to_setup(prim, channel, exclusive);
 	if (ret < 0)
 	{
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -933,7 +933,7 @@ void Pdss1::alerting_ind(unsigned long prim, unsigned long dinfo, void *data)
 	end_trace();
 
 	/* process channel */
-	ret = received_first_reply_to_setup(prim, exclusive, channel);
+	ret = received_first_reply_to_setup(prim, channel, exclusive);
 	if (ret < 0)
 	{
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -1024,7 +1024,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	/* select channel */
 	bchannel_before = p_m_b_channel;
-	ret = received_first_reply_to_setup(prim, exclusive, channel);
+	ret = received_first_reply_to_setup(prim, channel, exclusive);
 	if (ret < 0)
 	{
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);

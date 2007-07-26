@@ -30,7 +30,7 @@ class Pdss1 : public PmISDN
 
 	void new_state(int state);		/* set new state */
 	void isdn_show_send_message(unsigned long prim, msg_t *msg);
-	int received_first_reply_to_setup(unsigned long prim, int exclusive, int channel);
+	int received_first_reply_to_setup(unsigned long prim, int channel, int exclusive);
 	int hunt_bchannel(int exclusive, int channel);
 	void information_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_ind(unsigned long prim, unsigned long dinfo, void *data);

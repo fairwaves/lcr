@@ -274,6 +274,10 @@ struct param_crypt {
 	unsigned char data[512+32]; /* a block of 512 byte + some overhead */
 };
 
+struct param_hello {
+	char application[32]; /* name of remote application */
+};
+
 /* structure of message parameter */
 union parameter {
 	struct param_tone tone; /* MESSAGE_TONE */
@@ -287,7 +291,7 @@ union parameter {
 	struct park_info parkinfo; /* MESSAGE_SUSPEND, MESSAGE_RESUME */
 	int state; /* MESSAGE_TIMEOUT */
 	int knock; /* MESSAGE_KNOCK 0=off !0=on */
-	int channel; /* MESSAGE_CHANNEL see RELATION_CHANNEL_* (join.h) */
+	int audiopath; /* MESSAGE_audiopath see RELATION_CHANNEL_* (join.h) */
 	struct param_data data; /* MESSAGE_DATA */
 	struct param_play play; /* MESSAGE_VBOX_PLAY */
 	int speed; /* MESSAGE_VBOX_PLAY_SPEED */
@@ -295,6 +299,7 @@ union parameter {
 	struct param_mISDNsignal mISDNsignal; /* MESSAGE_mISDNSIGNAL */
 	struct extension ext; /* tell port about extension information */
 	struct param_crypt crypt; /* MESSAGE_CRYPT */
+	struct param_hello hello; /* MESSAGE_HELLO */
 };
 
 enum { /* message flow */
@@ -336,7 +341,7 @@ enum { /* messages between entities */
 	MESSAGE_SUSPEND,	/* suspend port */
 	MESSAGE_RESUME,		/* resume port */
 
-	MESSAGE_CHANNEL,	/* set status of audio path to endpoint (to call, audio is also set) */
+	MESSAGE_AUDIOPATH,	/* set status of audio path to endpoint (to call, audio is also set) */
 //	MESSAGE_REMOTE_AUDIO,	/* tell remote to set audio status */
 	MESSAGE_PATTERN,	/* pattern information tones available */
 	MESSAGE_NOPATTERN,	/* pattern information tones unavailable */
@@ -349,7 +354,9 @@ enum { /* messages between entities */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */
 	MESSAGE_TONE_COUNTER,	/* tone counter (for VBOX tone use) */
 	MESSAGE_TONE_EOF,	/* tone is end of file */
-	MESSAGE_HELLO,		/* hello message for asterisk */
+	MESSAGE_BCHANNEL,	/* request/assign bchannel */
+	MESSAGE_HELLO,		/* hello message for remote application */
+	MESSAGE_NEWREF,		/* special message to create and inform ref */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -370,7 +377,7 @@ enum { /* messages between entities */
 	"MESSAGE_FACILITY", \
 	"MESSAGE_SUSPEND", \
 	"MESSAGE_RESUME", \
-	"MESSAGE_CHANNEL", \
+	"MESSAGE_AUDIOPATH", \
 /*	"MESSAGE_REMOTE_AUDIO",*/ \
 	"MESSAGE_PATTERN", \
 	"MESSAGE_NOPATTERN", \
@@ -381,7 +388,9 @@ enum { /* messages between entities */
 	"MESSAGE_VBOX_TONE", \
 	"MESSAGE_TONE_COUNTER", \
 	"MESSAGE_TONE_EOF", \
+	"MESSAGE_BCHANNEL", \
 	"MESSAGE_HELLO", \
+	"MESSAGE_NEWREF", \
 };
 
 

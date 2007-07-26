@@ -9,6 +9,25 @@
 **                                                                           **
 \*****************************************************************************/
 
+/*
+
+How does it work:
+
+To connect, open a socket and send a MESSAGE_HELLO to admin socket with
+the application name. This name is unique an can be used for routing calls.
+
+To make a call, send a MESSAGE_NEWREF and a new reference is received.
+When receiving a call, a new reference is received.
+The reference is received with MESSAGE_NEWREF.
+
+Make a MESSAGE_SETUP or receive a MESSAGE_SETUP with the reference.
+
+To release call and reference, send or receive MESSAGE_RELEASE.
+From that point on, the ref is not valid, so no other message may be sent
+with that reference.
+   
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -138,7 +157,7 @@ int main(int argc, char *argv[])
 	struct sockaddr_un sock_address;
 	int ret;
 	unsigned long on = 1;
-	union parameter hello_param;
+	union parameter param;
 
 	/* open socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -169,8 +188,9 @@ int main(int argc, char *argv[])
 	}
 
 	/* enque hello message */
-	memset(&hello_param, 0, sizeof(hello_param));
-	admin_asterisk(MESSAGE_HELLO, &hello_param);
+	memset(&param, 0, sizeof(param));
+	SCPY(param.hello.application, "asterisk");
+	admin_asterisk(MESSAGE_HELLO, &param);
 
 	while(42)
 	{

@@ -33,7 +33,7 @@ char *socket_name = SOCKET_NAME;
 int sock = -1;
 struct sockaddr_un sock_address;
 
-struct admin_list *admin_list = NULL;
+struct admin_list *admin_first = NULL;
 
 /*
  * initialize admin socket 
@@ -86,7 +86,7 @@ int admin_init(void)
 
 /*
  * free connection
- * also releases all asterisk joins
+ * also releases all remote joins
  */
 void free_connection(struct admin_list *admin)
 {
@@ -95,19 +95,19 @@ void free_connection(struct admin_list *admin)
 	union parameter param;
 	class Join *join, *joinnext;
 
-	/* free asterisk joins */
-	if (admin->asterisk)
+	/* free remote joins */
+	if (admin->remote[0])
 	{
 		join = join_first;
 		while(join)
 		{
 			joinnext = join->next;
-			if (join->c_type == JOIN_TYPE_ASTERISK)
+			if (join->j_type==JOIN_TYPE_REMOTE && !strcmp(((class JoinRemote *)join)->j_remote, admin->remote))
 			{
 				memset(&param, 0, sizeof(param));
 				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
 				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				((class JoinAsterisk *)join)->message_asterisk(0, MESSAGE_RELEASE, &param);
+				((class JoinRemote *)join)->message_remote(0, MESSAGE_RELEASE, &param);
 				/* join is now destroyed, so we go to next join */
 			}
 			join = joinnext;
@@ -144,7 +144,7 @@ void admin_cleanup(void)
 {
 	struct admin_list *admin, *next;;
 
-	admin = admin_list;
+	admin = admin_first;
 	while(admin)
 	{
 //printf("clean\n");
@@ -255,8 +255,8 @@ int admin_route(struct admin_queue **responsep)
 				case ACTION_EXTERNAL:
 				apppbx->e_action = &action_external;
 				break;
-				case ACTION_CHAN:
-				apppbx->e_action = &action_chan;
+				case ACTION_REMOTE:
+				apppbx->e_action = &action_remote;
 				break;
 				case ACTION_VBOX_RECORD:
 				apppbx->e_action = &action_vbox;
@@ -552,7 +552,7 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 	/* searching for admin id
 	 * maybe there is no admin instance, because the calling port was not
 	 * initiated by admin_call */
-	admin = admin_list;
+	admin = admin_first;
 	while(admin)
 	{
 		if (adminid == admin->sockserial)
@@ -591,85 +591,110 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 
 
 /*
- * send data to the asterisk join instance
+ * send data to the remote socket join instance
  */
-int admin_message_to_join(struct admin_msg *msg)
+int admin_message_to_join(struct admin_msg *msg, char *remote)
 {
 	class Join			*join;
 	struct admin_list		*admin;
 
-	/* dummy callref means: asterisk is here */
+	/* hello message */
 	if (msg->type == MESSAGE_HELLO)
 	{
-		/* look for second asterisk */
-		admin = admin_list;
+		if (remote[0])
+		{
+			PERROR("Remote application repeats hello message.\n");
+			return(-1);
+		}
+		/* look for second application */
+		admin = admin_first;
 		while(admin)
 		{
-			if (admin->asterisk)
+			if (!strcmp(admin->remote, msg->param.hello.application))
 				break;
 			admin = admin->next;
 		}
 		if (admin)
 		{
-			PERROR("Asterisk connects twice??? (ignoring)\n");
+			PERROR("Remote application connects twice??? (ignoring)\n");
 			return(-1);
 		}
 		/* set asterisk socket instance */
-		admin->asterisk = 1;
+		SCPY(remote, msg->param.hello.application);
+		return(0);
+	}
+
+	/* check we already have no application name */
+	if (!remote[0])
+	{
+		PERROR("Remote application did not send us a hello message.\n");
+		return(-1);
+	}
+
+	/* new join */
+	if (msg->type == MESSAGE_NEWREF)
+	{
+		/* create new join instance */
+		join = new JoinRemote(0, remote); // must have no serial, because no endpoint is connected
+		if (!join)
+			FATAL("No memory for remote join instance\n");
+		return(0);
+	}
+
+	/* check for ref */
+	if (!msg->ref)
+	{
+		PERROR("Remote application did not send us a valid ref with a message.\n");
+		return(-1);
 	}
 
 	/* find join instance */
 	join = join_first;
 	while(join)
 	{
-		if (join->c_serial == msg->ref)
+		if (join->j_serial == msg->ref)
 			break;
 		join = join->next;
 	}
 
-	/* create join instance if not existing */
-	if (!join)
+	/* check application */
+	if (join->j_type != JOIN_TYPE_REMOTE)
 	{
-		if (msg->ref < 2000000000)
-		{
-			PERROR("Asterisk sends us unknown ref %d below 2000000000.\n", msg->ref);
-			return(-1);
-		}
-
-		/* create new join instance */
-		join = new JoinAsterisk(0); // must have no serial, because no endpoint is connected
-		if (!join)
-			FATAL("No memory for Asterisk join instance\n");
+		PERROR("Ref %d does not belong to a remote join instance.\n", msg->ref);
+		return(-1);
+	}
+	if (!!strcmp(remote, ((class JoinRemote *)join)->j_remote))
+	{
+		PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, ((class JoinRemote *)join)->j_remote, remote);
+		return(-1);
 	}
 
 	/* send message */
-	if (join->c_type != JOIN_TYPE_ASTERISK)
-		FATAL("join instance %d must be of type join Asterisk\n", join->c_serial);
-		((class JoinAsterisk *)join)->message_asterisk(msg->ref, msg->type, &msg->param);
+	((class JoinRemote *)join)->message_remote(msg->ref, msg->type, &msg->param);
 
 	return(0);
 }
 
 
 /*
- * this function is called for every message to asterisk
+ * this function is called for every message to remote socket
  */
-int admin_message_from_join(unsigned long ref, int message_type, union parameter *param)
+int admin_message_from_join(char *remote, unsigned long ref, int message_type, union parameter *param)
 {
 	struct admin_list	*admin;
 	struct admin_queue	*response, **responsep;	/* response pointer */
 
 	/* searching for admin id
-	 * maybe there is no asterisk instance
+	 * maybe there is no given remote application
 	 */
-	admin = admin_list;
+	admin = admin_first;
 	while(admin)
 	{
-		if (admin->asterisk)
+		if (admin->remote[0] && !strcmp(admin->remote, remote))
 			break;
 		admin = admin->next;
 	}
-	/* no asterisk connected */
+	/* no given remote application connected */
 	if (!admin)
 		return(-1);
 
@@ -717,6 +742,7 @@ int admin_state(struct admin_queue **responsep)
 	int			num;
 	int			anybusy;
 	struct admin_queue	*response;
+	struct admin_list	*admin;
 
 	/* create state response */
 	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
@@ -744,6 +770,16 @@ int admin_state(struct admin_queue **responsep)
 		interface = interface->next;
 	}
 	response->am[0].u.s.interfaces = i;
+	/* remote connection count */
+	i = 0;
+	admin = admin_first;
+	while(admin)
+	{
+		if (admin->remote[0])
+			i++;
+		admin = admin->next;
+	}
+	response->am[0].u.s.remotes = i;
 	/* join count */
 	join = join_first;
 	i = 0;
@@ -837,6 +873,22 @@ int admin_state(struct admin_queue **responsep)
 		interface = interface->next;
 	}
 
+	/* create response for all remotes */
+	admin = admin_first;
+	while(admin)
+	{
+		if (admin->remote[0])
+		{
+			/* message */
+			response->am[num].message = ADMIN_RESPONSE_S_REMOTE;
+			/* name */
+			SCPY(response->am[num].u.r.name, admin->remote);
+			/* */
+			num++;
+		}
+		admin = admin->next;
+	}
+
 	/* create response for all joins */
 	join = join_first;
 	while(join)
@@ -844,10 +896,13 @@ int admin_state(struct admin_queue **responsep)
 		/* message */
 		response->am[num].message = ADMIN_RESPONSE_S_JOIN;
 		/* serial */
-		response->am[num].u.j.serial = join->c_serial;
+		response->am[num].u.j.serial = join->j_serial;
 		/* partyline */
-		if (join->c_type == JOIN_TYPE_PBX)
-			response->am[num].u.j.partyline = ((class JoinPBX *)join)->c_partyline;
+		if (join->j_type == JOIN_TYPE_PBX)
+			response->am[num].u.j.partyline = ((class JoinPBX *)join)->j_partyline;
+		/* remote application */
+		if (join->j_type == JOIN_TYPE_REMOTE)
+			SCPY(response->am[num].u.j.remote, ((class JoinRemote *)join)->j_remote);
 		/* */
 		join = join->next;
 		num++;
@@ -1029,8 +1084,8 @@ int admin_handle(void)
 			memuse++;
 			fhuse++;
 			admin->sockserial = sockserial++;
-			admin->next = admin_list;
-			admin_list = admin;
+			admin->next = admin_first;
+			admin_first = admin;
 			admin->sock = new_sock;
 		} else {
 			close(new_sock);
@@ -1047,8 +1102,8 @@ int admin_handle(void)
 	}
 
 	/* loop all current socket connections */
-	admin = admin_list;
-	adminp = &admin_list;
+	admin = admin_first;
+	adminp = &admin_first;
 	while(admin)
 	{
 		/* read command */
@@ -1091,7 +1146,7 @@ int admin_handle(void)
 			*adminp = admin->next;
 			free_connection(admin);
 			admin = *adminp;
-//PERROR("DEBUG (admin_list=%x)\n", admin_list);
+//PERROR("DEBUG (admin_first=%x)\n", admin_first);
 			continue;
 		}
 		if (len != sizeof(msg))
@@ -1170,7 +1225,7 @@ int admin_handle(void)
 			break;
 
 			case ADMIN_MESSAGE:
-			if (admin_message_to_join(&msg.u.msg) < 0)
+			if (admin_message_to_join(&msg.u.msg, admin->remote) < 0)
 			{
 				PERROR("Failed to deliver message for socket %d.\n", admin->sock);
 				goto response_error;

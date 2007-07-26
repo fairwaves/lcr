@@ -5,7 +5,7 @@
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** join functions for channel driver                                         **
+** join functions for remote application                                     **
 **                                                                           **
 \*****************************************************************************/ 
 
@@ -28,22 +28,29 @@
  * constructor for a new join 
  * the join will have a relation to the calling endpoint
  */
-JoinAsterisk::JoinAsterisk(unsigned long serial) : Join()
+JoinRemote::JoinRemote(unsigned long serial, char *remote) : Join()
 {
 	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
+	union parameter *param;
 
-	c_type = JOIN_TYPE_ASTERISK;
+	SCPY(j_remote, remote);
+	j_type = JOIN_TYPE_REMOTE;
 
-	c_epoint_id = serial;
-	if (c_epoint_id)
-		PDEBUG(DEBUG_JOIN, "New join connected to endpoint id %lu\n", c_epoint_id);
+	j_epoint_id = serial;
+	if (j_epoint_id)
+		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s\n", j_epoint_id, remote);
+
+	/* send new ref to remote socket */
+	memset(&param, 0, sizeof(param));
+	if (admin_message_from_join(j_remote, j_serial, MESSAGE_NEWREF, param)<0)
+		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", j_remote);
 }
 
 
 /*
  * join descructor
  */
-JoinAsterisk::~JoinAsterisk()
+JoinRemote::~JoinRemote()
 {
 
 }
@@ -53,22 +60,22 @@ JoinAsterisk::~JoinAsterisk()
  * it processes the current calling state.
  * returns 0 if join nothing was done
  */
-int JoinAsterisk::handler(void)
+int JoinRemote::handler(void)
 {
 	return(0);
 }
 
 
-void JoinAsterisk::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void JoinRemote::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
 {
 	/* if endpoint has just been removed, but still a message in the que */
-	if (epoint_id != c_epoint_id)
+	if (epoint_id != j_epoint_id)
 		return;
 	
-	/* look for asterisk's interface */
-	if (admin_message_from_join(epoint_id, message_type, param)<0)
+	/* look for Remote's interface */
+	if (admin_message_from_join(j_remote, j_serial, message_type, param)<0)
 	{
-		PERROR("No socket with asterisk found, this shall not happen. Closing socket shall cause release of all asterisk joins\n");
+		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote);
 		return;		
 	}
 
@@ -79,22 +86,22 @@ void JoinAsterisk::message_epoint(unsigned long epoint_id, int message_type, uni
 	}
 }
 
-void JoinAsterisk::message_asterisk(unsigned long ref, int message_type, union parameter *param)
+void JoinRemote::message_remote(unsigned long ref, int message_type, union parameter *param)
 {
 	struct message *message;
 
 	/* create relation if no relation exists */
-	if (!c_epoint_id)
+	if (!j_epoint_id)
 	{
 		class Endpoint		*epoint;
 
-		if (!(epoint = new Endpoint(0, c_serial, ref)))
+		if (!(epoint = new Endpoint(0, j_serial, ref)))
 			FATAL("No memory for Endpoint instance\n");
 		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
 			FATAL("No memory for Endpoint Application instance\n");
 	}
 
-	message = message_create(c_serial, c_epoint_id, JOIN_TO_EPOINT, message_type);
+	message = message_create(j_serial, j_epoint_id, JOIN_TO_EPOINT, message_type);
 	memcpy(&message->param, param, sizeof(message->param));
 	message_put(message);
 

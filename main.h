@@ -132,7 +132,7 @@ extern "C" {
 #include "vbox.h"
 #include "join.h"
 #include "joinpbx.h"
-#include "joinasterisk.h"
+#include "joinremote.h"
 #include "cause.h"
 #include "alawulaw.h"
 #include "tones.h"

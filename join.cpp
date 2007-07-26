@@ -38,8 +38,8 @@ class Join *find_join_id(unsigned long join_id)
 
 	while(join)
 	{
-//printf("comparing: '%s' with '%s'\n", name, join->c_name);
-		if (join->c_serial == join_id)
+//printf("comparing: '%s' with '%s'\n", name, join->j_name);
+		if (join->j_serial == join_id)
 			return(join);
 		join = join->next;
 	}
@@ -55,8 +55,8 @@ Join::Join(void)
 {
 	class Join **joinp;
 
-	c_serial = join_serial++;
-	c_type = JOIN_TYPE_NONE;
+	j_serial = join_serial++;
+	j_type = JOIN_TYPE_NONE;
 
 	/* attach to chain */
 	next = NULL;

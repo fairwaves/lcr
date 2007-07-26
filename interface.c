@@ -668,7 +668,7 @@ struct interface_param interface_param[] = {
 	"This is required on PRI NT-mode ports that are point-to-point by default.\n"
 	"This parameter must follow a 'port' parameter."},
 
-	{"channel_out", &inter_channel_out, "[force,][<number>][,...][,free][,any][,no]",
+	{"channel-out", &inter_channel_out, "[force,][<number>][,...][,free][,any][,no]",
 	"Channel selection list for all outgoing calls to the interface.\n"
 	"A free channels is searched in order of appearance.\n"
 	"This parameter must follow a 'port' parameter.\n"
@@ -678,10 +678,10 @@ struct interface_param interface_param[] = {
 	" any - On outgoing calls, signal 'any channel acceptable'. (see DSS1)\n"
 	" no - Signal 'no channel available' aka 'call waiting'. (see DSS1)"},
 
-	{"channel_in", &inter_channel_in, "[force,][<number>][,...][,free][,any][,no]",
+	{"channel-in", &inter_channel_in, "[force,][<number>][,...][,free][,any][,no]",
 	"Channel selection list for all incomming calls from the interface.\n"
 	"A free channels is accepted if in the list.\n"
-	"If no channel was requested, the first free channel found is selected.\n"
+	"If any channel was requested, the first free channel found is selected.\n"
 	"This parameter must follow a 'port' parameter.\n"
 	" <number>[,...] - List of channels to accept.\n"
 	" free - Accept any free channel"},

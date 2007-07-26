@@ -1477,8 +1477,8 @@ int EndpointAppPBX::handler(void)
 				ea_endpoint->free_portlist(portlist);
 			}
 			/* put on hold */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 			message_put(message);
 			/* indicate no patterns */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
@@ -1994,8 +1994,8 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_CONNECT;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
@@ -2004,8 +2004,8 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_HOLD;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	new_state(EPOINT_STATE_OUT_OVERLAP);
@@ -2037,8 +2037,8 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_CONNECT;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
@@ -2047,8 +2047,8 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_HOLD;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	/* if we are in a call */
@@ -2079,8 +2079,8 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 		message_put(message);
 
 		/* connect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_CONNECT;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else
 	{
@@ -2089,8 +2089,8 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 		message_put(message);
 
 		/* disconnect audio, if not already */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_HOLD;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	/* if we are in a call */
@@ -2213,8 +2213,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	}
 	if (ea_endpoint->ep_join_id)
 	{
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_CONNECT;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	} else if (!e_adminid)
 	{
@@ -2406,8 +2406,8 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PATTERN);
 			message_put(message);
 			/* connect audio, if not already */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_CONNECT;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_CONNECT;
 			message_put(message);
 			/* send disconnect */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
@@ -2540,8 +2540,8 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		/* tell call about it */
 		if (ea_endpoint->ep_join_id)
 		{
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 			message_put(message);
 		}
 		break;
@@ -2565,8 +2565,8 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		/* tell call about it */
 		if (ea_endpoint->ep_join_id)
 		{
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_CONNECT;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_CONNECT;
 			message_put(message);
 		}
 		break;
@@ -2971,8 +2971,8 @@ void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, 
 	if (e_join_pattern && e_ext.own_setup)
 	{
 		/* disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_HOLD;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_HOLD;
 		message_put(message);
 	}
 	if (e_action) if (e_action->index == ACTION_OUTDIAL || e_action->index == ACTION_EXTERNAL)
@@ -2997,11 +2997,11 @@ void EndpointAppPBX::join_proceeding(struct port_list *portlist, int message_typ
 	if (e_join_pattern)
 	{
 		/* connect / disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 		if (e_ext.own_proceeding)
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 		else
-			message->param.channel = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	}
 //			UCPY(e_join_tone, "proceeding");
@@ -3025,11 +3025,11 @@ void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type,
 	if (e_join_pattern)
 	{
 		/* connect / disconnect audio */
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 		if (e_ext.own_alerting)
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 		else
-			message->param.channel = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	}
 	if (portlist)
@@ -3109,8 +3109,8 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 	}
 	set_tone(portlist, NULL);
 	e_join_pattern = 0;
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-	message->param.channel = CHANNEL_STATE_CONNECT;
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+	message->param.audiopath = CHANNEL_STATE_CONNECT;
 	message_put(message);
 	e_start = now;
 }
@@ -3213,8 +3213,8 @@ void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int mes
 		e_join_pattern = 0;
 	} else /* else we enable audio */
 	{
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = CHANNEL_STATE_CONNECT;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
 	}
 	/* send disconnect message */
@@ -3254,8 +3254,8 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 			}
 
 			/* disconnect audio */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 			message_put(message);
 
 			/* get dialing info */
@@ -3564,12 +3564,12 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 				portlist = portlist->next;
 			}
 			/* connect our audio tx and rx (blueboxing should be possibe before connect :)*/
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_CONNECT;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_CONNECT;
 			message_put(message);
 //			/* tell remote epoint to connect audio also, because we like to hear the patterns */
 //			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_REMOTE_AUDIO);
-//			message->param.channel = CHANNEL_STATE_CONNECT;
+//			message->param.audiopath = CHANNEL_STATE_CONNECT;
 //			message_put(message);
 // patterns are available, remote already connected audio
 		}
@@ -3583,8 +3583,8 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 			PDEBUG(DEBUG_EPOINT, "-> pattern becomes unavailable\n");
 			e_join_pattern = 0;
 			/* disconnect our audio tx and rx */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-			message->param.channel = CHANNEL_STATE_HOLD;
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+			message->param.audiopath = CHANNEL_STATE_HOLD;
 			message_put(message);
 		}
 		break;
@@ -3593,8 +3593,8 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		/* CALL (dunno at the moment) */
 		case MESSAGE_REMOTE_AUDIO:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-		message->param.channel = param->channel;
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+		message->param.audiopath = param->channel;
 		message_put(message);
 		break;
 #endif
@@ -3725,13 +3725,13 @@ reject:
 		PERROR("EPOINT(%d) ringing endpoint's join not found.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	if (joinpbx->c_type != JOIN_TYPE_PBX)
+	if (joinpbx->j_type != JOIN_TYPE_PBX)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ringing endpoint's join is not a PBX join, so we must reject.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
 	joinpbx = (class JoinPBX *)join;
-	relation = joinpbx->c_relation;
+	relation = joinpbx->j_relation;
 	if (!relation)
 	{
 		PERROR("EPOINT(%d) ringing endpoint's join has no relation. SOFTWARE ERROR.\n", ea_endpoint->ep_serial);
@@ -3760,7 +3760,7 @@ reject:
 		PDEBUG(DEBUG_EPOINT, "showing all joins:\n");
 		while(debug_c)
 		{
-			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->c_serial);
+			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->j_serial);
 			debug_c = debug_c->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all endpoints:\n");
@@ -3816,12 +3816,12 @@ reject:
 	message_put(message);
 
 	/* we send a connect to the audio path (not for vbox) */
-	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CHANNEL);
-	message->param.channel = CHANNEL_STATE_CONNECT;
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+	message->param.audiopath = CHANNEL_STATE_CONNECT;
 	message_put(message);
 
 	/* beeing paranoid, we make call update */
-	joinpbx->c_updatebridge = 1;
+	joinpbx->j_updatebridge = 1;
 
 	if (options.deb & DEBUG_EPOINT)
 	{
@@ -3834,7 +3834,7 @@ reject:
 		PDEBUG(DEBUG_EPOINT, "showing all joins:\n");
 		while(debug_c)
 		{
-			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->c_serial);
+			PDEBUG(DEBUG_EPOINT, "join=%ld\n", debug_c->j_serial);
 			debug_c = debug_c->next;
 		}
 		PDEBUG(DEBUG_EPOINT, "showing all endpoints:\n");
@@ -3873,7 +3873,7 @@ void EndpointAppPBX::join_join(void)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (our_join->c_type != JOIN_TYPE_PBX)
+	if (our_join->j_type != JOIN_TYPE_PBX)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: join is not a pbx join.\n", ea_endpoint->ep_serial);
 		return;
@@ -3958,21 +3958,21 @@ void EndpointAppPBX::join_join(void)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if (other_join->c_type != JOIN_TYPE_PBX)
+	if (other_join->j_type != JOIN_TYPE_PBX)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join is not a pbx join.\n", ea_endpoint->ep_serial);
 		return;
 	}
 	other_joinpbx = (class JoinPBX *)other_join;
-	if (our_joinpbx->c_partyline && other_joinpbx->c_partyline)
+	if (our_joinpbx->j_partyline && other_joinpbx->j_partyline)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both joins are partylines.\n", ea_endpoint->ep_serial);
 		return;
 	}
 
 	/* remove relation to endpoint for join on hold */
-	other_relation = other_joinpbx->c_relation;
-	other_relation_pointer = &other_joinpbx->c_relation;
+	other_relation = other_joinpbx->j_relation;
+	other_relation_pointer = &other_joinpbx->j_relation;
 	while(other_relation)
 	{
 		if (other_relation->epoint_id == other_eapp->ea_endpoint->ep_serial)
@@ -3990,8 +3990,8 @@ void EndpointAppPBX::join_join(void)
 		temp_epoint = find_epoint_id(other_relation->epoint_id);
 		if (temp_epoint)
 		{
-			if (temp_epoint->ep_join_id == other_join->c_serial)
-				temp_epoint->ep_join_id = our_join->c_serial;
+			if (temp_epoint->ep_join_id == other_join->j_serial)
+				temp_epoint->ep_join_id = our_join->j_serial;
 		}
 
 		other_relation_pointer = &other_relation->next;
@@ -4000,32 +4000,32 @@ void EndpointAppPBX::join_join(void)
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint on hold removed, other enpoints on join relinked (to our join).\n", ea_endpoint->ep_serial);
 
 	/* join call relations */
-	our_relation = our_joinpbx->c_relation;
-	our_relation_pointer = &our_joinpbx->c_relation;
+	our_relation = our_joinpbx->j_relation;
+	our_relation_pointer = &our_joinpbx->j_relation;
 	while(our_relation)
 	{
 		our_relation_pointer = &our_relation->next;
 		our_relation = our_relation->next;
 	}
-	*our_relation_pointer = other_joinpbx->c_relation;
-	other_joinpbx->c_relation = NULL;
+	*our_relation_pointer = other_joinpbx->j_relation;
+	other_joinpbx->j_relation = NULL;
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) relations joined.\n", ea_endpoint->ep_serial);
 
 	/* release endpoint on hold */
-	message = message_create(other_joinpbx->c_serial, other_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
+	message = message_create(other_joinpbx->j_serial, other_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
 	message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal */
 	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	message_put(message);
 	
 	/* if we are not a partyline, we get partyline state from other join */
-	our_joinpbx->c_partyline += other_joinpbx->c_partyline; 
+	our_joinpbx->j_partyline += other_joinpbx->j_partyline; 
 
 	/* remove empty join */
 	delete other_join;
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-join completely removed!\n");
 
 	/* mixer must update */
-	our_joinpbx->c_updatebridge = 1; /* update mixer flag */
+	our_joinpbx->j_updatebridge = 1; /* update mixer flag */
 
 	/* we send a retrieve to that endpoint */
 	// mixer will update the hold-state of the join and send it to the endpoints is changes
@@ -4064,14 +4064,14 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 		*errstr = "No Call";
 		return(1);
 	}
-	if (join->c_type != JOIN_TYPE_PBX)
+	if (join->j_type != JOIN_TYPE_PBX)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join is not a pbx join.\n", ea_endpoint->ep_serial);
 		*errstr = "No PBX Call";
 		return(1);
 	}
 	joinpbx = (class JoinPBX *)join;
-	relation = joinpbx->c_relation;
+	relation = joinpbx->j_relation;
 	if (!relation)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join has no relation.\n", ea_endpoint->ep_serial);

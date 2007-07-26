@@ -405,6 +405,14 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 		SPRINT(buffer, "%d\n", m[i].u.j.partyline);
 		addstr(buffer);
 	}
+	if (m[i].u.j.remote[0])
+	{
+		color(cyan);
+		addstr(" remote=");
+		color(white);
+		SPRINT(buffer, "%s\n", m[i].u.j.remote);
+		addstr(buffer);
+	}
 	/* find number of epoints */
 	j = msg->u.s.interfaces+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
@@ -485,7 +493,7 @@ char *admin_state(int sock, char *argv[])
 		cleanup_curses();
 		return("Response not valid. Expecting state response.");
 	}
-	num = msg.u.s.interfaces + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
+	num = msg.u.s.interfaces + msg.u.s.remotes + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
 	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
 	off=0;
 	if (num)
@@ -522,13 +530,25 @@ char *admin_state(int sock, char *argv[])
 		j++;
 	}
 	i = 0;
+	while(i < msg.u.s.remotes)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_REMOTE)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting remote application information.");
+		}
+		i++;
+		j++;
+	}
+	i = 0;
 	while(i < msg.u.s.joins)
 	{
 		if (m[j].message != ADMIN_RESPONSE_S_JOIN)
 		{
 			FREE(m, 0);
 			cleanup_curses();
-			return("Response not valid. Expecting call information.");
+			return("Response not valid. Expecting join information.");
 		}
 		i++;
 		j++;
@@ -762,6 +782,17 @@ char *admin_state(int sock, char *argv[])
 			}
 			i++;
 			anything = 1;
+		}
+		i = 0;
+		ii = i + msg.u.s.remotes;
+		while(i < ii)
+		{
+			/* show remote summary */
+			move(++line>1?line:1, 0);
+			color(white);
+			SPRINT(buffer, "Remote: %s", m[i].u.r.name);
+			addstr(buffer);
+			i++;
 		}
 		if (anything)
 			line++;

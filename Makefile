@@ -130,8 +130,8 @@ join.o: join.cpp *.h Makefile
 joinpbx.o: joinpbx.cpp *.h Makefile
 	$(CC) -c $(CFLAGS) joinpbx.cpp -o joinpbx.o
 
-joinasterisk.o: joinasterisk.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) joinasterisk.cpp -o joinasterisk.o
+joinremote.o: joinremote.cpp *.h Makefile
+	$(CC) -c $(CFLAGS) joinremote.cpp -o joinremote.o
 
 cause.o: cause.c *.h Makefile
 	$(CC) -c $(CFLAGS) cause.c -o cause.o
@@ -182,7 +182,7 @@ $(LCR): main.o \
 	mail.o \
 	join.o \
 	joinpbx.o \
-	joinasterisk.o \
+	joinremote.o \
 	admin_server.o \
 	trace.o
 	$(LD) $(LIBDIR) \
@@ -209,7 +209,7 @@ $(LCR): main.o \
 	mail.o \
 	join.o \
 	joinpbx.o \
-	joinasterisk.o \
+	joinremote.o \
 	admin_server.o \
 	trace.o \
 	$(LIBS) -o $(LCR) 

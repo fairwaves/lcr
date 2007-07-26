@@ -351,7 +351,6 @@ Changes in Version 1.0
 - Layer 1 over IP supports interconnection via IP
 - Rebuild line and b-channel hunting with individual lists
 - Screen lists for changing caller IDs
-- Asterisk channel driver integrated
 - Multiplexing calls to multiple extensions
 - Removed all VoIP stuff to make core fast and stable (Use Asterisk for VoIP.)
 - Fixed a bug that caused some isdn connections to hang during disconnect
@@ -359,4 +358,6 @@ Changes in Version 1.0
 - Many minor improvements
 - New bugs of course...
 - Rename of 'Call' instances to 'Join', because they join parties together.
+- A new remote interface for external applications is integrated
+  -> Our first application is (-: *ASTERISK CHANNEL DRIVER* :-)
 

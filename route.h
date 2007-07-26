@@ -72,8 +72,8 @@ enum { /* what to check during runtime */
 	MATCH_UP,
 	MATCH_BUSY,
 	MATCH_IDLE,
-	MATCH_ASTERISK,
-	MATCH_NOTASTERISK,
+	MATCH_REMOTE,
+	MATCH_NOTREMOTE,
 };
 
 enum { /* how to parse text file during startup */
@@ -134,6 +134,7 @@ enum { /* how to parse text file during startup */
 #define PARAM_TIMEOUT		(1LL<<40)
 #define PARAM_NOPASSWORD	(1LL<<41)
 #define PARAM_STRIP		(1LL<<42)
+#define PARAM_APPLICATION	(1LL<<43)
 
 
 /* action index
@@ -142,7 +143,7 @@ enum { /* how to parse text file during startup */
 #define	ACTION_EXTERNAL		0
 #define	ACTION_INTERNAL		1
 #define	ACTION_OUTDIAL		2
-#define	ACTION_CHAN		3
+#define	ACTION_REMOTE		3
 #define	ACTION_VBOX_RECORD	4
 #define	ACTION_PARTYLINE	5
 #define	ACTION_LOGIN		6
@@ -255,7 +256,7 @@ extern struct route_ruleset	*ruleset_first;
 extern struct route_ruleset	*ruleset_main;
 extern struct route_action	action_external;
 extern struct route_action	action_internal;
-extern struct route_action	action_chan;
+extern struct route_action	action_remote;
 extern struct route_action	action_vbox;
 extern struct route_action	action_partyline;
 extern struct route_action	action_password;

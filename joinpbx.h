@@ -58,17 +58,17 @@ class JoinPBX : public Join
 	int handler(void);
 	int release(struct join_relation *relation, int location, int cause);
 
-	char c_caller[32];		/* caller number */
-	char c_caller_id[32];		/* caller id to signal */
-	char c_dialed[1024];		/* dial string of (all) number(s) */
-	char c_todial[32];		/* overlap dialing (part not signalled yet) */
-	int c_multicause, c_multilocation;
+	char j_caller[32];		/* caller number */
+	char j_caller_id[32];		/* caller id to signal */
+	char j_dialed[1024];		/* dial string of (all) number(s) */
+	char j_todial[32];		/* overlap dialing (part not signalled yet) */
+	int j_multicause, j_multilocation;
 	
-	int c_pid;			/* pid of join to generate bridge id */
-	int c_updatebridge;		/* bridge must be updated */
-	struct join_relation *c_relation; /* list of endpoints that are related to the join */
+	int j_pid;			/* pid of join to generate bridge id */
+	int j_updatebridge;		/* bridge must be updated */
+	struct join_relation *j_relation; /* list of endpoints that are related to the join */
 
-	int c_partyline;		/* if set, join is conference room */
+	int j_partyline;		/* if set, join is conference room */
 
 	void bridge(void);
 	void bridge_data(unsigned long epoint_from, struct join_relation *relation_from, union parameter *param);

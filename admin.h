@@ -26,6 +26,7 @@ enum { /* messages */
 	ADMIN_RESPONSE_CMD_BLOCK,
 	ADMIN_REQUEST_STATE,
 	ADMIN_RESPONSE_STATE,
+	ADMIN_RESPONSE_S_REMOTE,
 	ADMIN_RESPONSE_S_INTERFACE,
 	ADMIN_RESPONSE_S_PORT,
 	ADMIN_RESPONSE_S_EPOINT,
@@ -55,6 +56,7 @@ struct admin_response_state {
 	struct tm	tm;
 	char		logfile[128];
 	int		interfaces;
+	int		remotes;
 	int		joins;
 	int		epoints;
 	int		ports;
@@ -76,8 +78,13 @@ struct admin_response_interface {
 	unsigned long	port[256]; /* current port */
 };
 
+struct admin_response_remote {
+	char 		name[32]; /* name of remote application */
+};
+
 struct admin_response_join {
 	unsigned long	serial; /* join serial number */
+	char		remote[32]; /* remote application name */
 	unsigned long	partyline;
 };
 
@@ -153,6 +160,7 @@ struct admin_message {
 		struct admin_response_port	p;
 		struct admin_response_epoint	e;
 		struct admin_response_join	j;
+		struct admin_response_remote	r;
 		struct admin_call		call;
 		struct admin_msg		msg;
 		struct admin_trace_req		trace_req;

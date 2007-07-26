@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-enum { JOIN_TYPE_NONE, JOIN_TYPE_PBX, JOIN_TYPE_ASTERISK};
+enum { JOIN_TYPE_NONE, JOIN_TYPE_PBX, JOIN_TYPE_REMOTE};
 
 /* join
  *
@@ -26,8 +26,8 @@ class Join
 	virtual void message_epoint(unsigned long epoint_id, int message, union parameter *param);
 	virtual int handler(void);
 
-	unsigned long c_type;		/* join type (pbx or asterisk) */
-	unsigned long c_serial;		/* serial/unique number of join */
+	unsigned long j_type;		/* join type (pbx or asterisk) */
+	unsigned long j_serial;		/* serial/unique number of join */
 }; 
 
 void join_free(void);

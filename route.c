@@ -92,10 +92,10 @@ struct cond_defs cond_defs[] = {
 	  "busy=<extension>[,...]","Matches if any of the given extension is busy."},
 	{ "notbusy",	MATCH_IDLE,	COND_TYPE_STRING,
 	  "notbusy=<extension>[,...]","Matches if any of the given extension is not busy."},
-	{ "asterisk",	MATCH_ASTERISK,	COND_TYPE_NULL,
-	  "asterisk","Matches if asterisk is not running with LCR channel driver."},
-	{ "notasterisk",MATCH_NOTASTERISK,COND_TYPE_NULL,
-	  "notasterisk","Matches if asterisk is not running with LCR channel driver."},
+	{ "remote",	MATCH_REMOTE,	COND_TYPE_STRING,
+	  "remote=<application name>","Matches if remote application is running."},
+	{ "notremote",	MATCH_NOTREMOTE,COND_TYPE_NULL,
+	  "notremote=<application name>","Matches if remote application is not running."},
 	{ NULL, 0, 0, NULL}
 };
 
@@ -229,6 +229,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_STRIP,
 	  "strip",	PARAM_TYPE_NULL,
 	  "strip", "Remove digits that were required to match this rule."},
+	{ PARAM_APPLICATION,
+	  "application",PARAM_TYPE_STRING,
+	  "application", "Name of remote application to make call to."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -245,10 +248,10 @@ struct action_defs action_defs[] = {
 	  "outdial",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_TIMEOUT,
 	  "Same as 'extern'"},
-	{ ACTION_CHAN,
-	  "asterisk",	&EndpointAppPBX::action_init_chan, &EndpointAppPBX::action_dialing_chan, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_TIMEOUT,
-	  "Call is routed to Asterisk via channel driver."},
+	{ ACTION_REMOTE,
+	  "remote",	&EndpointAppPBX::action_init_remote, &EndpointAppPBX::action_dialing_remote, &EndpointAppPBX::action_hangup_call,
+	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_TIMEOUT,
+	  "Call is routed to Remote application, like Asterisk."},
 	{ ACTION_VBOX_RECORD,
 	  "vbox-record",&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_vbox_record, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_EXTENSION | PARAM_ANNOUNCEMENT | PARAM_TIMEOUT,
@@ -2208,18 +2211,18 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					istrue = 1;
 				break;
 
-				case MATCH_ASTERISK:
-				case MATCH_NOTASTERISK:
-				admin = admin_list;
+				case MATCH_REMOTE:
+				case MATCH_NOTREMOTE:
+				admin = admin_first;
 				while(admin)
 				{
-					if (admin->asterisk)
+					if (admin->remote[0] && !strcmp(cond->string_value, admin->remote))
 						break;
 					admin = admin->next;
 				}
-				if (admin && cond->match==MATCH_ASTERISK)
+				if (admin && cond->match==MATCH_REMOTE)
 					istrue = 1;
-				if (!admin && cond->match==MATCH_NOTASTERISK)
+				if (!admin && cond->match==MATCH_NOTREMOTE)
 					istrue = 1;
 				break;
 
@@ -2425,10 +2428,10 @@ struct route_action action_internal = {
 	0,
 };
 
-struct route_action action_chan = {
+struct route_action action_remote = {
 	NULL,
 	NULL,
-	ACTION_CHAN,
+	ACTION_REMOTE,
 	0,
 	0,
 };

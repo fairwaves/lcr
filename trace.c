@@ -307,7 +307,7 @@ void end_trace(void)
 	}
 
 	/* process admin */
-	admin = admin_list;
+	admin = admin_first;
 	while(admin)
 	{
 		if (admin->trace.detail)

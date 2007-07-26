@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** Linux Call Router                                                         **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -25,9 +25,17 @@ extern "C" {
 #include <net_l2.h>
 }
 
+#if 0
+#ifndef ISDN_PID_L2_B_USER
 #define ISDN_PID_L2_B_USER 0x420000ff
+#endif
+#ifndef ISDN_PID_L3_B_USER
 #define ISDN_PID_L3_B_USER 0x430000ff
+#endif
+#endif
+#ifndef ISDN_PID_L4_B_USER
 #define ISDN_PID_L4_B_USER 0x440000ff
+#endif
 
 /* used for udevice */
 int entity = 0;
@@ -381,15 +389,15 @@ failed:
  * subfunction for bchannel_event
  * activate request
  */
-static void _bchannel_activate(struct mISDNport *mISDNport, int i)
+static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 {
 	iframe_t act;
 
 	/* activate bchannel */
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL activate", DIRECTION_OUT);
+	chan_trace_header(mISDNport, mISDNport->b_port[i], activate?(char*)"BCHANNEL activate":(char*)"BCHANNEL deactivate", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
 	end_trace();
-	act.prim = DL_ESTABLISH | REQUEST; 
+	act.prim = (activate?DL_ESTABLISH:DL_RELEASE) | REQUEST; 
 	act.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
 	act.dinfo = 0;
 	act.len = 0;
@@ -441,24 +449,6 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 
 /*
  * subfunction for bchannel_event
- * deactivate 
- */
-static void _bchannel_deactivate(struct mISDNport *mISDNport, int i)
-{
-	iframe_t dact;
-	
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL deactivate", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	end_trace();
-	dact.prim = DL_RELEASE | REQUEST; 
-	dact.addr = mISDNport->b_addr[i] | FLG_MSG_DOWN;
-	dact.dinfo = 0;
-	dact.len = 0;
-	mISDN_write(mISDNdevice, &dact, mISDN_HEADER_LEN+dact.len, TIMEOUT_1SEC);
-}
-
-/*
- * subfunction for bchannel_event
  * destroy stack
  */
 static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
@@ -471,11 +461,13 @@ static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
 	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
 	end_trace();
 	/* remove our stack only if set */
-	PDEBUG(DEBUG_BCHANNEL, "free stack (b_addr=0x%x)\n", mISDNport->b_addr[i]);
-	mISDN_clear_stack(mISDNdevice, mISDNport->b_stid[i]);
 	if (mISDNport->b_addr[i])
+	{
+		PDEBUG(DEBUG_BCHANNEL, "free stack (b_addr=0x%x)\n", mISDNport->b_addr[i]);
+		mISDN_clear_stack(mISDNdevice, mISDNport->b_stid[i]);
 		mISDN_write_frame(mISDNdevice, buff, mISDNport->b_addr[i] | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-	mISDNport->b_addr[i] = 0;
+		mISDNport->b_addr[i] = 0;
+	}
 }
 
 
@@ -547,7 +539,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			/* create stack and send activation request */
 			if (_bchannel_create(mISDNport, i))
 			{
-				_bchannel_activate(mISDNport, i);
+				_bchannel_activate(mISDNport, i, 1);
 				state = B_STATE_ACTIVATING;
 			}
 			break;
@@ -577,7 +569,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			} else
 			{
 				/* bchannel is active, but not used anymore (or has wrong stack config), so we deactivate */
-				_bchannel_deactivate(mISDNport, i);
+				_bchannel_activate(mISDNport, i, 0);
 				state = B_STATE_DEACTIVATING;
 			}
 			break;
@@ -602,7 +594,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 			case B_STATE_ACTIVE:
 			/* bchannel is active, so we deactivate */
-			_bchannel_deactivate(mISDNport, i);
+			_bchannel_activate(mISDNport, i, 0);
 			state = B_STATE_DEACTIVATING;
 			break;
 
@@ -630,7 +622,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				/* bchannel is now deactivate, but is requied by Port class, so we reactivate */
 				if (_bchannel_create(mISDNport, i))
 				{
-					_bchannel_activate(mISDNport, i);
+					_bchannel_activate(mISDNport, i, 1);
 					state = B_STATE_ACTIVATING;
 				}
 			}
@@ -2300,7 +2292,7 @@ void mISDN_port_info(void)
 				if (stinf->pid.protocol[p])
 				{
 					useable = 0;
-					printf(" -> Layer %d protocol 0x%08x is detected, but not allowed for NT lib.\n", p, stinf->pid.protocol[p]);
+					printf(" -> Layer %d protocol 0x%08x is detected, port already in use by another application.\n", p, stinf->pid.protocol[p]);
 				}
 				p++;
 			}
@@ -2351,7 +2343,7 @@ void mISDN_port_info(void)
 				if (stinf->pid.protocol[p])
 				{
 					useable = 0;
-					printf(" -> Layer %d protocol 0x%08x is detected, but not allowed for TE lib.\n", p, stinf->pid.protocol[p]);
+					printf(" -> Layer %d protocol 0x%08x is detected, port already in use by another application.\n", p, stinf->pid.protocol[p]);
 				}
 				p++;
 			}
@@ -2359,7 +2351,7 @@ void mISDN_port_info(void)
 		printf("  - %d B-channels\n", stinf->childcnt);
 
 		if (!useable)
-			printf(" * Port NOT useable for PBX\n");
+			printf(" * Port NOT useable for LCR\n");
 
 		printf("--------\n");
 

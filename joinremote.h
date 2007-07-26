@@ -9,16 +9,17 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-class JoinAsterisk : public Join
+class JoinRemote : public Join
 {
 	public:
-	JoinAsterisk(unsigned long serial);
-	~JoinAsterisk();
+	JoinRemote(unsigned long serial, char *remote);
+	~JoinRemote();
 	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
-	void message_asterisk(unsigned long ref, int message_type, union parameter *param);
+	void message_remote(unsigned long ref, int message_type, union parameter *param);
 	int handler(void);
 
-	unsigned long c_epoint_id;
+	char j_remote[32];
+	unsigned long j_epoint_id;
 }; 
 
 

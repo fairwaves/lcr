@@ -67,9 +67,9 @@ char *numberrize_callerinfo(char *string, int ntype)
 
 
 /*
- * process init 'internal' / 'external' / 'asterisk' / 'vbox-record' / 'partyline'...
+ * process init 'internal' / 'external' / 'remote' / 'vbox-record' / 'partyline'...
  */
-void EndpointAppPBX::_action_init_call(int asterisk)
+void EndpointAppPBX::_action_init_call(char *remote)
 {
 	class Join		*join;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
@@ -83,40 +83,80 @@ void EndpointAppPBX::_action_init_call(int asterisk)
 		return;
 	}
 
-	/* create call */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new call instance.\n", ea_endpoint->ep_serial);
-	if (asterisk)
+	/* create join */
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new join instance.\n", ea_endpoint->ep_serial);
+	if (remote)
 	{
-		admin = admin_list;
+		admin = admin_first;
 		while(admin)
 		{
-			if (admin->asterisk)
+			if (admin->remote[0] && !strcmp(admin->remote, remote))
 				break;
 			admin = admin->next;
 		}
 		if (!admin)
 		{
 			/* resource not available */
+			trace_header("ACTION remote (not available)", DIRECTION_NONE);
+			add_trace("application", NULL, "%s", remote);
+			end_trace();
 			message_disconnect_port(portlist, CAUSE_RESSOURCEUNAVAIL, LOCATION_PRIVATE_LOCAL, "");
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist,"cause_22");
 			return;
 		}
-		join = new JoinAsterisk(ea_endpoint->ep_serial);
+		join = new JoinRemote(ea_endpoint->ep_serial, remote);
 	}
 	else
 		join = new JoinPBX(ea_endpoint);
 	if (!join)
-		FATAL("No memoy for Call instance.\n");
-	ea_endpoint->ep_join_id = join->c_serial;
+		FATAL("No memoy for Join instance.\n");
+	ea_endpoint->ep_join_id = join->j_serial;
 }
 void EndpointAppPBX::action_init_call(void)
 {
-	_action_init_call(0);
+	_action_init_call(NULL);
 }
-void EndpointAppPBX::action_init_chan(void)
+void EndpointAppPBX::action_init_remote(void)
 {
-	_action_init_call(1);
+	struct route_param	*rparam;
+	struct port_list	*portlist = ea_endpoint->ep_portlist;
+	struct message		*message;
+	struct capa_info	capainfo;
+	struct caller_info	callerinfo;
+	struct redir_info	redirinfo;
+	struct dialing_info	dialinginfo;
+	char remote[32];
+
+	if (!(rparam = routeparam(e_action, PARAM_APPLICATION)))
+	{
+		trace_header("ACTION remote (no application given)", DIRECTION_NONE);
+		end_trace();
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_SERVICEUNAVAIL, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		return;
+	}
+	SCPY(remote, rparam->string_value);
+	_action_init_call(remote);
+
+	/* create bearer/caller/dialinginfo */
+	memcpy(&capainfo, &e_capainfo, sizeof(capainfo));
+	memcpy(&callerinfo, &e_callerinfo, sizeof(callerinfo));
+	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
+	memset(&dialinginfo, 0, sizeof(dialinginfo));
+
+	/* send setup to remote */
+	trace_header("ACTION remote (setup)", DIRECTION_NONE);
+	add_trace("number", NULL, dialinginfo.id);
+	add_trace("remote", NULL, remote);
+	end_trace();
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
+	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
+	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
+	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
+	memcpy(&message->param.setup.capainfo, &capainfo, sizeof(struct capa_info));
+	message_put(message);
 }
 
 /*
@@ -394,15 +434,25 @@ void EndpointAppPBX::action_dialing_external(void)
 }
 
 
-void EndpointAppPBX::action_dialing_chan(void)
+void EndpointAppPBX::action_dialing_remote(void)
 {
-	struct port_list *portlist = ea_endpoint->ep_portlist;
+	struct message *message;
+	struct dialing_info dialinginfo;
+//	struct route_param *rparam;
 
-	trace_header("ACTION channel (not implemented)", DIRECTION_NONE);
-	end_trace();
-	message_disconnect_port(portlist, CAUSE_UNIMPLEMENTED, LOCATION_PRIVATE_LOCAL, "");
-	new_state(EPOINT_STATE_OUT_DISCONNECT);
-	set_tone(portlist,"cause_4f");
+	/* create bearer/caller/dialinginfo */
+	memset(&dialinginfo, 0, sizeof(dialinginfo));
+
+	if (dialinginfo.id[0])
+	{
+		/* add or update outgoing call */
+		trace_header("ACTION remote (dialing)", DIRECTION_NONE);
+		add_trace("number", NULL, dialinginfo.id);
+		end_trace();
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_INFORMATION);
+		memcpy(&message->param.information, &dialinginfo, sizeof(struct dialing_info));
+		message_put(message);
+	}
 }
 
 
@@ -526,10 +576,10 @@ void EndpointAppPBX::action_init_partyline(void)
 	join = join_first;
 	while(join)
 	{
-		if (join->c_type == JOIN_TYPE_PBX)
+		if (join->j_type == JOIN_TYPE_PBX)
 		{
 			joinpbx = (class JoinPBX *)join;
-			if (joinpbx->c_partyline == rparam->integer_value)
+			if (joinpbx->j_partyline == rparam->integer_value)
 				break;
 		}
 		join = join->next;
@@ -553,7 +603,7 @@ void EndpointAppPBX::action_init_partyline(void)
 		relation->epoint_id = ea_endpoint->ep_serial;
 
 	}
-	ea_endpoint->ep_join_id = join->c_serial;
+	ea_endpoint->ep_join_id = join->j_serial;
 
 	set_tone(portlist, "proceeding");
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
@@ -2318,10 +2368,10 @@ void EndpointAppPBX::process_dialing(void)
 			goto process_action;
 		}
 		/* check for chan call */
-		if (!strncmp(e_dialinginfo.id, "chan:", 5))
+		if (!strncmp(e_dialinginfo.id, "remote:", 7))
 		{
-			e_extdialing = e_dialinginfo.id+4;
-			e_action = &action_chan;
+			e_extdialing = e_dialinginfo.id+7;
+			e_action = &action_remote;
 			goto process_action;
 		}
 		/* check for vbox call */
