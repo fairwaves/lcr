@@ -28,22 +28,23 @@
  * constructor for a new join 
  * the join will have a relation to the calling endpoint
  */
-JoinRemote::JoinRemote(unsigned long serial, char *remote) : Join()
+JoinRemote::JoinRemote(unsigned long serial, char *remote_name, int remote_id) : Join()
 {
 	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
 	union parameter *param;
 
-	SCPY(j_remote, remote);
+	SCPY(j_remote_name, remote_name);
+	j_remote_id = remote_id;
 	j_type = JOIN_TYPE_REMOTE;
 
 	j_epoint_id = serial;
 	if (j_epoint_id)
-		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s\n", j_epoint_id, remote);
+		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s\n", j_epoint_id, remote_name);
 
 	/* send new ref to remote socket */
 	memset(&param, 0, sizeof(param));
-	if (admin_message_from_join(j_remote, j_serial, MESSAGE_NEWREF, param)<0)
-		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", j_remote);
+	if (admin_message_from_join(j_remote_id, j_serial, MESSAGE_NEWREF, param)<0)
+		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", j_remote_name);
 }
 
 
@@ -73,9 +74,9 @@ void JoinRemote::message_epoint(unsigned long epoint_id, int message_type, union
 		return;
 	
 	/* look for Remote's interface */
-	if (admin_message_from_join(j_remote, j_serial, message_type, param)<0)
+	if (admin_message_from_join(j_remote_id, j_serial, message_type, param)<0)
 	{
-		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote);
+		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote_name);
 		return;		
 	}
 

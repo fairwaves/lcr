@@ -966,7 +966,7 @@ char *admin_state(int sock, char *argv[])
 			while(l!=ll)
 			{
 				move(line++>1?line-1:1, 0);
-				if (strlen(logline[l % LOGLINES]) > hoffset)
+				if ((int)strlen(logline[l % LOGLINES]) > hoffset)
 					SCPY(buffer, logline[l % LOGLINES] + hoffset);
 				else
 					buffer[0] = '\0';

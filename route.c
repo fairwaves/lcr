@@ -2216,7 +2216,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				admin = admin_first;
 				while(admin)
 				{
-					if (admin->remote[0] && !strcmp(cond->string_value, admin->remote))
+					if (admin->remote_name[0] && !strcmp(cond->string_value, admin->remote_name))
 						break;
 					admin = admin->next;
 				}

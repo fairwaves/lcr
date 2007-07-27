@@ -90,7 +90,7 @@ void EndpointAppPBX::_action_init_call(char *remote)
 		admin = admin_first;
 		while(admin)
 		{
-			if (admin->remote[0] && !strcmp(admin->remote, remote))
+			if (admin->remote_name[0] && !strcmp(admin->remote_name, remote))
 				break;
 			admin = admin->next;
 		}
@@ -105,7 +105,7 @@ void EndpointAppPBX::_action_init_call(char *remote)
 			set_tone(portlist,"cause_22");
 			return;
 		}
-		join = new JoinRemote(ea_endpoint->ep_serial, remote);
+		join = new JoinRemote(ea_endpoint->ep_serial, remote, admin->sock);
 	}
 	else
 		join = new JoinPBX(ea_endpoint);
