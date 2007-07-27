@@ -973,7 +973,7 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* reading ruleset name text */
 			i = 0;
-			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9'))
+			while(*p>' ' && *p<127 && *p!=']')
 			{
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
