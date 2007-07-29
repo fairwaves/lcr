@@ -3725,7 +3725,7 @@ reject:
 		PERROR("EPOINT(%d) ringing endpoint's join not found.\n", ea_endpoint->ep_serial);
 		goto reject;
 	}
-	if (joinpbx->j_type != JOIN_TYPE_PBX)
+	if (join->j_type != JOIN_TYPE_PBX)
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ringing endpoint's join is not a PBX join, so we must reject.\n", ea_endpoint->ep_serial);
 		goto reject;

@@ -848,6 +848,7 @@ struct route_ruleset *ruleset_parse(void)
 	struct route_param	*param;
 	struct route_param	**param_pointer = NULL;
 	char			failure[256];
+	unsigned long long	allowed_params;
 
 	/* check the integrity of IDs for ACTION_* and PARAM_* */
 	i = 0;
@@ -1461,6 +1462,7 @@ struct route_ruleset *ruleset_parse(void)
 			SPRINT(failure, "Unknown action name '%s'.", key);
 			goto parse_error;
 		}
+		allowed_params = action_defs[index].params;
 
 		/* alloc memory for action */
 		action = (struct route_action *)MALLOC(sizeof(struct route_action));
@@ -1507,6 +1509,13 @@ struct route_ruleset *ruleset_parse(void)
 			if (param_defs[index].name == NULL)
 			{
 				SPRINT(failure, "Unknown param name '%s'.", key);
+				goto parse_error;
+			}
+
+			/* check if item is allowed for the action */
+			if (!(param_defs[index].id & allowed_params))
+			{
+				SPRINT(failure, "Param name '%s' exists, but not for this action.", key);
 				goto parse_error;
 			}
 
