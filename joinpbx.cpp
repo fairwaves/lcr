@@ -517,6 +517,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	}
 	if (!reltemp)
 		FATAL("relation not in list of our relations. this must not happen.\n");
+//printf("releasing relation %d\n", reltemp->epoint_id);
 	*relationpointer = reltemp->next;
 	FREE(reltemp, sizeof(struct join_relation));
 	cmemuse--;
@@ -760,28 +761,62 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			relation->type = RELATION_TYPE_CONNECT;
 		/* release other relations in setup state */
 		release_again:
-		relation = j_relation;
-		while(relation)
+		reltemp = j_relation;
+		while(reltemp)
 		{
-			if (relation->type == RELATION_TYPE_SETUP)
+//printf("connect, checking relation %d\n", reltemp->epoint_id);
+			if (reltemp->type == RELATION_TYPE_SETUP)
 			{
-				if (release(relation, LOCATION_PRIVATE_LOCAL, CAUSE_NONSELECTED))
+//printf("relation %d is of type setup, releasing\n", reltemp->epoint_id);
+				/* send release to endpoint */
+				message = message_create(j_serial, reltemp->epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
+				message->param.disconnectinfo.cause = CAUSE_NONSELECTED;
+				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+				message_put(message);
+
+				if (release(reltemp, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL)) // dummy cause, should not be used, since calling and connected endpoint still exist afterwards.
 					return; // must return, because join IS destroyed
 				goto release_again;
 			}
-			relation = relation->next;
+			if (reltemp->type == RELATION_TYPE_CALLING)
+				reltemp->type = RELATION_TYPE_CONNECT;
+			reltemp = reltemp->next;
 		}
 		break; // continue with our message
 
 		/* release is sent by endpoint */
 		case MESSAGE_RELEASE:
-		if (relation->type == RELATION_TYPE_SETUP)
+		switch(relation->type)
 		{
+			case RELATION_TYPE_SETUP: /* by called */
 			/* collect cause and send collected cause */
 			collect_cause(&j_multicause, &j_multilocation, param->disconnectinfo.cause, param->disconnectinfo.location);
 			release(relation, j_multilocation, j_multicause);
-		} else
-		{
+			break;
+
+			case RELATION_TYPE_CALLING: /* by calling */
+			/* remove all relations that are in called */
+			release_again2:
+			reltemp = j_relation;
+			while(reltemp)
+			{
+				if (reltemp->type == RELATION_TYPE_SETUP)
+				{
+					/* send release to endpoint */
+					message = message_create(j_serial, reltemp->epoint_id, JOIN_TO_EPOINT, message_type);
+					memcpy(&message->param, param, sizeof(union parameter));
+					message_put(message);
+
+					if (release(reltemp, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL))
+						return; // must return, because join IS destroyed
+					goto release_again2;
+				}
+				reltemp = reltemp->next;
+			}
+			PERROR("we are still here, this should not happen\n");
+			break;
+
+			default: /* by connected */
 			/* send current cause */
 			release(relation, param->disconnectinfo.location, param->disconnectinfo.cause);
 		}
