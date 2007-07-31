@@ -11,6 +11,7 @@
 
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
+#WITH-SOCKET = 42 # compile for socket based mISDN (
 # note: check your location and the names of libraries.
 
 # select location to install
@@ -45,6 +46,9 @@ CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 CFLAGS += $(LINUX_INCLUDE) $(MISDNUSER_INCLUDE)
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
+endif
+ifdef WITH-SOCKET
+CFLAGS += -DSOCKET_MISDN
 endif
 LIBDIR += $(MISDNUSER_LIB)
 ifdef WITH-CRYPTO

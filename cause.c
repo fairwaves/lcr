@@ -405,8 +405,13 @@ void collect_cause(int *multicause, int *multilocation, int newcause, int newloc
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause==CAUSE_NOUSER && *multicause==CAUSE_NOUSER) /* cause 18, but no cause yet, use the location */
+	if (newcause==CAUSE_NOUSER && *multicause==CAUSE_NOUSER) /* cause 18, use the location */
 	{
+		*multilocation = newlocation;
+	} else
+	if (*multicause==0) /* no cause yet, use newcause (should be 18) */
+	{
+		*multicause = newcause;
 		*multilocation = newlocation;
 	}
 }

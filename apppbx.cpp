@@ -83,8 +83,8 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
 	e_cfnr_release = 0;
 	e_cfnr_call = 0;
 	e_password_timeout = 0;
-	e_multipoint_cause = CAUSE_NOUSER;
-	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
+	e_multipoint_cause = 0;
+	e_multipoint_location = 0;
 	e_dialing_queue[0] = '\0';
 	e_crypt = CRYPT_OFF;
 	e_crypt_state = CM_ST_NULL;
@@ -201,13 +201,13 @@ void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *prese
 		}
 		if (ifmsn)
 		{
-			trace_header("SCREEN (found in list)", DIRECTION_IN);
+			trace_header("SCREEN (found in MSN list)", DIRECTION_IN);
 			add_trace("msn", NULL, "%s", id);
 			end_trace();
 		}
 		if (!ifmsn && msn1) // not in list, first msn given
 		{
-			trace_header("SCREEN (not found in list)", DIRECTION_IN);
+			trace_header("SCREEN (not found MSN in list)", DIRECTION_IN);
 			add_trace("msn", "given", "%s", id);
 			add_trace("msn", "used", "%s", msn1);
 			end_trace();
@@ -240,7 +240,7 @@ void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *prese
 	}
 	if (ifscreen) // match
 	{
-		trace_header("SCREEN (found in list)", out?DIRECTION_OUT:DIRECTION_IN);
+		trace_header("SCREEN (found in screen list)", out?DIRECTION_OUT:DIRECTION_IN);
 		switch(*type)
 		{
 			case INFO_NTYPE_UNKNOWN:
@@ -399,8 +399,8 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 			e_dtmf_last = 0;
 			e_cfnr_release = 0;
 			e_cfnr_call = 0;
-			e_multipoint_cause = CAUSE_NOUSER;
-			e_multipoint_location = LOCATION_PRIVATE_LOCAL;
+			e_multipoint_cause = 0;
+			e_multipoint_location = 0;
 			e_dialing_queue[0] = '\0';
 			e_crypt = 0;
 			e_crypt_state = CM_ST_NULL;
@@ -1398,8 +1398,8 @@ int EndpointAppPBX::handler(void)
 			{
 				e_redial = 0;
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) current action timed out.\n", ea_endpoint->ep_serial);
-				e_multipoint_cause = CAUSE_NOUSER;
-				e_multipoint_location = LOCATION_PRIVATE_LOCAL;
+				e_multipoint_cause = 0;
+				e_multipoint_location = 0;
 				new_state(EPOINT_STATE_IN_OVERLAP);
 				e_join_pattern = 0;
 				process_dialing();
@@ -1562,8 +1562,8 @@ void EndpointAppPBX::hookflash(void)
 	}
 	/* dialtone after pressing the hash key */
 	process_hangup(e_join_cause, e_join_location);
-	e_multipoint_cause = CAUSE_NOUSER;
-	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
+	e_multipoint_cause = 0;
+	e_multipoint_location = 0;
 	port = find_port_id(ea_endpoint->ep_portlist->port_id);
 	if (port)
 	{
@@ -2190,29 +2190,30 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	e_cfnr_call = e_cfnr_release = 0;
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
-//		if (call_countrelations(ea_endpoint->ep_join_id) == 2)
+
+	/* modify colp */
+	/* other calls with no caller id (or not available for the extension) and force colp */
+	if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE)
 	{
-		/* modify colp */
-		/* other calls with no caller id (or not available for the extension) and force colp */
-		if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE)
+		e_connectinfo.present = INFO_PRESENT_NOTAVAIL;
+		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT) /* external extension answered */
 		{
-			e_connectinfo.present = INFO_PRESENT_NOTAVAIL;
-			if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT) /* external extension answered */
+			port = find_port_id(portlist->port_id);
+			if (port)
 			{
-				port = find_port_id(portlist->port_id);
-				if (port)
-				{
-					SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype));
-					e_connectinfo.present = INFO_PRESENT_ALLOWED;
-				}
+				SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype));
+				e_connectinfo.present = INFO_PRESENT_ALLOWED;
 			}
 		}
+	}
+
+	/* send connect to join */
+	if (ea_endpoint->ep_join_id)
+	{
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(struct connect_info));
 		message_put(message);
-	}
-	if (ea_endpoint->ep_join_id)
-	{
+
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 		message->param.audiopath = CHANNEL_STATE_CONNECT;
 		message_put(message);
@@ -2369,8 +2370,15 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	} else
 	{
 		/* use multipoint cause if no connect yet */
-		cause = e_multipoint_cause;
-		location = e_multipoint_location;
+		if (e_multipoint_cause)
+		{
+			cause = e_multipoint_cause;
+			location = e_multipoint_location;
+		} else
+		{
+			cause = CAUSE_NOUSER;
+			location = LOCATION_PRIVATE_LOCAL;
+		}
 	}
 
 	e_cfnr_call = e_cfnr_release = 0;
@@ -2378,7 +2386,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	/* process hangup */
 	process_hangup(e_join_cause, e_join_location);
 	e_multipoint_cause = 0;
-	e_multipoint_location = LOCATION_PRIVATE_LOCAL;
+	e_multipoint_location = 0;
 
 	if (message_type == MESSAGE_DISCONNECT)
 	{

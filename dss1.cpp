@@ -42,8 +42,8 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 	p_m_d_ces = -1;
 	p_m_d_queue = NULL;
 	p_m_d_notify_pending = NULL;
-	p_m_d_collect_cause = CAUSE_NOUSER;
-	p_m_d_collect_location = LOCATION_PRIVATE_LOCAL;
+	p_m_d_collect_cause = 0;
+	p_m_d_collect_location = 0;
 
 	PDEBUG(DEBUG_ISDN, "Created new mISDNPort(%s). Currently %d objects use, %s port #%d\n", portname, mISDNport->use, (mISDNport->ntmode)?"NT":"TE", p_m_portnum);
 }
@@ -1285,8 +1285,15 @@ void Pdss1::t312_timeout(unsigned long prim, unsigned long dinfo, void *data)
 	while(p_epointlist)
 	{
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-		message->param.disconnectinfo.cause = p_m_d_collect_cause;
-		message->param.disconnectinfo.location = p_m_d_collect_location;
+		if (p_m_d_collect_cause)
+		{
+			message->param.disconnectinfo.cause = p_m_d_collect_cause;
+			message->param.disconnectinfo.location = p_m_d_collect_location;
+		} else
+		{
+			message->param.disconnectinfo.cause = CAUSE_NOUSER;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		}
 		message_put(message);
 		/* remove epoint */
 		free_epointlist(p_epointlist);
@@ -1303,10 +1310,11 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 	NOTIFY_t *notifying = (NOTIFY_t *)((unsigned long)data + headerlen);
 	struct message *message;
 	int notify, type, plan, present;
+	unsigned char notifyid[sizeof(message->param.notifyinfo.id)];
 
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 	dec_ie_notify(notifying->NOTIFY, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
-	dec_ie_redir_dn(notifying->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)message->param.notifyinfo.id, sizeof(message->param.notifyinfo.id));
+	dec_ie_redir_dn(notifying->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, notifyid, sizeof(notifyid));
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist))
@@ -1317,6 +1325,7 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 	notify |= 0x80;
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
 	message->param.notifyinfo.notify = notify;
+	SCPY(message->param.notifyinfo.id, (char *)notifyid);
 	/* redirection number */
 	switch (present)
 	{

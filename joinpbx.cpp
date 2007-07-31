@@ -255,8 +255,8 @@ JoinPBX::JoinPBX(class Endpoint *epoint) : Join()
 	j_pid = getpid();
 	j_updatebridge = 0;
 	j_partyline = 0;
-	j_multicause = CAUSE_NOUSER;
-	j_multilocation = LOCATION_PRIVATE_LOCAL;
+	j_multicause = 0;
+	j_multilocation = 0;
 
 	/* initialize a relation only to the calling interface */
 	relation = j_relation = (struct join_relation *)MALLOC(sizeof(struct join_relation));
@@ -791,7 +791,10 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			case RELATION_TYPE_SETUP: /* by called */
 			/* collect cause and send collected cause */
 			collect_cause(&j_multicause, &j_multilocation, param->disconnectinfo.cause, param->disconnectinfo.location);
-			release(relation, j_multilocation, j_multicause);
+			if (j_multicause)
+				release(relation, j_multilocation, j_multicause);
+			else
+				release(relation, LOCATION_PRIVATE_LOCAL, CAUSE_UNSPECIFIED);
 			break;
 
 			case RELATION_TYPE_CALLING: /* by calling */

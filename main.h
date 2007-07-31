@@ -26,6 +26,8 @@ extern int classuse;
 extern int fduse;
 extern int fhuse;
 
+extern int global_debug;
+
 #define PDEBUG(mask, fmt, arg...) _printdebug(__FUNCTION__, __LINE__, mask, fmt, ## arg)
 #define PERROR(fmt, arg...) _printerror(__FUNCTION__, __LINE__, fmt, ## arg)
 #define PDEBUG_RUNTIME(mask, fmt, arg...) _printdebug(NULL, 0, mask, fmt, ## arg)
@@ -112,8 +114,10 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifndef SOCKET_MISDN
 #include <isdn_net.h>
 #include <../i4lnet/net_l3.h>
+#endif
 #ifdef __cplusplus
 }
 #endif

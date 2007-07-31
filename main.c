@@ -199,7 +199,6 @@ int main(int argc, char *argv[])
 	double			start_d;
 #endif
 	int			idletime = 0, idlecheck = 0;
-	char			debug_log[128];
 	char			tracetext[256];
 
 	/* current time */
@@ -287,21 +286,10 @@ int main(int argc, char *argv[])
 	if (read_options() == 0)
 		goto free;
 
-	/* initialize stuff of the NT lib */
-	if (options.deb & DEBUG_STACK)
-	{
-		global_debug = 0xffffffff & ~DBGM_MSG;
-//		global_debug = DBGM_L3DATA;
-	} else
-		global_debug = DBGM_MAN;
-	SPRINT(debug_log, "%s/debug.log", INSTALL_DATA);
-	if (options.deb & DEBUG_LOG)
-		debug_init(global_debug, debug_log, debug_log, debug_log);
-	else
-		debug_init(global_debug, NULL, NULL, NULL);
+	/* init mISDN */
+	if (mISDN_initialize() < 0)
+		goto free;
 	created_debug = 1;
-
-	msg_init();
 
 	/* read ruleset(s) */
 	if (!(ruleset_first = ruleset_parse()))
@@ -782,9 +770,8 @@ free:
 		if (pthread_mutex_destroy(&mutexd))
 			fprintf(stderr, "cannot destroy 'PDEBUG' mutex\n");
 
-	/* close debug */
-	if (created_debug)
-		debug_close();
+	/* deinitialize mISDN */
+	mISDN_deinitialize();
 	global_debug = 0;
 
 	/* display memory leak */

@@ -10,45 +10,130 @@
 \*****************************************************************************/ 
 
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include "main.h"
-#include <unistd.h>
 #include <poll.h>
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef SOCKET_MISDN
+#include <netinet/udp.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <linux/mISDNif.h>
+#include <q931.h>
+#include <mlayer3.h>
+#else
 extern "C" {
 #include <net_l2.h>
 }
+#endif
 
-#if 0
-#ifndef ISDN_PID_L2_B_USER
-#define ISDN_PID_L2_B_USER 0x420000ff
-#endif
-#ifndef ISDN_PID_L3_B_USER
-#define ISDN_PID_L3_B_USER 0x430000ff
-#endif
-#endif
 #ifndef ISDN_PID_L4_B_USER
 #define ISDN_PID_L4_B_USER 0x440000ff
 #endif
 
-/* used for udevice */
-int entity = 0;
+/* list of mISDN ports */
+struct mISDNport *mISDNport_first;
 
 /* noise randomizer */
 unsigned char mISDN_rand[256];
 int mISDN_rand_count = 0;
 
-/* the device handler and port list */
-int mISDNdevice = -1;
+#ifdef MISDN_SOCKET
+int mISDN_initialize(void)
+{
+	/* try to open raw socket to check kernel */
+	ret = socket(AF_ISDN, SOCK_RAW, ISDN_P_BASE);
+	if (ret < 0)
+	{
+		fprintf(stderr, "Cannot open mISDN due to %s. (Does your Kernel support socket based mISDN?)\n", strerror(errno));
+		return(-1);
+	}
+	close(ret);
 
-/* list of mISDN ports */
-struct mISDNport *mISDNport_first;
+	init_layer3(4); // buffer of 4
+
+	return(0);
+}
+
+void mISDN_deinitialize(void)
+{
+	cleanup_layer3();
+}
+#else
+int entity = 0; /* used for udevice */
+int mISDNdevice = -1; /* the device handler and port list */
+
+int mISDN_initialize(void)
+{
+	char debug_log[128];
+	unsigned char buff[1025];
+	iframe_t *frm = (iframe_t *)buff;
+	int ret;
+
+	/* initialize stuff of the NT lib */
+	if (options.deb & DEBUG_STACK)
+	{
+		global_debug = 0xffffffff & ~DBGM_MSG;
+//		global_debug = DBGM_L3DATA;
+	} else
+		global_debug = DBGM_MAN;
+	SPRINT(debug_log, "%s/debug.log", INSTALL_DATA);
+	if (options.deb & DEBUG_LOG)
+		debug_init(global_debug, debug_log, debug_log, debug_log);
+	else
+		debug_init(global_debug, NULL, NULL, NULL);
+	msg_init();
+
+	/* open mISDNdevice if not already open */
+	if (mISDNdevice < 0)
+	{
+		ret = mISDN_open();
+		if (ret < 0)
+		{
+			fprintf(stderr, "cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", ret, errno, strerror(errno));
+			return(-1);
+		}
+		mISDNdevice = ret;
+		PDEBUG(DEBUG_ISDN, "mISDN device opened.\n");
+
+		/* create entity for layer 3 TE-mode */
+		mISDN_write_frame(mISDNdevice, buff, 0, MGR_NEWENTITY | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
+		ret = mISDN_read_frame(mISDNdevice, frm, sizeof(iframe_t), 0, MGR_NEWENTITY | CONFIRM, TIMEOUT_1SEC);
+		if (ret < (int)mISDN_HEADER_LEN)
+		{
+			noentity:
+			FATAL("Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
+		}
+		entity = frm->dinfo & 0xffff;
+		if (!entity)
+			goto noentity;
+		PDEBUG(DEBUG_ISDN, "our entity for l3-processes is %d.\n", entity);
+	}
+	return(0);
+}
+
+void mISDN_deinitialize(void)
+{
+	unsigned char buff[1025];
+
+	debug_close();
+
+	if (mISDNdevice >= 0)
+	{
+		/* free entity */
+		mISDN_write_frame(mISDNdevice, buff, 0, MGR_DELENTITY | REQUEST, entity, 0, NULL, TIMEOUT_1SEC);
+		/* close device */
+		mISDN_close(mISDNdevice);
+		mISDNdevice = -1;
+		PDEBUG(DEBUG_ISDN, "mISDN device closed.\n");
+	}
+}
+#endif
 
 /*
  * constructor
@@ -1772,58 +1857,36 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 	int ret;
 	unsigned char buff[1025];
 	iframe_t *frm = (iframe_t *)buff;
-	stack_info_t *stinf;
 	struct mISDNport *mISDNport, **mISDNportp;
 	int i, cnt;
+	int pri = 0;
+	int nt = 0;
+#ifdef SOCKET_MISDN
+//	struct mlayer3 *layer3;
+#else
 //	interface_info_t ii;
 	net_stack_t *nst;
 	manager_t *mgr;
 	layer_info_t li;
-	int pri = 0;
-	int nt = 0;
-
-	/* open mISDNdevice if not already open */
-	if (mISDNdevice < 0)
-	{
-		ret = mISDN_open();
-		if (ret < 0)
-		{
-			PERROR("cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", ret, errno, strerror(errno));
-			return(NULL);
-		}
-		mISDNdevice = ret;
-		PDEBUG(DEBUG_ISDN, "mISDN device opened.\n");
-
-		/* create entity for layer 3 TE-mode */
-		mISDN_write_frame(mISDNdevice, buff, 0, MGR_NEWENTITY | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-		ret = mISDN_read_frame(mISDNdevice, frm, sizeof(iframe_t), 0, MGR_NEWENTITY | CONFIRM, TIMEOUT_1SEC);
-		if (ret < (int)mISDN_HEADER_LEN)
-		{
-			noentity:
-			FATAL("Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
-		}
-		entity = frm->dinfo & 0xffff;
-		if (!entity)
-			goto noentity;
-		PDEBUG(DEBUG_ISDN, "our entity for l3-processes is %d.\n", entity);
-	}
+	stack_info_t *stinf;
+#endif
 
 	/* query port's requirements */
 	cnt = mISDN_get_stack_count(mISDNdevice);
 	if (cnt <= 0)
 	{
-		PERROR("Found no card. Please be sure to load card drivers.\n");
+		PERROR_RUNTIME("Found no card. Please be sure to load card drivers.\n");
 		return(NULL);
 	}
 	if (port>cnt || port<1)
 	{
-		PERROR("Port (%d) given at 'ports' (options.conf) is out of existing port range (%d-%d)\n", port, 1, cnt);
+		PERROR_RUNTIME("Port (%d) given at 'ports' (options.conf) is out of existing port range (%d-%d)\n", port, 1, cnt);
 		return(NULL);
 	}
 	ret = mISDN_get_stack_info(mISDNdevice, port, buff, sizeof(buff));
 	if (ret < 0)
 	{
-		PERROR("Cannot get stack info for port %d (ret=%d)\n", port, ret);
+		PERROR_RUNTIME("Cannot get stack info for port %d (ret=%d)\n", port, ret);
 		return(NULL);
 	}
 	stinf = (stack_info_t *)&frm->data.p;
@@ -1846,7 +1909,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 		nt = 1;
 		break;
 		default:
-		PERROR("unknown port(%d) type 0x%08x\n", port, stinf->pid.protocol[0]);
+		PERROR_RUNTIME("unknown port(%d) type 0x%08x\n", port, stinf->pid.protocol[0]);
 		return(NULL);
 	}
 	if (nt)
@@ -1854,12 +1917,12 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 		/* NT */
 		if (stinf->pid.protocol[1] == 0)
 		{
-			PERROR("Given port %d: Missing layer 1 NT-mode protocol.\n", port);
+			PERROR_RUNTIME("Given port %d: Missing layer 1 NT-mode protocol.\n", port);
 			return(NULL);
 		}
 		if (stinf->pid.protocol[2])
 		{
-			PERROR("Given port %d: Layer 2 protocol 0x%08x is detected, but not allowed for NT lib.\n", port, stinf->pid.protocol[2]);
+			PERROR_RUNTIME("Given port %d: Layer 2 protocol 0x%08x is detected, but not allowed for NT lib.\n", port, stinf->pid.protocol[2]);
 			return(NULL);
 		}
 	} else
@@ -1867,17 +1930,17 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 		/* TE */
 		if (stinf->pid.protocol[1] == 0)
 		{
-			PERROR("Given port %d: Missing layer 1 protocol.\n", port);
+			PERROR_RUNTIME("Given port %d: Missing layer 1 protocol.\n", port);
 			return(NULL);
 		}
 		if (stinf->pid.protocol[2] == 0)
 		{
-			PERROR("Given port %d: Missing layer 2 protocol.\n", port);
+			PERROR_RUNTIME("Given port %d: Missing layer 2 protocol.\n", port);
 			return(NULL);
 		}
 		if (stinf->pid.protocol[3] == 0)
 		{
-			PERROR("Given port %d: Missing layer 3 protocol.\n", port);
+			PERROR_RUNTIME("Given port %d: Missing layer 3 protocol.\n", port);
 			return(NULL);
 		} else
 		{
@@ -1887,13 +1950,13 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 				break;
 
 				default:
-				PERROR("Given port %d: own protocol 0x%08x", port,stinf->pid.protocol[3]);
+				PERROR_RUNTIME("Given port %d: own protocol 0x%08x", port,stinf->pid.protocol[3]);
 				return(NULL);
 			}
 		}
 		if (stinf->pid.protocol[4])
 		{
-			PERROR("Given port %d: Layer 4 protocol not allowed.\n", port);
+			PERROR_RUNTIME("Given port %d: Layer 4 protocol not allowed.\n", port);
 			return(NULL);
 		}
 	}
@@ -1907,33 +1970,52 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 	*mISDNportp = mISDNport;
 
 	/* allocate ressources of port */
+#ifdef SOCKET_MISDN
+	/* open layer 3 */
+	protocol = (nt)?L3_PROTOCOL_DSS1_USER:L3_PROTOCOL_DSS1_NETWORK;
+	prop = 0;
+	if (ptp)
+	       prop |= FLG_PTP;
+	if (ptp)
+	       prop |= FLG_FORCE_PTMP;
+	mISDNport->layer3 = open_layer3(port-1, protocol, prop , do_dchannel, mISDNport);
+	if (!mISDNport->layer3)
+	{
+		PERROR_RUNTIME("Cannot get layer(%d) id of port %d\n", nt?2:4, port);
+		return(NULL);
+	}
+
+#warning KKEIL: braucht man das noch?
+	/* if ntmode, establish L1 to send the tei removal during start */
+	if (mISDNport->ntmode)
+	{
+		iframe_t act;
+		/* L1 */
+		act.prim = PH_ACTIVATE | REQUEST; 
+		act.addr = mISDNport->upper_id | FLG_MSG_DOWN;
+		printf("UPPER ID 0x%x, addr 0x%x\n",mISDNport->upper_id, act.addr);
+		act.dinfo = 0;
+		act.len = 0;
+		mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
+		usleep(10000); /* to be sure, that l1 is up */
+	}
+
+#else
 	msg_queue_init(&mISDNport->downqueue);
-//	SCPY(mISDNport->name, "noname");
-	mISDNport->portnum = port;
-	mISDNport->ntmode = nt;
-	mISDNport->pri = pri;
 	mISDNport->d_stid = stinf->id;
 	PDEBUG(DEBUG_ISDN, "d_stid = 0x%x.\n", mISDNport->d_stid);
-	mISDNport->b_num = stinf->childcnt;
-	PDEBUG(DEBUG_ISDN, "Port has %d b-channels.\n", mISDNport->b_num);
 	if ((stinf->pid.protocol[2]&ISDN_PID_L2_DF_PTP) || (nt&&ptp) || pri)
 	{
 		PDEBUG(DEBUG_ISDN, "Port is point-to-point.\n");
-		mISDNport->ptp = ptp = 1;
+		ptp = 1;
 		if (ptmp && nt)
 		{
 			PDEBUG(DEBUG_ISDN, "Port is forced to point-to-multipoint.\n");
-			mISDNport->ptp = ptp = 0;
+			ptp = 0;
 		}
 	}
-	i = 0;
-	while(i < stinf->childcnt)
-	{
-		mISDNport->b_stid[i] = stinf->child[i];
-		mISDNport->b_state[i] = B_STATE_IDLE;
-		PDEBUG(DEBUG_ISDN, "b_stid[%d] = 0x%x.\n", i, mISDNport->b_stid[i]);
-		i++;
-	}
+
+	/* create layer intance */
 	memset(&li, 0, sizeof(li));
 	UCPY(&li.name[0], (nt)?"net l2":"pbx l4");
 	li.object_id = -1;
@@ -2019,6 +2101,23 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *
 
 		Isdnl2Init(nst);
 		Isdnl3Init(nst);
+	}
+
+#endif
+//	SCPY(mISDNport->name, "noname");
+	mISDNport->portnum = port;
+	mISDNport->ntmode = nt;
+	mISDNport->pri = pri;
+	mISDNport->ptp = ptp;
+	mISDNport->b_num = stinf->childcnt;
+	PDEBUG(DEBUG_ISDN, "Port has %d b-channels.\n", mISDNport->b_num);
+	i = 0;
+	while(i < stinf->childcnt)
+	{
+		mISDNport->b_stid[i] = stinf->child[i];
+		mISDNport->b_state[i] = B_STATE_IDLE;
+		PDEBUG(DEBUG_ISDN, "b_stid[%d] = 0x%x.\n", i, mISDNport->b_stid[i]);
+		i++;
 	}
 
 	/* if te-mode, query state link */
@@ -2182,16 +2281,6 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	FREE(mISDNport, sizeof(struct mISDNport));
 	pmemuse--;
 
-	/* close mISDNdevice, if no port */
-	if (mISDNdevice>=0 && mISDNport_first==NULL)
-	{
-		/* free entity */
-		mISDN_write_frame(mISDNdevice, buf, 0, MGR_DELENTITY | REQUEST, entity, 0, NULL, TIMEOUT_1SEC);
-		/* close device */
-		mISDN_close(mISDNdevice);
-		mISDNdevice = -1;
-		PDEBUG(DEBUG_ISDN, "mISDN device closed.\n");
-	}
 }
 
 
