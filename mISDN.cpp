@@ -47,7 +47,7 @@ int mISDN_rand_count = 0;
 int mISDN_initialize(void)
 {
 	/* try to open raw socket to check kernel */
-	ret = socket(AF_ISDN, SOCK_RAW, ISDN_P_BASE);
+	ret = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
 	if (ret < 0)
 	{
 		fprintf(stderr, "Cannot open mISDN due to %s. (Does your Kernel support socket based mISDN?)\n", strerror(errno));

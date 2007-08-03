@@ -643,10 +643,10 @@ struct interface_param interface_param[] = {
 	{ "extension", &inter_extension, "",
 	"If keyword is given, calls to interface are handled as internal extensions."},
 	{"tones", &inter_tones, "yes | no",
-	"Interface generates tones during call setup and release, or not.\nBy default only NT-mode interfaces generate tones."},
+	"Interface generates tones during call setup and release, or not.\nBy default only NT-mode ports generate tones."},
 
 	{"earlyb", &inter_earlyb, "yes | no",
-	"Interface receives and bridges tones during call setup and release, or not.\nBy default only TE-mode interfaces receive tones."},
+	"Interface receives and bridges tones during call setup and release, or not.\nBy default only TE-mode ports receive tones."},
 
 	{"hunt", &inter_hunt, "linear | roundrobin",
 	"Select the algorithm for selecting port with free channel."},
@@ -690,18 +690,18 @@ struct interface_param interface_param[] = {
 	"Incomming caller ID is checked against given MSN numbers.\n"
 	"If the caller ID is not found in this list, it is overwritten by the first MSN"},
 
-	{"screen-in", &inter_screen_in, "[options] <old caller ID>[%%] [options] <new caller ID>[%%]",
+	{"screen-in", &inter_screen_in, "[options] <old caller ID>[%] [options] <new caller ID>[%]",
 	"Adds an entry for incomming calls to the caller ID screen list.\n"
 	"If the given 'old caller ID' matches, it is replaced by the 'new caller ID'\n"
-	"If '%%' is given after old caller ID, it matches even if caller ID has\n"
+	"If '%' is given after old caller ID, it matches even if caller ID has\n"
 	"additional digits.\n"
-	"If '%%' is given after mew caller ID, additinal digits of the 'old caller ID'\n"
+	"If '%' is given after mew caller ID, additinal digits of the 'old caller ID'\n"
 	"are added.\n"
 	"Options can be:\n"
 	" unknown | subsciber | national | international - Change caller ID type.\n"
 	" present | restrict - Change presentation of caller ID."},
 		
-	{"screen-out", &inter_screen_out, "<old caller ID> <new caller ID> [options]",
+	{"screen-out", &inter_screen_out, "[options] <old caller ID>[%] [options] <new caller ID>[%]",
 	"Adds an entry for outgoing calls to the caller ID screen list.\n"
 	"See 'screen-in' for help."},
 
