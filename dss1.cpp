@@ -164,7 +164,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		end_trace();
 
 		/* activate our exclusive channel */
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 	} else
 	if (p_m_b_channel)
 	{
@@ -185,7 +185,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 			add_trace("connect", "channel", "%d", p_m_b_channel);
 			end_trace();
 			p_m_b_exclusive = 1; // we are done
-			bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+			bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 			return(0);
 		}
 
@@ -212,7 +212,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		end_trace();
 
 		/* activate channel given by remote */
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 	} else
 	if (p_m_b_reserve)
 	{
@@ -248,7 +248,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		end_trace();
 
 		/* activate channel given by remote */
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 	} else
 	{
 		/*** we sent 'no channel available' ***/
@@ -277,7 +277,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 			p_m_b_exclusive = 1; // we are done
 
 			/* activate channel given by remote */
-			bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+			bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 			return(0);
 		}
 		
@@ -312,7 +312,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 		p_m_b_exclusive = 1; // we are done
 
 		/* activate channel given by remote */
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 	}
 	return(0);
 
@@ -731,12 +731,12 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		p_m_delete = 1;
 		return;
 	}
-	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 
 	/* create endpoint */
 	if (p_epointlist)
 		FATAL("Incoming call but already got an endpoint.\n");
-	if (!(epoint = new Endpoint(p_serial, 0, 0)))
+	if (!(epoint = new Endpoint(p_serial, 0)))
 		FATAL("No memory for Endpoint instance\n");
 	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
 		FATAL("No memory for Endpoint Application instance\n");
@@ -1473,7 +1473,7 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 		cause = -ret;
 		goto reject;
 	}
-	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 
 	/* set hold state */
 	p_m_hold = 0;
@@ -1645,7 +1645,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		p_m_delete = 1;
 		return;
 	}
-	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_ACTIVATE);
+	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE, p_m_exportremote);
 
 	/* create endpoint */
 	if (p_epointlist)

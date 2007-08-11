@@ -983,7 +983,7 @@ int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	relation->tx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	relation->rx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	/* create a new endpoint */
-	epoint = new Endpoint(0, j_serial, 0);
+	epoint = new Endpoint(0, j_serial);
 	if (!epoint)
 		FATAL("No memory for Endpoint instance\n");
 	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))

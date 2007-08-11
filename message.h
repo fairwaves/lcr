@@ -125,6 +125,33 @@ enum { /* isdnsignal */
 	mISDNSIGNAL_DELAY,		/* use delay or adaptive jitter */
 };
 
+enum { /* bchannel assignment */
+	BCHANNEL_REQUEST,		/* application requests bchannel */
+	BCHANNEL_ASSIGN,		/* bchannel assigned by LCR */
+	BCHANNEL_ASSIGN_ACK,		/* application acknowledges */
+	BCHANNEL_REMOVE,		/* bchannel removed by LCR */
+	BCHANNEL_REMOVE_ACK,		/* application acknowledges */
+};
+enum {
+	B_STATE_IDLE,		/* not open */
+	B_STATE_ACTIVATING,	/* DL_ESTABLISH sent */
+	B_STATE_ACTIVE,		/* channel active */
+	B_STATE_DEACTIVATING,	/* DL_RELEASE sent */
+	B_STATE_EXPORTING,	/* BCHANNEL_ASSIGN sent */
+	B_STATE_REMOTE,		/* bchannel assigned to remote application */
+	B_STATE_IMPORTING,	/* BCHANNEL_REMOVE sent */
+};
+enum {
+	B_EVENT_USE,		/* activate/export bchannel */
+	B_EVENT_EXPORTREQUEST,	/* remote app requests bchannel */
+	B_EVENT_ACTIVATED,	/* DL_ESTABLISH received */
+	B_EVENT_DROP,		/* deactivate/re-import bchannel */
+	B_EVENT_DEACTIVATED,	/* DL_RELEASE received */
+	B_EVENT_EXPORTED,	/* BCHANNEL_ASSIGN received */
+	B_EVENT_IMPORTED,	/* BCHANNEL_REMOVE received */
+};
+
+
 /* call-info structure CALLER */
 struct caller_info {
 	char id[32];			/* id of caller (user number) */
@@ -279,6 +306,7 @@ struct param_hello {
 };
 
 struct param_bchannel {
+	int type; /* BCHANNEL_* */
 	unsigned long addr; /* bchannel stack address */
 };
 
@@ -359,8 +387,7 @@ enum { /* messages between entities */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */
 	MESSAGE_TONE_COUNTER,	/* tone counter (for VBOX tone use) */
 	MESSAGE_TONE_EOF,	/* tone is end of file */
-	MESSAGE_BCHANNEL,	/* request/assign bchannel */
-	MESSAGE_BCHANNEL_FREE,	/* requests/assigns bchannel to be free */
+	MESSAGE_BCHANNEL,	/* request/assign/remove bchannel */
 	MESSAGE_HELLO,		/* hello message for remote application */
 	MESSAGE_NEWREF,		/* special message to create and inform ref */
 };

@@ -9,20 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-enum {
-	B_STATE_IDLE,
-	B_STATE_ACTIVATING,
-	B_STATE_ACTIVE,
-	B_STATE_DEACTIVATING,
-};
-
-enum {
-	B_EVENT_ACTIVATE,
-	B_EVENT_ACTIVATED,
-	B_EVENT_DEACTIVATE,
-	B_EVENT_DEACTIVATED,
-};
-
 #define FROMUP_BUFFER_SIZE 1024
 #define FROMUP_BUFFER_MASK 1023
 
@@ -53,10 +39,11 @@ struct mISDNport {
 	int d_stid;
 	int b_num; /* number of bchannels */
 	int b_reserved; /* number of bchannels reserved or in use */
-	class PmISDN *b_port[128]; /* maximum number of ports shall be 128 due to S0 / E1 / special E1 */
+	class PmISDN *b_port[128]; /* bchannel assigned to port object */
 	int b_stid[128];
-	int b_addr[128];
-	int b_state[128]; /* state 0 = IDLE */
+	unsigned long b_addr[128];
+	int b_state[128]; /* statemachine, 0 = IDLE */
+	unsigned long b_remote[128]; /* if remote application requires bchannel */
 	int procids[128]; /* keep track of free ids */
 	int locally; /* local causes are sent as local causes not remote */
 	msg_queue_t downqueue;		/* l4->l3 */
@@ -96,7 +83,8 @@ int stack2manager_nt(void *dat, void *arg);
 int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
-void bchannel_event(struct mISDNport *mISDNport, int i, int event);
+void bchannel_event(struct mISDNport *mISDNport, int i, int event, unsigned long to_remote);
+void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned long addr);
 
 
 /* mISDN port classes */
@@ -158,6 +146,7 @@ class PmISDN : public Port
 	int p_m_hold;				/* if port is on hold */
 	unsigned long p_m_timeout;		/* timeout of timers */
 	time_t p_m_timer;			/* start of timer */
+	unsigned char p_m_exportremote;		/* join to export bchannel to */
 
 	int seize_bchannel(int channel, int exclusive); /* requests / reserves / links bchannels, but does not open it! */
 	void drop_bchannel(void);

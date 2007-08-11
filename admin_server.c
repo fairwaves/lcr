@@ -107,7 +107,7 @@ void free_connection(struct admin_list *admin)
 				memset(&param, 0, sizeof(param));
 				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
 				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				((class JoinRemote *)join)->message_remote(0, MESSAGE_RELEASE, &param);
+				((class JoinRemote *)join)->message_remote(MESSAGE_RELEASE, &param);
 				/* join is now destroyed, so we go to next join */
 			}
 			join = joinnext;
@@ -511,7 +511,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 	class Endpoint		*epoint;
 	class EndpointAppPBX	*apppbx;
 
-	if (!(epoint = new Endpoint(0, 0, 0)))
+	if (!(epoint = new Endpoint(0, 0)))
 		FATAL("No memory for Endpoint instance\n");
 	if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint)))
 		FATAL("No memory for Endpoint Application instance\n");
@@ -641,6 +641,17 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 		return(0);
 	}
 
+	/* bchannel message
+	 * no ref given for *_ack */
+	if (msg->type == MESSAGE_BCHANNEL)
+	if (msg->param.bchannel.type == BCHANNEL_ASSIGN_ACK
+	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK)
+	{
+		/* no ref, but address */
+		message_bchannel_from_join(NULL, msg->param.bchannel.type, msg->param.bchannel.addr);
+		return(0);
+	}
+	
 	/* check for ref */
 	if (!msg->ref)
 	{
@@ -675,7 +686,7 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 	}
 
 	/* send message */
-	((class JoinRemote *)join)->message_remote(msg->ref, msg->type, &msg->param);
+	((class JoinRemote *)join)->message_remote(msg->type, &msg->param);
 
 	return(0);
 }

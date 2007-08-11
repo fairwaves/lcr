@@ -159,3 +159,34 @@ the endpoint may receive MESSAGE_RELEASE from a call but may NOT send it
 to the port. the port MUST get a MESSAGE_DISCONNECT instead. 
  
 
+REMOTE APPLICATION PROCEDURE
+----------------------------
+
+MESSAGE_NEWREF
+- is sent before outgoing setup may be sent
+- is received before outgoing setup may be sent
+- is received before incoming call
+
+MESSAGE_BCHANNEL
+- type BCHANNEL_REQUEST is sent to get the bchannel stack
+  the ref is required to find the corresponding port class
+- type BCHANNEL_ASSIGN is received, if channel is available, ACK must be sent
+  the ref is given with the bchannel stack. 
+- type BCHANNEL_ASSIGN_ACK must be sent to acknowledge channel
+  the ref is 0, the stack address must be set to find corresponding channel
+- type BCHANNEL_REMOVE is received, if channel is not available anymore
+  the stack must then be release, the ACK must be sent.
+  the ref is given with the bchannel stack.
+- type BCHANNEL_REMOVE_ACK must be sent after releasing stack.
+  the ref is 0, the stack address must be set to find corresponding channel
+
+MESSAGE_RELEASE
+- will be received or sent to release call and ref.
+- also bchannel socket must be closed AND BCHANNEL_REMOVE_ACK must be sent!
+  the bchannel is in exported state until acked by the remote application.
+
+what happenes to channels that are not acked?
+-> one solution may be: they are blocked until the port is unloaded/unblocked.
+
+
+

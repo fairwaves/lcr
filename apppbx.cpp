@@ -2901,14 +2901,15 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 		port_resume(portlist, message_type, param);
 		break;
 
+#if 0
 		/* port assigns bchannel */
-		case MESSAGE_BCHANNEL: /* indicates the assigned bchannel  */
-		case MESSAGE_BCHANNEL_FREE: /* requests bchannel back (e.g. when call is holded) */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel assignment.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		case MESSAGE_BCHANNEL: /* bchannel assignment messafe */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel message %d from port.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->bchannel.type);
 		/* only one port is expected to be connected to bchannel */
 		message = message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, param);
 		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_IN);
 		break;
+#endif
 
 
 		default:
@@ -3459,7 +3460,7 @@ void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, u
 	}
 }
 
-/* call sends messages to the endpoint
+/* JOIN sends messages to the endpoint
  */
 void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, union parameter *param)
 {
@@ -3468,7 +3469,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 
 	if (!join_id)
 	{
-		PERROR("EPOINT(%d) error: call == NULL.\n", ea_endpoint->ep_serial);
+		PERROR("EPOINT(%d) error: JOIN == NULL.\n", ea_endpoint->ep_serial);
 		return;
 	}
 
@@ -3477,7 +3478,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 	/* send MESSAGE_DATA to port */
 	if (message_type == MESSAGE_DATA)
 	{
-		if (join_id == ea_endpoint->ep_join_id) // still linked with call
+		if (join_id == ea_endpoint->ep_join_id) // still linked with JOIN
 		{
 			/* skip if no port relation */
 			if (!portlist)
@@ -3491,28 +3492,28 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		}
 	}
 
-//	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active call (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_ext.number, e_callerinfo.id, e_state);
+//	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active JOIN (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_ext.number, e_callerinfo.id, e_state);
 	switch(message_type)
 	{
-		/* CALL SENDS CRYPT message */
+		/* JOIN SENDS CRYPT message */
 		case MESSAGE_CRYPT:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);
 		join_crypt(portlist, message_type, param);
 		break;
 
-		/* CALL sends INFORMATION message */
+		/* JOIN sends INFORMATION message */
 		case MESSAGE_INFORMATION:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received more digits: '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->information.id);
 		join_information(portlist, message_type, param);
 		break;
 
-		/* CALL sends FACILITY message */
+		/* JOIN sends FACILITY message */
 		case MESSAGE_FACILITY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received facility\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		join_facility(portlist, message_type, param);
 		break;
 
-		/* CALL sends OVERLAP message */
+		/* JOIN sends OVERLAP message */
 		case MESSAGE_OVERLAP:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received 'more info available'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_SETUP
@@ -3524,7 +3525,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_overlap(portlist, message_type, param);
 		break;
 
-		/* CALL sends PROCEEDING message */
+		/* JOIN sends PROCEEDING message */
 		case MESSAGE_PROCEEDING:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s (caller id '%s') received proceeding\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if(e_state!=EPOINT_STATE_IN_OVERLAP)
@@ -3535,7 +3536,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_proceeding(portlist, message_type, param);
 		break;
 
-		/* CALL sends ALERTING message */
+		/* JOIN sends ALERTING message */
 		case MESSAGE_ALERTING:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received alerting\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_OVERLAP
@@ -3547,7 +3548,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_alerting(portlist, message_type, param);
 		break;
 
-		/* CALL sends CONNECT message */
+		/* JOIN sends CONNECT message */
 		case MESSAGE_CONNECT:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received connect\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_OVERLAP
@@ -3560,29 +3561,29 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_connect(portlist, message_type, param);
 		break;
 
-		/* CALL sends DISCONNECT/RELEASE message */
-		case MESSAGE_DISCONNECT: /* call disconnect */
-		case MESSAGE_RELEASE: /* call releases */
+		/* JOIN sends DISCONNECT/RELEASE message */
+		case MESSAGE_DISCONNECT: /* JOIN disconnect */
+		case MESSAGE_RELEASE: /* JOIN releases */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received %s with cause %d location %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (message_type==MESSAGE_DISCONNECT)?"disconnect":"release", param->disconnectinfo.cause, param->disconnectinfo.location);
 		join_disconnect_release(message_type, param);
 		break;
 
-		/* CALL sends SETUP message */
+		/* JOIN sends SETUP message */
 		case MESSAGE_SETUP:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received setup from terminal='%s',id='%s' to id='%s' (dialing itype=%d)\n", ea_endpoint->ep_serial, param->setup.callerinfo.extension, param->setup.callerinfo.id, param->setup.dialinginfo.id, param->setup.dialinginfo.itype);
 		join_setup(portlist, message_type, param);
 		break;
 
-		/* CALL sends special mISDNSIGNAL message */
+		/* JOIN sends special mISDNSIGNAL message */
 		case MESSAGE_mISDNSIGNAL: /* isdn message to port */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received mISDNsignal message.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		join_mISDNsignal(portlist, message_type, param);
 		break;
 
-		/* call requests bchannel */
+#if 0
+		/* JOIN requests bchannel */
 		case MESSAGE_BCHANNEL: /* indicates the need of own bchannel access */
-		case MESSAGE_BCHANNEL_FREE: /* indicates that the bchannel is free */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel assignment %d from join.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->bchannel.type);
 		/* only one port is expected to be connected to bchannel */
 		if (!portlist)
 			break;
@@ -3594,8 +3595,9 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		message = message_forward(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, param);
 		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		break;
+#endif
 
-		/* CALL has pattern available */
+		/* JOIN has pattern available */
 		case MESSAGE_PATTERN: /* indicating pattern available */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern availability.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (!e_join_pattern)
@@ -3620,7 +3622,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		}
 		break;
 
-		/* CALL has no pattern available */
+		/* JOIN has no pattern available */
 		case MESSAGE_NOPATTERN: /* indicating no pattern available */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received pattern NOT available.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_join_pattern)
@@ -3635,7 +3637,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		break;
 
 #if 0
-		/* CALL (dunno at the moment) */
+		/* JOIN (dunno at the moment) */
 		case MESSAGE_REMOTE_AUDIO:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received audio remote request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
@@ -3644,7 +3646,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		break;
 #endif
 
-		/* CALL sends a notify message */
+		/* JOIN sends a notify message */
 		case MESSAGE_NOTIFY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		join_notify(portlist, message_type, param);
@@ -4478,13 +4480,32 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		end_trace();
 		break;
 
+#if 0
 		case MESSAGE_BCHANNEL:
-		case MESSAGE_BCHANNEL_FREE:
 		trace_header("BCHANNEL", dir);
+		switch(param->bchannel.type)
+		{
+			case BCHANNEL_REQUEST:
+			add_trace("type", NULL, "request");
+			break;
+			case BCHANNEL_ASSIGN:
+			add_trace("type", NULL, "assign");
+			break;
+			case BCHANNEL_ASSIGN_ACK:
+			add_trace("type", NULL, "assign_ack");
+			break;
+			case BCHANNEL_REMOVE:
+			add_trace("type", NULL, "remove");
+			break;
+			case BCHANNEL_REMOVE_ACK:
+			add_trace("type", NULL, "remove_ack");
+			break;
+		}
 		if (param->bchannel.addr)
 			add_trace("address", NULL, "%x", param->bchannel.addr);
 		end_trace();
 		break;
+#endif
 
 		default:
 		PERROR("EPOINT(%d) message not of correct type (%d)\n", ea_endpoint->ep_serial, message_type);

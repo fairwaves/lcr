@@ -15,7 +15,7 @@ class JoinRemote : public Join
 	JoinRemote(unsigned long serial, char *remote_name, int remote_id);
 	~JoinRemote();
 	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
-	void message_remote(unsigned long ref, int message_type, union parameter *param);
+	void message_remote(int message_type, union parameter *param);
 	int handler(void);
 
 	int j_remote_id;
@@ -24,3 +24,4 @@ class JoinRemote : public Join
 }; 
 
 
+void message_bchannel_to_join(int serial, int type, unsigned long addr);

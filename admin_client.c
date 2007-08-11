@@ -717,12 +717,41 @@ char *admin_state(int sock, char *argv[])
 							if (m[i].u.i.l2link && m[i].u.i.block==0)
 							{
 								ptmp:
-								color((m[i].u.i.busy[j])?yellow:blue);
-								addstr((m[i].u.i.busy[j])?"busy":"idle");
+								switch(m[i].u.i.busy[j])
+								{
+									case B_STATE_IDLE:
+									color(blue);
+									addstr("idle    ");
+									break;
+									case B_STATE_ACTIVATING:
+									color(yellow);
+									addstr("act'ing ");
+									break;
+									case B_STATE_ACTIVE:
+									color(green);
+									addstr("busy    ");
+									break;
+									case B_STATE_DEACTIVATING:
+									color(yellow);
+									addstr("dact'ing");
+									break;
+									case B_STATE_EXPORTING:
+									color(yellow);
+									addstr("exp'ing ");
+									break;
+									case B_STATE_REMOTE:
+									color(green);
+									addstr("remote  ");
+									break;
+									case B_STATE_IMPORTING:
+									color(yellow);
+									addstr("imp'ing ");
+									break;
+								}
 							} else
 							{
 								color(red);
-								addstr("blk ");
+								addstr("blocked ");
 							}
 							if (m[i].u.i.port[j])
 							{

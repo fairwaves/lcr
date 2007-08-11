@@ -39,7 +39,7 @@ class Endpoint *find_epoint_id(unsigned long epoint_id)
 /*
  * endpoint constructor (link with either port or join id)
  */
-Endpoint::Endpoint(unsigned long port_id, unsigned long join_id, unsigned long use_epoint_id)
+Endpoint::Endpoint(unsigned long port_id, unsigned long join_id)
 {
 	class Port *port;
 	class Endpoint **epointpointer;
@@ -60,10 +60,7 @@ Endpoint::Endpoint(unsigned long port_id, unsigned long join_id, unsigned long u
 	*epointpointer = this;
 
 	/* serial */
-	if (use_epoint_id)
-		ep_serial = use_epoint_id;
-	else
-		ep_serial = epoint_serial++;
+	ep_serial = epoint_serial++;
 
 	/* link to join or port */
 	if (port_id)
