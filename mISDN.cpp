@@ -785,7 +785,6 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event, unsigned long
 		case B_EVENT_DROP:
 		if (!b_port)
 			FATAL("bchannel must be linked to a Port class\n");
-		mISDNport->b_remote[i] = 0;
 		switch(state)
 		{
 			case B_STATE_IDLE:
@@ -884,6 +883,10 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event, unsigned long
 						state = B_STATE_ACTIVATING;
 					}
 				}
+			} else
+			{
+				/* not exported anymore */
+				mISDNport->b_remote[i] = 0;
 			}
 			break;
 
@@ -1005,7 +1008,6 @@ void PmISDN::drop_bchannel(void)
 	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_IDLE)
 		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_DROP, 0);
 	p_m_mISDNport->b_port[p_m_b_index] = NULL;
-	p_m_mISDNport->b_remote[p_m_b_index] = 0;
 	p_m_b_index = -1;
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
