@@ -66,6 +66,11 @@ int last_debug = 0;
 int debug_newline = 1;
 int nooutput = 0;
 
+void debug_usleep(int msec, char *file, int line, int hour, int min, int sec)
+{
+	usleep(msec);
+}
+
 void debug(const char *function, int line, char *prefix, char *buffer)
 {
 	/* if we have a new debug count, we add a mark */
@@ -463,10 +468,16 @@ int main(int argc, char *argv[])
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
 		all_idle = 1;
 
+#warning debugging usleep crash
+		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+
 		/* handle mISDN messages from kernel */
 		debug_prefix = "ISDN";
 		if (mISDN_handler())
 			all_idle = 0;
+#warning debugging usleep crash
+		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+
 #ifdef DEBUG_DURATION
 		GET_NOW();
 		isdn_duration += (now_d - start_d);
@@ -638,6 +649,8 @@ BUDETECT
 			all_idle = 0;
 		}
 #endif
+#warning debugging usleep crash
+		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
 		/* do idle checking */
 		if (idlecheck != now)
@@ -670,7 +683,7 @@ BUDETECT
 		/* did we do nothing? so we wait to give time to other processes */
 		if (all_idle)
 		{
-			usleep(4000); /* wait 32 samples */
+			debug_usleep(4000, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 			idletime += 4000;
 		}
 	}

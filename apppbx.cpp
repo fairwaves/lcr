@@ -1614,7 +1614,6 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
 	e_dtmf = param->setup.dtmf;
-
 	/* screen incoming caller id */
 	interface = interface_first;
 	while(interface)
@@ -1774,7 +1773,8 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
 	if (e_dtmf)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received dialing information, so dtmf is now disabled, to prevent double detection by keypad+dtmf.\n", ea_endpoint->ep_serial, param->information.id, e_ext.number, e_callerinfo.id);
+		trace_header("DTMF (disabling due to keypad)", DIRECTION_IN);
+		end_trace();
 		e_dtmf = 0;
 	}
 
@@ -1801,21 +1801,29 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	}
 
 	/* keypad when connected */
-	if (e_state == EPOINT_STATE_CONNECT && e_ext.keypad)
+	if (e_state == EPOINT_STATE_CONNECT)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
-		/* processing keypad function */
-		if (param->information.id[0] == '0')
+		if (e_ext.keypad)
 		{
-			hookflash();
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
+			/* processing keypad function */
+			if (param->information.id[0] == '0')
+			{
+				hookflash();
+			}
+			if (param->information.id[0])
+				keypad_function(param->information.id[0]);
+		} else
+		{
+			trace_header("DTMF (not enabled by extension's settings)", DIRECTION_IN);
+			end_trace();
 		}
-		if (param->information.id[0])
-			keypad_function(param->information.id[0]);
 		return;
 	}
 	if (e_state != EPOINT_STATE_IN_OVERLAP)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) ignored because we are not in overlap, or connect state.\n", ea_endpoint->ep_serial);
+		trace_header("DTMF (ignored, not connected and not dialing)", DIRECTION_IN);
+		end_trace();
 		return;
 	}
 	if (!param->information.id[0])
@@ -1841,15 +1849,16 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 /* port MESSAGE_DTMF */
 void EndpointAppPBX::port_dtmf(struct port_list *portlist, int message_type, union parameter *param)
 {
-	trace_header("DTMF", DIRECTION_IN);
-	add_trace("digit", NULL, "%c", param->dtmf);
-	end_trace();
 	/* only if dtmf detection is enabled */
 	if (!e_dtmf)
 	{
-		PDEBUG(DEBUG_EPOINT, "dtmf detection is disabled\n");
+		trace_header("DTMF (disabled)", DIRECTION_IN);
+		end_trace();
 		return;
 	}
+	trace_header("DTMF", DIRECTION_IN);
+	add_trace("digit", NULL, "%c", param->dtmf);
+	end_trace();
 
 #if 0
 NOTE: vbox is now handled due to overlap state
@@ -2892,6 +2901,16 @@ void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, un
 		port_resume(portlist, message_type, param);
 		break;
 
+		/* port assigns bchannel */
+		case MESSAGE_BCHANNEL: /* indicates the assigned bchannel  */
+		case MESSAGE_BCHANNEL_FREE: /* requests bchannel back (e.g. when call is holded) */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel assignment.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		/* only one port is expected to be connected to bchannel */
+		message = message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, param);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_IN);
+		break;
+
+
 		default:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
 	}
@@ -3124,10 +3143,11 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 }
 
 /* join MESSAGE_DISCONNECT MESSAGE_RELEASE */
-void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int message_type, union parameter *param)
+void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *param)
 {
 	char cause[16];
 	struct message *message;
+	struct port_list *portlist = NULL;
 
 
 	/* be sure that we are active */
@@ -3154,11 +3174,11 @@ void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int mes
 		if (e_state==EPOINT_STATE_IN_OVERLAP)
 		{
 			new_state(EPOINT_STATE_IN_PROCEEDING);
-			if (portlist)
+			if (ea_endpoint->ep_portlist)
 			{
-				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
+				message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_PROCEEDING);
 				message_put(message);
-				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
+				logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
 			}
 /* caused the error, that the first knock sound was not there */
 /*					set_tone(portlist, "proceeding"); */
@@ -3166,6 +3186,7 @@ void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int mes
 		/* send display of powerdialing */
 		if (e_ext.display_dialing)
 		{
+			portlist = ea_endpoint->ep_portlist;
 			while (portlist)
 			{
 				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
@@ -3227,6 +3248,7 @@ void EndpointAppPBX::join_disconnect_release(struct port_list *portlist, int mes
 	}
 	/* send disconnect message */
 	SCPY(e_tone, cause);
+	portlist = ea_endpoint->ep_portlist;
 	while(portlist)
 	{
 		set_tone(portlist, cause);
@@ -3542,20 +3564,35 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		case MESSAGE_DISCONNECT: /* call disconnect */
 		case MESSAGE_RELEASE: /* call releases */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received %s with cause %d location %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, (message_type==MESSAGE_DISCONNECT)?"disconnect":"release", param->disconnectinfo.cause, param->disconnectinfo.location);
-		join_disconnect_release(portlist, message_type, param);
+		join_disconnect_release(message_type, param);
 		break;
 
 		/* CALL sends SETUP message */
 		case MESSAGE_SETUP:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received setup from terminal='%s',id='%s' to id='%s' (dialing itype=%d)\n", ea_endpoint->ep_serial, param->setup.callerinfo.extension, param->setup.callerinfo.id, param->setup.dialinginfo.id, param->setup.dialinginfo.itype);
 		join_setup(portlist, message_type, param);
-		return;
 		break;
 
 		/* CALL sends special mISDNSIGNAL message */
 		case MESSAGE_mISDNSIGNAL: /* isdn message to port */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received mISDNsignal message.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		join_mISDNsignal(portlist, message_type, param);
+		break;
+
+		/* call requests bchannel */
+		case MESSAGE_BCHANNEL: /* indicates the need of own bchannel access */
+		case MESSAGE_BCHANNEL_FREE: /* indicates that the bchannel is free */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		/* only one port is expected to be connected to bchannel */
+		if (!portlist)
+			break;
+		if (portlist->next)
+			break;
+		e_join_pattern = 1;
+		SCPY(e_tone, "");
+		set_tone(portlist, NULL);
+		message = message_forward(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, param);
+		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 		break;
 
 		/* CALL has pattern available */
@@ -4438,6 +4475,14 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("from", NULL, "CH(%lu)", port_id);
 		if (param->parkinfo.len)
 			add_trace("length", NULL, "%d", param->parkinfo.len);
+		end_trace();
+		break;
+
+		case MESSAGE_BCHANNEL:
+		case MESSAGE_BCHANNEL_FREE:
+		trace_header("BCHANNEL", dir);
+		if (param->bchannel.addr)
+			add_trace("address", NULL, "%x", param->bchannel.addr);
 		end_trace();
 		break;
 

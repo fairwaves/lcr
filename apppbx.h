@@ -214,7 +214,7 @@ class EndpointAppPBX : public EndpointApp
 	void join_proceeding(struct port_list *portlist, int message_type, union parameter *param);
 	void join_alerting(struct port_list *portlist, int message_type, union parameter *param);
 	void join_connect(struct port_list *portlist, int message_type, union parameter *param);
-	void join_disconnect_release(struct port_list *portlist, int message_type, union parameter *param);
+	void join_disconnect_release(int message_type, union parameter *param);
 	void join_notify(struct port_list *portlist, int message_type, union parameter *param);
 	void join_facility(struct port_list *portlist, int message_type, union parameter *param);
 

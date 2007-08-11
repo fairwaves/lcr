@@ -734,7 +734,17 @@ void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive,
 	}
 
 	add_trace("channel_id", "exclusive", "%d", exclusive);
-	add_trace("channel_id", "channel", "%d", channel);
+	switch(channel)
+	{
+		case CHANNEL_ANY:
+		add_trace("channel_id", "channel", "any channel");
+		break;
+		case CHANNEL_NO:
+		add_trace("channel_id", "channel", "no channel");
+		break;
+		default:
+		add_trace("channel_id", "channel", "%d", channel);
+	}
 
 	if (!pri)
 	{
@@ -874,7 +884,17 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 	}
 
 	add_trace("channel_id", "exclusive", "%d", *exclusive);
-	add_trace("channel_id", "channel", "%d", *channel);
+	switch(*channel)
+	{
+		case CHANNEL_ANY:
+		add_trace("channel_id", "channel", "any channel");
+		break;
+		case CHANNEL_NO:
+		add_trace("channel_id", "channel", "no channel");
+		break;
+		default:
+		add_trace("channel_id", "channel", "%d", *channel);
+	}
 }
 
 

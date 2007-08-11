@@ -54,7 +54,7 @@ void message_put(struct message *message)
 	messagepointer_end = &(message->next);
 }
 
-void message_forward(int id_from, int id_to, int flow, union parameter *param)
+struct message *message_forward(int id_from, int id_to, int flow, union parameter *param)
 {
 	struct message *message;
 
@@ -68,6 +68,8 @@ void message_forward(int id_from, int id_to, int flow, union parameter *param)
 	message->id_to = id_to;
 	message->flow = flow;
 	message_put(message);
+
+	return(message);
 }
 
 /* detaches the first messages from the message chain */

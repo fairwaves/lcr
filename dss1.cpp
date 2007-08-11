@@ -746,6 +746,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
 	message->param.setup.port_type = p_type;
+	message->param.setup.dtmf = !p_m_mISDNport->ifport->nodtmf;
 	memcpy(&message->param.setup.dialinginfo, &p_dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.callerinfo, &p_callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.redirinfo, &p_redirinfo, sizeof(struct redir_info));
@@ -3139,6 +3140,9 @@ int stack2manager_nt(void *dat, void *arg)
 			time(&mISDNport->l2establish);
 			PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
 		}
+#warning debugging usleep crash
+		printf("JOLLY release port %d\n", mISDNport->portnum);
+		usleep(1);
 		break;
 
 		case CC_SETUP | INDICATION:

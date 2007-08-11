@@ -678,7 +678,7 @@ struct interface_param interface_param[] = {
 	" any - On outgoing calls, signal 'any channel acceptable'. (see DSS1)\n"
 	" no - Signal 'no channel available' aka 'call waiting'. (see DSS1)"},
 
-	{"channel-in", &inter_channel_in, "[force,][<number>][,...][,free][,any][,no]",
+	{"channel-in", &inter_channel_in, "[<number>][,...][,free]",
 	"Channel selection list for all incomming calls from the interface.\n"
 	"A free channels is accepted if in the list.\n"
 	"If any channel was requested, the first free channel found is selected.\n"

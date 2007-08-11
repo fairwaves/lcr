@@ -278,6 +278,10 @@ struct param_hello {
 	char application[32]; /* name of remote application */
 };
 
+struct param_bchannel {
+	unsigned long addr; /* bchannel stack address */
+};
+
 /* structure of message parameter */
 union parameter {
 	struct param_tone tone; /* MESSAGE_TONE */
@@ -300,6 +304,7 @@ union parameter {
 	struct extension ext; /* tell port about extension information */
 	struct param_crypt crypt; /* MESSAGE_CRYPT */
 	struct param_hello hello; /* MESSAGE_HELLO */
+	struct param_bchannel bchannel; /* MESSAGE_BCHANNEL */
 };
 
 enum { /* message flow */
@@ -355,6 +360,7 @@ enum { /* messages between entities */
 	MESSAGE_TONE_COUNTER,	/* tone counter (for VBOX tone use) */
 	MESSAGE_TONE_EOF,	/* tone is end of file */
 	MESSAGE_BCHANNEL,	/* request/assign bchannel */
+	MESSAGE_BCHANNEL_FREE,	/* requests/assigns bchannel to be free */
 	MESSAGE_HELLO,		/* hello message for remote application */
 	MESSAGE_NEWREF,		/* special message to create and inform ref */
 };
@@ -396,7 +402,7 @@ enum { /* messages between entities */
 
 struct message *message_create(int id_from, int id_to, int flow, int type);
 void message_put(struct message *message);
-void message_forward(int id_from, int id_to, int flow, union parameter *param);
+struct message *message_forward(int id_from, int id_to, int flow, union parameter *param);
 struct message *message_get(void);
 void message_free(struct message *message);
 
