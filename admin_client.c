@@ -712,46 +712,43 @@ char *admin_state(int sock, char *argv[])
 							else
 								SPRINT(buffer,"B%2d: ", j+1);
 							addstr(buffer);
-							if (!m[i].u.i.ptp)
-								goto ptmp;
-							if (m[i].u.i.l2link && m[i].u.i.block==0)
+							switch(m[i].u.i.busy[j])
 							{
-								ptmp:
-								switch(m[i].u.i.busy[j])
+								case B_STATE_IDLE:
+								if ((!m[i].u.i.l2link && m[i].u.i.ptp) || m[i].u.i.block)
 								{
-									case B_STATE_IDLE:
+									color(red);
+									addstr("blocked ");
+								} else
+								{
 									color(blue);
 									addstr("idle    ");
-									break;
-									case B_STATE_ACTIVATING:
-									color(yellow);
-									addstr("act'ing ");
-									break;
-									case B_STATE_ACTIVE:
-									color(green);
-									addstr("busy    ");
-									break;
-									case B_STATE_DEACTIVATING:
-									color(yellow);
-									addstr("dact'ing");
-									break;
-									case B_STATE_EXPORTING:
-									color(yellow);
-									addstr("exp'ing ");
-									break;
-									case B_STATE_REMOTE:
-									color(green);
-									addstr("remote  ");
-									break;
-									case B_STATE_IMPORTING:
-									color(yellow);
-									addstr("imp'ing ");
-									break;
 								}
-							} else
-							{
-								color(red);
-								addstr("blocked ");
+								break;
+								case B_STATE_ACTIVATING:
+								color(yellow);
+								addstr("act'ing ");
+								break;
+								case B_STATE_ACTIVE:
+								color(green);
+								addstr("busy    ");
+								break;
+								case B_STATE_DEACTIVATING:
+								color(yellow);
+								addstr("dact'ing");
+								break;
+								case B_STATE_EXPORTING:
+								color(yellow);
+								addstr("exp'ing ");
+								break;
+								case B_STATE_REMOTE:
+								color(green);
+								addstr("remote  ");
+								break;
+								case B_STATE_IMPORTING:
+								color(yellow);
+								addstr("imp'ing ");
+								break;
 							}
 							if (m[i].u.i.port[j])
 							{
