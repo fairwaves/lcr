@@ -31,7 +31,7 @@
 JoinRemote::JoinRemote(unsigned long serial, char *remote_name, int remote_id) : Join()
 {
 	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
-	union parameter *param;
+	union parameter param;
 
 	SCPY(j_remote_name, remote_name);
 	j_remote_id = remote_id;
@@ -42,9 +42,11 @@ JoinRemote::JoinRemote(unsigned long serial, char *remote_name, int remote_id) :
 		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s\n", j_epoint_id, remote_name);
 
 	/* send new ref to remote socket */
-	memset(&param, 0, sizeof(param));
+	memset(&param, 0, sizeof(union parameter));
+	if (serial)
+		param.direction = 1; /* new ref from lcr */
 	/* the j_serial is assigned by Join() parent. this is sent as new ref */
-	if (admin_message_from_join(j_remote_id, j_serial, MESSAGE_NEWREF, param)<0)
+	if (admin_message_from_join(j_remote_id, j_serial, MESSAGE_NEWREF, &param)<0)
 		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", j_remote_name);
 }
 

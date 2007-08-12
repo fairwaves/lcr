@@ -333,6 +333,7 @@ union parameter {
 	struct param_crypt crypt; /* MESSAGE_CRYPT */
 	struct param_hello hello; /* MESSAGE_HELLO */
 	struct param_bchannel bchannel; /* MESSAGE_BCHANNEL */
+	int direction; /* MESSAGE_NEWREF */
 };
 
 enum { /* message flow */

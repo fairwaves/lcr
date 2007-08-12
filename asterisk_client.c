@@ -44,7 +44,8 @@ with that reference.
 #include "extension.h"
 #include "message.h"
 #include "admin.h"
-#include "aserisk_client.h"
+#include "cause.h"
+#include "asterisk_client.h"
 
 int sock;
 
@@ -54,7 +55,120 @@ struct admin_list {
 } *admin_first = NULL;
 
 /*
- * enque message from asterisk
+ * channel and call instances
+ */
+struct chan_bchannel *bchannel_first;
+struct chan_call *call_first;
+
+struct chan_bchannel *find_bchannel_addr(unsigned long addr)
+{
+	struct chan_bchannel *bchannel = bchannel_first;
+
+	while(bchannel)
+	{
+		if (bchannel->addr == addr)
+			break;
+		bchannel = bchannel->next;
+	}
+	return(bchannel);
+}
+
+struct chan_bchannel *find_bchannel_ref(unsigned long ref)
+{
+	struct chan_bchannel *bchannel = bchannel_first;
+
+	while(bchannel)
+	{
+		if (bchannel->ref == ref)
+			break;
+		bchannel = bchannel->next;
+	}
+	return(bchannel);
+}
+
+struct chan_call *find_call_ref(unsigned long ref)
+{
+	struct chan_call *call = call_first;
+
+	while(call)
+	{
+		if (call->ref == ref)
+			break;
+		call = call->next;
+	}
+	return(call);
+}
+
+struct chan_call *find_call_addr(unsigned long addr)
+{
+	struct chan_call *call = call_first;
+
+	while(call)
+	{
+		if (call->addr == addr)
+			break;
+		call = call->next;
+	}
+	return(call);
+}
+
+struct chan_bchannel *alloc_bchannel(void)
+{
+	struct chan_bchannel **bchannelp = &bchannel_first;
+
+	while(*bchannelp)
+		bchannelp = &((*bchannelp)->next);
+
+	*bchannelp = (struct chan_bchannel *)MALLOC(sizeof(struct chan_bchannel));
+	return(*bchannelp);
+}
+
+void free_bchannel(struct chan_bchannel *bchannel)
+{
+	struct chan_bchannel **temp = &bchannel_first;
+
+	while(*temp)
+	{
+		if (*temp == bchannel)
+		{
+			*temp = (*temp)->next;
+			free(bchannel);
+			return;
+		}
+		temp = &((*temp)->next);
+	}
+}
+
+struct chan_call *alloc_call(void)
+{
+	struct chan_call **callp = &call_first;
+
+	while(*callp)
+		callp = &((*callp)->next);
+
+	*callp = (struct chan_call *)MALLOC(sizeof(struct chan_call));
+	return(*callp);
+}
+
+void free_call(struct chan_call *call)
+{
+	struct chan_call **temp = &call_first;
+
+	while(*temp)
+	{
+		if (*temp == call)
+		{
+			*temp = (*temp)->next;
+			free(call);
+			return;
+		}
+		temp = &((*temp)->next);
+	}
+}
+
+
+/*
+ * enque message to LCR
  */
 int send_message(int message_type, unsigned long ref, union parameter *param)
 {
@@ -79,30 +193,32 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 int receive_message(int message_type, unsigned long ref, union parameter *param)
 {
 	union parameter newparam;
+	struct chan_bchannel *bchannel;
+	struct chan_call *call;
 
 	memset(&newparam, 0, sizeof(union parameter));
 
 	/* handle bchannel message*/
 	if (message_type == MESSAGE_BCHANNEL)
 	{
-		switch(param.bchannel.type)
+		switch(param->bchannel.type)
 		{
 			case BCHANNEL_ASSIGN:
-			if (find_channel_addr(param->bchannel.addr))
+			if (find_bchannel_addr(param->bchannel.addr))
 			{
 				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
 				return(-1);
 			}
-			/* create channel */
-			channel = alloc_channel();
-			channel.addr = param->bchannel.addr;
-			/* in case, ref is not set, this channel instance must
+			/* create bchannel */
+			bchannel = alloc_bchannel();
+			bchannel->addr = param->bchannel.addr;
+			/* in case, ref is not set, this bchannel instance must
 			 * be created until it is removed again by LCR */
-			channel.ref = param->bchannel.ref;
+			bchannel->ref = ref;
 			/* link to call */
-			if ((call = find_call_ref(param->bchannel.ref)))
+			if ((call = find_call_ref(ref)))
 			{
-				call.addr = param->bchannel.addr;
+				call->addr = param->bchannel.addr;
 			}
 
 #warning open stack
@@ -113,18 +229,18 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			break;
 
 			case BCHANNEL_REMOVE:
-			if (!(channel = find_channel_addr(param->bchannel.addr)))
+			if (!(bchannel = find_bchannel_addr(param->bchannel.addr)))
 			{
 				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
 				return(-1);
 			}
 			/* unlink from call */
-			if ((call = find_call_ref(channel->ref)))
+			if ((call = find_call_ref(bchannel->ref)))
 			{
-				call.addr = 0;
+				call->addr = 0;
 			}
-			/* remove channel */
-			free_channel(channel);
+			/* remove bchannel */
+			free_bchannel(bchannel);
 #warning close stack
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_REMOVE_ACK;
@@ -134,11 +250,68 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			break;
 
 			default:
-			fprintf(stderr, "received unknown bchannel message %d\n", param.bchannel.type);
+			fprintf(stderr, "received unknown bchannel message %d\n", param->bchannel.type);
 		}
 		return(0);
 	}
+
+	/* handle new ref */
+	if (message_type == MESSAGE_NEWREF)
+	{
+		if (param->direction)
+		{
+			/* new ref from lcr */
+			if (!ref || find_call_ref(ref))
+			{
+				fprintf(stderr, "illegal new ref %d received\n", ref);
+				return(-1);
+			}
+			call = alloc_call();
+			call->ref = ref;
+		} else
+		{
+			/* new ref, as requested from this remote application */
+			call = find_call_ref(0);
+			if (!call)
+			{
+				/* send release, if ref does not exist */
+				newparam.disconnectinfo.cause = CAUSE_NORMAL;
+				newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+				send_message(MESSAGE_RELEASE, ref, &newparam);
+				return(0);
+			}
+			call->ref = ref;
+#warning process call (send setup, if pending)
+		}
+		return(0);
+	}
+
+	/* check ref */
+	if (!ref)
+	{
+		fprintf(stderr, "received message %d without ref\n", message_type);
+		return(-1);
+	}
+	call = find_call_ref(ref);
+	if (!call)
+	{
+		/* ignore ref that is not used (anymore) */
+		return(0);
+	}
+
+	/* handle messages */
 	switch(message_type)
+	{
+#warning we must see if ref is a reply or a request, do we??
+		case MESSAGE_RELEASE:
+#warning release call
+		free_call(call);
+		return(0);
+
+		case MESSAGE_SETUP:
+#warning handle incoming setup, send to asterisk
+		break;
+	}
 	return(0);
 }
 
@@ -173,7 +346,7 @@ int handle_socket(void)
 			fprintf(stderr, "Socket received illegal message %d\n", msg.message);
 			return(-1); // socket error
 		}
-		receive_message(msg.type, msg.ref, &msg.param);
+		receive_message(msg.u.msg.type, msg.u.msg.ref, &msg.u.msg.param);
 		printf("message received %d\n", msg.u.msg.type);
 		work = 1;
 	} else
@@ -262,7 +435,7 @@ int main(int argc, char *argv[])
 	/* enque hello message */
 	memset(&param, 0, sizeof(param));
 	SCPY(param.hello.application, "asterisk");
-	admin_asterisk(MESSAGE_HELLO, &param);
+	send_message(MESSAGE_HELLO, 0, &param);
 
 	while(42)
 	{
