@@ -25,7 +25,7 @@ Make a MESSAGE_SETUP or receive a MESSAGE_SETUP with the reference.
 To release call and reference, send or receive MESSAGE_RELEASE.
 From that point on, the ref is not valid, so no other message may be sent
 with that reference.
-   
+
 */
 
 #include <stdio.h>
@@ -44,6 +44,7 @@ with that reference.
 #include "extension.h"
 #include "message.h"
 #include "admin.h"
+#include "aserisk_client.h"
 
 int sock;
 
@@ -55,7 +56,7 @@ struct admin_list {
 /*
  * enque message from asterisk
  */
-int admin_asterisk(int message_type, union parameter *param)
+int send_message(int message_type, unsigned long ref, union parameter *param)
 {
 	struct admin_list *admin, **adminp;
 
@@ -66,8 +67,78 @@ int admin_asterisk(int message_type, union parameter *param)
 	*adminp = admin;
 
 	admin->msg.type = message_type;
+	admin->msg.ref = ref;
 	memcpy(&admin->msg.param, param, sizeof(union parameter));
 
+	return(0);
+}
+
+/*
+ * message received from LCR
+ */
+int receive_message(int message_type, unsigned long ref, union parameter *param)
+{
+	union parameter newparam;
+
+	memset(&newparam, 0, sizeof(union parameter));
+
+	/* handle bchannel message*/
+	if (message_type == MESSAGE_BCHANNEL)
+	{
+		switch(param.bchannel.type)
+		{
+			case BCHANNEL_ASSIGN:
+			if (find_channel_addr(param->bchannel.addr))
+			{
+				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
+				return(-1);
+			}
+			/* create channel */
+			channel = alloc_channel();
+			channel.addr = param->bchannel.addr;
+			/* in case, ref is not set, this channel instance must
+			 * be created until it is removed again by LCR */
+			channel.ref = param->bchannel.ref;
+			/* link to call */
+			if ((call = find_call_ref(param->bchannel.ref)))
+			{
+				call.addr = param->bchannel.addr;
+			}
+
+#warning open stack
+			/* acknowledge */
+			newparam.bchannel.type = BCHANNEL_ASSIGN_ACK;
+			newparam.bchannel.addr = param->bchannel.addr;
+			send_message(MESSAGE_BCHANNEL, 0, &newparam);
+			break;
+
+			case BCHANNEL_REMOVE:
+			if (!(channel = find_channel_addr(param->bchannel.addr)))
+			{
+				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
+				return(-1);
+			}
+			/* unlink from call */
+			if ((call = find_call_ref(channel->ref)))
+			{
+				call.addr = 0;
+			}
+			/* remove channel */
+			free_channel(channel);
+#warning close stack
+			/* acknowledge */
+			newparam.bchannel.type = BCHANNEL_REMOVE_ACK;
+			newparam.bchannel.addr = param->bchannel.addr;
+			send_message(MESSAGE_BCHANNEL, 0, &newparam);
+			
+			break;
+
+			default:
+			fprintf(stderr, "received unknown bchannel message %d\n", param.bchannel.type);
+		}
+		return(0);
+	}
+	switch(message_type)
 	return(0);
 }
 
@@ -102,6 +173,7 @@ int handle_socket(void)
 			fprintf(stderr, "Socket received illegal message %d\n", msg.message);
 			return(-1); // socket error
 		}
+		receive_message(msg.type, msg.ref, &msg.param);
 		printf("message received %d\n", msg.u.msg.type);
 		work = 1;
 	} else

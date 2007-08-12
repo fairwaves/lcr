@@ -123,32 +123,16 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	}
 }
 
-void message_bchannel_to_join(int serial, int type, unsigned long addr)
+void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long addr)
 {
 	union parameter param;
-	class Join *join;
-	class JoinRemote *joinremote;
-
-	/* find join serial */
-	join = find_join_id(serial);
-	if (!join)
-	{
-		PDEBUG(DEBUG_JOIN | DEBUG_BCHANNEL, "Join %d not found\n", serial);
-		return;
-	}
-	if (!join->j_type != JOIN_TYPE_REMOTE)
-	{
-		PERROR("Join %d not of remote type. This shall not happen.\n", serial);
-		return;
-	}
-	joinremote = (class JoinRemote *)join;
 
 	memset(&param, 0, sizeof(union parameter));
 	param.bchannel.type = type;
 	param.bchannel.addr = addr;
-	if (admin_message_from_join(joinremote->j_remote_id, joinremote->j_serial, MESSAGE_BCHANNEL, &param)<0)
+	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0)
 	{
-		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", joinremote->j_remote_name);
+		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);
 		return;		
 	}
 }

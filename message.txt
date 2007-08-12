@@ -182,8 +182,6 @@ MESSAGE_BCHANNEL
 
 MESSAGE_RELEASE
 - will be received or sent to release call and ref.
-- also bchannel socket must be closed AND BCHANNEL_REMOVE_ACK must be sent!
-  the bchannel is in exported state until acked by the remote application.
 
 what happenes to channels that are not acked?
 -> one solution may be: they are blocked until the port is unloaded/unblocked.

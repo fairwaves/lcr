@@ -43,7 +43,7 @@ struct mISDNport {
 	int b_stid[128];
 	unsigned long b_addr[128];
 	int b_state[128]; /* statemachine, 0 = IDLE */
-	unsigned long b_remote[128]; /* if remote application requires bchannel */
+	unsigned long b_remote_id[128]; /* the socket currently exported */
 	int procids[128]; /* keep track of free ids */
 	int locally; /* local causes are sent as local causes not remote */
 	msg_queue_t downqueue;		/* l4->l3 */
@@ -83,7 +83,7 @@ int stack2manager_nt(void *dat, void *arg);
 int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
-void bchannel_event(struct mISDNport *mISDNport, int i, int event, unsigned long to_remote);
+void bchannel_event(struct mISDNport *mISDNport, int i, int event);
 void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned long addr);
 
 
@@ -146,7 +146,8 @@ class PmISDN : public Port
 	int p_m_hold;				/* if port is on hold */
 	unsigned long p_m_timeout;		/* timeout of timers */
 	time_t p_m_timer;			/* start of timer */
-	unsigned char p_m_exportremote;		/* join to export bchannel to */
+	unsigned char p_m_remote_ref;		/* join to export bchannel to */
+	unsigned char p_m_remote_id;		/* sock to export bchannel to */
 
 	int seize_bchannel(int channel, int exclusive); /* requests / reserves / links bchannels, but does not open it! */
 	void drop_bchannel(void);
