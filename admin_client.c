@@ -463,6 +463,8 @@ char *admin_state(int sock, char *argv[])
 	int			anything;
 	int			enter = 0;
 	char			enter_string[128] = "", ch;
+	fd_set			select_rfds;
+	struct timeval		select_tv;
 
 	/* flush logfile name */
 	logfile[0] = '\0';
@@ -1000,7 +1002,7 @@ char *admin_state(int sock, char *argv[])
 				{
 					buffer[COLS-1] = '\0';
 					addstr(buffer);
-					color(red);
+					color(mangenta);
 					addch('*');
 					color(white);
 				} else
@@ -1017,7 +1019,7 @@ char *admin_state(int sock, char *argv[])
 //	move(0, 0);
 //	hline(' ', COLS);
 	move(0, 0);
-	color(white);
+	color(cyan);
 	msg.u.s.version_string[sizeof(msg.u.s.version_string)-1] = '\0';
 	SPRINT(buffer, "LCR %s", msg.u.s.version_string);
 	addstr(buffer);
@@ -1049,14 +1051,18 @@ char *admin_state(int sock, char *argv[])
 	}
 	/* display end */
 	move(LINES-2, 0);
-	color(white);
+	color(blue);
 	hline(ACS_HLINE, COLS);
 	move(LINES-1, 0);
-	color(white);
 	if (enter)
+	{
+		color(white);
 		SPRINT(buffer, "-> %s", enter_string);
-	else
+	} else
+	{
+		color(cyan);
 		SPRINT(buffer, "i=interfaces '%s'  c=calls '%s'  l=log  q=quit  +-*/=scroll  enter", text_interfaces[show_interfaces], text_calls[show_calls]);
+	}
 	addstr(buffer);
 	refresh();
 
@@ -1072,6 +1078,7 @@ char *admin_state(int sock, char *argv[])
 	{
 		/* user input in enter mode */
 		ch = getch();
+		enter_again:
 		if (ch == 10)
 		{
 			FILE *fp;
@@ -1117,17 +1124,30 @@ char *admin_state(int sock, char *argv[])
 		if (ch>=32 && ch<=126)
 		{
 			SCCAT(enter_string, ch);
+			ch = getch();
+			if (ch > 0)
+				goto enter_again;
 			goto again;
 		} else
 		if (ch==8 || ch==127)
 		{
 			if (enter_string[0])
 				enter_string[strlen(enter_string)-1] = '\0';
+			ch = getch();
+			if (ch > 0)
+				goto enter_again;
 			goto again;
 		} else
 		if (ch != 3)
 		{
-			usleep(250000);
+			ch = getch();
+			if (ch > 0)
+				goto enter_again;
+			FD_ZERO(&select_rfds);
+			FD_SET(0, &select_rfds);
+			select_tv.tv_sec = 0;
+			select_tv.tv_usec = 250000;
+			select(1, &select_rfds, NULL, NULL, &select_tv);
 			goto again;
 		}
 	} else
@@ -1184,7 +1204,11 @@ char *admin_state(int sock, char *argv[])
 			goto again;
 
 			default:
-			usleep(250000);
+			FD_ZERO(&select_rfds);
+			FD_SET(0, &select_rfds);
+			select_tv.tv_sec = 0;
+			select_tv.tv_usec = 250000;
+			select(1, &select_rfds, NULL, NULL, &select_tv);
 			goto again;
 		}
 	}
