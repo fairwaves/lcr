@@ -623,18 +623,18 @@ The bchannel is not used by remote application.
 
 All actions taken on these events depend on the current bchannel's state and if it is linked to a Port class.
 
-if an export request is receive by remote application, p_m_exportremote is set.
-the b_remotejoin[index] indicates if linked port shall be exported.
+if an export request is receive by remote application, p_m_remote_* is set.
+the b_remote_*[index] indicates if and where the channel is exported to. (set from the point on, where export is initiated, until imported is acknowledged.)
 - set on export request from remote application (if port is assigned)
-- set on channel use, if requested by remote application (p_m_exportremote)
+- set on channel use, if requested by remote application (p_m_remote_*)
 - cleared on drop request
 
 the bchannel will be exported with ref and stack given. remote application uses the ref to link bchannel to the call.
 the bchannel will be imported with stack given only. remote application must store stack id with the bchannel process.
 the bchannel import/export is acknowledged with stack given.
 
-if exporting, b_remotesocket[index] is set to the remote socket id.
-if importing has been acknowledged. b_remotesockt[index] is cleared.
+if exporting, b_remote_*[index] is set to the remote socket id.
+if importing has been acknowledged. b_remote_*[index] is cleared.
 
 */
 
@@ -668,7 +668,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		switch(state)
 		{
 			case B_STATE_IDLE:
-			if (p_m_remote_id)
+			if (p_m_remote_ref)
 			{
 				/* export bchannel */
 				message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, addr);
@@ -678,6 +678,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				end_trace();
 				state = B_STATE_EXPORTING;
 				mISDNport->b_remote_id[i] = p_m_remote_id;
+				mISDNport->b_remote_ref[i] = p_m_remote_ref;
 			} else
 			{
 				/* create stack and send activation request */
@@ -710,7 +711,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 		case B_EVENT_EXPORTREQUEST:
 		/* special case where the bchannel is requested by remote */
-		if (!p_m_remote_id)
+		if (!p_m_remote_ref)
 		{
 			PERROR("export request without remote channel set, please correct.\n");
 			break;
@@ -728,6 +729,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			end_trace();
 			state = B_STATE_EXPORTING;
 			mISDNport->b_remote_id[i] = p_m_remote_id;
+			mISDNport->b_remote_ref[i] = p_m_remote_ref;
 			break;
 
 			case B_STATE_ACTIVATING:
@@ -781,13 +783,16 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		switch(state)
 		{
 			case B_STATE_EXPORTING:
-			if (b_port && p_m_remote_id)
+			if (b_port && p_m_remote_ref && p_m_remote_ref==mISDNport->b_remote_ref[i])
 			{
 				/* remote export done */
 				state = B_STATE_REMOTE;
 			} else
 			{
-				/* bchannel is now exported, but we need bchannel back OR bchannel is not used anymore, so reimport, to later export to new remote */
+				/* bchannel is now exported, but we need bchannel back
+				 * OR bchannel is not used anymore
+				 * OR bchannel has been exported to an obsolete ref,
+				 * so reimport, to later export to new remote */
 				message_bchannel_to_join(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, addr);
 				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 				add_trace("type", NULL, "remove");
@@ -855,7 +860,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			if (b_port)
 			{
 				/* bchannel is now deactivate, but is requied by Port class, so we reactivate / export */
-				if (p_m_remote_id)
+				if (p_m_remote_ref)
 				{
 					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, addr);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
@@ -864,6 +869,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 					end_trace();
 					state = B_STATE_EXPORTING;
 					mISDNport->b_remote_id[i] = p_m_remote_id;
+					mISDNport->b_remote_ref[i] = p_m_remote_ref;
 				} else
 				{
 					if (_bchannel_create(mISDNport, i))
@@ -886,10 +892,11 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			case B_STATE_IMPORTING:
 			state = B_STATE_IDLE;
 			mISDNport->b_remote_id[i] = 0;
+			mISDNport->b_remote_ref[i] = 0;
 			if (b_port)
 			{
 				/* bchannel is now imported, but is requied by Port class, so we reactivate / export */
-				if (p_m_remote_id)
+				if (p_m_remote_ref)
 				{
 					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, addr);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
@@ -898,6 +905,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 					end_trace();
 					state = B_STATE_EXPORTING;
 					mISDNport->b_remote_id[i] = p_m_remote_id;
+					mISDNport->b_remote_ref[i] = p_m_remote_ref;
 				} else
 				{
 					if (_bchannel_create(mISDNport, i))

@@ -44,6 +44,7 @@ struct mISDNport {
 	unsigned long b_addr[128];
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	unsigned long b_remote_id[128]; /* the socket currently exported */
+	unsigned long b_remote_ref[128]; /* the ref currently exported */
 	int procids[128]; /* keep track of free ids */
 	int locally; /* local causes are sent as local causes not remote */
 	msg_queue_t downqueue;		/* l4->l3 */

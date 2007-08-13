@@ -204,7 +204,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		switch(param->bchannel.type)
 		{
 			case BCHANNEL_ASSIGN:
-			if (find_bchannel_addr(param->bchannel.addr))
+			if ((bchannel = find_bchannel_addr(param->bchannel.addr)))
 			{
 				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
 				return(-1);
@@ -214,10 +214,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			bchannel->addr = param->bchannel.addr;
 			/* in case, ref is not set, this bchannel instance must
 			 * be created until it is removed again by LCR */
-			bchannel->ref = ref;
 			/* link to call */
 			if ((call = find_call_ref(ref)))
 			{
+				bchannel->ref = ref;
 				call->addr = param->bchannel.addr;
 			}
 
@@ -231,7 +231,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			case BCHANNEL_REMOVE:
 			if (!(bchannel = find_bchannel_addr(param->bchannel.addr)))
 			{
-				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
+				fprintf(stderr, "error: bchannel addr %x not assigned.\n", param->bchannel.addr);
 				return(-1);
 			}
 			/* unlink from call */
