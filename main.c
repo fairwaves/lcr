@@ -28,7 +28,7 @@
 
 MESSAGES
 
-double now_d;
+double now_d, last_d;
 time_t now;
 struct tm *now_tm;
 struct timeval now_tv;
@@ -40,7 +40,6 @@ struct timezone now_tz;
 		now = now_tv.tv_sec; \
 		now_tm = localtime(&now); \
 	}
-//#define DEBUG_DURATION
 
 int global_debug = 0;
 int quit=0;
@@ -198,11 +197,6 @@ int main(int argc, char *argv[])
 	char 			*debug_prefix = "alloc";
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
         			created_lock = 0, created_signal = 0, created_debug = 0;
-#ifdef DEBUG_DURATION
-	time_t			durationupdate;
-	double			idle_duration, isdn_duration, port_duration, epoint_duration, join_duration, message_duration, admin_duration;
-	double			start_d;
-#endif
 	int			idletime = 0, idlecheck = 0;
 	char			tracetext[256];
 
@@ -457,14 +451,15 @@ int main(int argc, char *argv[])
 	printf("%s\n", tracetext);
 	end_trace();
 	GET_NOW();
-#ifdef DEBUG_DURATION
-	start_d = now_d;
-	durationupdate = now;
-	idle_duration = isdn_duration = port_duration = epoint_duration = call_duration = message_duration = admin_duration = 0;
-#endif
 	quit = 0;
 	while(!quit)
 	{
+		last_d = now_d;
+		GET_NOW();
+		if (now_d-last_d > 1.0)
+		{
+			PERROR("LCR was stalling %d.%d seconds\n", ((int)((now_d-last_d)*10.0))/10, (int)((now_d-last_d)*10.0));
+		}
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
 		all_idle = 1;
 
@@ -478,11 +473,6 @@ int main(int argc, char *argv[])
 #warning debugging usleep crash
 		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		isdn_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 BUDETECT
 
 		/* loop through all port ports and call their handler */
@@ -499,11 +489,6 @@ BUDETECT
 				goto port_again;
 			port = port->next;
 		}
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		port_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 
 		/* loop through all epoint and call their handler */
 		epoint_again:
@@ -520,11 +505,6 @@ BUDETECT
 				goto epoint_again;
 			epoint = epoint->next;
 		}
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		epoint_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 
 		/* loop through all joins and call their handler */
 		join_again:
@@ -540,11 +520,6 @@ BUDETECT
 				goto join_again;
 			join = join->next;
 		}
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		join_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 
 		debug_prefix = 0;
 
@@ -624,21 +599,11 @@ BUDETECT
 			debug_count++;
 			debug_prefix = "message";
 		}
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		message_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 BUDETECT
 
 		/* handle socket */
 		if (admin_handle())
 			all_idle = 0;
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		admin_duration += (now_d - start_d);
-		start_d = now_d;
-#endif
 BUDETECT
 
 #if 0
@@ -659,26 +624,6 @@ BUDETECT
 			idletime = 0;
 			idlecheck = now;
 		}
-#ifdef DEBUG_DURATION
-		GET_NOW();
-		idle_duration += (now_d - start_d);
-		start_d = now_d;
-		if (durationupdate != now)
-		{
-			durationupdate = now;
-			printf("Idle:%3d ISDN:%3d Port:%3d Epoint:%3d Join:%3d Message:%3d Admin:%3d\n",
-				(int)(idle_duration*100),
-				(int)(isdn_duration*100),
-				(int)(port_duration*100),
-				(int)(epoint_duration*100),
-				(int)(join_duration*100),
-				(int)(message_duration*100),
-				(int)(admin_duration*100));
-			idle_duration = isdn_duration = port_duration = epoint_duration = join_duration = message_duration = admin_duration = 0;
-		}
-#else
-		GET_NOW();
-#endif
 
 		/* did we do nothing? so we wait to give time to other processes */
 		if (all_idle)
