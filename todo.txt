@@ -3,9 +3,6 @@ make asterisk call implementation
 
 display message during nothing/play
 
-Port -> Proc
-Call -> Link
-
 maybe:
 delay - per param setzen, lokal als mISDNsignal und remote mittels setup
 
@@ -17,7 +14,6 @@ NOTE: check CENTREX
 
 durchstellen mit disconnect
 durchstellen mit keypad
-ruf bei CFP gibt besetzt, wenn teilnehmer intern besetzt ist.
 short ring
 sleep relaxed
 auto pick

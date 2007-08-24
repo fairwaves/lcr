@@ -161,6 +161,7 @@ int mISDN_handler(void)
 	msg_t *dmsg;
 	mISDNuser_head_t *hh;
 	int i;
+	struct chan_bchannel *bchannel;
 
 	/* no device, no read */
 	if (mISDNdevice < 0)
@@ -199,16 +200,16 @@ int mISDN_handler(void)
 	}
 
 	/* look for channel instance, that has the address of this message */
-	chan = chan_first;
-	while(chan)
+	bchannel = bchannel_first;
+	while(bchannel)
 	{
-		if (frm->addr == chan->b_addr)
+		if (frm->addr == bchannel->b_addr)
 			break;
-		chan = chan->next;
+		bchannel = chan->next;
 	} 
-	if (!chan)
+	if (!bchannel)
 	{
-		PERROR("message belongs to no chan: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		PERROR("message belongs to no bchannel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
 		goto out;
 	}
 
@@ -225,7 +226,7 @@ int mISDN_handler(void)
 		case DL_DATA | INDICATION:
 		case PH_CONTROL | INDICATION:
 		i = 0;
-		chan->bchannel_receive(frm);
+		bchannel_receive(bchannel, frm);
 		break;
 
 		case PH_ACTIVATE | INDICATION:
@@ -233,7 +234,6 @@ int mISDN_handler(void)
 		case PH_ACTIVATE | CONFIRM:
 		case DL_ESTABLISH | CONFIRM:
 		PDEBUG(DEBUG_BCHANNEL, "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
-		chan->b_active = 1;
 		bchannel_event(mISDNport, i, B_EVENT_ACTIVATED);
 		break;
 
@@ -242,7 +242,6 @@ int mISDN_handler(void)
 		case PH_DEACTIVATE | CONFIRM:
 		case DL_RELEASE | CONFIRM:
 		PDEBUG(DEBUG_BCHANNEL, "DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
-		chan->b_active = 0;
 		bchannel_event(mISDNport, i, B_EVENT_DEACTIVATED);
 		break;
 

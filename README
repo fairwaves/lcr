@@ -336,7 +336,7 @@ Changes in Version 3.4
 
 New Verion for new name: LCR
 
-Changes in Version 1.0
+Changes in Version 0.1
 - Statefull b-channel open and closing
 - Rebuild audio flow
   Made much simpler
@@ -360,4 +360,9 @@ Changes in Version 1.0
 - Rename of 'Call' instances to 'Join', because they join parties together.
 - A new remote interface for external applications is integrated
   -> Our first application is (-: *ASTERISK CHANNEL DRIVER* :-)
+
+Changes in Version 0.2
+- Fixed partyline handling
+- Audio recoriding still does not work.
+
 

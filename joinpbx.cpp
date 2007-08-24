@@ -698,6 +698,57 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 		return;
 	}
 
+	/* process party line */
+	if (message_type == MESSAGE_SETUP) if (param->setup.partyline)
+	{
+		j_partyline = param->setup.partyline;
+	}
+	if (j_partyline)
+	{
+		switch(message_type)
+		{
+			case MESSAGE_SETUP:
+			PDEBUG(DEBUG_JOIN, "respsone with connect in partyline mode.\n");
+			relation->type = RELATION_TYPE_CONNECT;
+			message = message_create(j_serial, epoint_id, JOIN_TO_EPOINT, MESSAGE_CONNECT);
+			SPRINT(message->param.connectinfo.id, "%d", j_partyline);
+			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
+			message_put(message);
+			j_updatebridge = 1; /* update bridge flag */
+			break;
+			
+			case MESSAGE_AUDIOPATH:
+			PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
+			if (relation->channel_state != param->audiopath)
+			{
+				relation->channel_state = param->audiopath;
+				j_updatebridge = 1; /* update bridge flag */
+				if (options.deb & DEBUG_JOIN)
+					joinpbx_debug(this, "Join::message_epoint{after setting new channel state}");
+			}
+			break;
+
+			case MESSAGE_DISCONNECT:
+			PDEBUG(DEBUG_JOIN, "releasing after receiving disconnect, because join in partyline mode.\n");
+			message = message_create(j_serial, epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = CAUSE_NORMAL;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			// fall through
+
+			case MESSAGE_RELEASE:
+			PDEBUG(DEBUG_JOIN, "releasing from join\n");
+			release(relation, 0, 0);
+			break;
+
+			default:
+			PDEBUG(DEBUG_JOIN, "ignoring message, because join in partyline mode.\n");
+		}
+		return;
+	}
+
+
+	/* process messages */
 	switch(message_type)
 	{
 		/* process audio path message */
@@ -824,34 +875,6 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			release(relation, param->disconnectinfo.location, param->disconnectinfo.cause);
 		}
 		return; // must return, because join may be destroyed
-	}
-
-	/* process party line */
-	if (message_type == MESSAGE_SETUP) if (param->setup.partyline)
-	{
-		PDEBUG(DEBUG_JOIN, "respsone with connect in partyline mode.\n");
-		j_partyline = param->setup.partyline;
-		message = message_create(j_serial, epoint_id, JOIN_TO_EPOINT, MESSAGE_CONNECT);
-		message->param.setup.partyline = j_partyline;
-		message_put(message);
-		j_updatebridge = 1; /* update bridge flag */
-	}
-	if (j_partyline)
-	{
-		if (message_type == MESSAGE_DISCONNECT)
-		{
-			PDEBUG(DEBUG_JOIN, "releasing after receiving disconnect, because join in partyline mode.\n");
-			message = message_create(j_serial, epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = CAUSE_NORMAL;
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-			message_put(message);
-			return;
-		}
-	}
-	if (j_partyline)
-	{
-		PDEBUG(DEBUG_JOIN, "ignoring message, because join in partyline mode.\n");
-		return;
 	}
 
 	/* count relations */
