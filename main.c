@@ -44,6 +44,10 @@ struct timezone now_tz;
 int global_debug = 0;
 int quit=0;
 
+#if 0
+struct lcr_fdset lcr_fdset[FD_SETSIZE];
+#endif
+
 pthread_mutex_t mutexd; // debug output mutex
 //pthread_mutex_t mutext; // trace output mutex
 pthread_mutex_t mutexe; // error output mutex
@@ -199,6 +203,11 @@ int main(int argc, char *argv[])
         			created_lock = 0, created_signal = 0, created_debug = 0;
 	int			idletime = 0, idlecheck = 0;
 	char			tracetext[256];
+
+#if 0
+	/* init fdset */
+	memset(lcr_fdset, 0, sizeof(lcr_fdset));
+#endif
 
 	/* current time */
 	GET_NOW();

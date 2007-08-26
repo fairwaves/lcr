@@ -366,4 +366,4 @@ Changes in Version 0.2
 - Stall warning
 - Audio recoriding still does not work.
 
-
+- Added handle structure for all file descriptors

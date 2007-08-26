@@ -154,4 +154,10 @@ extern struct timezone now_tz;
 #define DIRECTION_OUT	1
 #define DIRECTION_IN	2
 
+#if 0
+struct lcr_fdset {
+	struct mISDNport *mISDNport;
+	int b_index;
+};
+#endif
 

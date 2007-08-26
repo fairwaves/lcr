@@ -50,6 +50,7 @@ struct interface_port {
 	int			portnum; /* port number */
 	int			ptp; /* force load stack in PTP mode */
 	int			ptmp; /* force load stack in PTP mode */
+	int			nt; /* load stack in NT-mode */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */

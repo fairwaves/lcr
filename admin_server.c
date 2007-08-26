@@ -648,7 +648,7 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK)
 	{
 		/* no ref, but address */
-		message_bchannel_from_join(NULL, msg->param.bchannel.type, msg->param.bchannel.addr);
+		message_bchannel_from_join(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
 		return(0);
 	}
 	

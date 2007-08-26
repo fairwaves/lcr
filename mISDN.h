@@ -17,13 +17,22 @@ extern int mISDNdevice;
 
 /* mISDN port structure list */
 struct mISDNport {
+#ifdef SOCKET_MISDN
+	struct mlayer3 *ml3;
+#else
 	net_stack_t nst; /* MUST be the first entry, so &nst equals &mISDNlist */
 	manager_t mgr;
+	int upper_id; /* id to transfer data down */
+	int lower_id; /* id to transfer data up */
+	int d_stid;
+	msg_queue_t downqueue;		/* l4->l3 */
+#endif
 	struct mISDNport *next;
+	char name[64]; /* name of port, if available */
 	struct interface_port *ifport; /* link to interface_port */
 //	int iftype; /* IF_* */
 //	int multilink; /* if set, this port will not support callwaiting */
-	int portnum; /* port number */
+	int portnum; /* port number 1..n */
 	int ptp; /* if ptp is set, we keep track of l2link */
 	int l1link; /* if l1 is available (only works with nt-mode) */
 	int l2link; /* if l2 is available (at PTP we take this serious) */
@@ -34,20 +43,20 @@ struct mISDNport {
 	int pri; /* is TRUE if port is a primary rate interface */
 	int tones; /* TRUE if tones are sent outside connect state */
 	int earlyb; /* TRUE if tones are received outside connect state */
-	int upper_id; /* id to transfer data down */
-	int lower_id; /* id to transfer data up */
-	int d_stid;
 	int b_num; /* number of bchannels */
 	int b_reserved; /* number of bchannels reserved or in use */
 	class PmISDN *b_port[128]; /* bchannel assigned to port object */
+#ifdef SOCKET_MISDN
+	int b_socket[128];
+#else
 	int b_stid[128];
 	unsigned long b_addr[128];
+#endif
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	unsigned long b_remote_id[128]; /* the socket currently exported */
 	unsigned long b_remote_ref[128]; /* the ref currently exported */
 	int procids[128]; /* keep track of free ids */
 	int locally; /* local causes are sent as local causes not remote */
-	msg_queue_t downqueue;		/* l4->l3 */
 };
 extern mISDNport *mISDNport_first;
 
@@ -70,14 +79,14 @@ calls with no bchannel (call waiting, call on hold).
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
 void mISDN_port_info(void);
-struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, struct interface *interface);
+struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);
 int mISDN_handler(void);
 void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause);
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long b_addr, int c1, int c2, char *trace_name, int trace_value);
-void ph_control_block(struct mISDNport *mISDNport, unsigned long b_addr, int c1, void *c2, int c2_len, char *trace_name, int trace_value);
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
+void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
 msg_t *create_l2msg(int prim, int dinfo, int size);
 void setup_queue(struct mISDNport *mISDNport, int link);
 int stack2manager_nt(void *dat, void *arg);
@@ -85,7 +94,7 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
-void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned long addr);
+void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned long handle);
 
 
 /* mISDN port classes */

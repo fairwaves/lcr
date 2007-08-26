@@ -186,6 +186,31 @@ static int inter_ptmp(struct interface *interface, char *filename, int line, cha
 	ifport->ptmp = 1;
 	return(0);
 }
+static int inter_nt(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifdef SOCKET_MISDN
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	/* add value */
+	if (value[0])
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
+		return(-1);
+	}
+	ifport->nt = 1;
+#endif
+	return(0);
+}
 static int inter_tones(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	if (!strcasecmp(value, "yes"))
@@ -667,6 +692,14 @@ struct interface_param interface_param[] = {
 	"The given port above is opened as point-to-multipoint.\n"
 	"This is required on PRI NT-mode ports that are point-to-point by default.\n"
 	"This parameter must follow a 'port' parameter."},
+	{"nt", &inter_nt, "",
+	"The given port above is opened in NT-mode.\n"
+#ifdef SOCKET_MISDN
+	"This is required on interfaces that support both NT-mode and TE-mode.\n"
+#else
+	"This parameter is only required for socket based mISDN driver.\n"
+#endif
+	"This parameter must follow a 'port' parameter."},
 
 	{"channel-out", &inter_channel_out, "[force,][<number>][,...][,free][,any][,no]",
 	"Channel selection list for all outgoing calls to the interface.\n"
@@ -1074,7 +1107,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp, ifport->nt, ifport->interface);
 	if (mISDNport)
 	{
 		/* link port */

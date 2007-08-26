@@ -307,7 +307,7 @@ struct param_hello {
 
 struct param_bchannel {
 	int type; /* BCHANNEL_* */
-	unsigned long addr; /* bchannel stack address */
+	unsigned long handle; /* bchannel stack/socket */
 };
 
 /* structure of message parameter */

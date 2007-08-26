@@ -109,7 +109,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	 * also ref is given, so we send message with ref */
 	if (message_type == MESSAGE_BCHANNEL)
 	{
-		message_bchannel_from_join(this, param->bchannel.type, param->bchannel.addr);
+		message_bchannel_from_join(this, param->bchannel.type, param->bchannel.handle);
 		return;
 	}
 	
@@ -125,13 +125,13 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	}
 }
 
-void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long addr)
+void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long handle)
 {
 	union parameter param;
 
 	memset(&param, 0, sizeof(union parameter));
 	param.bchannel.type = type;
-	param.bchannel.addr = addr;
+	param.bchannel.handle = handle;
 	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0)
 	{
 		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);

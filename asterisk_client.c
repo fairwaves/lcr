@@ -60,7 +60,7 @@ struct admin_list {
 struct chan_bchannel *bchannel_first;
 struct chan_call *call_first;
 
-struct chan_bchannel *find_bchannel_addr(unsigned long addr)
+struct chan_bchannel *find_bchannel_handle(unsigned long addr)
 {
 	struct chan_bchannel *bchannel = bchannel_first;
 
@@ -204,34 +204,34 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		switch(param->bchannel.type)
 		{
 			case BCHANNEL_ASSIGN:
-			if ((bchannel = find_bchannel_addr(param->bchannel.addr)))
+			if ((bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				fprintf(stderr, "error: bchannel addr %x already assigned.\n", param->bchannel.addr);
+				fprintf(stderr, "error: bchannel handle %x already assigned.\n", param->bchannel.handle);
 				return(-1);
 			}
 			/* create bchannel */
 			bchannel = alloc_bchannel();
-			bchannel->addr = param->bchannel.addr;
+			bchannel->addr = param->bchannel.handle;
 			/* in case, ref is not set, this bchannel instance must
 			 * be created until it is removed again by LCR */
 			/* link to call */
 			if ((call = find_call_ref(ref)))
 			{
 				bchannel->ref = ref;
-				call->addr = param->bchannel.addr;
+				call->addr = param->bchannel.handle;
 			}
 
 #warning open stack
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_ASSIGN_ACK;
-			newparam.bchannel.addr = param->bchannel.addr;
+			newparam.bchannel.handle = param->bchannel.handle;
 			send_message(MESSAGE_BCHANNEL, 0, &newparam);
 			break;
 
 			case BCHANNEL_REMOVE:
-			if (!(bchannel = find_bchannel_addr(param->bchannel.addr)))
+			if (!(bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				fprintf(stderr, "error: bchannel addr %x not assigned.\n", param->bchannel.addr);
+				fprintf(stderr, "error: bchannel handle %x not assigned.\n", param->bchannel.handle);
 				return(-1);
 			}
 			/* unlink from call */
@@ -244,7 +244,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 #warning close stack
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_REMOVE_ACK;
-			newparam.bchannel.addr = param->bchannel.addr;
+			newparam.bchannel.handle = param->bchannel.handle;
 			send_message(MESSAGE_BCHANNEL, 0, &newparam);
 			
 			break;

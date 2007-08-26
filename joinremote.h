@@ -24,4 +24,4 @@ class JoinRemote : public Join
 }; 
 
 
-void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long addr);
+void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long handle);
