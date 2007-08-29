@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 extern "C" {
-#include <net_l2.h>
+#include <mISDNuser/net_l2.h>
 }
 
 //#define CENTREX

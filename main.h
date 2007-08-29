@@ -115,8 +115,8 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 extern "C" {
 #endif
 #ifndef SOCKET_MISDN
-#include <isdn_net.h>
-#include <../i4lnet/net_l3.h>
+#include <mISDNuser/isdn_net.h>
+#include <mISDNuser/net_l3.h>
 #endif
 #ifdef __cplusplus
 }

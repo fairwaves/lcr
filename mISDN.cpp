@@ -28,7 +28,7 @@
 #include <mlayer3.h>
 #else
 extern "C" {
-#include <net_l2.h>
+#include <mISDNuser/net_l2.h>
 }
 #endif
 
@@ -1265,7 +1265,7 @@ void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned
 #ifdef SOCKET_MISDN
 				if (mISDNport->b_socket[i] == handle)
 #else
-				if ((mISDNport->portnum<<8)+i+1+(i>=15) == handle)
+				if ((unsigned long)(mISDNport->portnum<<8)+i+1+(i>=15) == handle)
 #endif
 					break;
 				i++;

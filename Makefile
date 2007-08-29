@@ -9,8 +9,8 @@
 #*                                                                           **
 #*****************************************************************************/ 
 
-WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
-WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
+#WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
+#WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
 #WITH-SOCKET = 42 # compile for socket based mISDN (
 # note: check your location and the names of libraries.
 
@@ -18,12 +18,6 @@ WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk ch
 INSTALL_BIN = /usr/local/bin
 INSTALL_DATA = /usr/local/lcr
 
-# give locations for the libraries
-LINUX_INCLUDE = -I/usr/src/linux/include
-
-# give location of the mISDN libraries
-MISDNUSER_INCLUDE = -I../mISDNuser/include -I../mISDNuser/i4lnet
-MISDNUSER_LIB = -L../mISDNuser/lib -L../mISDNuser/i4lnet
 LIBS += -lisdnnet -lmISDN -lpthread
 
 # give location of the curses or ncurses library
@@ -43,14 +37,12 @@ GENW = ./genwave
 GENRC = ./genrc
 GENEXT = ./genextension
 CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
-CFLAGS += $(LINUX_INCLUDE) $(MISDNUSER_INCLUDE)
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
 endif
 ifdef WITH-SOCKET
 CFLAGS += -DSOCKET_MISDN
 endif
-LIBDIR += $(MISDNUSER_LIB)
 ifdef WITH-CRYPTO
 LIBDIR += -L/usr/local/ssl/lib
 CFLAGS += -I/usr/local/ssl/include
@@ -313,5 +305,11 @@ fork: $(LCR)
 	-killall -9 -w -q lcr # the following error must be ignored
 	$(LCR) fork
 
+snapshot: clean
+	DIR=lcr-$$(date +"20%y_%m_%d") ; \
+	mkdir -p /tmp/$$DIR ; \
+	cp -a * /tmp/$$DIR ; \
+	cd /tmp/; \
+	tar czf $$DIR.tar.gz $$DIR
 
 
