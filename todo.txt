@@ -2,7 +2,7 @@
 neue params zum aufbau eines externen/internen calls
 neue params zun aufbau eines externen/internen calls dokumentieren
 
-neue partyline-params und dokumentieren
+neuen partyline-param dokumentieren
 
 make asterisk call implementation
 
