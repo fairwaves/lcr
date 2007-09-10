@@ -697,11 +697,6 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
 	/* store for suspended processes */
 	SCPY(e_tone, tone);
 
-	if (!portlist)
-	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no endpoint to notify tone.\n", ea_endpoint->ep_serial);
-		return;
-	}
 
 	if (e_join_pattern /* pattern are provided */
 	 && !(e_ext.own_setup && e_state == EPOINT_STATE_IN_SETUP)
@@ -727,6 +722,10 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
 		SCPY(message->param.tone.name, tone);
 		message_put(message);
 		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
+	} else
+	{
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no port to notify tone.\n", ea_endpoint->ep_serial);
+		return;
 	}
 }
 
@@ -3495,6 +3494,12 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 //	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active JOIN (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_ext.number, e_callerinfo.id, e_state);
 	switch(message_type)
 	{
+		/* JOIN SENDS TONE message */
+		case MESSAGE_TONE:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received tone message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->tone.name);
+		set_tone(portlist, param->tone.name);
+		break;
+
 		/* JOIN SENDS CRYPT message */
 		case MESSAGE_CRYPT:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);

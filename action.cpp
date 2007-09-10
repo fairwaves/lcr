@@ -546,7 +546,7 @@ void EndpointAppPBX::action_init_partyline(void)
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	struct message *message;
 	struct route_param *rparam;
-	int partyline;
+	int partyline, jingle = 0;
 	struct join_relation *relation;
 
 	portlist = ea_endpoint->ep_portlist;
@@ -571,6 +571,8 @@ void EndpointAppPBX::action_init_partyline(void)
 		goto noroom;
 	}
 	partyline = rparam->integer_value;
+	if ((rparam = routeparam(e_action, PARAM_JINGLE)))
+		jingle = 1;
 
 	/* don't create join if partyline exists */
 	join = join_first;
@@ -579,7 +581,7 @@ void EndpointAppPBX::action_init_partyline(void)
 		if (join->j_type == JOIN_TYPE_PBX)
 		{
 			joinpbx = (class JoinPBX *)join;
-			if (joinpbx->j_partyline == rparam->integer_value)
+			if (joinpbx->j_partyline == partyline)
 				break;
 		}
 		join = join->next;
@@ -614,9 +616,11 @@ void EndpointAppPBX::action_init_partyline(void)
 	/* send setup to join */
 	trace_header("ACTION partyline (calling)", DIRECTION_NONE);
 	add_trace("room", NULL, "%d", partyline);
+	add_trace("jingle", NULL, (jingle)?"on":"off");
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	message->param.setup.partyline = partyline;
+	message->param.setup.partyline_jingle = jingle;
 	memcpy(&message->param.setup.dialinginfo, &e_dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));

@@ -249,6 +249,7 @@ struct message_setup {
 	int port_type; /* type of port (only required if message is port -> epoint) */
 	int dtmf; /* used to enabled dtmf dialing at setup state */
 	int partyline; /* if set, call will be a conference room */
+	int partyline_jingle; /* if set, the jingle will be played on conference join */
 	struct caller_info callerinfo;		/* information about the caller */
 	struct dialing_info dialinginfo;	/* information about dialing */
 	struct redir_info redirinfo;		/* info on redirection (to the calling user) */

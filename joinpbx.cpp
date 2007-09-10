@@ -255,6 +255,7 @@ JoinPBX::JoinPBX(class Endpoint *epoint) : Join()
 	j_pid = getpid();
 	j_updatebridge = 0;
 	j_partyline = 0;
+	j_partyline_jingle = 0;
 	j_multicause = 0;
 	j_multilocation = 0;
 
@@ -430,7 +431,7 @@ void JoinPBX::bridge(void)
 			relation = relation->next;
 		}
 	} else
-	/* if conference/partyline or (more than two members and more than one is connected), so we set conference state */ 
+	/* if conference/partyline (or more than two members and more than one is connected), so we set conference state */ 
 	{
 		PDEBUG(DEBUG_JOIN, "join%d %d members, %d connected, signal conference\n", relations, numconnect);
 		relation = j_relation;
@@ -699,9 +700,10 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 	}
 
 	/* process party line */
-	if (message_type == MESSAGE_SETUP) if (param->setup.partyline)
+	if (message_type == MESSAGE_SETUP) if (param->setup.partyline && !j_partyline)
 	{
 		j_partyline = param->setup.partyline;
+		j_partyline_jingle = param->setup.partyline_jingle;
 	}
 	if (j_partyline)
 	{
@@ -715,6 +717,8 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 			message_put(message);
 			j_updatebridge = 1; /* update bridge flag */
+			if (j_relation->next && j_partyline_jingle)
+			       play_jingle(1);
 			break;
 			
 			case MESSAGE_AUDIOPATH:
@@ -739,6 +743,8 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			case MESSAGE_RELEASE:
 			PDEBUG(DEBUG_JOIN, "releasing from join\n");
 			release(relation, 0, 0);
+			if (j_relation && j_partyline_jingle)
+			       play_jingle(0);
 			break;
 
 			default:
@@ -1023,6 +1029,23 @@ int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	PDEBUG(DEBUG_JOIN, "setup message sent to ep %d with number='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.id);
 	message_put(message);
 	return(0);
+}
+
+
+/* send play message to all members to play join/release jingle */
+void JoinPBX::play_jingle(int in)
+{
+	struct join_relation *relation;
+	struct message *message;
+
+	relation = j_relation;
+	while(relation)
+	{
+		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_TONE);
+		SCPY(message->param.tone.name, (char *)((in)?"left":"joined"));
+		message_put(message);
+		relation = relation->next;
+	}
 }
 
 
