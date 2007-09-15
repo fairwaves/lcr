@@ -1626,9 +1626,11 @@ int main(int argc, char *argv[])
 
 		case MODE_TESTCALL:
 		ret = admin_testcall(sock, argc, argv);
+		break;
 
 		case MODE_TRACE:
 		ret = admin_trace(sock, argc, argv);
+		break;
 	}
 
 	close(sock);

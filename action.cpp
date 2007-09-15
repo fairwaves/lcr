@@ -236,6 +236,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		trace_header("ACTION extension (extension doesn't exist)", DIRECTION_NONE);
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_UNALLOCATED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_86");
@@ -248,6 +249,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_81");
 		return;
@@ -382,7 +384,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	{
 		trace_header("ACTION extern (calling denied)", DIRECTION_NONE);
 		end_trace();
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
 		set_tone(portlist, "cause_82");
 		denied:
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
@@ -399,7 +401,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		{
 			trace_header("ACTION extern (national calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
 			set_tone(portlist, "cause_83");
 			goto denied;
 		}
@@ -413,7 +415,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		{
 			trace_header("ACTION extern (international calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
 			set_tone(portlist, "cause_84");
 			goto denied;
 		}
@@ -2292,7 +2294,7 @@ void EndpointAppPBX::process_dialing(void)
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 			goto end;
 		}
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
 		e_action = e_action->next;
 		if (!e_action)
 		{

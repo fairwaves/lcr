@@ -1153,7 +1153,7 @@ int admin_handle(void)
 				if (epoint)
 				{
 					((class DEFAULT_ENDPOINT_APP *)epoint->ep_app)->
-						release(RELEASE_ALL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, 0, 0);
+						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 				}
 			}
 

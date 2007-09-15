@@ -855,6 +855,12 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			break;
 
 			case RELATION_TYPE_CALLING: /* by calling */
+			/* remove us, if we don't have a called releation yet */
+			if (!j_relation->next)
+			{
+				release(j_relation, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+				return; // must return, because join IS destroyed
+			}
 			/* remove all relations that are in called */
 			release_again2:
 			reltemp = j_relation;
