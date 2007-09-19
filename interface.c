@@ -743,6 +743,13 @@ struct interface_param interface_param[] = {
 	"This parameter must follow a 'port' parameter."},
 
 #if 0
+	{"layer2keep", &inter_layer2keep, "yes | no",
+	"By default, layer 2 is establised and kept up on PTP interfaces.\n"
+	".\n"
+	"This parameter must follow a 'port' parameter."},
+#endif
+
+#if 0
 #warning todo: filter, also in the PmISDN object
 	{"filter", &inter_filter, "<filter> [parameters]",
 	"Adds/appends a filter. Filters are ordered in transmit direction.\n"

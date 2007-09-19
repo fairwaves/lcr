@@ -866,14 +866,24 @@ foundif:
 				}
 				i++;
 			}
+			trace_header("CHANNEL SELECTION (no channel is 'free')", DIRECTION_NONE);
+			add_trace("port", NULL, "%d", ifport->portnum);
+			add_trace("position", NULL, "%d", index);
+			end_trace();
 			break;
 
 			case CHANNEL_ANY: /* don't ask for channel */
 			if (mISDNport->b_reserved >= mISDNport->b_num)
 			{
+				trace_header("CHANNEL SELECTION (cannot ask for 'any' channel, all reserved)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				add_trace("total", NULL, "%d", mISDNport->b_num);
+				add_trace("reserved", NULL, "%d", mISDNport->b_reserved);
+				end_trace();
 				break; /* all channel in use or reserverd */
 			}
-			trace_header("CHANNEL SELECTION (using 'any channel')", DIRECTION_NONE);
+			trace_header("CHANNEL SELECTION (using 'any' channel)", DIRECTION_NONE);
 			add_trace("port", NULL, "%d", ifport->portnum);
 			add_trace("position", NULL, "%d", index);
 			end_trace();
@@ -881,7 +891,7 @@ foundif:
 			break;
 
 			case CHANNEL_NO: /* call waiting */
-			trace_header("CHANNEL SELECTION (using 'no channel', call-waiting)", DIRECTION_NONE);
+			trace_header("CHANNEL SELECTION (using 'no' channel, call-waiting)", DIRECTION_NONE);
 			add_trace("port", NULL, "%d", ifport->portnum);
 			add_trace("position", NULL, "%d", index);
 			end_trace();
@@ -890,10 +900,25 @@ foundif:
 
 			default:
 			if (selchannel->channel<1 || selchannel->channel==16)
+			{
+				trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				add_trace("channel", NULL, "%d", selchannel->channel);
+				end_trace();
 				break; /* invalid channels */
+			}
 			i = selchannel->channel-1-(selchannel->channel>=17);
 			if (i >= mISDNport->b_num)
+			{
+				trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				add_trace("channel", NULL, "%d", selchannel->channel);
+				add_trace("channels", NULL, "%d", mISDNport->b_num);
+				end_trace();
 				break; /* channel not in port */
+			}
 			if (mISDNport->b_port[i] == NULL)
 			{
 				*channel = selchannel->channel;

@@ -1532,6 +1532,21 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			message_put(message);
 			break;
 
+			default:
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
+			add_trace("unknown", NULL, "0x%x", cont);
+			end_trace();
+		}
+		return;
+	}
+#ifdef SOCKET_MISDN
+	if (hh->prim == PH_SIGNAL_IND)
+#else
+	if (frm->prim == (PH_SIGNAL | INDICATION))
+#endif
+	{
+		switch(frm->dinfo)
+		{
 			case CMX_TX_DATA:
 			if (!p_m_txdata)
 			{
@@ -1539,13 +1554,18 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 				PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring tx data, because 'txdata' is turned off\n", p_name);
 				return;
 			}
+			/* see below (same condition) */
+			if (p_state!=PORT_STATE_CONNECT
+				 && !p_m_mISDNport->tones)
+				break;
+//			printf(".");fflush(stdout);return;
 			if (p_record)
-				record((unsigned char *)(cont+1), len - 4, 1); // from up
+				record(data, len, 1); // from up
 			break;
 
 			default:
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
-			add_trace("unknown", NULL, "0x%x", cont);
+			chan_trace_header(p_m_mISDNport, this, "BCHANNEL signal", DIRECTION_IN);
+			add_trace("unknown", NULL, "0x%x", frm->dinfo);
 			end_trace();
 		}
 		return;
@@ -1561,14 +1581,13 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 #endif
 		return;
 	}
-
 	/* calls will not process any audio data unless
 	 * the call is connected OR interface features audio during call setup.
 	 */
 //printf("%d -> %d prim=%x joindata=%d tones=%d\n", p_serial, ACTIVE_EPOINT(p_epointlist), frm->prim, p_m_joindata, p_m_mISDNport->earlyb);	
 #ifndef DEBUG_COREBRIDGE
 	if (p_state!=PORT_STATE_CONNECT
-	 && !p_m_mISDNport->earlyb)
+	 && !p_m_mISDNport->tones)
 		return;
 #endif
 
@@ -2460,6 +2479,7 @@ int mISDN_handler(void)
 			case PH_DATA | INDICATION:
 			case DL_DATA | INDICATION:
 			case PH_CONTROL | INDICATION:
+			case PH_SIGNAL | INDICATION:
 			i = 0;
 			while(i < mISDNport->b_num)
 			{
