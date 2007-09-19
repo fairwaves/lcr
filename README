@@ -368,5 +368,6 @@ Changes in Version 0.2
 
 Lates changes
 - Added join/release jingle options for partylines
+- Fixed bug that did not release reserved channels, so interface run out of
+  channels.
 
-- 

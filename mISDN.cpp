@@ -1173,15 +1173,14 @@ seize:
  */
 void PmISDN::drop_bchannel(void)
 {
-	if (p_m_b_index < 0)
-		return;
-
 	/* unreserve channel */
 	if (p_m_b_reserve)
 		p_m_mISDNport->b_reserved--;
 	p_m_b_reserve = 0;
 
 	/* if not in use */
+	if (p_m_b_index < 0)
+		return;
 	if (!p_m_b_channel)
 		return;
 
