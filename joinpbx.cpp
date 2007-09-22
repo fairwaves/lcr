@@ -717,7 +717,7 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 			message_put(message);
 			j_updatebridge = 1; /* update bridge flag */
-			if (j_relation->next && j_partyline_jingle)
+			if (j_partyline_jingle)
 			       play_jingle(1);
 			break;
 			

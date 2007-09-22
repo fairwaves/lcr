@@ -1415,6 +1415,7 @@ int PmISDN::handler(void)
 					/* next loop */
 					p_m_crypt_msg_current = 0;
 					p_m_crypt_msg_loops--;
+//					puts("eine loop weniger");
 				}
 
 				/* new length */
@@ -1914,7 +1915,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 			break;
 		}
 		p_m_crypt_msg_current = 0; /* reset */
-		p_m_crypt_msg_loops = 3; /* enable */
+		p_m_crypt_msg_loops = 6; /* enable */
 #if 0
 		/* disable txmix, or we get corrupt data due to audio process */
 		if (p_m_txmix && p_m_b_index>=0)

@@ -1185,7 +1185,6 @@ void Pdss1::disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data
 		add_trace("old-cause", "value", "%d", p_m_d_collect_cause);
 	}
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
-	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
 
@@ -1193,6 +1192,7 @@ void Pdss1::disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data
 	collect_cause(&p_m_d_collect_cause, &p_m_d_collect_location, cause, location);
 	add_trace("new-cause", "location", "%d", p_m_d_collect_location);
 	add_trace("new-cause", "value", "%d", p_m_d_collect_cause);
+	end_trace();
 
 }
 
@@ -1979,8 +1979,8 @@ int Pdss1::handler(void)
 {
 	int ret;
 
-if (p_m_delete && p_m_d_l3id==0)
-	printf("ping! %d", p_serial);
+//if (p_m_delete && p_m_d_l3id==0)
+//	printf("ping! %d", p_serial);
 	if ((ret = PmISDN::handler()))
 		return(ret);
 
@@ -3069,21 +3069,40 @@ int stack2manager_nt(void *dat, void *arg)
 			/* check out correct stack */
 			if (pdss1->p_m_mISDNport == mISDNport)
 			/* check out correct id */
-			if ((hh->dinfo&0xffff0000) == (pdss1->p_m_d_l3id&0xffff0000))
+			if ((pdss1->p_m_d_l3id&0x0000ff00) != 0x000ff00)
 			{
-				/* found port, the message belongs to */
-				break;
+				/* a single process */
+				if (hh->dinfo == pdss1->p_m_d_l3id)
+				{
+					/* found port, the message belongs to */
+					break;
+				}
+			} else
+			{
+				/* a broadcast process */
+				if ((hh->dinfo&0xffff0000) == (pdss1->p_m_d_l3id&0xffff0000))
+				{
+					/* found port, the message belongs to */
+					break;
+				}
 			}
 		}
 		port = port->next;
 	}
 	if (port)
 	{
+//printf("%x %x\n", hh->dinfo, pdss1->p_m_d_l3id);
 		/* if process id is master process, but a child disconnects */
-		if ((hh->dinfo&0x0000ff00)!=0x0000ff00 && (pdss1->p_m_d_l3id&0x0000ff00)==0x0000ff00 && hh->prim==(CC_DISCONNECT|INDICATION))
+		if ((hh->dinfo&0x0000ff00)!=0x0000ff00 && (pdss1->p_m_d_l3id&0x0000ff00)==0x0000ff00)
 		{
-			/* send special indication for child disconnect */
-			pdss1->disconnect_ind_i(hh->prim, hh->dinfo, msg->data);
+			if (hh->prim == (CC_DISCONNECT|INDICATION))
+			{
+				/* send special indication for child disconnect */
+				pdss1->disconnect_ind_i(hh->prim, hh->dinfo, msg->data);
+				free_msg(msg);
+				return(0);
+			}
+			// ignoring other messages from child processes
 			free_msg(msg);
 			return(0);
 		}
@@ -3166,11 +3185,25 @@ int stack2manager_nt(void *dat, void *arg)
 		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", hh->dinfo);
 		break;
 
-		case CC_DISCONNECT | INDICATION:
+		case CC_RELEASE_COMPLETE | INDICATION:
+		break;
 
-		// fall throug
 		default:
 		PERROR("unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", hh->prim, hh->dinfo, msg->len);
+		port = port_first;
+		while(port)
+		{
+			if (port->p_type == PORT_TYPE_DSS1_NT_IN || port->p_type == PORT_TYPE_DSS1_NT_OUT)
+			{
+				pdss1 = (class Pdss1 *)port;
+	//PDEBUG(DEBUG_ISDN, "comparing dinfo = 0x%x with l3id 0x%x\n", hh->dinfo, pdss1->p_m_d_l3id);
+				/* check out correct stack */
+				if (pdss1->p_m_mISDNport == mISDNport)
+				/* check out correct id */
+				PERROR("unhandled message: dinfo=%x is not associated with port-dinfo=%x\n",hh->dinfo,pdss1->p_m_d_l3id);
+			}
+			port = port->next;
+		}
 		return(-EINVAL);
 	}
 	free_msg(msg);
