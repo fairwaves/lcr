@@ -217,6 +217,11 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	switch(detail)
 	{
 		case 1: /* brief */
+		if (trace.port)
+		{
+			SPRINT(buffer, "  port %d", trace.port);
+			SCAT(trace_string, buffer);
+		}
 		i = 0;
 		while(i < trace.elements)
 		{
