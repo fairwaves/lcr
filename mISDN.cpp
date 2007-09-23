@@ -1971,7 +1971,7 @@ int PmISDN::message_epoint(unsigned long epoint_id, int message_id, union parame
 #ifdef SOCKET_MISDN
 int mISDN_handler(void)
 {
-	int ret;
+	int ret, work = 0;
 	struct mISDNport *mISDNport;
 	class PmISDN *isdnport;
 	int i;
@@ -2050,6 +2050,7 @@ int mISDN_handler(void)
 				ret = recv(mISDNport->b_stack[i], buffer, sizeof(buffer), 0);
 				if (ret >= MISDN_HEADER_LEN)
 				{
+					work = 1;
 					switch(hh->prim)
 					{
 						/* we don't care about confirms, we use rx data to sync tx */
@@ -2060,6 +2061,7 @@ int mISDN_handler(void)
 						/* we receive audio data, we respond to it AND we send tones */
 						case PH_DATA_IND:
 						case DL_DATA_IND:
+						case PH_SIGNAL_IND:
 						case PH_CONTROL_IND:
 						if (mISDNport->b_port[i])
 							mISDNport->b_port[i]->bchannel_receive(hh, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
@@ -2120,6 +2122,8 @@ int mISDN_handler(void)
 		mISDNport = mISDNport->next;
 	}
 
+	/* if we received at least one b-frame, we will return 1 */
+	return(work);
 }
 #else
 int mISDN_handler(void)

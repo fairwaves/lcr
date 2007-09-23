@@ -3188,6 +3188,9 @@ int stack2manager_nt(void *dat, void *arg)
 		case CC_RELEASE_COMPLETE | INDICATION:
 		break;
 
+		case CC_FACILITY | INDICATION:
+		break;
+
 		default:
 		PERROR("unhandled message: prim(0x%x) dinfo(0x%x) msg->len(%d)\n", hh->prim, hh->dinfo, msg->len);
 		port = port_first;

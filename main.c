@@ -472,15 +472,15 @@ int main(int argc, char *argv[])
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
 		all_idle = 1;
 
-#warning debugging usleep crash
-		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+//#warning debugging usleep crash
+//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
 		/* handle mISDN messages from kernel */
 		debug_prefix = "ISDN";
 		if (mISDN_handler())
 			all_idle = 0;
-#warning debugging usleep crash
-		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+//#warning debugging usleep crash
+//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
 BUDETECT
 
@@ -623,8 +623,8 @@ BUDETECT
 			all_idle = 0;
 		}
 #endif
-#warning debugging usleep crash
-		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+//#warning debugging usleep crash
+//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
 		/* do idle checking */
 		if (idlecheck != now)
