@@ -57,6 +57,9 @@ Functions:
 #include <errno.h>
 #include "main.h"
 
+#define SHORT_MIN -32768
+#define SHORT_MAX 32767
+
 class Port *port_first = NULL;
 
 unsigned long port_serial = 1; /* must be 1, because 0== no port */
@@ -1043,6 +1046,8 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 
 	free = ((p_record_buffer_readp - p_record_buffer_writep - 1) & RECORD_BUFFER_MASK);
 
+//PDEBUG(DEBUG_PORT, "record(data,%d,%d): free=%d, p_record_buffer_dir=%d, p_record_buffer_readp=%d, p_record_buffer_writep=%d.\n", length, dir_fromup, free, p_record_buffer_dir, p_record_buffer_readp, p_record_buffer_writep);
+
 	/* the buffer stores the same data stream */
 	if (dir_fromup == p_record_buffer_dir)
 	{
@@ -1140,6 +1145,8 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	ii = (p_record_buffer_writep - p_record_buffer_readp) & RECORD_BUFFER_MASK;
 	if (length < ii)
 		ii = length;
+//PDEBUG(DEBUG_PORT, "record(data,%d,%d): free=%d, p_record_buffer_dir=%d, p_record_buffer_readp=%d, p_record_buffer_writep=%d: mixing %d bytes.\n", length, dir_fromup, free, p_record_buffer_dir, p_record_buffer_readp, p_record_buffer_writep, ii);
+
 	/* write data mixed with the buffer */
 	switch(p_record_type)
 	{
@@ -1151,10 +1158,8 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
-			if (sample < 32767)
-				sample = -32767;
-			if (sample > 32768)
-				sample = 32768;
+			if (sample < SHORT_MIN) sample = SHORT_MIN;
+			if (sample > SHORT_MAX) sample = SHORT_MAX;
 			*s++ = sample;
 			i++;
 		}
@@ -1180,6 +1185,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			{
 				*s++ = p_record_buffer[p_record_buffer_readp];
 				*s++ = audio_law_to_s32[*data++];
+				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
 		}
@@ -1194,10 +1200,8 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
-			if (sample < 32767)
-				sample = -32767;
-			if (sample > 32768)
-				sample = 32768;
+			if (sample < SHORT_MIN) sample = SHORT_MIN;
+			if (sample > SHORT_MAX) sample = SHORT_MAX;
 			*d++ = (sample+0x8000) >> 8;
 			i++;
 		}
@@ -1212,10 +1216,8 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
-			if (sample < 32767)
-				sample = -32767;
-			if (sample > 32768)
-				sample = 32768;
+			if (sample < SHORT_MIN) sample = SHORT_MIN;
+			if (sample > SHORT_MAX) sample = SHORT_MAX;
 			*d++ = audio_s16_to_law[sample & 0xffff];
 			i++;
 		}

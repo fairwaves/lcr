@@ -187,7 +187,7 @@ class Port
 	int p_record_skip;			/* skip bytes before writing the sample */
 	unsigned long p_record_length;		/* size of what's written so far */
 
-	unsigned char p_record_buffer[RECORD_BUFFER_LENGTH];
+	unsigned short p_record_buffer[RECORD_BUFFER_LENGTH];
 	unsigned long p_record_buffer_readp;
 	unsigned long p_record_buffer_writep;
 	int p_record_buffer_dir;		/* current direction in buffer */
