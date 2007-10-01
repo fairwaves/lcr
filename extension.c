@@ -1026,8 +1026,10 @@ int write_extension(struct extension *ext, char *number)
 //	fprintf(fp,"# Set up alarm message after prefix is dialed and connection is established\n");
 //	fprintf(fp,"alarm           %s\n\n",ext->alarm);
 
-	fprintf(fp,"# Ports to ring on calls to extension (starting from 1)\n");
-	fprintf(fp,"# Seperate ports by using komma. (example: 1,3 would ring incoming calls on\n# port 1 and 3)\n");
+	fprintf(fp,"# Interface(s) to ring on calls to extension (as named in interface.conf)\n");
+	fprintf(fp,"# Seperate multiple interfaces by using komma without spaces\n");
+	fprintf(fp,"# Example: Int would ring on the interface with the name \"Int\"");
+	fprintf(fp,"#          Int1,Int2 would ring incoming calls on both interfaces Int1 and Int2.\n");
 	fprintf(fp,"interfaces      %s\n\n",ext->interfaces);
 
 	fprintf(fp,"# Call Forward Unconditional (CFU)\n");

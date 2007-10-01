@@ -418,7 +418,7 @@ void JoinPBX::bridge(void)
 		relation->next->tx_state = notify_state_change(j_serial, relation->next->epoint_id, relation->next->tx_state, relation->rx_state);
 	} else
 	/* one member in a join, so we put her on hold */
-	if ((relations==1 || numconnect==1) && !j_partyline_jingle)
+	if ((relations==1 || numconnect==1)/* && !j_partyline_jingle*/)
 	{
 		PDEBUG(DEBUG_JOIN, "join%d 1 member or only 1 connected, put on hold\n");
 		relation = j_relation;
@@ -1045,6 +1045,12 @@ void JoinPBX::play_jingle(int in)
 	struct message *message;
 
 	relation = j_relation;
+
+	if (!relation)
+		return;
+	if (!relation->next)
+		return;
+
 	while(relation)
 	{
 		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_TONE);

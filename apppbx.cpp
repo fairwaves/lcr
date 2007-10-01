@@ -3443,10 +3443,13 @@ void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, u
 				/* unhold if */
 				if (new_state!=NOTIFY_STATE_HOLD && new_state!=NOTIFY_STATE_SUSPEND)
 				{
-					while(portlist)
+					if (!strcmp(e_tone, "hold")) // don't interrupt other tones
 					{
-						set_tone(portlist, "");
-						portlist = portlist->next;
+						while(portlist)
+						{
+							set_tone(portlist, "");
+							portlist = portlist->next;
+						}
 					}
 					portlist = ea_endpoint->ep_portlist;
 					e_hold = 0;

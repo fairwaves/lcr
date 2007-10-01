@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	{
 		printf("Usage: %s <extension> <interfaces> <callerid>\n\n", argv[0]);
 		printf("extension: any number for the extension (e.g 200)\n");
-		printf("interfaces: internal interface(es) to reach extension (seperated by commas. e.g Int1,Int2)\n");
+		printf("interfaces: internal interface(s) to reach extension (seperated by commas. e.g Int1,Int2)\n");
 		printf("callerid: normal undefined called is (use what your telco assigned you)\n");
 		return(0);
 	}
