@@ -309,9 +309,9 @@ void EndpointAppPBX::screen(int out, char *id, int idsize, int *type, int *prese
 			SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
 			UNCPY(id, ifscreen->result, idsize);
 			id[idsize-1] = '\0';
-			if (strchr(ifscreen->result,'%'))
+			if (strchr(id,'%'))
 			{
-				*strchr(ifscreen->result,'%') = '\0';
+				*strchr(id,'%') = '\0';
 				UNCAT(id, suffix, idsize);
 				id[idsize-1] = '\0';
 			}
