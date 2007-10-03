@@ -71,23 +71,23 @@ AC_ARG_WITH([asterisk],
 AM_CONDITIONAL(ENABLE_ASTERISK_CHANNEL_DRIVER, test "x$with_asterisk_channel_driver" == "xyes" )
 
 # check for crypto
-AC_ARG_WITH([crypto],
-	[AS_HELP_STRING([--with-crypto],
-			[compile with lib Crypto support @<:@default=check@:>@])
+AC_ARG_WITH([ssl],
+	[AS_HELP_STRING([--with-ssl],
+			[compile with ssl support (libcrypto) @<:@default=check@:>@])
 	],
 	[],
-	[with_crypto=check])
+	[with_ssl=check])
 LIBCRYPTO=
-AS_IF([test "x$with_crypto" != xno],
+AS_IF([test "x$with_ssl" != xno],
       [AC_CHECK_HEADERS([openssl/rsa.h])
        AC_CHECK_LIB([crypto], [main],
                     [AC_SUBST([LIBCRYPTO], ["-lcrypto"])
                      AC_DEFINE([HAVE_LIBCRYPTO], [1],
                                [Define if you have libcrypto])
                     ],
-                    [if test "x$with_crypto" != xcheck ; then
+                    [if test "x$with_ssl" != xcheck ; then
                       AC_MSG_FAILURE(
-                        [--with-crypto was given, but test for lib Crypto failed])
+                        [--with-ssl was given, but test for libcrypto failed])
                      fi
                     ],
                     -lcrypto
