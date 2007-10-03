@@ -1,13 +1,23 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
 
 
-INSTALLATION_DEFINES = -DCONFIG_DATA="\"$(pkgsysconfdir)\"" -DSHARE_DATA="\"$(pkgdatadir)\"" -DLOG_DIR="\"$(pkglogdir)\"" -DPBX -DINSTALL_DATA="\"$(pkgdatadir)\""
+INSTALLATION_DEFINES = \
+ -DCONFIG_DATA="\"$(pkgsysconfdir)\"" \
+ -DSHARE_DATA="\"$(pkgdatadir)\"" \
+ -DLOG_DIR="\"$(pkglogdir)\"" \
+ -DINSTALL_DATA="\"$(pkgdatadir)\""
+ 
 # FIXME: find a macro for the include path of linux
 # or is /lib/modules/$(uname -r)/source/include sufficient?
 # Do we take /usr/src/linux or /usr/src/linux-$(uname -r)
 # if complied without modules?
 # UPDATE: Not needed, compiles cleanly without.
 INCLUDES = $(all_includes) $(INSTALLATION_DEFINES) 
+
+
+# add nonstandard lib installation paths to this
+MISDN_LIB_INSTALL_PATH=$(misdnuser_libraries)
+AM_LDFLAGS = -Wl,-rpath,$(MISDN_LIB_INSTALL_PATH)
 
 
 bin_PROGRAMS = lcradmin gentones genwave #lcrwatch
@@ -109,13 +119,13 @@ LINK=$(CXXLINK)
 
 
 pkglogdir=$(localstatedir)/log/@PACKAGE@
-# install runtime config in $prefix/etc/pbx4linux/ (e.g. /etc/pbx4linux)
-# and voice data in $prefix/share/pbx4linux/ (e.g. /usr/share/pbx4linux)
+# install runtime config in $prefix/etc/lcr/ (e.g. /etc/lcr)
+# and voice data in $prefix/share/lcr/ (e.g. /usr/share/lcr)
 pkgsysconfdir=$(sysconfdir)/@PACKAGE@
 dist_pkgsysconf_DATA = $(config_default)
 
 # install all voice data files along with their directory structure
-# into $prefix/share/pbx4linux
+# into $prefix/share/lcr
 nobase_dist_pkgdata_DATA = $(vbox_english) $(vbox_german) \
 	$(tones_american) $(tones_efi) $(tones_german)
 
