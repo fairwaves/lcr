@@ -1839,14 +1839,20 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 				keypad_function(param->information.id[0]);
 		} else
 		{
-			trace_header("DTMF (not enabled by extension's settings)", DIRECTION_IN);
+			if (e_ext.number[0])
+				trace_header("KEYPAD (not enabled by extension's settings)", DIRECTION_IN);
+			else
+				trace_header("KEYPAD (not enabled for external interfaces)", DIRECTION_IN);
 			end_trace();
 		}
 		return;
 	}
 	if (e_state != EPOINT_STATE_IN_OVERLAP)
 	{
-		trace_header("DTMF (ignored, not connected and not dialing)", DIRECTION_IN);
+		if (e_ext.number[0])
+			trace_header("KEYPAD (ignored, not connected and not dialing)", DIRECTION_IN);
+		else
+			trace_header("KEYPAD (not enabled for external interfaces)", DIRECTION_IN);
 		end_trace();
 		return;
 	}

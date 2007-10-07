@@ -371,4 +371,9 @@ Lates changes
 - Fixed bug that did not release reserved channels, so interface run out of
   channels.
 - Bugfixes...
+- Minor bugfixes
+****** Major hfc_multi bugfix *******
+* no more crash with multiple cards *
+*************************************
+
 
