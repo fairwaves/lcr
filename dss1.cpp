@@ -738,7 +738,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		FATAL("Incoming call but already got an endpoint.\n");
 	if (!(epoint = new Endpoint(p_serial, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
+	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incomming
 		FATAL("No memory for Endpoint Application instance\n");
 	epointlist_new(epoint->ep_serial);
 
@@ -1877,8 +1877,8 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		}
 		p_m_d_l3id = 0;
 		p_m_delete = 1;
-#warning remove me
-PDEBUG(DEBUG_LOG, "JOLLY release cr %d\n", p_serial);
+//#warning remove me
+//PDEBUG(DEBUG_LOG, "JOLLY release cr %d\n", p_serial);
 		/* sending release to endpoint in case we still have an endpoint
 		 * this is because we don't get any response if a release_complete is received (or a release in release state)
 		 */
@@ -1987,8 +1987,8 @@ int Pdss1::handler(void)
 	/* handle destruction */
 	if (p_m_delete && p_m_d_l3id==0)
 	{
-#warning remove 
-PDEBUG(DEBUG_LOG, "JOLLY destroy object %d\n", p_serial);
+//#warning remove 
+//PDEBUG(DEBUG_LOG, "JOLLY destroy object %d\n", p_serial);
 
 		delete this;
 		return(-1);
@@ -2791,8 +2791,8 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 // // NOTE: a bug in mISDNuser (see disconnect_req_out !!!)
 //	 || p_state==PORT_STATE_OUT_DISCO)
 	{
-#warning remove me
-PDEBUG(DEBUG_LOG, "JOLLY sending release complete %d\n", p_serial);
+//#warning remove me
+//PDEBUG(DEBUG_LOG, "JOLLY sending release complete %d\n", p_serial);
 		/* sending release complete */
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
@@ -2868,8 +2868,8 @@ wirklich erst proceeding?:
 	/* remove epoint */
 	free_epointid(epoint_id);
 	// wait for release and callref to be released
-#warning remove me
-PDEBUG(DEBUG_LOG, "JOLLY sending disconnect %d\n", p_serial);
+//#warning remove me
+//PDEBUG(DEBUG_LOG, "JOLLY sending disconnect %d\n", p_serial);
 }
 
 
@@ -3159,8 +3159,8 @@ int stack2manager_nt(void *dat, void *arg)
 			time(&mISDNport->l2establish);
 			PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
 		}
-#warning debugging usleep crash
-		printf("JOLLY release port %d\n", mISDNport->portnum);
+//#warning debugging usleep crash
+//		printf("JOLLY release port %d\n", mISDNport->portnum);
 		usleep(1);
 		break;
 

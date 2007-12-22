@@ -28,19 +28,6 @@ sonderwahlton
 facility: diversion, 3pty, ...
 
 
-VLAN-Kamera
-
-
-
-chan.cpp
-
-struct Channel *chan_first;
-
-chan->bchannel_receive
-
-struct ChanAsterisk *chanasterisk;
-
-
 
 
 

@@ -16,7 +16,7 @@
 /*
  * EndpointApp constructor
  */
-EndpointApp::EndpointApp(class Endpoint *epoint)
+EndpointApp::EndpointApp(class Endpoint *epoint, int origin)
 {
 	ea_endpoint = epoint;
 	classuse++;

@@ -155,7 +155,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 			read(fh, buffer, 8);
 			chunk=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 			size -= (8+chunk);
-//			printf("%c%c%c%c lenght=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],chunk);
+//			printf("%c%c%c%c length=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],chunk);
 			if (size < 0)
 			{
 				close(fh);
@@ -165,7 +165,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 			}
 			if (!strncmp((char *)buffer, "fmt ", 4))
 			{
-				if (chunk != 16)
+				if (chunk < 16)
 				{
 					close(fh);
 					errno = 0;
@@ -217,6 +217,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 						*length = ((signed long)chunk)>>1;
 					if (left)
 						*left = ((signed long)chunk)>>1;
+					printf("left=%d\n",*left);
 				} else
 				if (bytes==2 && channels==2)
 				{

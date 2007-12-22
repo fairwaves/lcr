@@ -1,6 +1,30 @@
 
+Note:
+-----
+PBX software can be connected to private hardware, as well as public
+switched networks. Due to wrong use or software bugs, it can cause failures
+to these networks and hardware, disturbing users of these networks and
+hardware, cause load and unwanted costs, and may prohibit making calls,
+especially in case of an emergency.
+
+The authors of this software cannot take any responsibility for correct
+use and correct behaviour of this software.
+If you use this software, you aggree the terms of the LICENSE and README
+file.
+You will also inform your customers about the content of the LICENSE and
+README file.
+
+Some countries and/or telephone networks require special approval in order
+to allow telephone devices to be connected to their networks.
+
+
+Installation and Usage:
+-----------------------
 Read the documentation at http://www.linux-call-router.de
 
+
+History:
+--------
 
 Changes in Version 20021228 
 - first release
@@ -366,7 +390,7 @@ Changes in Version 0.2
 - Stall warning
 - Audio recoriding still does not work.
 
-Lates changes
+Changes in Version 0.3
 - Added join/release jingle options for partylines
 - Fixed bug that did not release reserved channels, so interface run out of
   channels.
@@ -375,5 +399,10 @@ Lates changes
 ****** Major hfc_multi bugfix *******
 * no more crash with multiple cards *
 *************************************
+- Screening bug removed. (Thanx Martin)
+- Wave files with FMT header > 16 now work.
+- Added timeouts for testcall feature. (lcradmin)
+  -> You can run scripts, that generate testcalls of multiple destinations.
+- Added origin flag to correctly process last_in and last_out call logging.
 
 

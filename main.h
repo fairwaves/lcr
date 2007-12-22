@@ -13,7 +13,7 @@
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
 
-#define VERSION_STRING	"0.2 (August 2007)"
+#define VERSION_STRING	"0.3 (December 2007)"
 
 extern int memuse;
 extern int mmemuse;
@@ -68,7 +68,6 @@ void debug(const char *function, int line, char *prefix, char *buffer);
  */
 #define ISDN_LOAD	1024 // samples
 #define ISDN_MAXLOAD	2048 // samples
-#define ISDN_TRANSMIT	256 // samples
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */

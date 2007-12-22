@@ -9,6 +9,8 @@
 **                                                                           **
 \*****************************************************************************/ 
 
+#define ISDN_TRANSMIT	256 // samples
+
 enum { /* interface types */
 	INFO_ITYPE_ISDN,
 	INFO_ITYPE_ISDN_EXTENSION, /* call from internal extension */
@@ -265,7 +267,7 @@ struct park_info {
 
 /* DATA */
 struct param_data {
-	unsigned char data[512]; /* audio/hdlc data */
+	unsigned char data[ISDN_TRANSMIT]; /* audio/hdlc data */
 	int len; /* audio/hdlc data */
 };
 
@@ -360,7 +362,6 @@ enum { /* messages between entities */
 	MESSAGE_TONE,		/* set information tone (to isdn port) */
 	MESSAGE_DTMF,		/* dtmf digit (from isdn port) */
 	MESSAGE_mISDNSIGNAL,	/* special mixer command (down to isdn port) */
-
 	MESSAGE_SETUP,		/* setup message */
 	MESSAGE_INFORMATION,	/* additional digit information */
 	MESSAGE_OVERLAP,	/* call accepted, send more information */
@@ -372,18 +373,14 @@ enum { /* messages between entities */
 	MESSAGE_TIMEOUT,	/* protocol state has timed out (port->epoint) */
 	MESSAGE_NOTIFY,		/* used to send progress and notify infos */
 	MESSAGE_FACILITY,	/* used to facility infos, like aocd */
-
 	MESSAGE_SUSPEND,	/* suspend port */
 	MESSAGE_RESUME,		/* resume port */
-
 	MESSAGE_AUDIOPATH,	/* set status of audio path to endpoint (to call, audio is also set) */
 //	MESSAGE_REMOTE_AUDIO,	/* tell remote to set audio status */
 	MESSAGE_PATTERN,	/* pattern information tones available */
 	MESSAGE_NOPATTERN,	/* pattern information tones unavailable */
 	MESSAGE_CRYPT,		/* encryption message */
-
 	MESSAGE_DATA,		/* audio/hdlc data */
-
 	MESSAGE_VBOX_PLAY,	/* play recorded file */
 	MESSAGE_VBOX_PLAY_SPEED,/* change speed of file */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */

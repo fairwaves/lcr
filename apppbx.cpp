@@ -25,7 +25,7 @@ class EndpointAppPBX *apppbx_first = NULL;
 /*
  * EndpointAppPBX constructor
  */
-EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
+EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp(epoint, origin)
 {
 	class EndpointAppPBX **apppointer;
 
@@ -49,7 +49,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint) : EndpointApp(epoint)
         memset(&e_redirinfo, 0, sizeof(struct redir_info));
         memset(&e_capainfo, 0, sizeof(struct capa_info));
         e_start = e_stop = 0;
-//      e_origin = 0;
+	e_origin = origin;
 	e_ruleset = ruleset_main;
 	if (e_ruleset)
         	e_rule = e_ruleset->rule_first;

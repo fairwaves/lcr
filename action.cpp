@@ -636,44 +636,8 @@ void EndpointAppPBX::action_init_partyline(void)
  */
 void EndpointAppPBX::action_hangup_call(void)
 {
-	int i;
-
 	trace_header("ACTION hangup", DIRECTION_NONE);
 	end_trace();
-	/* check */
-	if (e_ext.number[0] == '\0')
-	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because caller is unknown (not internal).\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
-		return;
-	}
-	if (!(read_extension(&e_ext, e_ext.number)))
-	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because cannot read settings.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
-		return;
-	}
-	if (e_dialinginfo.id[0] == '\0')
-	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number because nothing was dialed.\n", ea_endpoint->ep_serial, e_ext.number);
-		return;
-	}
-	if (!strcmp(e_dialinginfo.id, e_ext.last_out[0]))
-	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last dialed number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
-		return;
-	}
-
-	/* insert */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
-	i = MAX_REMEMBER-1;
-	while(i)
-	{
-		UCPY(e_ext.last_out[i], e_ext.last_out[i-1]);
-		i--;
-	}
-	SCPY(e_ext.last_out[0], e_dialinginfo.id);
-
-	/* write extension */
-	write_extension(&e_ext, e_ext.number);
 }
 
 
@@ -2580,6 +2544,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		write_log(e_ext.number, callertext, dialingtext, e_start, e_stop, 0, cause, location);
 
 		/* store last received call for reply-list */
+		if (e_origin == 1) // outgoing to phone is incomming for user
 		if (e_callerinfo.id[0] || e_callerinfo.extension[0])
 		if (e_ext.anon_ignore || e_callerinfo.present!=INFO_PRESENT_RESTRICTED)
 		{
@@ -2601,8 +2566,26 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 			} else
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last received id '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, callertext);
 		}
-	}
 
+		/* store last made call for reply-list */
+		if (e_origin == 0) // incomming from phone is outgoing for user
+		if (e_dialinginfo.id[0])
+		{
+			if (!!strcmp(e_dialinginfo.id, e_ext.last_out[0]))
+			{
+				i = MAX_REMEMBER-1;
+				while(i)
+				{
+					UCPY(e_ext.last_out[i], e_ext.last_out[i-1]);
+					i--;
+				}
+				SCPY(e_ext.last_out[0], e_dialinginfo.id);
+				writeext |= 1; /* store extension later */
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: storing last number '%s'.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
+			} else
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s: cannot store last number '%s' because it is identical with the last one.\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id);
+		}
+	}
 	/* write extension if needed */
 	if (writeext == 0x11)
 		write_extension(&e_ext, e_ext.number);

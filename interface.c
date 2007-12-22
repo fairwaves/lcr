@@ -479,9 +479,6 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects old caller ID and new caller ID.\n", filename, line, parameter);
 		return(-1);
 	}
-	p = value;
-	el = p;
-	p = get_seperated(p);
 	/* add screen entry to list*/
 	ifscreen = (struct interface_screen *)MALLOC(sizeof(struct interface_screen));
 	memuse++;
@@ -494,6 +491,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 		ifscreenp = &((*ifscreenp)->next);
 	*ifscreenp = ifscreen;
 	/* get match */
+	p = value;
 	while(*p)
 	{
 		el = p;

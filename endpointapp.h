@@ -14,7 +14,7 @@
 class EndpointApp
 {
 	public:
-	EndpointApp(class Endpoint *epoint);
+	EndpointApp(class Endpoint *epoint, int origin);
 	virtual ~EndpointApp();
 
 	class Endpoint		*ea_endpoint;

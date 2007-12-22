@@ -101,7 +101,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 		if (!(epoint = new Endpoint(0, j_serial)))
 			FATAL("No memory for Endpoint instance\n");
 		j_epoint_id = epoint->ep_serial;
-		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
+		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
 			FATAL("No memory for Endpoint Application instance\n");
 	}
 

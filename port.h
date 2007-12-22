@@ -80,7 +80,7 @@ enum { /* event list from listening to tty */
 	TTYI_EVENT_BUSY,	/* channel unavailable */
 };
 
-#define RECORD_BUFFER_LENGTH	1024
+#define RECORD_BUFFER_LENGTH	1024 // must be a binary border & must be greater 256, because 256 will be written if buffer overflows
 #define RECORD_BUFFER_MASK	1023
 
 /* structure of epoint_list */
@@ -187,7 +187,7 @@ class Port
 	int p_record_skip;			/* skip bytes before writing the sample */
 	unsigned long p_record_length;		/* size of what's written so far */
 
-	unsigned short p_record_buffer[RECORD_BUFFER_LENGTH];
+	signed short p_record_buffer[RECORD_BUFFER_LENGTH];
 	unsigned long p_record_buffer_readp;
 	unsigned long p_record_buffer_writep;
 	int p_record_buffer_dir;		/* current direction in buffer */

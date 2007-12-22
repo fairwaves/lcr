@@ -19,12 +19,10 @@ Audio flow has two ways:
 
 * from the upper layer to the channel
   -> sound from remote channel
-  -> sound from asterisk
 
 Audio is required:
 
   -> if local or remote channel is not mISDN
-  -> if endpoint is linked to asterisk
   -> if call is recorded (vbox)
 
 
@@ -1031,18 +1029,22 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	if (!p_record || !length)
 		return;
 
-	/* skip */
-	if (dir_fromup)
+	/* skip data from local caller (dtmf input) */
+	if (p_record_skip && !dir_fromup)
 	{
-		/* more than we have */
+		/* more to skip than we have */
 		if (p_record_skip > length)
 		{
 			p_record_skip -= length;
 			return;
 		}
+		/* less to skip */
 		data += p_record_skip;
 		length -= p_record_skip;
+		p_record_skip = 0;
 	}
+
+//printf("dir=%d len=%d\n", dir_fromup, length);
 
 	free = ((p_record_buffer_readp - p_record_buffer_writep - 1) & RECORD_BUFFER_MASK);
 
@@ -1051,8 +1053,9 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	/* the buffer stores the same data stream */
 	if (dir_fromup == p_record_buffer_dir)
 	{
-		same_again:
+same_again:
 
+//printf("same free=%d length=%d\n", free, length);
 		/* first write what we can to the buffer */
 		while(free && length)
 		{
@@ -1064,7 +1067,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 		/* all written, so we return */
 		if (!length)
 			return;
-		/* still data left, buffer is full, so we need to write to file */
+		/* still data left, buffer is full, so we need to write a chunk to file */
 		switch(p_record_type)
 		{
 			case CODEC_MONO:
@@ -1077,6 +1080,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 				i++;
 			}
 			fwrite(write_buffer, 512, 1, p_record);
+			p_record_length += 512;
 			break;
 
 			case CODEC_STEREO:
@@ -1103,6 +1107,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 				}
 			}
 			fwrite(write_buffer, 1024, 1, p_record);
+			p_record_length += 1024;
 			break;
 
 			case CODEC_8BIT:
@@ -1110,11 +1115,12 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			i = 0;
 			while(i < 256)
 			{
-				*d++ = (p_record_buffer[p_record_buffer_readp]+0x8000) >> 8;
+				*d++ = ((unsigned short)(p_record_buffer[p_record_buffer_readp]+0x8000)) >> 8;
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
 			fwrite(write_buffer, 512, 1, p_record);
+			p_record_length += 512;
 			break;
 
 			case CODEC_LAW:
@@ -1127,14 +1133,16 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 				i++;
 			}
 			fwrite(write_buffer, 256, 1, p_record);
+			p_record_length += 256;
 			break;
 		}
 		/* because we still have data, we write again */
-		free += sizeof(write_buffer);
+		free += 256;
 		goto same_again;
 	}
 	/* the buffer stores the other stream */
 	
+different_again:
 	/* if buffer empty, change it */
 	if (p_record_buffer_readp == p_record_buffer_writep)
 	{
@@ -1145,6 +1153,10 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	ii = (p_record_buffer_writep - p_record_buffer_readp) & RECORD_BUFFER_MASK;
 	if (length < ii)
 		ii = length;
+
+	if (ii > 256)
+		ii = 256;
+//printf("same ii=%d length=%d\n", ii, length);
 //PDEBUG(DEBUG_PORT, "record(data,%d,%d): free=%d, p_record_buffer_dir=%d, p_record_buffer_readp=%d, p_record_buffer_writep=%d: mixing %d bytes.\n", length, dir_fromup, free, p_record_buffer_dir, p_record_buffer_readp, p_record_buffer_writep, ii);
 
 	/* write data mixed with the buffer */
@@ -1164,6 +1176,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			i++;
 		}
 		fwrite(write_buffer, ii<<1, 1, p_record);
+		p_record_length += (ii<<1);
 		break;
 		
 		case CODEC_STEREO:
@@ -1190,6 +1203,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			}
 		}
 		fwrite(write_buffer, ii<<2, 1, p_record);
+		p_record_length += (ii<<2);
 		break;
 		
 		case CODEC_8BIT:
@@ -1206,6 +1220,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			i++;
 		}
 		fwrite(write_buffer, ii, 1, p_record);
+		p_record_length += ii;
 		break;
 		
 		case CODEC_LAW:
@@ -1222,15 +1237,13 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 			i++;
 		}
 		fwrite(write_buffer, ii, 1, p_record);
+		p_record_length += ii;
 		break;
 	}
 	length -= ii;
-	/* data, but buffer empty */
+	/* still data */
 	if (length)
-	{
-		p_record_buffer_dir = dir_fromup;
-		goto same_again;
-	}
+		goto different_again;
 	/* no data (maybe buffer) */
 	return;
 

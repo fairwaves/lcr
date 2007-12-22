@@ -19,6 +19,8 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/time.h>
+#include <errno.h>
 #include <curses.h>
 #include "macro.h"
 #include "join.h"
@@ -1312,75 +1314,163 @@ char *admin_cmd(int sock, int mode, char *extension, char *number)
 /*
  * makes a testcall
  */
+#define GET_NOW() { \
+	gettimeofday(&now_tv, &now_tz); \
+	now_d = ((double)(now_tv.tv_usec))/1000000 + now_tv.tv_sec; \
+	}
 char *admin_testcall(int sock, int argc, char *argv[])
 {
 	static struct admin_message msg;
+	int ar = 2;
+	int stimeout = 0, ptimeout = 0, atimeout = 0, ctimeout = 0;
+	int l;
+	double timer = 0, now_d;
+	unsigned long on = 1;
+	struct timeval now_tv;
+	struct timezone now_tz;
 
 	printf("pid=%d\n", getpid()); fflush(stdout);
+
+	while (argc > ar)
+	{
+		if (!strcmp(argv[ar], "--setup-timeout"))
+		{
+			ar++;
+			if (argc == ar)
+				return("Missing setup timeout value.\n");
+			stimeout = atoi(argv[ar]);
+			ar++;
+		} else
+		if (!strcmp(argv[ar], "--proceeding-timeout"))
+		{
+			ar++;
+			if (argc == ar)
+				return("Missing proceeding timeout value.\n");
+			ptimeout = atoi(argv[ar]);
+			ar++;
+		} else
+		if (!strcmp(argv[ar], "--alerting-timeout"))
+		{
+			ar++;
+			if (argc == ar)
+				return("Missing alerting timeout value.\n");
+			atimeout = atoi(argv[ar]);
+			ar++;
+		} else
+		if (!strcmp(argv[ar], "--connect-timeout"))
+		{
+			ar++;
+			if (argc == ar)
+				return("Missing connect timeout value.\n");
+			ctimeout = atoi(argv[ar]);
+			ar++;
+		} else
+		{
+			break;
+		}
+	}
 
 	/* send reload command */
 	memset(&msg, 0, sizeof(msg));
 	msg.message = ADMIN_CALL_SETUP;
-	if (argc > 2)
+	msg.u.call.present = 1;
+
+	if (argc > ar)
 	{
-		SCPY(msg.u.call.interface, argv[2]);
+		SCPY(msg.u.call.interface, argv[ar]);
 	}
-	if (argc > 3)
+	ar++;
+	if (argc > ar)
 	{
-		SCPY(msg.u.call.callerid, argv[3]);
+		SCPY(msg.u.call.callerid, argv[ar]);
 	}
-	if (argc > 4)
+	ar++;
+	if (argc > ar)
 	{
-		SCPY(msg.u.call.dialing, argv[4]);
+		SCPY(msg.u.call.dialing, argv[ar]);
 	}
-	if (argc > 5)
+	ar++;
+	if (argc > ar)
 	{
-		if (argv[5][0] == 'p')
-			msg.u.call.present = 1;
+		if (argv[ar][0] == 'r')
+			msg.u.call.present = 0;
 	}
+	ar++;
 	msg.u.call.bc_capa = 0x00; /*INFO_BC_SPEECH*/
 	msg.u.call.bc_mode = 0x00; /*INFO_BMODE_CIRCUIT*/
 	msg.u.call.bc_info1 = 0;
 	msg.u.call.hlc = 0;
 	msg.u.call.exthlc = 0;
-	if (argc > 6)
-		msg.u.call.bc_capa = strtol(argv[6],NULL,0);
+	if (argc > ar)
+		msg.u.call.bc_capa = strtol(argv[ar],NULL,0);
 	else
 		msg.u.call.bc_info1 = 3 | 0x80; /* alaw, if no capability is given at all */
-	if (argc > 7) {
-		msg.u.call.bc_mode = strtol(argv[7],NULL,0);
+	ar++;
+	if (argc > ar) {
+		msg.u.call.bc_mode = strtol(argv[ar],NULL,0);
 		if (msg.u.call.bc_mode) msg.u.call.bc_mode = 2;
 	}
-	if (argc > 8) {
-		msg.u.call.bc_info1 = strtol(argv[8],NULL,0);
+	ar++;
+	if (argc > ar) {
+		msg.u.call.bc_info1 = strtol(argv[ar],NULL,0);
 		if (msg.u.call.bc_info1 < 0)
 			msg.u.call.bc_info1 = 0;
 		else
 			msg.u.call.bc_info1 |= 0x80;
 	}
-	if (argc > 9) {
-		msg.u.call.hlc = strtol(argv[9],NULL,0);
+	ar++;
+	if (argc > ar) {
+		msg.u.call.hlc = strtol(argv[ar],NULL,0);
 		if (msg.u.call.hlc < 0)
 			msg.u.call.hlc = 0;
 		else
 			msg.u.call.hlc |= 0x80;
 	}
-//		printf("hlc=%d\n",  msg.u.call.hlc);
-	if (argc > 10) {
-		msg.u.call.exthlc = strtol(argv[10],NULL,0);
+	ar++;
+	if (argc > ar) {
+		msg.u.call.exthlc = strtol(argv[ar],NULL,0);
 		if (msg.u.call.exthlc < 0)
 			msg.u.call.exthlc = 0;
 		else
 			msg.u.call.exthlc |= 0x80;
 	}
+	ar++;
 
 	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
 		return("Broken pipe while sending command.");
 
+	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0)
+		return("Failed to set socket into non-blocking IO.");
+
+	if (stimeout)
+	{
+		GET_NOW();
+		timer = now_d + (double)stimeout;
+	}
+	
 	/* receive response */
 next:
-	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
+	l = read(sock, &msg, sizeof(msg));
+	if (l < 0)
+	{
+		if (errno == EWOULDBLOCK)
+		{
+			if (timer)
+			{
+				GET_NOW();
+				if (timer <= now_d)
+				{
+					printf("Timeout\n"); fflush(stdout);
+					return(NULL);
+				}
+			}
+			usleep(30000);
+			goto next;
+		}
 		return("Broken pipe while receiving response.");
+	}
+	if (l != sizeof(msg))
+		return("Response has unexpected message size.");
 	switch(msg.message)
 	{
 		case ADMIN_CALL_SETUP_ACK:
@@ -1389,14 +1479,29 @@ next:
 
 		case ADMIN_CALL_PROCEEDING:
 		printf("PROCEEDING\n"); fflush(stdout);
+		if (ptimeout)
+		{
+			GET_NOW();
+			timer = now_d + (double)ptimeout;
+		}
 		goto next;
 
 		case ADMIN_CALL_ALERTING:
 		printf("ALERTING\n"); fflush(stdout);
+		if (atimeout)
+		{
+			GET_NOW();
+			timer = now_d + (double)atimeout;
+		}
 		goto next;
 
 		case ADMIN_CALL_CONNECT:
 		printf("CONNECT\n number=%s\n", msg.u.call.callerid); fflush(stdout);
+		if (ctimeout)
+		{
+			GET_NOW();
+			timer = now_d + (double)ctimeout;
+		}
 		goto next;
 
 		case ADMIN_CALL_NOTIFY:
@@ -1405,7 +1510,7 @@ next:
 
 		case ADMIN_CALL_DISCONNECT:
 		printf("DISCONNECT\n cause=%d %s\n location=%d %s\n", msg.u.call.cause, (msg.u.call.cause>0 && msg.u.call.cause<128)?isdn_cause[msg.u.call.cause].german:"", msg.u.call.location, (msg.u.call.location>=0 && msg.u.call.location<128)?isdn_location[msg.u.call.location].german:""); fflush(stdout);
-		goto next;
+		break;
 
 		case ADMIN_CALL_RELEASE:
 		printf("RELEASE\n cause=%d %s\n location=%d %s\n", msg.u.call.cause, (msg.u.call.cause>0 && msg.u.call.cause<128)?isdn_cause[msg.u.call.cause].german:"", msg.u.call.location, (msg.u.call.location>=0 && msg.u.call.location<128)?isdn_location[msg.u.call.location].german:""); fflush(stdout);
@@ -1414,8 +1519,8 @@ next:
 		default:
 		return("Response not valid.");
 	}
-	
-	printf("Command successfull.\n");
+
+	printf("Call released.\n"); fflush(stdout);
 	return(NULL);
 }
 
@@ -1519,7 +1624,9 @@ int main(int argc, char *argv[])
 		printf("block <port> - Block given port.\n");
 		printf("unblock <port> - Unblock given port.\n");
 		printf("unload <port> - Unload port. To load port use 'block' or 'unblock'.\n");
-		printf("testcall <interface> <callerid> <number> [present|restrict [<capability>]] - Testcall\n");
+		printf("testcall [options] <interface> <callerid> <number> [present|restrict [<capability>]] - Testcall\n");
+		printf(" -> options = --setup-timeout <seconds> --proceeding-timeout <seconds>\n");
+		printf("              --alerting-timeout <seconds> --connect-timeout <seconds>\n");
 		printf(" -> capability = <bc> <mode> <codec> <hlc> <exthlc> (Values must be numbers, -1 to omit.)\n");
 		printf("trace [brief|short] [<filter> [...]] - Shows call trace. Use filter to reduce output.\n");
 		printf(" -> Use 'trace help' to see filter description.\n");

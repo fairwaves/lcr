@@ -55,7 +55,7 @@ extern class EndpointAppPBX *apppbx_first;
 class EndpointAppPBX : public EndpointApp
 {
 	public:
-	EndpointAppPBX(class Endpoint *epoint);
+	EndpointAppPBX(class Endpoint *epoint, int origin);
 	~EndpointAppPBX();
 
 	class EndpointAppPBX	*next;
@@ -75,7 +75,7 @@ class EndpointAppPBX : public EndpointApp
 	struct redir_info	e_redirinfo;		/* info on redirection (to the calling user) */
 	struct capa_info	e_capainfo;		/* info on l3,l2 capacity */
 	time_t			e_start, e_stop;	/* time */
-//	int			e_origin;		/* origin of call */
+	int			e_origin;		/* origin of call 0=incomming 1=outgoing */
 	struct route_ruleset	*e_ruleset;		/* current ruleset pointer (NULL=no ruleset) */
 	struct route_rule	*e_rule;		/* current rule pointer (NULL=no rule) */
 	struct route_action	*e_action;		/* current action pointer (NULL=no action) */

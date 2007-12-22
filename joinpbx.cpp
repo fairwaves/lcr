@@ -1021,7 +1021,7 @@ int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	epoint = new Endpoint(0, j_serial);
 	if (!epoint)
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint)))
+	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
 		FATAL("No memory for Endpoint Application instance\n");
 	relation->epoint_id = epoint->ep_serial;
 	/* send setup message to new endpoint */

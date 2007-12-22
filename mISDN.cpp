@@ -1382,7 +1382,9 @@ int PmISDN::handler(void)
 			p_m_load = 0;
 
 		/* to send data, tone must be active OR crypt messages must be on */
-		if ((p_tone_name[0] || p_m_crypt_msg_loops) && p_m_load < ISDN_LOAD)
+		if ((p_tone_name[0] || p_m_crypt_msg_loops)
+		 && (p_m_load < ISDN_LOAD)
+		 && (p_state==PORT_STATE_CONNECT || p_m_mISDNport->tones))
 		{
 			int tosend = ISDN_LOAD - p_m_load, length; 
 #ifdef SOCKET_MISDN

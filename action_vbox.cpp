@@ -326,7 +326,7 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			port = find_port_id(portlist->port_id);
 			if (port)
 			{
-				port->close_record(6000); /* append beep */
+				port->close_record(0); 
 				port->open_record(CODEC_MONO, 1, 5000, e_ext.number, 0, "", 0); /* record announcement, skip the first 5000 samples */
 			}
 			e_vbox_state = VBOX_STATE_RECORD_RECORD;

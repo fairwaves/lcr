@@ -513,7 +513,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 
 	if (!(epoint = new Endpoint(0, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint)))
+	if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
 		FATAL("No memory for Endpoint Application instance\n");
 	apppbx->e_adminid = admin->sockserial;
 	admin->epointid = epoint->ep_serial;
