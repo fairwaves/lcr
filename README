@@ -405,4 +405,3 @@ Changes in Version 0.3
   -> You can run scripts, that generate testcalls of multiple destinations.
 - Added origin flag to correctly process last_in and last_out call logging.
 
-

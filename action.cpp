@@ -1825,7 +1825,7 @@ void EndpointAppPBX::_action_goto_menu(int mode)
 	} else
 	{
 		/* remove digits that are required to match the rule */
-		if (!(rparam = routeparam(e_action, PARAM_STRIP)))
+		if ((rparam = routeparam(e_action, PARAM_STRIP)))
 		{
 			if (e_extdialing)
 				SCPY(e_dialinginfo.id, e_extdialing);
