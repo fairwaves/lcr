@@ -404,4 +404,7 @@ Changes in Version 0.3
 - Added timeouts for testcall feature. (lcradmin)
   -> You can run scripts, that generate testcalls of multiple destinations.
 - Added origin flag to correctly process last_in and last_out call logging.
+- Tones and annoucements are not overwritten if exist, during installation.
+- Screening now also works for outgoing calls (to interface)
 
+TODO: recording crashes!! (vbox, audio recording)

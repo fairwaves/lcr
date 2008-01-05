@@ -807,7 +807,7 @@ void Port::close_record(int beep)
 	PDEBUG(DEBUG_PORT, "data still in record buffer: %d (dir %d)\n", (p_record_buffer_writep - p_record_buffer_readp) & RECORD_BUFFER_MASK, p_record_buffer_dir);
 
 	memcpy(&callerinfo, &p_callerinfo, sizeof(struct caller_info));
-	apply_callerid_restriction(p_record_anon_ignore, callerinfo.id, &callerinfo.ntype, &callerinfo.present, &callerinfo.screen, callerinfo.extension, callerinfo.name);
+//	apply_callerid_restriction(p_record_anon_ignore, callerinfo.id, &callerinfo.ntype, &callerinfo.present, &callerinfo.screen, callerinfo.extension, callerinfo.name);
 
 	SCPY(number, p_dialinginfo.id);
 	SCPY(callerid, numberrize_callerinfo(callerinfo.id, callerinfo.ntype));

@@ -32,10 +32,10 @@ static char *spaces[11] = {
  * initializes a new trace
  * all values will be reset
  */
-void start_trace(int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name)
+void _start_trace(const char *__file, int __line, int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name)
 {
 	if (trace.name[0])
-		PERROR("trace already started (name=%s)\n", trace.name);
+		PERROR("trace already started (name=%s) in file %s line %d\n", trace.name, __file, __line);
 	memset(&trace, 0, sizeof(struct trace));
 	trace.port = port;
 	if (interface)
@@ -59,12 +59,12 @@ void start_trace(int port, struct interface *interface, char *caller, char *dial
  * if subelement is given, element will also contain a subelement
  * if multiple subelements belong to same element, name must be equal for all subelements
  */
-void add_trace(char *name, char *sub, const char *fmt, ...)
+void _add_trace(const char *__file, int __line, char *name, char *sub, const char *fmt, ...)
 {
 	va_list args;
 
 	if (!trace.name[0])
-		PERROR("trace not started\n");
+		PERROR("trace not started in file %s line %d\n", __file, __line);
 	
 	/* check for required name value */
 	if (!name)
@@ -280,7 +280,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
  * trace ends
  * this function will put the trace to sockets and logfile, if requested
  */
-void end_trace(void)
+void _end_trace(const char *__file, int __line)
 {
 	char *string;
 	FILE *fp;
@@ -288,7 +288,7 @@ void end_trace(void)
 	struct admin_queue	*response, **responsep;	/* response pointer */
 
 	if (!trace.name[0])
-		PERROR("trace not started\n");
+		PERROR("trace not started in file %s line %d\n", __file, __line);
 	
 	if (options.deb || options.log[0])
 	{

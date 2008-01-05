@@ -62,6 +62,7 @@ int read_extension(struct extension *ext, char *num)
 	/* default values */
 	memset(ext, 0, sizeof(struct extension));
 	SCPY(ext->number, number);
+//	********** NOTE: also change value in apppbx constructor
 	ext->rights = 4; /* international */
 	ext->tout_setup = 120;
 	ext->tout_dialing = 120;

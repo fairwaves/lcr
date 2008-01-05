@@ -490,6 +490,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 	while(*ifscreenp)
 		ifscreenp = &((*ifscreenp)->next);
 	*ifscreenp = ifscreen;
+//	printf("interface=%s\n", interface->name);
 	/* get match */
 	p = value;
 	while(*p)
@@ -534,7 +535,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			}
 			ifscreen->match_present = INFO_PRESENT_ALLOWED;
 		} else
-		if (!strcasecmp(el, "restricted"))
+		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted"))
 		{
 			if (ifscreen->match_present != -1)
 				goto presenterror;
@@ -593,7 +594,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 				goto presenterror;
 			ifscreen->result_present = INFO_PRESENT_ALLOWED;
 		} else
-		if (!strcasecmp(el, "restricted"))
+		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted"))
 		{
 			if (ifscreen->result_present != -1)
 				goto presenterror;
@@ -1149,6 +1150,159 @@ void doc_interface(void)
 		printf("\nParameter: %s %s\n", ifparam->name, ifparam->usage);
 		printf("%s\n", ifparam->help);
 		ifparam++;
+	}
+}
+
+
+/* screen caller id
+ * out==0: incomming caller id, out==1: outgoing caller id
+ */
+void do_screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface)
+{
+	char			*msn1;
+	struct interface_msn	*ifmsn;
+	struct interface_screen	*ifscreen;
+	char suffix[64];
+
+	/* screen incoming caller id */
+	if (!out)
+	{
+		/* check for MSN numbers, use first MSN if no match */
+		msn1 = NULL;
+		ifmsn = interface->ifmsn;
+		while(ifmsn)
+		{
+			if (!msn1)
+				msn1 = ifmsn->msn;
+			if (!strcmp(ifmsn->msn, id))
+			{
+				break;
+			}
+			ifmsn = ifmsn->next;
+		}
+		if (ifmsn)
+		{
+			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (fount in MSN list)");
+			add_trace("msn", NULL, "%s", id);
+			end_trace();
+		}
+		if (!ifmsn && msn1) // not in list, first msn given
+		{
+			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (not fount in MSN list)");
+			add_trace("msn", "given", "%s", id);
+			add_trace("msn", "used", "%s", msn1);
+			end_trace();
+			UNCPY(id, msn1, idsize);
+			id[idsize-1] = '\0';
+		}
+	}
+
+	/* check screen list */
+	if (out)
+		ifscreen = interface->ifscreen_out;
+	else
+		ifscreen = interface->ifscreen_in;
+	while (ifscreen)
+	{
+		if (ifscreen->match_type==-1 || ifscreen->match_type==*type)
+		if (ifscreen->match_present==-1 || ifscreen->match_present==*present)
+		{
+			if (strchr(ifscreen->match,'%'))
+			{
+				if (!strncmp(ifscreen->match, id, strchr(ifscreen->match,'%')-ifscreen->match))
+					break;
+			} else
+			{
+				if (!strcmp(ifscreen->match, id))
+					break;
+			}
+		}
+		ifscreen = ifscreen->next;
+	}
+	if (ifscreen) // match
+	{
+		start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (fount in screen list)");
+		switch(*type)
+		{
+			case INFO_NTYPE_UNKNOWN:
+			add_trace("given", "type", "unknown");
+			break;
+			case INFO_NTYPE_SUBSCRIBER:
+			add_trace("given", "type", "subscriber");
+			break;
+			case INFO_NTYPE_NATIONAL:
+			add_trace("given", "type", "national");
+			break;
+			case INFO_NTYPE_INTERNATIONAL:
+			add_trace("given", "type", "international");
+			break;
+		}
+		switch(*present)
+		{
+			case INFO_PRESENT_ALLOWED:
+			add_trace("given", "present", "allowed");
+			break;
+			case INFO_PRESENT_RESTRICTED:
+			add_trace("given", "present", "restricted");
+			break;
+			case INFO_PRESENT_NOTAVAIL:
+			add_trace("given", "present", "not available");
+			break;
+		}
+		add_trace("given", "id", "%s", id[0]?id:"<empty>");
+		if (ifscreen->result_type != -1)
+		{
+			*type = ifscreen->result_type;
+			switch(*type)
+			{
+				case INFO_NTYPE_UNKNOWN:
+				add_trace("used", "type", "unknown");
+				break;
+				case INFO_NTYPE_SUBSCRIBER:
+				add_trace("used", "type", "subscriber");
+				break;
+				case INFO_NTYPE_NATIONAL:
+				add_trace("used", "type", "national");
+				break;
+				case INFO_NTYPE_INTERNATIONAL:
+				add_trace("used", "type", "international");
+				break;
+			}
+		}
+		if (ifscreen->result_present != -1)
+		{
+			*present = ifscreen->result_present;
+			switch(*present)
+			{
+				case INFO_PRESENT_ALLOWED:
+				add_trace("used", "present", "allowed");
+				break;
+				case INFO_PRESENT_RESTRICTED:
+				add_trace("used", "present", "restricted");
+				break;
+				case INFO_PRESENT_NOTAVAIL:
+				add_trace("used", "present", "not available");
+				break;
+			}
+		}
+		if (strchr(ifscreen->match,'%'))
+		{
+			SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
+			UNCPY(id, ifscreen->result, idsize);
+			id[idsize-1] = '\0';
+			if (strchr(id,'%'))
+			{
+				*strchr(id,'%') = '\0';
+				UNCAT(id, suffix, idsize);
+				id[idsize-1] = '\0';
+			}
+		} else
+		{
+			UNCPY(id, ifscreen->result, idsize);
+			id[idsize-1] = '\0';
+		}
+		add_trace("used", "id", "%s", id[0]?id:"<empty>");
+		end_trace();
 	}
 }
 

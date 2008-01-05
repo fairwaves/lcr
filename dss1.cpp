@@ -353,9 +353,9 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 	}
 	if (channel <= 0) /* not given, no channel, whatever.. */
 		channel = CHANNEL_ANY; /* any channel */
+	add_trace("channel", "reserved", "%d", p_m_mISDNport->b_reserved);
 	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) // of out chan..
 	{
-		add_trace("channel", "reserved", "%d", p_m_mISDNport->b_reserved);
 		add_trace("conclusion", NULL, "all channels are reserved");
 		end_trace();
 		return(-34); // no channel
@@ -2056,6 +2056,8 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
+	/* screen outgoing caller id */
+	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
 
 	/* only display at connect state: this case happens if endpoint is in connected mode */
 	if (p_state==PORT_STATE_CONNECT)
@@ -2573,6 +2575,8 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 
 	/* copy connected information */
 	memcpy(&p_connectinfo, &param->connectinfo, sizeof(p_connectinfo));
+	/* screen outgoing caller id */
+	do_screen(1, p_connectinfo.id, sizeof(p_connectinfo.id), &p_connectinfo.ntype, &p_connectinfo.present, p_m_mISDNport->ifport->interface);
 
 	/* only display at connect state */
 	if (p_state == PORT_STATE_CONNECT)

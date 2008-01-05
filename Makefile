@@ -36,7 +36,8 @@ GEN = ./gentones
 GENW = ./genwave
 GENRC = ./genrc
 GENEXT = ./genextension
-CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
+CFLAGS = -DINSTALL_DATA=\"$(INSTALL_DATA)\" -I/usr/include/mISDNuser/
+#CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
 endif
@@ -272,10 +273,21 @@ endif
 	@if test -a $(INSTALL_DATA)/directory.list ; then \
 		echo "NOTE: directory.list already exists, not changed." ; else \
 		cp -v default/directory.list $(INSTALL_DATA) ; fi
-	cp -a tones_* $(INSTALL_DATA)
-	cp -a vbox_english/ $(INSTALL_DATA)
-	cp -a vbox_german/ $(INSTALL_DATA)
-	cp -a tones_efi/ $(INSTALL_DATA)
+	@if test -a $(INSTALL_DATA)/tones_american ; then \
+		echo "NOTE: american tones already exists, not overwritten." ; else \
+		cp -a tones_american $(INSTALL_DATA) ; fi
+	@if test -a $(INSTALL_DATA)/tones_german ; then \
+		echo "NOTE: german tones already exists, not overwritten." ; else \
+		cp -a tones_german $(INSTALL_DATA) ; fi
+	@if test -a $(INSTALL_DATA)/vbox_german ; then \
+		echo "NOTE: german vbox tones already exists, not overwritten." ; else \
+		cp -a vbox_german $(INSTALL_DATA) ; fi
+	@if test -a $(INSTALL_DATA)/vbox_english ; then \
+		echo "NOTE: english vbox tones already exists, not overwritten." ; else \
+		cp -a vbox_english $(INSTALL_DATA) ; fi
+	@if test -a $(INSTALL_DATA)/tones_efi ; then \
+		echo "NOTE: special efi tones already exists, not overwritten." ; else \
+		cp -a tones_efi $(INSTALL_DATA) ; fi
 	sync
 
 clean:

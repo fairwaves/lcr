@@ -698,7 +698,7 @@ void EndpointAppPBX::action_dialing_login(void)
 		message->param.connectinfo.present = INFO_PRESENT_RESTRICTED;
 	else	message->param.connectinfo.present = e_ext.callerid_present;
 	/* handle restricted caller ids */
-	apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
+	apply_callerid_restriction(&e_ext, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 	/* display callerid if desired for extension */
 	SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 	message->param.connectinfo.ntype = e_ext.callerid_type;
@@ -1373,7 +1373,7 @@ void EndpointAppPBX::action_dialing_test(void)
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
 		memcpy(&message->param.connectinfo, &e_connectinfo, sizeof(struct connect_info));
 		/* handle restricted caller ids */
-		apply_callerid_restriction(e_ext.anon_ignore, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
+		apply_callerid_restriction(&e_ext, message->param.connectinfo.id, &message->param.connectinfo.ntype, &message->param.connectinfo.present, &message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name);
 		/* display callerid if desired for extension */
 		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 		message_put(message);

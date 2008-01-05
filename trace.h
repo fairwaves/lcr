@@ -42,9 +42,12 @@ struct trace {
 //#define CATEGORY_BC	0x04 check lcradmin help
 
 
-void start_trace(int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
-void add_trace(char *name, char *sub, const char *fmt, ...);
-void end_trace(void);
+#define start_trace(port, interface, caller, dialing, direction, category, serial, name) _start_trace(__FUNCTION__, __LINE__, port, interface, caller, dialing, direction, category, serial, name)
+#define add_trace(name, sub, fmt, arg...) _add_trace(__FUNCTION__, __LINE__, name, sub, fmt, ## arg)
+#define end_trace() _end_trace(__FUNCTION__, __LINE__)
+void _start_trace(const char *__file, int line, int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
+void _add_trace(const char *__file, int line, char *name, char *sub, const char *fmt, ...);
+void _end_trace(const char *__file, int line);
 //char *print_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
 
 

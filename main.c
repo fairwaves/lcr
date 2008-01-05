@@ -658,7 +658,7 @@ free:
 	if (options.schedule > 1)
 	{
 		memset(&schedp, 0, sizeof(schedp));
-		schedp.sched_priority = 0;
+		schedp.sched_priority = options.schedule;
 		sched_setscheduler(0, SCHED_OTHER, &schedp);
 	}
 	/* reset signals */

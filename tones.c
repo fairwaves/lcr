@@ -217,7 +217,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 						*length = ((signed long)chunk)>>1;
 					if (left)
 						*left = ((signed long)chunk)>>1;
-					printf("left=%d\n",*left);
+//					printf("left=%d\n",*left);
 				} else
 				if (bytes==2 && channels==2)
 				{

@@ -112,5 +112,5 @@ void free_interfaces(struct interface *interface_start);
 void relink_interfaces(void);
 void load_port(struct interface_port *ifport);
 void doc_interface(void);
-
+void do_screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface);
 
