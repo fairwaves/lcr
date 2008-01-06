@@ -53,6 +53,7 @@ Functions:
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <math.h>
 #include "main.h"
 
 #define SHORT_MIN -32768
@@ -218,7 +219,7 @@ Port::~Port(void)
 	struct message *message;
 
 	if (p_record)
-		close_record(0);
+		close_record(0, 0);
 
 	classuse--;
 
@@ -788,10 +789,9 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 /*
  * close the recoding file, put header in front and rename
  */
-void Port::close_record(int beep)
+void Port::close_record(int beep, int mute)
 {
-	static signed long beep_mono[] = {-10000, 10000, -10000, 10000, -10000, 10000, -10000, 10000, -10000, 10000, -10000, 10000, -10000, 10000, -10000, 10000};
-	static unsigned char beep_8bit[] = {48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208, 48, 208};
+	static signed short beep_mono[256];
 	unsigned long size, wsize;
 	struct fmt fmt;
 	char filename[512], indexname[512];
@@ -849,11 +849,24 @@ void Port::close_record(int beep)
 		i++;
 	}
 
-	/* add beep to the end of recording */
-	if (beep)
-	switch(p_record_type)
+	/* mute */
+	if (mute && p_record_type==CODEC_MONO)
 	{
-		case CODEC_MONO:
+		i = p_record_length;
+		if (i > mute)
+			i = mute;	
+		fseek(p_record, -(i<<1), SEEK_END);
+		p_record_length -= (i<<1);
+	}
+	/* add beep to the end of recording */
+	if (beep && p_record_type==CODEC_MONO)
+	{
+		i = 0;
+		while(i < 256)
+		{
+			beep_mono[i] = (signed short)(sin((double)i / 5.688888888889 * 2.0 * 3.1415927) * 2000.0);
+			i++;
+		}
 		i = 0;
 		while(i < beep)
 		{
@@ -861,29 +874,6 @@ void Port::close_record(int beep)
 			i += sizeof(beep_mono);
 			p_record_length += sizeof(beep_mono);
 		}
-		break;
-		case CODEC_8BIT:
-		i = 0;
-		while(i < beep)
-		{
-			fwrite(beep_8bit, sizeof(beep_8bit), 1, p_record);
-			i += sizeof(beep_8bit);
-			p_record_length += sizeof(beep_8bit);
-		}
-		break;
-#if 0
-		case CODEC_LAW:
-		i = 0;
-		while(i < beep)
-		{
-			fwrite(beep_law, sizeof(beep_law), 1, p_record);
-			i += sizeof(beep_law);
-			p_record_length += sizeof(beep_law);
-		}
-		break;
-#endif
-		default:
-		PERROR("codec %d not supported for beep adding\n", p_record_type);
 	}
 
 	/* complete header */

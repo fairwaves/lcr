@@ -267,13 +267,13 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 
 	if (e_vbox_state == VBOX_STATE_RECORD_RECORD)
 	{
-		if (e_extdialing[0] == '1')
+		if (e_extdialing[0] == '1' || e_extdialing[0] == '0')
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) stopping recording of announcement.\n", ea_endpoint->ep_serial);
 
 			port = find_port_id(portlist->port_id);
 			if (port)
-				port->close_record(6000); /* append beep */
+				port->close_record((e_extdialing[0]=='1')?6000:0, 2000); /* append beep */
 			goto record_ask;
 		}
 		goto done;
@@ -326,8 +326,8 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			port = find_port_id(portlist->port_id);
 			if (port)
 			{
-				port->close_record(0); 
-				port->open_record(CODEC_MONO, 1, 5000, e_ext.number, 0, "", 0); /* record announcement, skip the first 5000 samples */
+				port->close_record(0,0); 
+				port->open_record(CODEC_MONO, 1, 4000, e_ext.number, 0, "", 0); /* record announcement, skip the first 4000 samples */
 			}
 			e_vbox_state = VBOX_STATE_RECORD_RECORD;
 			if (e_ext.vbox_language)

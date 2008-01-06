@@ -5,6 +5,8 @@ neue params zun aufbau eines externen/internen calls dokumentieren
 
 neuen partyline-param dokumentieren
 
+dokumentieren: aufzeichnung der ansage mit 0 ohne beep beenden
+
 make asterisk call implementation
 
 display message during nothing/play

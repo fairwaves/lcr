@@ -406,5 +406,8 @@ Changes in Version 0.3
 - Added origin flag to correctly process last_in and last_out call logging.
 - Tones and annoucements are not overwritten if exist, during installation.
 - Screening now also works for outgoing calls (to interface)
+- Fixed VBox, also added trace debugging.
+- Nice 'Beep' after the announcement.
+- Special announcement recording without beep.
 
-TODO: recording crashes!! (vbox, audio recording)
+

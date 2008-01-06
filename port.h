@@ -180,7 +180,7 @@ class Port
 
 	/* recording */
 	int open_record(int type, int mode, int skip, char *terminal, int anon_ignore, char *vbox_email, int vbox_email_file);
-	void close_record(int beep);
+	void close_record(int beep, int mute);
 	void record(unsigned char *data, int length, int dir_fromup);
 	FILE *p_record;				/* recording fp: if not NULL, recording is enabled */
 	int p_record_type;			/* codec to use: RECORD_MONO, RECORD_STEREO, ... */
