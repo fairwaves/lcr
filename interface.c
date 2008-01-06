@@ -651,13 +651,116 @@ static int inter_nodtmf(struct interface *interface, char *filename, int line, c
 	ifport->nodtmf = 1;
 	return(0);
 }
-#warning filter to be done
-#if 0
 static int inter_filter(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+	char *p, *q;
+
+	/* seperate parameter from filter */
+	p = value;
+	while(*p > 32)
+		p++;
+	if (*p)
+	{
+		*p++ = 0;
+		while(*p > 0 && *p <= 32)
+			p++;
+	}
+
+	if (!strcasecmp(value, "gain"))
+	{
+		q = p;
+		while(*q > 32)
+			q++;
+		if (*q)
+		{
+			*q++ = 0;
+			while(*q > 0 && *q <= 32)
+				q++;
+		}
+		if (*p == 0 || *q == 0)
+		{
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects two gain values.\n", filename, line, parameter, value);
+			return(-1);
+		}
+		if (atoi(p)<-8 || atoi(p)>8 || atoi(q)<-8 || atoi(q)>8)
+		{
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' gain values not in range. (-8...8)\n", filename, line, parameter, value);
+			return(-1);
+		}
+		interface->gain_tx = atoi(p);
+		interface->gain_rx = atoi(q);
+	} else
+	if (!strcasecmp(value, "pipeline"))
+	{
+		if (*p == 0)
+		{
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects pipeline string.\n", filename, line, parameter, value);
+			return(-1);
+		}
+		SCPY(interface->pipeline, p);
+	} else
+	if (!strcasecmp(value, "blowfish"))
+	{
+		unsigned char key[56];
+		int l;
+		
+		if (!!strncmp(p, "0x", 2))
+		{
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects blowfish key starting with '0x'.\n", filename, line, parameter, value);
+			return(-1);
+		}
+		p += 2;
+		l = 0; 
+		while(*p)
+		{
+			if (l == 56)
+			{
+				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key too long.\n", filename, line, parameter, value);
+				return(-1);
+			}
+			if (*p >= '0' && *p <= '9')
+				key[l] = (*p-'0')<<4;
+			else if (*p >= 'a' && *p <= 'f')
+				key[l] = (*p-'a'+10)<<4;
+			else if (*p >= 'A' && *p <= 'F')
+				key[l] = (*p-'A'+10)<<4;
+			else
+			{
+				digout:
+				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key has digits out of range. (0...9, a...f)\n", filename, line, parameter, value);
+				return(-1);
+			}
+			p++;
+			if (*p == 0)
+			{
+				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key must end on an 8 bit boundary (two character boundary).\n", filename, line, parameter, value);
+				return(-1);
+			}
+			if (*p >= '0' && *p <= '9')
+				key[l] = (*p-'0')<<4;
+			else if (*p >= 'a' && *p <= 'f')
+				key[l] = (*p-'a'+10)<<4;
+			else if (*p >= 'A' && *p <= 'F')
+				key[l] = (*p-'A'+10)<<4;
+			else
+				goto digout;
+			p++;
+			l++;
+		}
+		if (l < 4)
+		{
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key must be at least 4 bytes (8 characters).\n", filename, line, parameter, value);
+			return(-1);
+		}
+		memcpy(interface->bf_key, key, l);
+		interface->bf_len = l;
+	} else
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' has unknown filter '%s'.\n", filename, line, parameter, value);
+		return(-1);
+	}
 	return(0);
 }
-#endif
 
 
 /*
@@ -748,13 +851,11 @@ struct interface_param interface_param[] = {
 	"This parameter must follow a 'port' parameter."},
 #endif
 
-#if 0
-#warning todo: filter, also in the PmISDN object
-	{"filter", &inter_filter, "<filter> [parameters]",
+	{"filter", &inter_filter, "<filter> <parameters>",
 	"Adds/appends a filter. Filters are ordered in transmit direction.\n"
 	"gain <tx-volume> <rx-volume> - Changes volume (-8 .. 8)\n"
+	"pipeline <string> - Sets echo cancelation pipeline.\n"
 	"blowfish <key> - Adds encryption. Key must be 4-56 bytes (8-112 hex characters."},
-#endif
 
 	{NULL, NULL, NULL, NULL}
 };
@@ -934,7 +1035,6 @@ void free_interfaces(struct interface *interface)
 	struct select_channel *selchannel;
 	struct interface_msn *ifmsn;
 	struct interface_screen *ifscreen;
-	struct interface_filter *iffilter;
 
 	while(interface)
 	{
@@ -984,14 +1084,6 @@ void free_interfaces(struct interface *interface)
 			temp = ifscreen;
 			ifscreen = ifscreen->next;
 			FREE(temp, sizeof(struct interface_screen));
-			memuse--;
-		}
-		iffilter = interface->iffilter;
-		while(iffilter)
-		{
-			temp = iffilter;
-			iffilter = iffilter->next;
-			FREE(temp, sizeof(struct interface_filter));
 			memuse--;
 		}
 		temp = interface;

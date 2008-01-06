@@ -1,3 +1,7 @@
+
+fuer asterisk: dejitter tx_buffer in dsp.o
+
+
 layer-2-hold interface feature
 
 neue params zum aufbau eines externen/internen calls
@@ -6,6 +10,7 @@ neue params zun aufbau eines externen/internen calls dokumentieren
 neuen partyline-param dokumentieren
 
 dokumentieren: aufzeichnung der ansage mit 0 ohne beep beenden
+doku: gain, pipeline, crypt
 
 make asterisk call implementation
 

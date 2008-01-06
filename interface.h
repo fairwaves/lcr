@@ -73,12 +73,6 @@ struct interface_screen {
 	int			result_present; /* presentation type */
 };
 
-struct interface_filter {
-	struct interface_filter	*next;
-	int			filter; /* filter to use */
-	char			parameter[256]; /* filter parameter */
-};
-
 struct interface {
 	struct interface	*next;
 	char			name[64]; /* name of interface */
@@ -91,7 +85,10 @@ struct interface {
 	struct interface_msn	*ifmsn; /* link to interface msn list */
 	struct interface_screen *ifscreen_in; /* link to screening list */
 	struct interface_screen *ifscreen_out; /* link to screening list */
-	struct interface_filter	*iffilter; /* link to filter list */
+	int			gain_tx, gain_rx; /* filter gain */
+	char			pipeline[256]; /* filter pipeline */
+	unsigned char		bf_key[56]; /* filter blowfish */
+	int			bf_len; /* filter length of blowfish */
 };
 
 struct interface_param {

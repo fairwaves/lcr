@@ -234,7 +234,7 @@ struct param_defs param_defs[] = {
 	  "strip", "Remove digits that were required to match this rule."},
 	{ PARAM_APPLICATION,
 	  "application",PARAM_TYPE_STRING,
-	  "application", "Name of remote application to make call to."},
+	  "application=<name>", "Name of remote application to make call to."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 

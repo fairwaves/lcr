@@ -168,7 +168,8 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_b_reserve = 0;
 	p_m_delete = 0;
 	p_m_hold = 0;
-	p_m_txvol = p_m_rxvol = 0;
+	p_m_txvol = mISDNport->ifport->interface->gain_tx;
+	p_m_rxvol = mISDNport->ifport->interface->gain_rx;
 	p_m_conf = 0;
 	p_m_txdata = 0;
 	p_m_delay = 0;
@@ -181,7 +182,8 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_timer = 0;
 	p_m_remote_ref = 0; /* channel shall be exported to given remote */
 	p_m_remote_id = 0; /* channel shall be exported to given remote */
-
+	SCPY(p_m_pipeline, mISDNport->ifport->interface->pipeline);
+	
 	/* audio */
 	p_m_load = 0;
 	p_m_last_tv_sec = 0;
@@ -194,13 +196,18 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_crypt_msg_len = 0;
 	p_m_crypt_msg[0] = '\0';
 	p_m_crypt_msg_current = 0;
-	p_m_crypt_key[0] = '\0';
 	p_m_crypt_key_len = 0;
 	p_m_crypt_listen = 0;
 	p_m_crypt_listen_state = 0;
 	p_m_crypt_listen_len = 0;
 	p_m_crypt_listen_msg[0] = '\0';
 	p_m_crypt_listen_crc = 0;
+	if (mISDNport->ifport->interface->bf_len >= 4 && mISDNport->ifport->interface->bf_len <= 56)
+	{
+		memcpy(p_m_crypt_key, mISDNport->ifport->interface->bf_key, p_m_crypt_key_len);
+		p_m_crypt_key_len = mISDNport->ifport->interface->bf_len;
+		p_m_crypt = 1;
+	}
 
 	/* if any channel requested by constructor */
 	if (channel == CHANNEL_ANY)
@@ -634,6 +641,8 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 		ph_control(mISDNport, port, handle, VOL_CHANGE_TX, port->p_m_txvol, "DSP-TXVOL", port->p_m_txvol);
 	if (port->p_m_rxvol)
 		ph_control(mISDNport, port, handle, VOL_CHANGE_RX, port->p_m_rxvol, "DSP-RXVOL", port->p_m_rxvol);
+	if (port->p_m_pipeline[0])
+		ph_control_block(mISDNport, port, handle, PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
 	if (port->p_m_conf)
 		ph_control(mISDNport, port, handle, CMX_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
 	if (port->p_m_echo)

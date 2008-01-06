@@ -47,7 +47,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
 	e_ext.tout_disconnect = 120;
 //	e_ext.tout_hold = 900;
 //	e_ext.tout_park = 900;
-	e_ext.rxvol = e_ext.txvol = 256;
+	e_ext.rxvol = e_ext.txvol = 0;
         e_state = EPOINT_STATE_IDLE;
         e_ext.number[0] = '\0';
 	e_extension_interface[0] = '\0';
@@ -1583,7 +1583,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 
 		/* set volume of rx and tx */
 		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
-		if (e_ext.txvol!=256 || e_ext.rxvol!=256)
+		if (e_ext.txvol!=0 || e_ext.rxvol!=0)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_VOLUME;
@@ -2073,7 +2073,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	new_state(EPOINT_STATE_CONNECT);
 
 	/* set volume of rx and tx */
-	if (e_ext.txvol!=256 || e_ext.rxvol!=256)
+	if (e_ext.txvol!=0 || e_ext.rxvol!=0)
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
 		message->param.mISDNsignal.message = mISDNSIGNAL_VOLUME;
@@ -2453,7 +2453,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		case INFO_NOTIFY_USER_RESUMED:
 		/* set volume of rx and tx */
 		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
-		if (e_ext.txvol!=256 || e_ext.rxvol!=256)
+		if (e_ext.txvol!=0 || e_ext.rxvol!=0)
 		if (portlist)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);

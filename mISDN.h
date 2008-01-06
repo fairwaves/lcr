@@ -112,6 +112,7 @@ class PmISDN : public Port
 	struct mISDNport *p_m_mISDNport;	/* pointer to port */
 	int p_m_delay;				/* use delay instead of dejitter */
 	int p_m_txvol, p_m_rxvol;		/* volume shift (0 = no change) */
+	char p_m_pipeline[256];			/* filter pipeline */
 	int p_m_echo, p_m_conf;			/* remote echo, conference number */
 	int p_m_tone;				/* current kernel space tone */
 	int p_m_rxoff;				/* rx from driver is disabled */
