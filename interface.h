@@ -56,6 +56,13 @@ struct interface_port {
 	struct select_channel	*out_channel; /* list of channels to select */
 	struct select_channel	*in_channel; /* the same for incoming channels */
 	int			block; /* set if interface is blocked */
+        int			tout_setup;
+        int			tout_dialing;
+        int			tout_proceeding;
+        int			tout_alerting;
+        int			tout_disconnect;
+//	int			tout_hold;
+//	int			tout_park;
 };
 
 struct interface_msn {

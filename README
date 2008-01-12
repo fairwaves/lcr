@@ -409,5 +409,7 @@ Changes in Version 0.3
 - Fixed VBox, also added trace debugging.
 - Nice 'Beep' after the announcement.
 - Special announcement recording without beep.
-
+- Filters now work for interface.conf
+- Fixed minor audio gain bug.
+- Moved timeout setting from extension to interface.conf.
 

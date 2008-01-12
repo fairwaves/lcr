@@ -434,6 +434,55 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 	}
 	return(0);
 }
+static int inter_timeouts(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+	struct select_channel *selchannel, **selchannelp;
+	int val;
+	char *p, *el;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	p = value;
+	if (!*p)
+	{
+		nofive:
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects five timeout values.\n", filename, line, parameter);
+		return(-1);
+	}
+	el = p;
+	p = get_seperated(p);
+	ifport->tout_setup = atoi(el);
+	if (!*p)
+		goto nofive;
+	el = p;
+	p = get_seperated(p);
+	ifport->tout_dialing = atoi(el);
+	if (!*p)
+		goto nofive;
+	el = p;
+	p = get_seperated(p);
+	ifport->tout_proceeding = atoi(el);
+	if (!*p)
+		goto nofive;
+	el = p;
+	p = get_seperated(p);
+	ifport->tout_alerting = atoi(el);
+	if (!*p)
+		goto nofive;
+	el = p;
+	p = get_seperated(p);
+	ifport->tout_disconnect = atoi(el);
+	return(0);
+}
 static int inter_msn(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_msn *ifmsn, **ifmsnp;
@@ -820,6 +869,11 @@ struct interface_param interface_param[] = {
 	"This parameter must follow a 'port' parameter.\n"
 	" <number>[,...] - List of channels to accept.\n"
 	" free - Accept any free channel"},
+
+	{"timeouts", &inter_timeouts, "<setup> <dialing> <proceeding> <alerting> <disconnect>",
+	"Timeout values for call states. They are both for incomming and outgoing states.\n"
+	"The default is 120 seconds for all states. Use 0 to disable.\n"
+	"This parameter must follow a 'port' parameter.\n"},
 
 	{"msn", &inter_msn, "<default MSN>,[<additional MSN>[,...]]",
 	"Incomming caller ID is checked against given MSN numbers.\n"

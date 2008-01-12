@@ -79,13 +79,6 @@ int main(int argc, char *argv[])
 
 	memset(&ext, 0, sizeof(ext));
 	ext.rights = 4;
-	ext.tout_setup = 120;
-	ext.tout_dialing = 120;
-	ext.tout_proceeding = 120;
-	ext.tout_alerting = 120;
-	ext.tout_disconnect = 120;
-//	ext.tout_hold = 900;
-//	ext.tout_park = 900;
 	ext.cfnr_delay = 20;
 	ext.vbox_codec = CODEC_MONO;
 	UCPY(ext.interfaces, argv[2]);

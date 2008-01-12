@@ -1,6 +1,7 @@
 
 fuer asterisk: dejitter tx_buffer in dsp.o
 
+doku: tout in interface.conf
 
 layer-2-hold interface feature
 

@@ -1926,45 +1926,43 @@ void Pdss1::new_state(int state)
 	class Endpoint *epoint;
 
 	/* set timeout */
-	epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
-	if (epoint && p_m_d_ntmode)
+	if (state == PORT_STATE_IN_OVERLAP)
 	{
-		if (state == PORT_STATE_IN_OVERLAP)
+		p_m_timeout = p_m_mISDNport->ifport->tout_dialing;
+		time(&p_m_timer);
+	}
+	if (state != p_state)
+	{
+		if (state == PORT_STATE_IN_SETUP
+		 || state == PORT_STATE_OUT_SETUP
+		 || state == PORT_STATE_IN_OVERLAP
+		 || state == PORT_STATE_OUT_OVERLAP)
 		{
-			p_m_timeout = p_settings.tout_dialing;
+			p_m_timeout = p_m_mISDNport->ifport->tout_setup;
 			time(&p_m_timer);
 		}
-		if (state != p_state)
+		if (state == PORT_STATE_IN_PROCEEDING
+		 || state == PORT_STATE_OUT_PROCEEDING)
 		{
-			if (state == PORT_STATE_IN_SETUP
-			 || state == PORT_STATE_IN_OVERLAP)
-			{
-				p_m_timeout = p_settings.tout_setup;
-				time(&p_m_timer);
-			}
-			if (state == PORT_STATE_IN_PROCEEDING
-			 || state == PORT_STATE_OUT_PROCEEDING)
-			{
-				p_m_timeout = p_settings.tout_proceeding;
-				time(&p_m_timer);
-			}
-			if (state == PORT_STATE_IN_ALERTING
-			 || state == PORT_STATE_OUT_ALERTING)
-			{
-				p_m_timeout = p_settings.tout_alerting;
-				time(&p_m_timer);
-			}
-			if (state == PORT_STATE_CONNECT
-			 || state == PORT_STATE_CONNECT_WAITING)
-			{
-				p_m_timeout = 0;
-			}
-			if (state == PORT_STATE_IN_DISCONNECT
-			 || state == PORT_STATE_OUT_DISCONNECT)
-			{
-				p_m_timeout = p_settings.tout_disconnect;
-				time(&p_m_timer);
-			}
+			p_m_timeout = p_m_mISDNport->ifport->tout_proceeding;
+			time(&p_m_timer);
+		}
+		if (state == PORT_STATE_IN_ALERTING
+		 || state == PORT_STATE_OUT_ALERTING)
+		{
+			p_m_timeout = p_m_mISDNport->ifport->tout_alerting;
+			time(&p_m_timer);
+		}
+		if (state == PORT_STATE_CONNECT
+		 || state == PORT_STATE_CONNECT_WAITING)
+		{
+			p_m_timeout = 0;
+		}
+		if (state == PORT_STATE_IN_DISCONNECT
+		 || state == PORT_STATE_OUT_DISCONNECT)
+		{
+			p_m_timeout = p_m_mISDNport->ifport->tout_disconnect;
+			time(&p_m_timer);
 		}
 	}
 	
@@ -2769,7 +2767,8 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	 * we may only release during incomming disconnect state.
 	 * this means that the endpoint doesnt require audio anymore
 	 */
-	if (p_state == PORT_STATE_IN_DISCONNECT)
+	if (p_state == PORT_STATE_IN_DISCONNECT
+     	 || p_state == PORT_STATE_OUT_DISCONNECT)
 	{
 		/* sending release */
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, p_m_d_l3id, sizeof(RELEASE_t), p_m_d_ntmode);

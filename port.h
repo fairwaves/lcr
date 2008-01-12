@@ -116,14 +116,7 @@ inline unsigned long INACTIVE_EPOINT(struct epoint_list *epointlist)
 /* structure of port settings */
 struct port_settings {
 	char tones_dir[256];			/* directory of current tone */
-        int tout_setup;
-        int tout_dialing;
-        int tout_proceeding;
-        int tout_alerting;
-        int tout_disconnect;
-//	int tout_hold;
-//	int tout_park;
-	int no_seconds;				/* don't send seconds with time information element */
+	int no_seconds;
 };
 
 /* generic port class */

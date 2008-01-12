@@ -162,13 +162,6 @@ struct extension {
 	int vbox_email_file;	/* set, if also the audio fille will be attached */
 	int vbox_free;		/* if vbox shall connect after announcment */
 	
-	int tout_setup;
-	int tout_dialing;
-	int tout_proceeding;
-	int tout_alerting;
-	int tout_disconnect;
-//	int tout_hold;
-//	int tout_park;
 	int own_setup;
 	int own_proceeding;
 	int own_alerting;

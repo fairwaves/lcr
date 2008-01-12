@@ -40,13 +40,6 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         memset(&e_ext, 0, sizeof(struct extension));
 	// *************** NOTE: also change value in read_extension() **************
 	e_ext.rights = 4; /* international */
-	e_ext.tout_setup = 120;
-	e_ext.tout_dialing = 120;
-	e_ext.tout_proceeding = 120;
-	e_ext.tout_alerting = 120;
-	e_ext.tout_disconnect = 120;
-//	e_ext.tout_hold = 900;
-//	e_ext.tout_park = 900;
 	e_ext.rxvol = e_ext.txvol = 0;
         e_state = EPOINT_STATE_IDLE;
         e_ext.number[0] = '\0';
@@ -860,13 +853,6 @@ void EndpointAppPBX::out_setup(void)
 		SCPY(port_settings.tones_dir, e_ext.tones_dir);
 	else
 		SCPY(port_settings.tones_dir, options.tones_dir);
-	port_settings.tout_setup = e_ext.tout_setup;
-	port_settings.tout_dialing = e_ext.tout_dialing;
-	port_settings.tout_proceeding = e_ext.tout_proceeding;
-	port_settings.tout_alerting = e_ext.tout_alerting;
-	port_settings.tout_disconnect = e_ext.tout_disconnect;
-//	port_settings.tout_hold = e_ext.tout_hold;
-//	port_settings.tout_park = e_ext.tout_park;
 	port_settings.no_seconds = e_ext.no_seconds;
 	
 	/* NOTE: currently the try_card feature is not supported. it should be used later to try another card, if the outgoing call fails on one port */
