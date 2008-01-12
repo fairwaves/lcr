@@ -295,12 +295,12 @@ clean:
 	rm -f $(LCR) $(LCRADMIN) $(CHAN_LCR) $(LCRWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	rm -f *.o
 	rm -f .*.c.sw* .*.cpp.sw* .*.h.sw*
-	rm -f bla nohup.out
+	rm -f bla nohup.out a.out
 	rm -f debug*.log
 
 tar:
 	make clean
-	cd .. &&  tar -cvzf lcr_`date +%Y%m%d`.tar.gz lcr
+	cd .. &&  tar --exclude=.git -cvzf lcr_`date +%Y%m%d`.tar.gz lcr
 
 start: $(LCR)
 	sync

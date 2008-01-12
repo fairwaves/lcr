@@ -19,6 +19,7 @@
 #include "main.h"
 
 enum {
+	EFI_STATE_HELLO,
 	EFI_STATE_DIE,
 	EFI_STATE_BENUTZERDEFINIERTE,
 	EFI_STATE_UNTERDRUECKTE,
@@ -55,8 +56,8 @@ void EndpointAppPBX::action_init_efi(void)
 	/* initialize the vbox */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) initializing efi\n", ea_endpoint->ep_serial);
 
-	e_efi_state = EFI_STATE_DIE;
-	set_tone_efi("die");
+	e_efi_state = EFI_STATE_HELLO;
+	set_tone_efi("hello");
 
 	e_efi_digit = 0;
 }
@@ -76,6 +77,10 @@ void EndpointAppPBX::efi_message_eof(void)
 
 	switch(e_efi_state)
 	{
+		case EFI_STATE_HELLO:
+		e_efi_state = EFI_STATE_DIE;
+		set_tone_efi("die");
+		break;
 		case EFI_STATE_DIE:
 		if (e_callerinfo.screen==INFO_SCREEN_USER)
 		{
@@ -109,15 +114,16 @@ void EndpointAppPBX::efi_message_eof(void)
 			e_efi_digit++;
 		} else
 		{
-			e_efi_state = EFI_STATE_STOP; //EFI_STATE_ICH_WIEDERHOLE;
-			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DISCONNECT);
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-			message->param.disconnectinfo.cause = CAUSE_NORMAL;
-			message_put(message);
-			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
-			new_state(EPOINT_STATE_OUT_DISCONNECT);
-			set_tone(portlist,"cause_10");
-//			set_tone_efi("ich_wiederhole");
+//			e_efi_state = EFI_STATE_STOP;
+			e_efi_state = EFI_STATE_ICH_WIEDERHOLE;
+//			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DISCONNECT);
+//			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+//			message->param.disconnectinfo.cause = CAUSE_NORMAL;
+//			message_put(message);
+//			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
+//			new_state(EPOINT_STATE_OUT_DISCONNECT);
+//			set_tone(portlist,"cause_10");
+			set_tone_efi("ich_wiederhole");
 		}
 		break;
 

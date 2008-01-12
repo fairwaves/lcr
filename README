@@ -413,3 +413,7 @@ Changes in Version 0.3
 - Fixed minor audio gain bug.
 - Moved timeout setting from extension to interface.conf.
 
+Changes in Version 0.3
+- Complete set of EFI samples
+
+
