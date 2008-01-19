@@ -286,7 +286,7 @@ struct action_defs action_defs[] = {
 	{ ACTION_REPLY,
 	  "reply",	&EndpointAppPBX::action_init_redial_reply, &EndpointAppPBX::action_dialing_reply, NULL,
 	  PARAM_CONNECT | PARAM_SELECT,
-	  "Caller replies. (last incomming call(s))"},
+	  "Caller replies. (last incoming call(s))"},
 	{ ACTION_POWERDIAL,
 	  "powerdial",	NULL, &EndpointAppPBX::action_dialing_powerdial, NULL,
 	  PARAM_CONNECT | PARAM_DELAY | PARAM_LIMIT | PARAM_TIMEOUT,

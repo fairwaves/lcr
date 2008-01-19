@@ -288,8 +288,8 @@ struct param_counter {
 
 struct param_mISDNsignal {
 	int message;
-	int rxvol;
-	int txvol;
+	int tx_gain;
+	int rx_gain;
 	int conf;
 	int joindata;
 	int tone;
@@ -311,6 +311,11 @@ struct param_hello {
 struct param_bchannel {
 	int type; /* BCHANNEL_* */
 	unsigned long handle; /* bchannel stack/portid */
+	int tx_gain, rx_gain;
+	char pipeline[256];
+	unsigned char crypt[128];
+	int crypt_len;
+	int crypt_type; /* 1 = blowfish */
 };
 
 /* structure of message parameter */

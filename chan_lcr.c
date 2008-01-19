@@ -45,7 +45,8 @@ with that reference.
 #include "message.h"
 #include "admin.h"
 #include "cause.h"
-#include "asterisk_client.h"
+#include "bchannel.h"
+#include "chan_lcr.h"
 
 int sock;
 
@@ -57,34 +58,7 @@ struct admin_list {
 /*
  * channel and call instances
  */
-struct chan_bchannel *bchannel_first;
 struct chan_call *call_first;
-
-struct chan_bchannel *find_bchannel_handle(unsigned long addr)
-{
-	struct chan_bchannel *bchannel = bchannel_first;
-
-	while(bchannel)
-	{
-		if (bchannel->addr == addr)
-			break;
-		bchannel = bchannel->next;
-	}
-	return(bchannel);
-}
-
-struct chan_bchannel *find_bchannel_ref(unsigned long ref)
-{
-	struct chan_bchannel *bchannel = bchannel_first;
-
-	while(bchannel)
-	{
-		if (bchannel->ref == ref)
-			break;
-		bchannel = bchannel->next;
-	}
-	return(bchannel);
-}
 
 struct chan_call *find_call_ref(unsigned long ref)
 {
@@ -99,44 +73,17 @@ struct chan_call *find_call_ref(unsigned long ref)
 	return(call);
 }
 
-struct chan_call *find_call_addr(unsigned long addr)
+struct chan_call *find_call_handle(unsigned long handle)
 {
 	struct chan_call *call = call_first;
 
 	while(call)
 	{
-		if (call->addr == addr)
+		if (call->bchannel_handle == handle)
 			break;
 		call = call->next;
 	}
 	return(call);
-}
-
-struct chan_bchannel *alloc_bchannel(void)
-{
-	struct chan_bchannel **bchannelp = &bchannel_first;
-
-	while(*bchannelp)
-		bchannelp = &((*bchannelp)->next);
-
-	*bchannelp = (struct chan_bchannel *)MALLOC(sizeof(struct chan_bchannel));
-	return(*bchannelp);
-}
-
-void free_bchannel(struct chan_bchannel *bchannel)
-{
-	struct chan_bchannel **temp = &bchannel_first;
-
-	while(*temp)
-	{
-		if (*temp == bchannel)
-		{
-			*temp = (*temp)->next;
-			free(bchannel);
-			return;
-		}
-		temp = &((*temp)->next);
-	}
 }
 
 struct chan_call *alloc_call(void)
@@ -168,6 +115,17 @@ void free_call(struct chan_call *call)
 
 
 /*
+ * receive bchannel data
+ */
+void rx_data(struct bchannel *bchannel, unsigned char *data, int len)
+{
+}
+
+void rx_dtmf(struct bchannel *bchannel, char tone)
+{
+}
+
+/*
  * enque message to LCR
  */
 int send_message(int message_type, unsigned long ref, union parameter *param)
@@ -193,7 +151,7 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 int receive_message(int message_type, unsigned long ref, union parameter *param)
 {
 	union parameter newparam;
-	struct chan_bchannel *bchannel;
+	struct bchannel *bchannel;
 	struct chan_call *call;
 
 	memset(&newparam, 0, sizeof(union parameter));
@@ -210,18 +168,38 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				return(-1);
 			}
 			/* create bchannel */
-			bchannel = alloc_bchannel();
-			bchannel->addr = param->bchannel.handle;
+			bchannel = alloc_bchannel(param->bchannel.handle);
+			if (!bchannel)
+			{
+				fprintf(stderr, "error: alloc bchannel handle %x failed.\n", param->bchannel.handle);
+				return(-1);
+			}
+
+			/* configure channel */
+			bchannel->b_tx_gain = param->bchannel.tx_gain;
+			bchannel->b_rx_gain = param->bchannel.rx_gain;
+			strncpy(bchannel->b_pipeline, param->bchannel.pipeline, sizeof(bchannel->b_pipeline)-1);
+			if (param->bchannel.crypt_len)
+			{
+				bchannel->b_crypt_len = param->bchannel.crypt_len;
+				bchannel->b_crypt_type = param->bchannel.crypt_type;
+				memcpy(bchannel->b_crypt_key, param->bchannel.crypt, param->bchannel.crypt_len);
+			}
+			bchannel->b_txdata = 0;
+			bchannel->b_dtmf = 1;
+			bchannel->b_tx_dejitter = 1;
+
 			/* in case, ref is not set, this bchannel instance must
 			 * be created until it is removed again by LCR */
 			/* link to call */
 			if ((call = find_call_ref(ref)))
 			{
 				bchannel->ref = ref;
-				call->addr = param->bchannel.handle;
+				call->bchannel_handle = param->bchannel.handle;
 			}
+			if (bchannel_create(bchannel))
+				bchannel_activate(bchannel, 1);
 
-#warning open stack
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_ASSIGN_ACK;
 			newparam.bchannel.handle = param->bchannel.handle;
@@ -237,11 +215,11 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			/* unlink from call */
 			if ((call = find_call_ref(bchannel->ref)))
 			{
-				call->addr = 0;
+				call->bchannel_handle = 0;
 			}
-			/* remove bchannel */
+			/* destroy and remove bchannel */
 			free_bchannel(bchannel);
-#warning close stack
+
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_REMOVE_ACK;
 			newparam.bchannel.handle = param->bchannel.handle;
@@ -403,6 +381,7 @@ int main(int argc, char *argv[])
 	int ret;
 	unsigned long on = 1;
 	union parameter param;
+	int work;
 
 	/* open socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -437,14 +416,32 @@ int main(int argc, char *argv[])
 	SCPY(param.hello.application, "asterisk");
 	send_message(MESSAGE_HELLO, 0, &param);
 
+	/* bchannel */
+	if (!bchannel_initialize())
+		goto bchannel_failed;
+	
 	while(42)
 	{
+		work = 0;
+
+		/* handle socket */
 		ret = handle_socket();
 		if (ret < 0)
 			break;
-		if (!ret)
+		if (ret)
+			work = 1;
+
+		/* handle mISDN */
+		ret = bchannel_handle();
+		if (ret)
+			work = 1;
+		
+		if (!work)
 			usleep(30000);
 	}
+
+	bchannel_deinitialize();
+	bchannel_failed:
 	
 	/* close socket */	
 	close(sock);

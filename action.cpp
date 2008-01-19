@@ -2276,7 +2276,7 @@ void EndpointAppPBX::process_dialing(void)
 	if (e_state!=EPOINT_STATE_IN_SETUP
 	 && e_state!=EPOINT_STATE_IN_OVERLAP)
 	{
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): we are not in incomming setup/overlap state, so we ignore init/dialing process.\n", ea_endpoint->ep_serial, e_rule_nesting);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): we are not in incoming setup/overlap state, so we ignore init/dialing process.\n", ea_endpoint->ep_serial, e_rule_nesting);
 		e_match_timeout = 0;
 		goto end;
 	}
@@ -2444,7 +2444,7 @@ void EndpointAppPBX::process_dialing(void)
 		if (e_state!=EPOINT_STATE_IN_SETUP
 		 && e_state!=EPOINT_STATE_IN_OVERLAP)
 		{
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): AFTER init process: we are not in incomming setup/overlap state anymore, so we ignore further dialing process.\n", ea_endpoint->ep_serial, e_rule_nesting);
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): AFTER init process: we are not in incoming setup/overlap state anymore, so we ignore further dialing process.\n", ea_endpoint->ep_serial, e_rule_nesting);
 			goto display_action;
 		}
 	}
@@ -2544,7 +2544,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		write_log(e_ext.number, callertext, dialingtext, e_start, e_stop, 0, cause, location);
 
 		/* store last received call for reply-list */
-		if (e_origin == 1) // outgoing to phone is incomming for user
+		if (e_origin == 1) // outgoing to phone is incoming for user
 		if (e_callerinfo.id[0] || e_callerinfo.extension[0])
 		if (e_ext.anon_ignore || e_callerinfo.present!=INFO_PRESENT_RESTRICTED)
 		{
@@ -2568,7 +2568,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		}
 
 		/* store last made call for reply-list */
-		if (e_origin == 0) // incomming from phone is outgoing for user
+		if (e_origin == 0) // incoming from phone is outgoing for user
 		if (e_dialinginfo.id[0])
 		{
 			if (!!strcmp(e_dialinginfo.id, e_ext.last_out[0]))

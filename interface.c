@@ -736,8 +736,8 @@ static int inter_filter(struct interface *interface, char *filename, int line, c
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' gain values not in range. (-8...8)\n", filename, line, parameter, value);
 			return(-1);
 		}
-		interface->gain_tx = atoi(p);
-		interface->gain_rx = atoi(q);
+		interface->tx_gain = atoi(p);
+		interface->rx_gain = atoi(q);
 	} else
 	if (!strcasecmp(value, "pipeline"))
 	{
@@ -863,7 +863,7 @@ struct interface_param interface_param[] = {
 	" no - Signal 'no channel available' aka 'call waiting'. (see DSS1)"},
 
 	{"channel-in", &inter_channel_in, "[<number>][,...][,free]",
-	"Channel selection list for all incomming calls from the interface.\n"
+	"Channel selection list for all incoming calls from the interface.\n"
 	"A free channels is accepted if in the list.\n"
 	"If any channel was requested, the first free channel found is selected.\n"
 	"This parameter must follow a 'port' parameter.\n"
@@ -871,16 +871,16 @@ struct interface_param interface_param[] = {
 	" free - Accept any free channel"},
 
 	{"timeouts", &inter_timeouts, "<setup> <dialing> <proceeding> <alerting> <disconnect>",
-	"Timeout values for call states. They are both for incomming and outgoing states.\n"
+	"Timeout values for call states. They are both for incoming and outgoing states.\n"
 	"The default is 120 seconds for all states. Use 0 to disable.\n"
 	"This parameter must follow a 'port' parameter.\n"},
 
 	{"msn", &inter_msn, "<default MSN>,[<additional MSN>[,...]]",
-	"Incomming caller ID is checked against given MSN numbers.\n"
+	"Incoming caller ID is checked against given MSN numbers.\n"
 	"If the caller ID is not found in this list, it is overwritten by the first MSN"},
 
 	{"screen-in", &inter_screen_in, "[options] <old caller ID>[%] [options] <new caller ID>[%]",
-	"Adds an entry for incomming calls to the caller ID screen list.\n"
+	"Adds an entry for incoming calls to the caller ID screen list.\n"
 	"If the given 'old caller ID' matches, it is replaced by the 'new caller ID'\n"
 	"If '%' is given after old caller ID, it matches even if caller ID has\n"
 	"additional digits.\n"
@@ -1301,7 +1301,7 @@ void doc_interface(void)
 
 
 /* screen caller id
- * out==0: incomming caller id, out==1: outgoing caller id
+ * out==0: incoming caller id, out==1: outgoing caller id
  */
 void do_screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface)
 {

@@ -330,7 +330,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 
 
 /*
- * hunt bchannel for incomming setup or retrieve or resume
+ * hunt bchannel for incoming setup or retrieve or resume
  */
 int Pdss1::hunt_bchannel(int channel, int exclusive)
 {
@@ -738,7 +738,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		FATAL("Incoming call but already got an endpoint.\n");
 	if (!(epoint = new Endpoint(p_serial, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incomming
+	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incoming
 		FATAL("No memory for Endpoint Application instance\n");
 	epointlist_new(epoint->ep_serial);
 
@@ -2764,7 +2764,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	char *p = NULL;
 
 	/*
-	 * we may only release during incomming disconnect state.
+	 * we may only release during incoming disconnect state.
 	 * this means that the endpoint doesnt require audio anymore
 	 */
 	if (p_state == PORT_STATE_IN_DISCONNECT

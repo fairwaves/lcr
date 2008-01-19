@@ -40,7 +40,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         memset(&e_ext, 0, sizeof(struct extension));
 	// *************** NOTE: also change value in read_extension() **************
 	e_ext.rights = 4; /* international */
-	e_ext.rxvol = e_ext.txvol = 0;
+	e_ext.rx_gain = e_ext.tx_gain = 0;
         e_state = EPOINT_STATE_IDLE;
         e_ext.number[0] = '\0';
 	e_extension_interface[0] = '\0';
@@ -1569,12 +1569,12 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 
 		/* set volume of rx and tx */
 		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
-		if (e_ext.txvol!=0 || e_ext.rxvol!=0)
+		if (e_ext.tx_gain!=0 || e_ext.rx_gain!=0)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_VOLUME;
-			message->param.mISDNsignal.rxvol = e_ext.txvol;
-			message->param.mISDNsignal.txvol = e_ext.rxvol;
+			message->param.mISDNsignal.rx_gain = e_ext.tx_gain;
+			message->param.mISDNsignal.tx_gain = e_ext.rx_gain;
 			message_put(message);
 		}
 
@@ -2059,12 +2059,12 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	new_state(EPOINT_STATE_CONNECT);
 
 	/* set volume of rx and tx */
-	if (e_ext.txvol!=0 || e_ext.rxvol!=0)
+	if (e_ext.tx_gain!=0 || e_ext.rx_gain!=0)
 	{
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
 		message->param.mISDNsignal.message = mISDNSIGNAL_VOLUME;
-		message->param.mISDNsignal.rxvol = e_ext.txvol;
-		message->param.mISDNsignal.txvol = e_ext.rxvol;
+		message->param.mISDNsignal.rx_gain = e_ext.tx_gain;
+		message->param.mISDNsignal.tx_gain = e_ext.rx_gain;
 		message_put(message);
 	}
 
@@ -2439,13 +2439,13 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		case INFO_NOTIFY_USER_RESUMED:
 		/* set volume of rx and tx */
 		if (param->setup.callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
-		if (e_ext.txvol!=0 || e_ext.rxvol!=0)
+		if (e_ext.tx_gain!=0 || e_ext.rx_gain!=0)
 		if (portlist)
 		{
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_VOLUME;
-			message->param.mISDNsignal.rxvol = e_ext.txvol;
-			message->param.mISDNsignal.txvol = e_ext.rxvol;
+			message->param.mISDNsignal.rx_gain = e_ext.tx_gain;
+			message->param.mISDNsignal.tx_gain = e_ext.rx_gain;
 			message_put(message);
 		}
 		/* set current tone */

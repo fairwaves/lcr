@@ -125,13 +125,20 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	}
 }
 
-void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long handle)
+void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
 {
 	union parameter param;
 
 	memset(&param, 0, sizeof(union parameter));
 	param.bchannel.type = type;
 	param.bchannel.handle = handle;
+	param.bchannel.tx_gain = tx_gain;
+	param.bchannel.rx_gain = rx_gain;
+	if (pipeline)
+		SCPY(param.bchannel.pipeline, pipeline);
+	if (crypt_len)
+		memcpy(param.bchannel.crypt, crypt, crypt_len);
+	param.bchannel.crypt_type = crypt_type;
 	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0)
 	{
 		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);

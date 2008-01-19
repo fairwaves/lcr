@@ -13,7 +13,7 @@
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
 
-#define VERSION_STRING	"0.4 (Spring 2007)"
+#define VERSION_STRING	"0.5 (Spring 2007)"
 
 extern int memuse;
 extern int mmemuse;

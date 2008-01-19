@@ -168,8 +168,8 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_b_reserve = 0;
 	p_m_delete = 0;
 	p_m_hold = 0;
-	p_m_txvol = mISDNport->ifport->interface->gain_tx;
-	p_m_rxvol = mISDNport->ifport->interface->gain_rx;
+	p_m_tx_gain = mISDNport->ifport->interface->tx_gain;
+	p_m_rx_gain = mISDNport->ifport->interface->rx_gain;
 	p_m_conf = 0;
 	p_m_txdata = 0;
 	p_m_delay = 0;
@@ -467,7 +467,7 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 
 	/* open socket */
 	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
-	if (mISDNport->b_socket[i])
+	if (mISDNport->b_socket[i] < 0)
 	{
 		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
 		return(0);
@@ -637,10 +637,10 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 		ph_control(mISDNport, port, handle, (port->p_m_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
 	if (port->p_m_delay)
 		ph_control(mISDNport, port, handle, CMX_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
-	if (port->p_m_txvol)
-		ph_control(mISDNport, port, handle, VOL_CHANGE_TX, port->p_m_txvol, "DSP-TXVOL", port->p_m_txvol);
-	if (port->p_m_rxvol)
-		ph_control(mISDNport, port, handle, VOL_CHANGE_RX, port->p_m_rxvol, "DSP-RXVOL", port->p_m_rxvol);
+	if (port->p_m_tx_gain)
+		ph_control(mISDNport, port, handle, VOL_CHANGE_TX, port->p_m_tx_gain, "DSP-TX_GAIN", port->p_m_tx_gain);
+	if (port->p_m_rx_gain)
+		ph_control(mISDNport, port, handle, VOL_CHANGE_RX, port->p_m_rx_gain, "DSP-RX_GAIN", port->p_m_rx_gain);
 	if (port->p_m_pipeline[0])
 		ph_control_block(mISDNport, port, handle, PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
 	if (port->p_m_conf)
@@ -788,16 +788,28 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 	int state = mISDNport->b_state[i];
 	unsigned long p_m_remote_ref = 0;
 	unsigned long p_m_remote_id = 0;
+	int p_m_tx_gain = 0;
+	int p_m_rx_gain = 0;
+	char *p_m_pipeline = NULL;
+	unsigned char *p_m_crypt_key = NULL;
+	int p_m_crypt_key_len = 0;
+	int p_m_crypt_key_type = 0;
 #ifdef SOCKET_MISDN
 	unsigned long portid = (mISDNport->portnum<<8) + i+1+(i>=15);
 #else
-	unsigned long portid = mISDNport->b_addr[i];
+	unsigned long portid = mISDNport->b_stid[i];
 #endif
 
 	if (b_port)
 	{
 		p_m_remote_id = b_port->p_m_remote_id;
 		p_m_remote_ref = b_port->p_m_remote_ref;
+		p_m_tx_gain = b_port->p_m_tx_gain;
+		p_m_rx_gain = b_port->p_m_rx_gain;
+		p_m_pipeline = b_port->p_m_pipeline;
+		p_m_crypt_key = b_port->p_m_crypt_key;
+		p_m_crypt_key_len = b_port->p_m_crypt_key_len;
+		p_m_crypt_key_type = /*b_port->p_m_crypt_key_type*/1;
 	}
 
 	switch(event)
@@ -812,7 +824,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			if (p_m_remote_ref)
 			{
 				/* export bchannel */
-				message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid);
+				message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
 				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 				add_trace("type", NULL, "assign");
 #ifdef SOCKET_MISDN
@@ -867,7 +879,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			/* in case, the bchannel is exported right after seize_bchannel */
 			/* export bchannel */
 			/* p_m_remote_id is set, when this event happens. */
-			message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid);
+			message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
 			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 			add_trace("type", NULL, "assign");
 #ifdef SOCKET_MISDN
@@ -942,7 +954,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				 * OR bchannel is not used anymore
 				 * OR bchannel has been exported to an obsolete ref,
 				 * so reimport, to later export to new remote */
-				message_bchannel_to_join(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid);
+				message_bchannel_to_join(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0);
 				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 				add_trace("type", NULL, "remove");
 #ifdef SOCKET_MISDN
@@ -982,7 +994,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 			case B_STATE_REMOTE:
 			/* bchannel is exported, so we re-import */
-			message_bchannel_to_join(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid);
+			message_bchannel_to_join(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0);
 			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 			add_trace("type", NULL, "remove");
 #ifdef SOCKET_MISDN
@@ -1019,7 +1031,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				/* bchannel is now deactivate, but is requied by Port class, so we reactivate / export */
 				if (p_m_remote_ref)
 				{
-					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid);
+					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 					add_trace("type", NULL, "assign");
 #ifdef SOCKET_MISDN
@@ -1059,7 +1071,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				/* bchannel is now imported, but is requied by Port class, so we reactivate / export */
 				if (p_m_remote_ref)
 				{
-					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid);
+					message_bchannel_to_join(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 					add_trace("type", NULL, "assign");
 #ifdef SOCKET_MISDN
@@ -1795,32 +1807,32 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 	switch(param->mISDNsignal.message)
 	{
 		case mISDNSIGNAL_VOLUME:
-		if (p_m_txvol != param->mISDNsignal.txvol)
+		if (p_m_tx_gain != param->mISDNsignal.tx_gain)
 		{
-			p_m_txvol = param->mISDNsignal.txvol;
-			PDEBUG(DEBUG_BCHANNEL, "we change tx-volume to shift=%d.\n", p_m_txvol);
+			p_m_tx_gain = param->mISDNsignal.tx_gain;
+			PDEBUG(DEBUG_BCHANNEL, "we change tx-volume to shift=%d.\n", p_m_tx_gain);
 			if (p_m_b_index >= 0)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_TX, p_m_txvol, "DSP-TXVOL", p_m_txvol);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
 #else
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_TX, p_m_txvol, "DSP-TXVOL", p_m_txvol);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
 #endif
 		} else
-			PDEBUG(DEBUG_BCHANNEL, "we already have tx-volume shift=%d.\n", p_m_rxvol);
-		if (p_m_rxvol != param->mISDNsignal.rxvol)
+			PDEBUG(DEBUG_BCHANNEL, "we already have tx-volume shift=%d.\n", p_m_rx_gain);
+		if (p_m_rx_gain != param->mISDNsignal.rx_gain)
 		{
-			p_m_rxvol = param->mISDNsignal.rxvol;
-			PDEBUG(DEBUG_BCHANNEL, "we change rx-volume to shift=%d.\n", p_m_rxvol);
+			p_m_rx_gain = param->mISDNsignal.rx_gain;
+			PDEBUG(DEBUG_BCHANNEL, "we change rx-volume to shift=%d.\n", p_m_rx_gain);
 			if (p_m_b_index >= 0)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_RX, p_m_rxvol, "DSP-RXVOL", p_m_rxvol);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
 #else
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_RX, p_m_rxvol, "DSP-RXVOL", p_m_rxvol);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
 #endif
 		} else
-			PDEBUG(DEBUG_BCHANNEL, "we already have rx-volume shift=%d.\n", p_m_rxvol);
+			PDEBUG(DEBUG_BCHANNEL, "we already have rx-volume shift=%d.\n", p_m_rx_gain);
 		break;
 
 		case mISDNSIGNAL_CONF:

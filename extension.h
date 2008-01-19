@@ -130,7 +130,7 @@ struct extension {
 	int change_callerid;
 	int clip;		/* how to present caller id on forwarded calls */
 	int colp;		/* how to present called line id on forwarded calls */
-	char clip_prefix[32];	/* prefix for screening incomming clip */
+	char clip_prefix[32];	/* prefix for screening incoming clip */
 	int keypad;		/* support keypad for call control */
 	int centrex;		/* present name of caller/called on internal extension */
 	int anon_ignore;	/* ignore anonymouse calls */
@@ -139,8 +139,8 @@ struct extension {
 	int noknocking;		/* deny knocking of incoming call */
 	char last_out[MAX_REMEMBER][64];	/* numbers to redail */
 	char last_in[MAX_REMEMBER][64];	/* numbers to reply */
-	int txvol;
-	int rxvol;
+	int tx_gain;
+	int rx_gain;
 	int display_cause; 	/* clear cause using display message */
 	int display_ext;	/* display external caller ids */
 	int display_int;	/* display internal caller ids */

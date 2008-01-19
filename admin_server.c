@@ -1087,7 +1087,7 @@ int admin_handle(void)
 	if (sock < 0)
 		return(0);
 
-	/* check for new incomming connections */
+	/* check for new incoming connections */
 	if ((new_sock = accept(sock, (struct sockaddr *)&sock_address, &sock_len)) >= 0)
 	{
 		work = 1;
@@ -1096,7 +1096,7 @@ int admin_handle(void)
 		if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0)
 		{
 //#warning
-//	PERROR("DEBUG incomming socket %d, serial=%d\n", new_sock, sockserial);
+//	PERROR("DEBUG incoming socket %d, serial=%d\n", new_sock, sockserial);
 			memuse++;
 			fhuse++;
 			admin->sockserial = sockserial++;

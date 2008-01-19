@@ -217,7 +217,7 @@ Changes in Version 2.4
 
 Changes in Version 2.5
 - Fixed callback bug. (International numbers were not detected.)
-- Fixed typos (mostly "incomming") - thanx Lars.
+- Fixed typos (mostly "incoming") - thanx Lars.
 - Fixed vbox-email bug - thanx Martin. (and also the compiler error)
 - Fixed compiler bug, that caused compiling without crypto lib to fail.
 - Fixed some mISDN crash problems.
@@ -250,7 +250,7 @@ Changes in Version 2.6
 Changes in Version 2.7
 - Fixed lots of bugs.
 - Now receive stream from mISDN is disabled when not needed.
-- Added NT mode support for incomming "SETUP_ACKNOWLEDGE".
+- Added NT mode support for incoming "SETUP_ACKNOWLEDGE".
 
 Changes in Version 3.0
 - Advanced routing capability to replace the numbering_*.conf
@@ -413,7 +413,9 @@ Changes in Version 0.3
 - Fixed minor audio gain bug.
 - Moved timeout setting from extension to interface.conf.
 
-Changes in Version 0.3
+Changes in Version 0.4
 - Complete set of EFI samples
 
+Changes in Version 0.5
+- Preperations for Asterisk channel driver (chan_lcr)
 

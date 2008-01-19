@@ -56,13 +56,13 @@ endif
 #	@echo Please report any bug. To compile use \"make beta\".
 #	@exit
 
-all: $(LCR) $(LCRADMIN) $(CHAN_LCR) $(GEN) $(GENW) $(GENRC) $(GENEXT)
-	@sh -c 'grep -n strcpy *.c* ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncpy *.c* ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strcat *.c* ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncat *.c* ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n sprintf *.c* ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n snprintf *.c* ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
+all: $(CHAN_LCR) $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
+	@sh -c 'grep -n strcpy *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strncpy *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strcat *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
 	@echo "All LCR binaries done"
 	@sync
 	@exit
@@ -151,6 +151,12 @@ admin_server.o: admin_server.c *.h Makefile
 trace.o: trace.c *.h Makefile
 	$(CC) -c $(CFLAGS) trace.c -o trace.o
 
+chan_lcr.o: chan_lcr.c *.h Makefile
+	$(CC) -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
+
+bchannel.o: bchannel.c *.h Makefile
+	$(CC) -c $(CFLAGS) bchannel.c -o bchannel.o
+
 
 #$(WIZZARD): wizzard.c Makefile
 #	$(CC) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
@@ -215,9 +221,9 @@ $(LCRADMIN): admin_client.c cause.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
 	-o $(LCRADMIN) 
 
-$(CHAN_LCR): asterisk_client.c *.h Makefile
-	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm asterisk_client.c \
-	-o $(CHAN_LCR) 
+$(CHAN_LCR): chan_lcr.o bchannel.o
+	$(CD) $(LIBDIR) chan_lcr.o bchannel.o \
+	$(LIBS) -o $(CHAN_LCR) 
 
 $(LCRWATCH): watch.c *.h Makefile
 	$(CC) $(LIBDIR) $(CFLAGS) -lm watch.c \
