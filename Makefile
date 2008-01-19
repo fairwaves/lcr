@@ -11,7 +11,7 @@
 
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 #WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
-#WITH-SOCKET = 42 # compile for socket based mISDN (
+#WITH-SOCKET = 42 # compile for socket based mISDN (this options is far unfinished !!!)
 # note: check your location and the names of libraries.
 
 # select location to install
@@ -19,12 +19,13 @@ INSTALL_BIN = /usr/local/bin
 INSTALL_DATA = /usr/local/lcr
 
 LIBS += -lisdnnet -lmISDN -lpthread
+CHANLIBS += -lmISDN
 
 # give location of the curses or ncurses library
 CURSES = -lncurses
 
-CC = g++
-LD = $(CC)
+CC = gcc
+PP = g++
 WIZZARD = ./wizzard
 LCR = ./lcr
 LCRADMIN = ./lcradmin
@@ -68,88 +69,88 @@ all: $(CHAN_LCR) $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	@exit
 
 main.o: main.c *.h Makefile
-	$(CC) -c $(CFLAGS) main.c -o main.o
+	$(PP) -c $(CFLAGS) main.c -o main.o
 
 message.o: message.c *.h Makefile
-	$(CC) -c $(CFLAGS) message.c -o message.o
+	$(PP) -c $(CFLAGS) message.c -o message.o
 
 options.o: options.c *.h Makefile
-	$(CC) -c $(CFLAGS) options.c -o options.o
+	$(PP) -c $(CFLAGS) options.c -o options.o
 
 interface.o: interface.c *.h Makefile
-	$(CC) -c $(CFLAGS) interface.c -o interface.o
+	$(PP) -c $(CFLAGS) interface.c -o interface.o
 
 extension.o: extension.c *.h Makefile
-	$(CC) -c $(CFLAGS) extension.c -o extension.o
+	$(PP) -c $(CFLAGS) extension.c -o extension.o
 
 route.o: route.c *.h Makefile
-	$(CC) -c $(CFLAGS) route.c -o route.o
+	$(PP) -c $(CFLAGS) route.c -o route.o
 
 port.o: port.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) port.cpp -o port.o
+	$(PP) -c $(CFLAGS) port.cpp -o port.o
 
 mISDN.o: mISDN.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) mISDN.cpp -o mISDN.o
+	$(PP) -c $(CFLAGS) mISDN.cpp -o mISDN.o
 
 dss1.o: dss1.cpp ie.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) dss1.cpp -o dss1.o
+	$(PP) -c $(CFLAGS) dss1.cpp -o dss1.o
 
 #knock.o: knock.cpp *.h Makefile
-#	$(CC) -c $(CFLAGS) knock.cpp -o knock.o
+#	$(PP) -c $(CFLAGS) knock.cpp -o knock.o
 #
 vbox.o: vbox.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) vbox.cpp -o vbox.o
+	$(PP) -c $(CFLAGS) vbox.cpp -o vbox.o
 
 mail.o: mail.c *.h Makefile
-	$(CC) -c $(CFLAGS) mail.c -o mail.o
+	$(PP) -c $(CFLAGS) mail.c -o mail.o
 
 action.o: action.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) action.cpp -o action.o
+	$(PP) -c $(CFLAGS) action.cpp -o action.o
 
 action_vbox.o: action_vbox.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) action_vbox.cpp -o action_vbox.o
+	$(PP) -c $(CFLAGS) action_vbox.cpp -o action_vbox.o
 
 action_efi.o: action_efi.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) action_efi.cpp -o action_efi.o
+	$(PP) -c $(CFLAGS) action_efi.cpp -o action_efi.o
 
 endpoint.o: endpoint.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) endpoint.cpp -o endpoint.o
+	$(PP) -c $(CFLAGS) endpoint.cpp -o endpoint.o
 
 endpointapp.o: endpointapp.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) endpointapp.cpp -o endpointapp.o
+	$(PP) -c $(CFLAGS) endpointapp.cpp -o endpointapp.o
 
 apppbx.o: apppbx.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) apppbx.cpp -o apppbx.o
+	$(PP) -c $(CFLAGS) apppbx.cpp -o apppbx.o
 
 join.o: join.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) join.cpp -o join.o
+	$(PP) -c $(CFLAGS) join.cpp -o join.o
 
 joinpbx.o: joinpbx.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) joinpbx.cpp -o joinpbx.o
+	$(PP) -c $(CFLAGS) joinpbx.cpp -o joinpbx.o
 
 joinremote.o: joinremote.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) joinremote.cpp -o joinremote.o
+	$(PP) -c $(CFLAGS) joinremote.cpp -o joinremote.o
 
 cause.o: cause.c *.h Makefile
-	$(CC) -c $(CFLAGS) cause.c -o cause.o
+	$(PP) -c $(CFLAGS) cause.c -o cause.o
 
 alawulaw.o: alawulaw.c *.h Makefile
-	$(CC) -c $(CFLAGS) alawulaw.c -o alawulaw.o
+	$(PP) -c $(CFLAGS) alawulaw.c -o alawulaw.o
 
 tones.o: tones.c *.h Makefile
-	$(CC) -c $(CFLAGS) tones.c -o tones.o
+	$(PP) -c $(CFLAGS) tones.c -o tones.o
 
 crypt.o: crypt.cpp *.h Makefile
-	$(CC) -c $(CFLAGS) crypt.cpp -o crypt.o
+	$(PP) -c $(CFLAGS) crypt.cpp -o crypt.o
 
 genext.o: genext.c *.h Makefile
-	$(CC) -c $(CFLAGS) genext.c -o genext.o
+	$(PP) -c $(CFLAGS) genext.c -o genext.o
 
 admin_server.o: admin_server.c *.h Makefile
-	$(CC) -c $(CFLAGS) admin_server.c -o admin_server.o
+	$(PP) -c $(CFLAGS) admin_server.c -o admin_server.o
 
 trace.o: trace.c *.h Makefile
-	$(CC) -c $(CFLAGS) trace.c -o trace.o
+	$(PP) -c $(CFLAGS) trace.c -o trace.o
 
 chan_lcr.o: chan_lcr.c *.h Makefile
 	$(CC) -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
@@ -159,7 +160,7 @@ bchannel.o: bchannel.c *.h Makefile
 
 
 #$(WIZZARD): wizzard.c Makefile
-#	$(CC) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
+#	$(PP) $(LIBDIR) $(CFLAGS) -lm wizzard.c \
 #	-o $(WIZZARD) 
 
 $(LCR): main.o \
@@ -188,7 +189,7 @@ $(LCR): main.o \
 	joinremote.o \
 	admin_server.o \
 	trace.o
-	$(LD) $(LIBDIR) \
+	$(PP) $(LIBDIR) \
        	main.o \
 	options.o \
 	interface.o \
@@ -218,31 +219,31 @@ $(LCR): main.o \
 	$(LIBS) -o $(LCR) 
 
 $(LCRADMIN): admin_client.c cause.c *.h Makefile
-	$(CC) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
+	$(PP) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
 	-o $(LCRADMIN) 
 
 $(CHAN_LCR): chan_lcr.o bchannel.o
-	$(CD) $(LIBDIR) chan_lcr.o bchannel.o \
-	$(LIBS) -o $(CHAN_LCR) 
+	$(CC) $(LIBDIR) chan_lcr.o bchannel.o \
+	$(CHANLIBS) -o $(CHAN_LCR) 
 
 $(LCRWATCH): watch.c *.h Makefile
-	$(CC) $(LIBDIR) $(CFLAGS) -lm watch.c \
+	$(PP) $(LIBDIR) $(CFLAGS) -lm watch.c \
 	-o $(LCRWATCH) 
 
 $(GEN):	gentones.c *.h Makefile 
-	$(CC) $(LIBDIR) $(CFLAGS) -lm gentones.c \
+	$(PP) $(LIBDIR) $(CFLAGS) -lm gentones.c \
 	-o $(GEN) 
 
 $(GENW):genwave.c *.h Makefile 
-	$(CC) $(LIBDIR) $(CFLAGS) -lm genwave.c \
+	$(PP) $(LIBDIR) $(CFLAGS) -lm genwave.c \
 	-o $(GENW) 
 
 $(GENRC): genrc.c *.h Makefile
-	$(CC) $(LIBDIR) $(CFLAGS) -lm genrc.c \
+	$(PP) $(LIBDIR) $(CFLAGS) -lm genrc.c \
 	-o $(GENRC) 
 
 $(GENEXT): options.o extension.o genext.o
-	$(CC) $(CFLAGS) options.o extension.o genext.o -o $(GENEXT) 
+	$(PP) $(CFLAGS) options.o extension.o genext.o -o $(GENEXT) 
 
 #install:
 #	@echo Remember, this is a beta release. To overwrite your current installed

@@ -178,6 +178,7 @@ int write_log(char *number, char *callerid, char *calledid, time_t start, time_t
 int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, char **name_pointer);
 int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **crypt_pointer, char **key_pointer);
 char *parse_directory(char *number, int type);
+struct caller_info;
 int parse_callbackauth(char *number, struct caller_info *callerinfo);
 void append_callbackauth(char *number, struct caller_info *callerinfo);
 

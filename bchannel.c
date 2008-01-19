@@ -694,38 +694,32 @@ int bchannel_handle(void)
 #else
 int bchannel_handle(void)
 {
-	int ret;
 	int i;
 	struct bchannel *channel;
-	msg_t *msg;
 	iframe_t *frm;
-	msg_t *dmsg;
-	mISDNuser_head_t *hh;
-	net_stack_t *nst;
+	unsigned char buffer[2048];
+	struct mISDNhead *hh = (struct mISDNhead *)buffer;
+	int len;
 
 	/* no device, no read */
 	if (bchannel_device < 0)
 		return(0);
 
 	/* get message from kernel */
-	if (!(msg = alloc_msg(MAX_MSG_SIZE)))
-		return(1);
-	ret = mISDN_read(bchannel_device, msg->data, MAX_MSG_SIZE, 0);
-	if (ret < 0)
+	len = mISDN_read(bchannel_device, buffer, sizeof(buffer), 0);
+	if (len < 0)
 	{
-		free_msg(msg);
 		if (errno == EAGAIN)
 			return(0);
-		FATAL("Failed to do mISDN_read()\n");
+		PERROR("Failed to do mISDN_read()\n");
+		return(0);
 	}
-	if (!ret)
+	if (!len)
 	{
-		free_msg(msg);
 //		printf("%s: ERROR: mISDN_read() returns nothing\n");
 		return(0);
 	}
-	msg->len = ret;
-	frm = (iframe_t *)msg->data;
+	frm = (iframe_t *)buffer;
 
 	/* global prim */
 	switch(frm->prim)
@@ -735,7 +729,6 @@ int bchannel_handle(void)
 		case MGR_ADDTIMER | CONFIRM:
 		case MGR_DELTIMER | CONFIRM:
 		case MGR_REMOVETIMER | CONFIRM:
-		free_msg(msg);
 		return(1);
 	}
 
@@ -749,7 +742,7 @@ int bchannel_handle(void)
 	} 
 	if (!channel)
 	{
-		PERROR("message belongs to no channel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		PERROR("message belongs to no channel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
 		goto out;
 	}
 
@@ -766,7 +759,7 @@ int bchannel_handle(void)
 		case DL_DATA | INDICATION:
 		case PH_CONTROL | INDICATION:
 		case PH_SIGNAL | INDICATION:
-		bchannel_receive(channel, frm->prim, frm->dinfo, frm->data.p, frm->len);
+		bchannel_receive(channel, frm->prim, frm->dinfo, (unsigned char *)frm->data.p, frm->len);
 		break;
 
 		case PH_ACTIVATE | INDICATION:
@@ -786,11 +779,10 @@ int bchannel_handle(void)
 		break;
 
 		default:
-		PERROR("message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		PERROR("message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
 	}
 
 	out:
-	free_msg(msg);
 	return(1);
 }
 #endif
@@ -828,16 +820,16 @@ struct bchannel *find_bchannel_ref(unsigned long ref)
 
 struct bchannel *alloc_bchannel(unsigned long handle)
 {
-	struct chan_bchannel **channelp = &bchannel_first;
+	struct bchannel **channelp = &bchannel_first;
 
 	while(*channelp)
 		channelp = &((*channelp)->next);
 
-	*channelp = (struct chan_bchannel *)malloc(sizeof(struct chan_bchannel));
+	*channelp = (struct bchannel *)malloc(sizeof(struct bchannel));
 	if (!*channelp)
 		return(NULL);
-	channel->handle = handle;
-	channel->b_state = BSTATE_IDLE;
+	(*channelp)->handle = handle;
+	(*channelp)->b_state = BSTATE_IDLE;
 		
 	return(*channelp);
 }

@@ -50,7 +50,6 @@ void bchannel_activate(struct bchannel *channel, int activate);
 void bchannel_transmit(struct bchannel *channel, unsigned char *data, int len);
 void bchannel_join(struct bchannel *channel, unsigned short id);
 int bchannel_handle(void);
-struct bchannel *bchannel_first = NULL;
 struct bchannel *find_bchannel_handle(unsigned long handle);
 struct bchannel *find_bchannel_ref(unsigned long ref);
 struct bchannel *alloc_bchannel(unsigned long handle);

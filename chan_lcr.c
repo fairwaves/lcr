@@ -40,7 +40,6 @@ with that reference.
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include "macro.h"
 #include "extension.h"
 #include "message.h"
 #include "admin.h"
@@ -93,7 +92,7 @@ struct chan_call *alloc_call(void)
 	while(*callp)
 		callp = &((*callp)->next);
 
-	*callp = (struct chan_call *)MALLOC(sizeof(struct chan_call));
+	*callp = (struct chan_call *)malloc(sizeof(struct chan_call));
 	return(*callp);
 }
 
@@ -135,7 +134,7 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 	adminp = &admin_first;
 	while(*adminp)
 		adminp = &((*adminp)->next);
-	admin = (struct admin_list *)MALLOC(sizeof(struct admin_list));
+	admin = (struct admin_list *)malloc(sizeof(struct admin_list));
 	*adminp = admin;
 
 	admin->msg.type = message_type;
@@ -355,7 +354,7 @@ int handle_socket(void)
 		}
 		/* free head */
 		admin_first = admin->next;
-		FREE(admin, 0);
+		free(admin);
 
 		work = 1;
 	} else
@@ -393,7 +392,7 @@ int main(int argc, char *argv[])
 	/* set socket address and name */
 	memset(&sock_address, 0, sizeof(sock_address));
 	sock_address.sun_family = PF_UNIX;
-	UCPY(sock_address.sun_path, socket_name);
+	strcpy(sock_address.sun_path, socket_name);
 
 	/* connect socket */
 	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
@@ -413,7 +412,7 @@ int main(int argc, char *argv[])
 
 	/* enque hello message */
 	memset(&param, 0, sizeof(param));
-	SCPY(param.hello.application, "asterisk");
+	strcpy(param.hello.application, "asterisk");
 	send_message(MESSAGE_HELLO, 0, &param);
 
 	/* bchannel */
