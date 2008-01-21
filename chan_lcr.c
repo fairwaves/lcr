@@ -47,7 +47,7 @@ with that reference.
 #include "bchannel.h"
 #include "chan_lcr.h"
 
-int sock;
+int lcr_sock = -1;
 
 struct admin_list {
 	struct admin_list *next;
@@ -208,6 +208,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			case BCHANNEL_REMOVE:
 			if (!(bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
+				alle fprintf nach ast_log
 				fprintf(stderr, "error: bchannel handle %x not assigned.\n", param->bchannel.handle);
 				return(-1);
 			}
@@ -279,15 +280,57 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 	/* handle messages */
 	switch(message_type)
 	{
-#warning we must see if ref is a reply or a request, do we??
+		case MESSAGE_SETUP:
+todo
+		break;
+
+		case MESSAGE_OVERLAP:
+todo
+		break;
+
+		case MESSAGE_PROCEEDING:
+todo
+		break;
+
+		case MESSAGE_ALERTING:
+todo
+		break;
+
+		case MESSAGE_CONNECT:
+todo
+		break;
+
+		case MESSAGE_DISCONNECT:
+todo
+		break;
+
 		case MESSAGE_RELEASE:
-#warning release call
+todo
 		free_call(call);
 		return(0);
 
-		case MESSAGE_SETUP:
-#warning handle incoming setup, send to asterisk
+		case MESSAGE_INFORMATION:
+todo
 		break;
+
+		case MESSAGE_FACILITY:
+todo
+		break;
+
+		case MESSAGE_PATTERN:
+todo
+		break;
+
+		case MESSAGE_NOPATTERN:
+todo
+		break;
+
+		case MESSAGE_AUDIOPATH:
+todo
+		break;
+
+		default:
+unhandled
 	}
 	return(0);
 }
@@ -370,23 +413,24 @@ int handle_socket(void)
 }
 
 /*
- * main function
+ * open and close socket
  */
-int main(int argc, char *argv[])
+int open_socket(void)
 {
+	int ret;
+	int sock;
 	char *socket_name = SOCKET_NAME;
 	int conn;
 	struct sockaddr_un sock_address;
 	int ret;
 	unsigned long on = 1;
 	union parameter param;
-	int work;
 
 	/* open socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
 	{
-		fprintf(stderr, "Failed to create socket.\n");
-		exit(EXIT_FAILURE);
+		ast_log(LOG_ERROR, "Failed to create socket.\n");
+		return(sock);
 	}
 
 	/* set socket address and name */
@@ -398,16 +442,16 @@ int main(int argc, char *argv[])
 	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
 	{
 		close(sock);
-		fprintf(stderr, "Failed to connect to socket \"%s\".\nIs LCR running?\n", sock_address.sun_path);
-		exit(EXIT_FAILURE);
+		ast_log(LOG_ERROR, "Failed to connect to socket \"%s\". Is LCR running?\n", sock_address.sun_path);
+		return(conn);
 	}
 
 	/* set non-blocking io */
-	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0)
+	if ((ret = ioctl(sock, FIONBIO, (unsigned char *)(&on))) < 0)
 	{
 		close(sock);
-		fprintf(stderr, "Failed to set socket into non-blocking IO.\n");
-		exit(EXIT_FAILURE);
+		ast_log(LOG_ERROR, "Failed to set socket into non-blocking IO.\n");
+		return(ret);
 	}
 
 	/* enque hello message */
@@ -415,10 +459,21 @@ int main(int argc, char *argv[])
 	strcpy(param.hello.application, "asterisk");
 	send_message(MESSAGE_HELLO, 0, &param);
 
-	/* bchannel */
-	if (!bchannel_initialize())
-		goto bchannel_failed;
-	
+	return(sock);
+}
+
+void close_socket(int sock)
+{
+	/* close socket */
+	if (socket >= 0)	
+		close(sock);
+}
+
+
+void lcr_thread(void)
+{
+	int work;
+
 	while(42)
 	{
 		work = 0;
@@ -438,21 +493,142 @@ int main(int argc, char *argv[])
 		if (!work)
 			usleep(30000);
 	}
-
-	bchannel_deinitialize();
-	bchannel_failed:
-	
-	/* close socket */	
-	close(sock);
-	/* now we say good bye */
-	if (ret)
-	{
-		printf("%s\n", ret);
-		exit(EXIT_FAILURE);
-	}
 }
 
+static struct ast_channel_tech misdn_tech = {
+	.type="lcr",
+	.description="Channel driver for connecting to Linux-Call-Router",
+	.capabilities= je nach option?AST_FORMAT_ALAW:AST_FORMAT_ULAW ,
+	.requester=lcr_request,
+	.send_digit=lcr_digit,
+	.call=lcr_call,
+	.bridge=lcr_bridge, 
+	.hangup=lcr_hangup,
+	.answer=lcr_answer,
+	.read=lcr_read,
+	.write=lcr_write,
+	.indicate=lcr_indication,
+	.fixup=lcr_fixup,
+	.send_text=lcr_send_text,
+	.properties=0
+};
 
 
+/*
+ * module loading and destruction
+ */
+int load_module(void)
+{
+//	ast_mutex_init(&release_lock);
+
+//	lcr_cfg_update_ptp();
+
+	if (!(lcr_sock = open_socket())) {
+		ast_log(LOG_ERROR, "Unable to connect %s\n", misdn_type);
+		lcr_sock = -1;
+		/* continue with closed socket */
+	}
+
+	if (!bchannel_initialize()) {
+		ast_log(LOG_ERROR, "Unable to open mISDN device\n");
+		unload_module();
+		return -1;
+	}
+	mISDN_created = 1;
+
+	if (ast_channel_register(&lcr_tech)) {
+		ast_log(LOG_ERROR, "Unable to register channel class %s\n", misdn_type);
+		unload_module();
+		return -1;
+	}
+  
+	ast_cli_register(&cli_show_cls);
+	ast_cli_register(&cli_show_cl);
+	ast_cli_register(&cli_show_config);
+
+	ast_cli_register(&cli_reload);
+
+  
+	ast_register_application("misdn_set_opt", misdn_set_opt_exec, "misdn_set_opt",
+				 "misdn_set_opt(:<opt><optarg>:<opt><optarg>..):\n"
+				 "Sets mISDN opts. and optargs\n"
+				 "\n"
+				 "The available options are:\n"
+				 "    d - Send display text on called phone, text is the optparam\n"
+				 "    n - don't detect dtmf tones on called channel\n"
+				 "    h - make digital outgoing call\n" 
+				 "    c - make crypted outgoing call, param is keyindex\n"
+				 "    e - perform echo cancelation on this channel,\n"
+				 "        takes taps as arguments (32,64,128,256)\n"
+				 "    s - send Non Inband DTMF as inband\n"
+				 "   vr - rxgain control\n"
+				 "   vt - txgain control\n"
+		);
+
+	
+	lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
+
+	chan_lcr_log(0, 0, "-- mISDN Channel Driver Registred -- (BE AWARE THIS DRIVER IS EXPERIMENTAL!)\n");
+
+	return 0;
+}
+
+int unload_module(void)
+{
+	/* First, take us out of the channel loop */
+	ast_log(LOG_VERBOSE, "-- Unregistering mISDN Channel Driver --\n");
+	
+	misdn_tasks_destroy();
+	
+	if (!g_config_initialized) return 0;
+	
+	ast_cli_unregister(&cli_show_cls);
+	ast_cli_unregister(&cli_show_cl);
+	ast_cli_unregister(&cli_show_config);
+	ast_cli_unregister(&cli_reload);
+	ast_unregister_application("misdn_set_opt");
+  
+	ast_channel_unregister(&lcr_tech);
+
+	if (mISDN_created) {
+		bchannel_deinitialize();
+		mISDN_created = 0;
+	}
+
+	if (lcr_sock >= 0) {
+		close(lcr_sock);
+		lcr_sock = -1;
+	}
+
+	was ist mit dem mutex
+	
+	return 0;
+}
+
+int reload(void)
+{
+	reload_config();
+
+	return 0;
+}
+
+int usecount(void)
+{
+	int res;
+	ast_mutex_lock(&usecnt_lock);
+	res = usecnt;
+	ast_mutex_unlock(&usecnt_lock);
+	return res;
+}
+
+char *description(void)
+{
+	return desc;
+}
+
+char *key(void)
+{
+	return ASTERISK_GPL_KEY;
+}
 
 
