@@ -94,7 +94,6 @@ class Pdss1 : public PmISDN
 	void dec_ie_redir_dn(unsigned char *p, Q931_info_t *qi, int *type, int *plan, int *present, unsigned char *number, int number_len);
 	void enc_ie_facility(unsigned char **ntmode, msg_t *msg, unsigned char *facility, int facility_len);
 	void dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *facility, int *facility_len);
-	void enc_facility_centrex(unsigned char **ntmode, msg_t *msg, unsigned char *cnip, int setup);
 	void dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned char *cnip, int cnip_len);
 	void enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, unsigned char *user, int user_len);
 	void dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, unsigned char *user, int *user_len);

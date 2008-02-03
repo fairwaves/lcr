@@ -171,14 +171,14 @@ int main(void)
 	fprintf(fp, "# rc script for mISDN driver\n\n");
 	fprintf(fp, "case \"$1\" in\n");
 	fprintf(fp, "\tstart|--start)\n");
-	fprintf(fp, "\t\t%s %smISDN_core%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, input[0]?".ko":"", coredebug);
+	fprintf(fp, "\t\t%s %smISDN_core%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", coredebug);
 	if (anyte)
 	{
-		fprintf(fp, "\t\t%s %smISDN_l1%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, input[0]?".ko":"", l1debug);
-		fprintf(fp, "\t\t%s %smISDN_l2%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, input[0]?".ko":"", l2debug);
-		fprintf(fp, "\t\t%s %sl3udss1%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, input[0]?".ko":"", l3debug);
+		fprintf(fp, "\t\t%s %smISDN_l1%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", l1debug);
+		fprintf(fp, "\t\t%s %smISDN_l2%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", l2debug);
+		fprintf(fp, "\t\t%s %sl3udss1%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", l3debug);
 	}
-	fprintf(fp, "\t\t%s %smISDN_dsp%s debug=0x%x options=0x%x\n", input[0]?"insmod -f":"modprobe", input, input[0]?".ko":"", dspdebug, lawopt);
+	fprintf(fp, "\t\t%s %smISDN_dsp%s debug=0x%x options=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", dspdebug, lawopt);
 	j = 0;
 	while(cards[j].card)
 	{
@@ -202,9 +202,9 @@ int main(void)
 			if (types[0])
 			{
 				types[strlen(types)-1] = '\0';
-				fprintf(fp, "\t\t%s %s%s%s type=%s protocol=%s layermask=%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, cards[j].module, input[0]?".ko":"", types, protocol, layermask, carddebug);
+				fprintf(fp, "\t\t%s %s%s%s type=%s protocol=%s layermask=%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, cards[j].module, input[0]?".ko":"", types, protocol, layermask, carddebug);
 			} else
-				fprintf(fp, "\t\t%s %s%s%s protocol=%s layermask=%s debug=0x%x\n", input[0]?"insmod -f":"modprobe", input, cards[j].module, input[0]?".ko":"", protocol, layermask, carddebug);
+				fprintf(fp, "\t\t%s %s%s%s protocol=%s layermask=%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, cards[j].module, input[0]?".ko":"", protocol, layermask, carddebug);
 		}
 		j++;
 	}

@@ -146,8 +146,8 @@ crypt.o: crypt.cpp *.h Makefile
 genext.o: genext.c *.h Makefile
 	$(PP) -c $(CFLAGS) genext.c -o genext.o
 
-admin_server.o: admin_server.c *.h Makefile
-	$(PP) -c $(CFLAGS) admin_server.c -o admin_server.o
+socket_server.o: socket_server.c *.h Makefile
+	$(PP) -c $(CFLAGS) socket_server.c -o socket_server.o
 
 trace.o: trace.c *.h Makefile
 	$(PP) -c $(CFLAGS) trace.c -o trace.o
@@ -187,7 +187,7 @@ $(LCR): main.o \
 	join.o \
 	joinpbx.o \
 	joinremote.o \
-	admin_server.o \
+	socket_server.o \
 	trace.o
 	$(PP) $(LIBDIR) \
        	main.o \
@@ -214,12 +214,12 @@ $(LCR): main.o \
 	join.o \
 	joinpbx.o \
 	joinremote.o \
-	admin_server.o \
+	socket_server.o \
 	trace.o \
 	$(LIBS) -o $(LCR) 
 
-$(LCRADMIN): admin_client.c cause.c *.h Makefile
-	$(PP) $(LIBDIR) $(CFLAGS) $(CURSES) -lm admin_client.c cause.c \
+$(LCRADMIN): lcradmin.c cause.c *.h Makefile
+	$(PP) $(LIBDIR) $(CFLAGS) $(CURSES) -lm lcradmin.c cause.c \
 	-o $(LCRADMIN) 
 
 $(CHAN_LCR): chan_lcr.o bchannel.o

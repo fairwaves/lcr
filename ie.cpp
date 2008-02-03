@@ -1450,58 +1450,6 @@ void Pdss1::dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *fa
 }
 
 
-/* facility for siemens CENTEX (known parts implemented only) */
-void Pdss1::enc_facility_centrex(unsigned char **ntmode, msg_t *msg, unsigned char *cnip, int setup)
-{
-	unsigned char centrex[256];
-	int i = 0;
-
-	if (!cnip)
-		return;
-
-	/* centrex facility */
-	centrex[i++] = CENTREX_FAC;
-	centrex[i++] = CENTREX_ID;
-
-	/* cnip */
-	if (strlen((char *)cnip) > 15)
-	{
-		PDEBUG(DEBUG_PORT, "%s: CNIP/CONP text too long (max 13 chars), cutting.\n");
-		cnip[15] = '\0';
-	}
-	// dunno what the 8 bytes mean
-	if (setup)
-	{
-		centrex[i++] = 0x17;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x44;
-		centrex[i++] = 0x18;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x01;
-		centrex[i++] = 0x09;
-	} else
-	{
-		centrex[i++] = 0x18;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x81;
-		centrex[i++] = 0x09;
-		centrex[i++] = 0x02;
-		centrex[i++] = 0x01;
-		centrex[i++] = 0x0a;
-	}
-
-	centrex[i++] = 0x80;
-	centrex[i++] = strlen((char *)cnip);
-	UCPY((char *)(&centrex[i]), (char *)cnip);
-	i += strlen((char *)cnip);
-	add_trace("facility", "cnip", "%s", cnip);
-
-	/* encode facility */
-	enc_ie_facility(ntmode, msg, centrex, i);
-}
-
 void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned char *cnip, int cnip_len)
 {
 	unsigned char centrex[256];

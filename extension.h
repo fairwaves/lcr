@@ -132,7 +132,6 @@ struct extension {
 	int colp;		/* how to present called line id on forwarded calls */
 	char clip_prefix[32];	/* prefix for screening incoming clip */
 	int keypad;		/* support keypad for call control */
-	int centrex;		/* present name of caller/called on internal extension */
 	int anon_ignore;	/* ignore anonymouse calls */
 	int rights;
 	int delete_ext;		/* delete function for external dialing */

@@ -424,6 +424,8 @@ static void bchannel_activated(struct bchannel *channel)
 		ph_control(handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
 	if (channel->b_crypt_len)
 		ph_control_block(handle, BF_ENABLE_KEY, channel->b_crypt_key, channel->b_crypt_len, "DSP-CRYPT", channel->b_crypt_len);
+	if (channel->b_conf)
+		ph_control(handle, CMX_CONF_JOIN, channel->b_conf, "DSP-CONF", channel->b_conf);
 
 	channel->b_state = BSTATE_ACTIVE;
 }

@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/
 
-#include "admin.h"
+#include "lcrsocket.h"
 
 struct admin_queue {
 	struct admin_queue	*next;

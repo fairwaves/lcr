@@ -140,7 +140,7 @@ extern "C" {
 #include "alawulaw.h"
 #include "tones.h"
 #include "crypt.h"
-#include "admin_server.h"
+#include "socket_server.h"
 #include "trace.h"
 
 extern double now_d;

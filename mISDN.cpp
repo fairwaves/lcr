@@ -9,7 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-
 #include "main.h"
 #include <poll.h>
 #include <errno.h>
@@ -30,6 +29,43 @@
 extern "C" {
 #include <mISDNuser/net_l2.h>
 }
+#endif
+
+#ifndef CMX_TXDATA_ON
+#define OLD_MISDN
+#endif
+#ifndef CMX_TXDATA_OFF
+#define OLD_MISDN
+#endif
+#ifndef CMX_DELAY
+#define OLD_MISDN
+#endif
+#ifndef PIPELINE_CFG
+#define OLD_MISDN
+#endif
+#ifndef CMX_TX_DATA
+#define OLD_MISDN
+#endif
+
+#ifdef OLD_MISDN
+#warning
+#warning *********************************************************
+#warning *
+#warning * It seems that you use an older version of mISDN.
+#warning * Features like voice recording or echo will not work.
+#warning * Also it causes problems with loading modules and may
+#warning * not work at all.
+#warning *
+#warning * Please upgrade to newer version. A working version can
+#warning * be found at www.linux-call-router.de.
+#warning *
+#warning * Do not use the mISDN_1_1 branch, it does not have all
+#warning * the features that are required. Use the master branch
+#warning * instead.
+#warning *
+#warning *********************************************************
+#warning
+#error
 #endif
 
 #ifndef ISDN_PID_L4_B_USER
@@ -633,16 +669,20 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 	}
 
 	/* set dsp features */
+#ifndef OLD_MISDN
 	if (port->p_m_txdata)
 		ph_control(mISDNport, port, handle, (port->p_m_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
 	if (port->p_m_delay)
 		ph_control(mISDNport, port, handle, CMX_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
+#endif
 	if (port->p_m_tx_gain)
 		ph_control(mISDNport, port, handle, VOL_CHANGE_TX, port->p_m_tx_gain, "DSP-TX_GAIN", port->p_m_tx_gain);
 	if (port->p_m_rx_gain)
 		ph_control(mISDNport, port, handle, VOL_CHANGE_RX, port->p_m_rx_gain, "DSP-RX_GAIN", port->p_m_rx_gain);
+#ifndef OLD_MISDN
 	if (port->p_m_pipeline[0])
 		ph_control_block(mISDNport, port, handle, PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
+#endif
 	if (port->p_m_conf)
 		ph_control(mISDNport, port, handle, CMX_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
 	if (port->p_m_echo)
@@ -1570,6 +1610,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 	{
 		switch(frm->dinfo)
 		{
+#ifndef OLD_MISDN
 			case CMX_TX_DATA:
 			if (!p_m_txdata)
 			{
@@ -1585,6 +1626,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			if (p_record)
 				record(data, len, 1); // from up
 			break;
+#endif
 
 			default:
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL signal", DIRECTION_IN);
@@ -1870,12 +1912,14 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 		{
 			p_m_delay = param->mISDNsignal.delay;
 			PDEBUG(DEBUG_BCHANNEL, "we change delay mode to delay=%d.\n", p_m_delay);
+#ifndef OLD_MISDN
 			if (p_m_b_index >= 0)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
+#endif
 #endif
 		} else
 			PDEBUG(DEBUG_BCHANNEL, "we already have delay=%d.\n", p_m_delay);
@@ -2208,8 +2252,10 @@ int mISDN_handler(void)
 						/* turn on RX */
 						isdnport->p_m_txdata = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
+#ifndef OLD_MISDN
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_ON, 0, "DSP-TXDATA", 1);
+#endif
 						return(1);
 					}
 				} else
@@ -2220,8 +2266,10 @@ int mISDN_handler(void)
 						/* turn off RX */
 						isdnport->p_m_txdata = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
+#ifndef OLD_MISDN
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_OFF, 0, "DSP-TXDATA", 0);
+#endif
 						return(1);
 					}
 				}

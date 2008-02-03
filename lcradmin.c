@@ -27,7 +27,7 @@
 #include "joinpbx.h"
 #include "extension.h"
 #include "message.h"
-#include "admin.h"
+#include "lcrsocket.h"
 #include "cause.h"
 
 #define LTEE {addch(ACS_LTEE);addch(ACS_HLINE);addch(ACS_HLINE);}

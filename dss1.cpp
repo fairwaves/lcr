@@ -25,8 +25,6 @@ extern "C" {
 #include <mISDNuser/net_l2.h>
 }
 
-//#define CENTREX
-
 #include "q931.h"
 #include "ie.cpp"
 
@@ -501,11 +499,9 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_calling_pn(setup->CALLING_PN, (Q931_info_t *)((unsigned long)data+headerlen), &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
 	dec_ie_called_pn(setup->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(setup->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
-#ifdef CENTREX
 	/* te-mode: CNIP (calling name identification presentation) */
 	if (!p_m_d_ntmode)
 		dec_facility_centrex(setup->FACILITY, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)p_callerinfo.name, sizeof(p_callerinfo.name));
-#endif
 	dec_ie_useruser(setup->USER_USER, (Q931_info_t *)((unsigned long)data+headerlen), &useruser_protocol, useruser, &useruser_len);
 	dec_ie_complete(setup->COMPLETE, (Q931_info_t *)((unsigned long)data+headerlen), &p_dialinginfo.sending_complete);
 	dec_ie_redir_nr(setup->REDIR_NR, (Q931_info_t *)((unsigned long)data+headerlen), &redir_type, &redir_plan, &redir_present, &redir_screen, &redir_reason, (unsigned char *)p_redirinfo.id, sizeof(p_redirinfo.id));
@@ -1016,11 +1012,9 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
 	dec_ie_channel_id(connect->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_connected_pn(connect->CONNECT_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, &screen, (unsigned char *)p_connectinfo.id, sizeof(p_connectinfo.id));
-#ifdef CENTREX
 	/* te-mode: CONP (connected name identification presentation) */
 	if (!p_m_d_ntmode)
 		dec_facility_centrex(connect->FACILITY, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)p_connectinfo.name, sizeof(p_connectinfo.name));
-#endif
 	end_trace();
 
 	/* select channel */
@@ -2310,11 +2304,9 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	/* display */
 	if (p_callerinfo.display[0] && p_m_d_ntmode)
 		enc_ie_display(&setup->DISPLAY, dmsg, (unsigned char *)p_callerinfo.display);
-#ifdef CENTREX
 	/* nt-mode: CNIP (calling name identification presentation) */
-	if (p_callerinfo.name[0] && p_m_d_ntmode)
-		enc_facility_centrex(&setup->FACILITY, dmsg, (unsigned char *)p_callerinfo.name, 1);
-#endif
+//	if (p_callerinfo.name[0] && p_m_d_ntmode)
+//		enc_facility_centrex(&setup->FACILITY, dmsg, (unsigned char *)p_callerinfo.name, 1);
 	end_trace();
 
 	/* send setup message now */
@@ -2650,11 +2642,9 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 	/* display */
 	if (p_connectinfo.display[0] && p_m_d_ntmode)
 		enc_ie_display(&connect->DISPLAY, dmsg, (unsigned char *)p_connectinfo.display);
-#ifdef CENTREX
 	/* nt-mode: CONP (connected name identification presentation) */
-	if (p_connectinfo.name[0] && p_m_d_ntmode)
-		enc_facility_centrex(&connect->FACILITY, dmsg, (unsigned char *)p_connectinfo.name, 0);
-#endif
+//	if (p_connectinfo.name[0] && p_m_d_ntmode)
+//		enc_facility_centrex(&connect->FACILITY, dmsg, (unsigned char *)p_connectinfo.name, 0);
 	/* date & time */
 	if (p_m_d_ntmode)
 	{
@@ -3271,7 +3261,7 @@ int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)
 
 	if (frm->prim == (CC_RELEASE_CR | INDICATION))
 	{
-		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", frm->dinfo);
+		PDEBUG(DEBUG_ISDN, "unhandled message from stack: call ref released (l3id=0x%x)\n", frm->dinfo);
 		free_msg(msg);
 		return(0);
 	}

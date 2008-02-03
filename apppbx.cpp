@@ -1001,7 +1001,7 @@ void EndpointAppPBX::out_setup(void)
 				goto check_anycall_intern;
 			}
 			/* directory.list */
-			if (e_callerinfo.id[0] && (e_ext.centrex || e_ext.display_name))
+			if (e_callerinfo.id[0] && e_ext.display_name)
 			{
 				dirname = parse_directory(e_callerinfo.id, e_callerinfo.ntype);
 				if (dirname)
@@ -1025,8 +1025,8 @@ void EndpointAppPBX::out_setup(void)
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
 //printf("\n\ndisplay = %s\n\n\n",message->param.setup.callerinfo.display);
 			/* use cnip, if enabld */
-			if (!e_ext.centrex)
-				message->param.setup.callerinfo.name[0] = '\0';
+	//		if (!e_ext.centrex)
+	//			message->param.setup.callerinfo.name[0] = '\0';
 			/* screen clip if prefix is required */
 			if (message->param.setup.callerinfo.id[0] && e_ext.clip_prefix[0])
 			{
@@ -2986,8 +2986,8 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 		SCPY(message->param.connectinfo.display, apply_callerid_display(message->param.connectinfo.id, message->param.connectinfo.itype, message->param.connectinfo.ntype, message->param.connectinfo.present, message->param.connectinfo.screen, message->param.connectinfo.extension, message->param.connectinfo.name));
 
 		/* use conp, if enabld */
-		if (!e_ext.centrex)
-			message->param.connectinfo.name[0] = '\0';
+//		if (!e_ext.centrex)
+//			message->param.connectinfo.name[0] = '\0';
 
 		/* send connect */
 		message_put(message);

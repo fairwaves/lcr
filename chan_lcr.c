@@ -42,7 +42,7 @@ with that reference.
 #include <sys/un.h>
 #include "extension.h"
 #include "message.h"
-#include "admin.h"
+#include "lcrsocket.h"
 #include "cause.h"
 #include "bchannel.h"
 #include "chan_lcr.h"
@@ -110,6 +110,28 @@ void free_call(struct chan_call *call)
 		}
 		temp = &((*temp)->next);
 	}
+}
+
+unsigned short new_brige_id(void)
+{
+	struct chan_call *call;
+	unsigned short id = 1;
+
+	/* search for lowest bridge id that is not in use and not 0 */
+	while(id)
+	{
+		call = call_first;
+		while(call)
+		{
+			if (call->bridge_id == id)
+				break;
+			call = call->next;
+		}
+		if (!call)
+			break;
+		id++;
+	}
+	return(id);
 }
 
 
@@ -195,6 +217,8 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			{
 				bchannel->ref = ref;
 				call->bchannel_handle = param->bchannel.handle;
+#warning hier muesen alle stati gesetzt werden falls sie vor dem b-kanal verfügbar waren
+				bchannel_join(call->bridge_id);
 			}
 			if (bchannel_create(bchannel))
 				bchannel_activate(bchannel, 1);
@@ -495,6 +519,146 @@ void lcr_thread(void)
 	}
 }
 
+/* call from asterisk (new instance) */
+static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
+{
+	int port=0;
+	int r;
+	struct chan_list *ch=MISDN_ASTERISK_TECH_PVT(ast);
+	struct misdn_bchannel *newbc;
+	char *opts=NULL, *ext;
+	char dest_cp[256];
+	
+	{
+		strncpy(dest_cp,dest,sizeof(dest_cp)-1);
+		dest_cp[sizeof(dest_cp)]=0;
+
+		ext=dest_cp;
+		strsep(&ext,"/");
+		if (ext) {
+			opts=ext;
+			strsep(&opts,"/");
+		}  else {
+			ast_log(LOG_WARNING, "Malformed dialstring\n");
+			return -1;
+		}
+	}
+
+	if (!ast) {
+		ast_log(LOG_WARNING, " --> ! misdn_call called on ast_channel *ast where ast == NULL\n");
+		return -1;
+	}
+
+	if (((ast->_state != AST_STATE_DOWN) && (ast->_state != AST_STATE_RESERVED)) || !dest  ) {
+		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
+		ast->hangupcause=41;
+		ast_setstate(ast, AST_STATE_DOWN);
+		return -1;
+	}
+
+	if (!ch) {
+		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
+		ast->hangupcause=41;
+		ast_setstate(ast, AST_STATE_DOWN);
+		return -1;
+	}
+	
+	newbc=ch->bc;
+	
+	if (!newbc) {
+		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
+		ast->hangupcause=41;
+		ast_setstate(ast, AST_STATE_DOWN);
+		return -1;
+	}
+	
+	port=newbc->port;
+
+	
+	chan_misdn_log(1, port, "* CALL: %s\n",dest);
+	
+	chan_misdn_log(2, port, " --> * dad:%s tech:%s ctx:%s\n",ast->exten,ast->name, ast->context);
+	
+	chan_misdn_log(3, port, " --> * adding2newbc ext %s\n",ast->exten);
+	if (ast->exten) {
+		int l = sizeof(newbc->dad);
+		strncpy(ast->exten,ext,sizeof(ast->exten));
+
+		strncpy(newbc->dad,ext,l);
+
+		newbc->dad[l-1] = 0;
+	}
+	newbc->rad[0]=0;
+	chan_misdn_log(3, port, " --> * adding2newbc callerid %s\n",AST_CID_P(ast));
+	if (ast_strlen_zero(newbc->oad) && AST_CID_P(ast) ) {
+
+		if (AST_CID_P(ast)) {
+			int l = sizeof(newbc->oad);
+			strncpy(newbc->oad,AST_CID_P(ast), l);
+			newbc->oad[l-1] = 0;
+		}
+	}
+
+	{
+		struct chan_list *ch=MISDN_ASTERISK_TECH_PVT(ast);
+		if (!ch) { ast_verbose("No chan_list in misdn_call\n"); return -1;}
+		
+		newbc->capability=ast->transfercapability;
+		pbx_builtin_setvar_helper(ast,"TRANSFERCAPABILITY",ast_transfercapability2str(newbc->capability));
+		if ( ast->transfercapability == INFO_CAPABILITY_DIGITAL_UNRESTRICTED) {
+			chan_misdn_log(2, port, " --> * Call with flag Digital\n");
+		}
+		
+
+		/* update screening and presentation */ 
+		update_config(ch,ORG_AST);
+		
+		/* fill in some ies from channel vary*/
+		import_ch(ast, newbc, ch);
+		
+		/* Finally The Options Override Everything */
+		if (opts)
+			misdn_set_opt_exec(ast,opts);
+		else
+			chan_misdn_log(2,port,"NO OPTS GIVEN\n");
+
+		/*check for bridging*/
+		int bridging;
+		misdn_cfg_get( 0, MISDN_GEN_BRIDGING, &bridging, sizeof(int));
+		if (bridging && ch->other_ch) {
+			chan_misdn_log(1, port, "Disabling EC (aka Pipeline) on both Sides\n");
+			*ch->bc->pipeline=0;
+			*ch->other_ch->bc->pipeline=0;
+		}
+		
+		r=misdn_lib_send_event( newbc, EVENT_SETUP );
+		
+		/** we should have l3id after sending setup **/
+		ch->l3id=newbc->l3_id;
+	}
+	
+	if ( r == -ENOCHAN  ) {
+		chan_misdn_log(0, port, " --> * Theres no Channel at the moment .. !\n");
+		chan_misdn_log(1, port, " --> * SEND: State Down pid:%d\n",newbc?newbc->pid:-1);
+		ast->hangupcause=34;
+		ast_setstate(ast, AST_STATE_DOWN);
+		return -1;
+	}
+	
+	chan_misdn_log(2, port, " --> * SEND: State Dialing pid:%d\n",newbc?newbc->pid:1);
+
+	ast_setstate(ast, AST_STATE_DIALING);
+	ast->hangupcause=16;
+
+wenn pattern available soll gestoppt werden, sonst nicht:	
+	if (newbc->nt) stop_bc_tones(ch);
+
+	ch->state=MISDN_CALLING;
+	
+	return 0; 
+}
+
+
 static struct ast_channel_tech misdn_tech = {
 	.type="lcr",
 	.description="Channel driver for connecting to Linux-Call-Router",
@@ -542,12 +706,13 @@ int load_module(void)
 		return -1;
 	}
   
-	ast_cli_register(&cli_show_cls);
-	ast_cli_register(&cli_show_cl);
-	ast_cli_register(&cli_show_config);
+	ast_cli_register(&cli_show_lcr);
+	ast_cli_register(&cli_show_calls);
 
-	ast_cli_register(&cli_reload);
-
+	ast_cli_register(&cli_reload_routing);
+	ast_cli_register(&cli_reload_interfaces);
+	ast_cli_register(&cli_port_block);
+	ast_cli_register(&cli_port_unblock);
   
 	ast_register_application("misdn_set_opt", misdn_set_opt_exec, "misdn_set_opt",
 				 "misdn_set_opt(:<opt><optarg>:<opt><optarg>..):\n"
@@ -582,10 +747,12 @@ int unload_module(void)
 	
 	if (!g_config_initialized) return 0;
 	
-	ast_cli_unregister(&cli_show_cls);
-	ast_cli_unregister(&cli_show_cl);
-	ast_cli_unregister(&cli_show_config);
-	ast_cli_unregister(&cli_reload);
+	ast_cli_unregister(&cli_show_lcr);
+	ast_cli_unregister(&cli_show_calls);
+	ast_cli_unregister(&cli_reload_routing);
+	ast_cli_unregister(&cli_reload_interfaces);
+	ast_cli_unregister(&cli_port_block);
+	ast_cli_unregister(&cli_port_unblock);
 	ast_unregister_application("misdn_set_opt");
   
 	ast_channel_unregister(&lcr_tech);

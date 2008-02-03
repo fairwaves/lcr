@@ -396,24 +396,6 @@ int read_extension(struct extension *ext, char *num)
 				PDEBUG(DEBUG_CONFIG, "unknown parameter given keypad: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"centrex"))
-		{
-			i=0;
-			while(ext_yesno[i])
-			{
-				if (!strcasecmp(param,ext_yesno[i]))
-					break;
-				i++;
-			}
-			if (ext_yesno[i])
-			{
-				ext->centrex = i;
-				PDEBUG(DEBUG_CONFIG, "use centrex to display name %s\n", ext_yesno[i]);
-			} else
-			{
-				PDEBUG(DEBUG_CONFIG, "unknown parameter given centrex: %s\n", param);
-			}
-		} else
 		if (!strcmp(option,"rights"))
 		{
 			i=0;
@@ -1093,11 +1075,6 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# If supported by telephone, pressing a key on the keypad will not result in\n");
 	fprintf(fp,"# DTMF tone, but the digit is transmitted via D-channel diaing info.\n");
 	fprintf(fp,"keypad          %s\n\n",(ext->keypad)?"yes":"no");
-
-	fprintf(fp,"# Called Name Identification Presentation (CNIP/CONP)\n");
-	fprintf(fp,"# If supported by telephone, special information element on the d-channel are\n");
-	fprintf(fp,"# used to show name of caller. It is supported by newer Siemens telephones\n# (Centrex).\n");
-	fprintf(fp,"centrex         %s  #this is currently not working!!!\n\n",(ext->centrex)?"yes":"no");
 
 	fprintf(fp,"# Ignore restriction of COLP and CLIP\n");
 	fprintf(fp,"# In this case even restricted numbers are presented to this extension.\n");
