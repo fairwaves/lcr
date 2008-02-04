@@ -2035,8 +2035,9 @@ void EndpointAppPBX::action_dialing_setforward(void)
 void EndpointAppPBX::action_hangup_execute(void)
 {
 	struct route_param *rparam;
+	pid_t pid;
 	char *command = "", isdn_port[10];
-	char *argv[7+1]; /* check also number of args below */
+	char *argv[11]; /* check also number of args below */
 	int i = 0;
 
 	/* get script / command */
@@ -2048,26 +2049,35 @@ void EndpointAppPBX::action_hangup_execute(void)
 		end_trace();
 		return;
 	}
-	trace_header("ACTION execute", DIRECTION_NONE);
-	add_trace("command", NULL, "%s", command);
-	end_trace();
-
-	argv[0] = command;
-	while(strchr(argv[0], '/'))
-		argv[0] = strchr(argv[0], '/')+1;
+	argv[i++] = "/bin/sh";
+	argv[i++] = "-c";
+	argv[i++] = command;
+	argv[i++] = command;
 	if ((rparam = routeparam(e_action, PARAM_PARAM)))
 	{
-		argv[1] = rparam->string_value;
-		i++;
+		argv[i++] = rparam->string_value;
 	}
-	argv[1+i] = e_extdialing;
-	argv[2+i] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype);
-	argv[3+i] = e_callerinfo.extension;
-	argv[4+i] = e_callerinfo.name;
+	argv[i++] = e_extdialing;
+	argv[i++] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype);
+	argv[i++] = e_callerinfo.extension;
+	argv[i++] = e_callerinfo.name;
 	SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
-	argv[5+i] = isdn_port;
-	argv[6+i] = NULL; /* check also number of args above */
-	execve("/bin/sh", argv, environ);
+	argv[i++] = isdn_port;
+	argv[i++] = NULL; /* check also number of args above */
+	switch (pid = fork ()) {
+		case -1:
+			trace_header("ACTION execute (fork failed)", DIRECTION_NONE);
+			end_trace();
+			break;
+		case 0:
+			execve("/bin/sh", argv, environ);
+	      		break;
+		default:
+			trace_header("ACTION execute", DIRECTION_NONE);
+			add_trace("command", NULL, "%s", command);
+			end_trace();
+			break;
+	}
 }
 
 

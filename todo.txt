@@ -1,13 +1,28 @@
 chan_lcr:
 
+milestones:
+- der grosse bugfix im mISDN
+- das cli
+- auf- und abbau von calls und instanzen
+- informationen in den jeweiligen messages umwandeln
+- setup-queue
+- einbau von b-channel-features
+- durchcompilieren
+- testen
+
+
+CLI:
 show calls
 show lcr
 block/unblock port
 reload interfaces/routing
 release call
 
-setup: es werden setupdaten gespeichert, bis eine ref vom lcr erfolgt.
+setup:
+es werden setupdaten gespeichert, bis eine ref vom lcr erfolgt.
 dabei werden zusätzliche wahlinformationen der rufummer hinzugefügt.
+die gespeicherten daten sind die schnittmenge von den informationen des lcr und der asterisk.
+
 
 bridge: jede instanz (chan_call) hat eine bridge_id
 wenn keine bridge, dann ist sie 0.
@@ -15,10 +30,14 @@ mit new_bridge_id() wird eine neue id gesucht. diese wird in beide instanzen ein
 zudem wird fuer jede instanz (zwei) der bridge eine bchannel_join ausgeführt, wenn die bchannels verfügbar sind.
 schon implementiert: falls der bchannel später kommt, wird der join beim exporieren des b-channels ausgeführt.
 
+info-bridge:
+wir koennen informationen, wie notifys einfach parallel zur bridge weiterreichen. z.b. notify "es wird angeklopft", "das gespraech wird gehalten", "sie werden weitergeleitet". auch display informationen und facilities
 
 
 
 
+
+doku: action execute geht mit fork
 
 doku: rx_vol -> rx_gain 
 
