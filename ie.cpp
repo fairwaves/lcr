@@ -151,7 +151,7 @@ void Pdss1::dec_ie_bearer(unsigned char *p, Q931_info_t *qi, int *coding, int *c
 		return;
 	if (p[0] < 2)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("bearer", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -257,7 +257,7 @@ void Pdss1::dec_ie_hlc(unsigned char *p, Q931_info_t *qi, int *coding, int *inte
 		return;
 	if (p[0] < 2)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("hlc", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -336,7 +336,7 @@ void Pdss1::dec_ie_call_id(unsigned char *p, Q931_info_t *qi, unsigned char *cal
 		return;
 	if (p[0] > 8)
 	{
-		PERROR("IE too long (%d).\n", p[0]);
+		add_trace("callid", "error", "IE too long (len=%d)", p[0]);
 		return;
 	}
 
@@ -409,7 +409,7 @@ void Pdss1::dec_ie_called_pn(unsigned char *p, Q931_info_t *qi, int *type, int *
 		return;
 	if (p[0] < 2)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("called_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -501,7 +501,7 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("calling_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -511,7 +511,7 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 	{
 		if (p[0] < 2)
 		{
-			PERROR("IE too short (%d).\n", p[0]);
+			add_trace("calling_pn", "error", "IE too short (len=%d)", p[0]);
 			return;
 		}
 		*present = (p[2]&0x60) >> 5;
@@ -608,7 +608,7 @@ void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, in
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("connect_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -618,7 +618,7 @@ void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, in
 	{
 		if (p[0] < 2)
 		{
-			PERROR("IE too short (%d).\n", p[0]);
+			add_trace("connect_pn", "error", "IE too short (len=%d)", p[0]);
 			return;
 		}
 		*present = (p[2]&0x60) >> 5;
@@ -699,7 +699,7 @@ void Pdss1::dec_ie_cause(unsigned char *p, Q931_info_t *qi, int *location, int *
 		return;
 	if (p[0] < 2)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("cause", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -811,18 +811,18 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("channel_id", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	if (p[1] & 0x40)
 	{
-		PERROR("refering to channels of other interfaces is not supported.\n");
+		add_trace("channel_id", "error", "refering to channels of other interfaces is not supported");
 		return;
 	}
 	if (p[1] & 0x04)
 	{
-		PERROR("using d-channel is not supported.\n");
+		add_trace("channel_id", "error", "using d-channel is not supported");
 		return;
 	}
 
@@ -832,7 +832,7 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 		/* BRI */
 		if (p[1] & 0x20)
 		{
-			PERROR("extended channel ID with non PRI interface.\n");
+			add_trace("channel_id", "error", "extended channel ID with non PRI interface");
 			return;
 		}
 		*channel = p[1] & 0x03;
@@ -845,12 +845,13 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 		/* PRI */
 		if (p[0] < 1)
 		{
-			PERROR("IE too short for PRI (%d).\n", p[0]);
+
+			add_trace("channel_id", "error", "IE too short for PRI (len=%d)", p[0]);
 			return;
 		}
 		if (!(p[1] & 0x20))
 		{
-			PERROR("basic channel ID with PRI interface.\n");
+			add_trace("channel_id", "error", "basic channel ID with PRI interface");
 			return;
 		}
 		if ((p[1]&0x03) == 0x00)
@@ -867,18 +868,18 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 		}
 		if (p[0] < 3)
 		{
-			PERROR("%s: ERROR: IE too short for PRI with channel(%d).\n", __FUNCTION__, p[0]);
+			add_trace("channel_id", "error", "IE too short for PRI with channel (len=%d)", p[0]);
 			return;
 		}
 		if (p[2] & 0x10)
 		{
-			PERROR("channel map not supported.\n");
+			add_trace("channel_id", "error", "channel map not supported");
 			return;
 		}
 		*channel = p[3] & 0x7f;
 		if (*channel<1 | *channel==16)
 		{
-			PERROR("PRI interface channel out of range (%d).\n", *channel);
+			add_trace("channel_id", "error", "PRI interface channel out of range (%d)", *channel);
 			return;
 		}
 	}
@@ -981,7 +982,7 @@ void Pdss1::dec_ie_display(unsigned char *p, Q931_info_t *qi, unsigned char *dis
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("display", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -1031,7 +1032,7 @@ void Pdss1::dec_ie_keypad(unsigned char *p, Q931_info_t *qi, unsigned char *keyp
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("keypad", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -1081,7 +1082,7 @@ void Pdss1::dec_ie_notify(unsigned char *p, Q931_info_t *qi, int *notify)
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("notify", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -1146,7 +1147,7 @@ void Pdss1::dec_ie_progress(unsigned char *p, Q931_info_t *qi, int *coding, int 
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("progress", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -1259,7 +1260,7 @@ void Pdss1::dec_ie_redir_nr(unsigned char *p, Q931_info_t *qi, int *type, int *p
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("redir'ing", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
@@ -1362,7 +1363,7 @@ void Pdss1::dec_ie_redir_dn(unsigned char *p, Q931_info_t *qi, int *type, int *p
 		return;
 	if (p[0] < 1)
 	{
-		PERROR("IE too short (%d).\n", p[0]);
+		add_trace("redir'tion", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 

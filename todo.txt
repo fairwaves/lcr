@@ -36,6 +36,7 @@ wir koennen informationen, wie notifys einfach parallel zur bridge weiterreichen
 
 
 
+call transfer
 
 doku: action execute geht mit fork
 
