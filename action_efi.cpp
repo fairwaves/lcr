@@ -70,8 +70,8 @@ void EndpointAppPBX::efi_message_eof(void)
 {
 //	char buffer[32];
 	char digit[] = "number_00";
-	struct message		*message;
-	struct port_list	*portlist = ea_endpoint->ep_portlist;
+//	struct message		*message;
+//	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 

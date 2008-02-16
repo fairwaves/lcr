@@ -72,6 +72,10 @@ extern "C" {
 #define ISDN_PID_L4_B_USER 0x440000ff
 #endif
 
+// timeouts if activating/deactivating response from mISDN got lost
+#define B_TIMER_ACTIVATING 1
+#define B_TIMER_DEACTIVATING 1
+
 /* list of mISDN ports */
 struct mISDNport *mISDNport_first;
 
@@ -641,6 +645,8 @@ static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 	/* trace */
 	chan_trace_header(mISDNport, mISDNport->b_port[i], activate?(char*)"BCHANNEL activate":(char*)"BCHANNEL deactivate", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
+	if (mISDNport->b_timer[i])
+		add_trace("event", NULL, "timeout recovery");
 	end_trace();
 }
 
@@ -826,6 +832,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 {
 	class PmISDN *b_port = mISDNport->b_port[i];
 	int state = mISDNport->b_state[i];
+	double timer = mISDNport->b_timer[i];
 	unsigned long p_m_remote_ref = 0;
 	unsigned long p_m_remote_id = 0;
 	int p_m_tx_gain = 0;
@@ -883,6 +890,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				{
 					_bchannel_activate(mISDNport, i, 1);
 					state = B_STATE_ACTIVATING;
+					timer = now_d + B_TIMER_ACTIVATING;
 				}
 			}
 			break;
@@ -947,6 +955,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			/* bchannel is active, so we deactivate */
 			_bchannel_activate(mISDNport, i, 0);
 			state = B_STATE_DEACTIVATING;
+			timer = now_d + B_TIMER_DEACTIVATING;
 			break;
 
 			default:
@@ -959,6 +968,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		break;
 
 		case B_EVENT_ACTIVATED:
+		timer = 0;
 		switch(state)
 		{
 			case B_STATE_ACTIVATING:
@@ -972,6 +982,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				/* bchannel is active, but exported OR not used anymore (or has wrong stack config), so we deactivate */
 				_bchannel_activate(mISDNport, i, 0);
 				state = B_STATE_DEACTIVATING;
+				timer = now_d + B_TIMER_DEACTIVATING;
 			}
 			break;
 
@@ -1030,6 +1041,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			/* bchannel is active, so we deactivate */
 			_bchannel_activate(mISDNport, i, 0);
 			state = B_STATE_DEACTIVATING;
+			timer = now_d + B_TIMER_DEACTIVATING;
 			break;
 
 			case B_STATE_REMOTE:
@@ -1057,6 +1069,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		break;
 
 		case B_EVENT_DEACTIVATED:
+		timer = 0;
 		switch(state)
 		{
 			case B_STATE_IDLE:
@@ -1089,6 +1102,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 					{
 						_bchannel_activate(mISDNport, i, 1);
 						state = B_STATE_ACTIVATING;
+						timer = now_d + B_TIMER_ACTIVATING;
 					}
 				}
 			}
@@ -1129,6 +1143,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 					{
 						_bchannel_activate(mISDNport, i, 1);
 						state = B_STATE_ACTIVATING;
+						timer = now_d + B_TIMER_ACTIVATING;
 					}
 				}
 			}
@@ -1140,11 +1155,35 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 		}
 		break;
 
+		case B_EVENT_TIMEOUT:
+		timer = 0;
+		switch(state)
+		{
+			case B_STATE_IDLE:
+			/* ignore due to deactivation confirm after unloading */
+			break;
+
+			case B_STATE_ACTIVATING:
+			_bchannel_activate(mISDNport, i, 1);
+			timer = now_d + B_TIMER_ACTIVATING;
+			break;
+
+			case B_STATE_DEACTIVATING:
+			_bchannel_activate(mISDNport, i, 0);
+			timer = now_d + B_TIMER_DEACTIVATING;
+			break;
+
+			default:
+			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
+		}
+		break;
+
 		default:
 		PERROR("Illegal event %d, please correct.\n", event);
 	}
 
 	mISDNport->b_state[i] = state;
+	mISDNport->b_timer[i] = timer;
 }
 
 
@@ -2053,6 +2092,12 @@ int mISDN_handler(void)
 		i = 0;
 		while(i < mISDNport->b_num)
 		{
+			/* process timer events for bchannel handling */
+			if (mISDNport->b_timer[i])
+			{
+				if (mISDNport->b_timer[i] <= now_d)
+					bchannel_event(mISDNport, i, B_EVENT_TIMEOUT);
+			}
 			/* handle port of bchannel */
 			isdnport=mISDNport->b_port[i];
 			if (isdnport)
@@ -2214,6 +2259,12 @@ int mISDN_handler(void)
 		i = 0;
 		while(i < mISDNport->b_num)
 		{
+			/* process timer events for bchannel handling */
+			if (mISDNport->b_timer[i])
+			{
+				if (mISDNport->b_timer[i] <= now_d)
+					bchannel_event(mISDNport, i, B_EVENT_TIMEOUT);
+			}
 			isdnport=mISDNport->b_port[i];
 			if (isdnport)
 			{

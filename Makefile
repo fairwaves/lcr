@@ -29,6 +29,7 @@ PP = g++
 WIZZARD = ./wizzard
 LCR = ./lcr
 LCRADMIN = ./lcradmin
+CFLAGS_LCRADMIN = -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-ASTERISK
 CHAN_LCR = ./chan_lcr
 endif
@@ -37,7 +38,7 @@ GEN = ./gentones
 GENW = ./genwave
 GENRC = ./genrc
 GENEXT = ./genextension
-CFLAGS = -DINSTALL_DATA=\"$(INSTALL_DATA)\" -I/usr/include/mISDNuser/
+CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\" -I/usr/include/mISDNuser/
 #CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
@@ -219,7 +220,7 @@ $(LCR): main.o \
 	$(LIBS) -o $(LCR) 
 
 $(LCRADMIN): lcradmin.c cause.c *.h Makefile
-	$(PP) $(LIBDIR) $(CFLAGS) $(CURSES) -lm lcradmin.c cause.c \
+	$(PP) $(LIBDIR) $(CFLAGS_LCRADMIN) $(CURSES) -lm lcradmin.c cause.c \
 	-o $(LCRADMIN) 
 
 $(CHAN_LCR): chan_lcr.o bchannel.o

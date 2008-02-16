@@ -437,8 +437,8 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 static int inter_timeouts(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_port *ifport;
-	struct select_channel *selchannel, **selchannelp;
-	int val;
+//	struct select_channel *selchannel, **selchannelp;
+//	int val;
 	char *p, *el;
 
 	/* port in chain ? */

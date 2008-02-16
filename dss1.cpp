@@ -1917,7 +1917,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 
 void Pdss1::new_state(int state)
 {
-	class Endpoint *epoint;
+//	class Endpoint *epoint;
 
 	/* set timeout */
 	if (state == PORT_STATE_IN_OVERLAP)

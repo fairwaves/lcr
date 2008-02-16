@@ -3120,7 +3120,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct message *message;
-	struct interface	*interface;
+//	struct interface	*interface;
 
 	/* if we already in setup state, we just update the dialing with new digits */
 	if (e_state == EPOINT_STATE_OUT_SETUP

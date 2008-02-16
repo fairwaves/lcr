@@ -151,8 +151,8 @@ enum {
 	B_EVENT_DEACTIVATED,	/* DL_RELEASE received */
 	B_EVENT_EXPORTED,	/* BCHANNEL_ASSIGN received */
 	B_EVENT_IMPORTED,	/* BCHANNEL_REMOVE received */
+	B_EVENT_TIMEOUT,	/* timeout for bchannel state */
 };
-
 
 /* call-info structure CALLER */
 struct caller_info {

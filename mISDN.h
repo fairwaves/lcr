@@ -53,6 +53,7 @@ struct mISDNport {
 	unsigned long b_addr[128];
 #endif
 	int b_state[128]; /* statemachine, 0 = IDLE */
+	double b_timer[128]; /* timer for state machine */
 	unsigned long b_remote_id[128]; /* the socket currently exported */
 	unsigned long b_remote_ref[128]; /* the ref currently exported */
 	int procids[128]; /* keep track of free ids */

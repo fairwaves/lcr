@@ -419,4 +419,5 @@ Changes in Version 0.4
 Changes in Version 0.5
 - Preperations for Asterisk channel driver (chan_lcr)
 - Errors in information elements are now reported inside log/trace.
+- Recover bchannel (de-)activation if message from mISDN got lost
 
