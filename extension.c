@@ -948,7 +948,7 @@ int write_extension(struct extension *ext, char *number)
 
 	fprintf(fp,"# Interface(s) to ring on calls to extension (as named in interface.conf)\n");
 	fprintf(fp,"# Seperate multiple interfaces by using komma without spaces\n");
-	fprintf(fp,"# Example: Int would ring on the interface with the name \"Int\"");
+	fprintf(fp,"# Example: Int would ring on the interface with the name \"Int\"\n");
 	fprintf(fp,"#          Int1,Int2 would ring incoming calls on both interfaces Int1 and Int2.\n");
 	fprintf(fp,"interfaces      %s\n\n",ext->interfaces);
 

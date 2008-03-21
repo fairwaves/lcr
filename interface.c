@@ -637,13 +637,13 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 				goto typeerror;
 			ifscreen->result_type = INFO_NTYPE_INTERNATIONAL;
 		} else
-		if (!strcasecmp(el, "allowed"))
+		if (!strcasecmp(el, "present") || !strcasecmp(el, "presented") || !strcasecmp(el, "allowed") || !strcasecmp(el, "allow"))
 		{
 			if (ifscreen->result_present != -1)
 				goto presenterror;
 			ifscreen->result_present = INFO_PRESENT_ALLOWED;
 		} else
-		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted"))
+		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted") || !strcasecmp(el, "deny") || !strcasecmp(el, "denied"))
 		{
 			if (ifscreen->result_present != -1)
 				goto presenterror;
@@ -1328,13 +1328,13 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 		}
 		if (ifmsn)
 		{
-			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (fount in MSN list)");
+			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (found in MSN list)");
 			add_trace("msn", NULL, "%s", id);
 			end_trace();
 		}
 		if (!ifmsn && msn1) // not in list, first msn given
 		{
-			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (not fount in MSN list)");
+			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (not found in MSN list)");
 			add_trace("msn", "given", "%s", id);
 			add_trace("msn", "used", "%s", msn1);
 			end_trace();
@@ -1367,7 +1367,7 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 	}
 	if (ifscreen) // match
 	{
-		start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (fount in screen list)");
+		start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (found in screen list)");
 		switch(*type)
 		{
 			case INFO_NTYPE_UNKNOWN:

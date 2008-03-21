@@ -1839,13 +1839,15 @@ void EndpointAppPBX::_action_goto_menu(int mode)
 	if (e_dialinginfo.id[0])
 	{
 		add_trace("dialing", NULL, "%s", e_dialinginfo.id);
-		end_trace();
 	}
 	if ((rparam = routeparam(e_action, PARAM_SAMPLE)))
 	{
 		add_trace("sample", NULL, "%s", rparam->string_value);
 		end_trace();
 		set_tone(ea_endpoint->ep_portlist, rparam->string_value);
+	} else
+	{
+		end_trace();
 	}
 
 	/* do dialing with new ruleset */
