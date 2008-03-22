@@ -2877,7 +2877,10 @@ void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, 
 	}
 	if (e_action) if (e_action->index == ACTION_OUTDIAL || e_action->index == ACTION_EXTERNAL)
 	{
-			set_tone(portlist, "dialtone");
+			if (e_dialinginfo.id[0])
+				set_tone(portlist, "dialing");
+			else
+				set_tone(portlist, "dialtone");
 			return;
 	}
 	if (e_ext.number[0])
