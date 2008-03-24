@@ -9,9 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include "main.h"
 
 struct interface *interface_first = NULL; /* first interface is current list */

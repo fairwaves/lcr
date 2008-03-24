@@ -45,15 +45,6 @@ Functions:
    
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <math.h>
 #include "main.h"
 
 #define SHORT_MIN -32768

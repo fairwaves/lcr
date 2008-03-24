@@ -96,18 +96,19 @@ int mISDN_initialize(void)
 		return(-1);
 	}
 
-	/* initialize stuff of the NT lib */
+	/* open debug, if enabled and not only stack debugging */
+	if (options.deb && (options.deb != DEBUG_STACK))
+	{
+		SPRINT(debug_log, "%s/debug.log", INSTALL_DATA);
+		debug_fp = fopen(debug_log, "a");
+	}
+
 	if (options.deb & DEBUG_STACK)
 	{
-		global_debug = 0xffffffff & ~DBGM_MSG;
-//		global_debug = DBGM_L3DATA;
+		SPRINT(debug_stack, "%s/debug_mISDN.log", INSTALL_DATA);
+		mISDN_debug_init(DBGM_ALL, debug_stack, debug_stack, debug_stack);
 	} else
-		global_debug = DBGM_MAN;
-	SPRINT(debug_log, "%s/debug.log", INSTALL_DATA);
-	if (options.deb & DEBUG_LOG)
-		mISDN_debug_init(global_debug, debug_log, debug_log, debug_log);
-	else
-		mISDN_debug_init(global_debug, NULL, NULL, NULL);
+		mISDN_debug_init(0, NULL, NULL, NULL);
 
 	/* init mlayer3 */
 	init_layer3(4); // buffer of 4
@@ -120,6 +121,10 @@ void mISDN_deinitialize(void)
 	cleanup_layer3();
 
 	mISDN_debug_close();
+
+	if (debug_fp)
+		fclose(debug_fp);
+	debug_fp = NULL;
 
 	if (mISDNsocket > -1)
 		close(mISDNsocket);
@@ -182,6 +187,7 @@ void mISDN_deinitialize(void)
 	unsigned char buff[1025];
 
 	debug_close();
+	global_debug = 0;
 
 	if (mISDNdevice >= 0)
 	{
@@ -2473,6 +2479,15 @@ int mISDN_handler(void)
 	if (!mISDNport)
 	{
 		PERROR("message belongs to no mISDNport: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, msg->len);
+		// show a list of all mISDNports and their address
+#if 0
+		mISDNport = mISDNport_first;
+		while(mISDNport)
+		{
+			PERROR(" port %s  %x -> %x\n", mISDNport->name, (frm->addr&MASTER_ID_MASK), (unsigned int)(mISDNport->upper_id&MASTER_ID_MASK));
+			mISDNport = mISDNport->next;
+		} 
+#endif
 		goto out;
 	}
 

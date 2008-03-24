@@ -8,6 +8,7 @@
 ** information elements support header                                       **
 **                                                                           **
 \*****************************************************************************/ 
+#ifndef SOCKET_MISDN
 
 #define MT_ALERTING             0x01
 #define MT_CALL_PROCEEDING      0x02
@@ -84,6 +85,8 @@
 #define IE_COMPLETE     0xa1
 #define IE_CONGESTION   0xb0
 #define IE_REPEAT       0xd0
+
+#endif
 
 #define CENTREX_FAC	0x88
 #define CENTREX_ID	0xa1

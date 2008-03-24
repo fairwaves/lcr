@@ -9,9 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include "stdio.h"
-#include "sys/types.h"
-#include "string.h"
 #include "main.h"
 
 struct isdn_cause isdn_cause[128] = {

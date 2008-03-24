@@ -85,13 +85,18 @@ void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);
 int mISDN_handler(void);
+#ifdef SOCKET_MISDN
+void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
+int stack2manager_te(struct mISDNport *mISDNport,l3_msg *l3m);
+#else
 void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause);
+int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
+msg_t *create_l2msg(int prim, int dinfo, int size);
+#endif
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
 void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
-msg_t *create_l2msg(int prim, int dinfo, int size);
 void setup_queue(struct mISDNport *mISDNport, int link);
 int stack2manager_nt(void *dat, void *arg);
-int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
@@ -104,7 +109,11 @@ class PmISDN : public Port
 	public:
 	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
 	~PmISDN();
+#ifdef SOCKET_MISDN
+	void bchannel_receive(unsigned char *frm, int len);
+#else
 	void bchannel_receive(iframe_t *frm);
+#endif
 	int handler(void);
 	void transmit(unsigned char *buffer, int length);
 	int message_epoint(unsigned long epoint_id, int message, union parameter *param);

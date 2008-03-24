@@ -9,6 +9,27 @@
 **                                                                           **
 \*****************************************************************************/ 
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <pthread.h>
+#include <dirent.h>
+#include <math.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+
 #define NAME		"LCR"
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
@@ -26,7 +47,11 @@ extern int classuse;
 extern int fduse;
 extern int fhuse;
 
+#ifdef SOCKET_MISDN
+extern FILE *debug_fp;
+#else
 extern int global_debug;
+#endif
 
 #define PDEBUG(mask, fmt, arg...) _printdebug(__FUNCTION__, __LINE__, mask, fmt, ## arg)
 #define PERROR(fmt, arg...) _printerror(__FUNCTION__, __LINE__, fmt, ## arg)
@@ -103,13 +128,6 @@ void debug(const char *function, int line, char *prefix, char *buffer);
  #define BUDETECT	;
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <sys/time.h>
-//#include <asm/bitops.h>
 #ifdef __cplusplus
 extern "C" {
 #endif

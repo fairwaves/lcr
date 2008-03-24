@@ -2845,7 +2845,7 @@ void EndpointAppPBX::join_facility(struct port_list *portlist, int message_type,
 {
 	struct message *message;
 
-	if (!e_ext.facility)
+	if (!e_ext.facility && e_ext.number[0])
 	{
 		return;
 	}

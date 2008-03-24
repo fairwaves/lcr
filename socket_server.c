@@ -16,7 +16,6 @@
 //#include <sys/stat.h>
 //#include <unistd.h>
 //#include <signal.h>
-//#include <stdarg.h>
 //#include <fcntl.h>
 #include <sys/ioctl.h>
 //#include <sys/file.h>
