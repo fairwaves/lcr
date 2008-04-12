@@ -343,7 +343,7 @@ int Pdss1::received_first_reply_to_setup(unsigned long prim, int channel, int ex
 	dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 	release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 	enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 #else
@@ -494,11 +494,12 @@ use_channel:
  * handles all indications
  */
 /* CC_SETUP INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	SETUP_t *setup = (SETUP_t *)((unsigned long)data + headerlen);
@@ -516,13 +517,14 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	class Endpoint *epoint;
 	struct message *message;
 
+#ifndef SOCKET_MISDN
 	/* callref from nt-lib */
 	if (p_m_d_ntmode)
 	{
 		/* nt-library now gives us the id via CC_SETUP */
 		if (dinfo&(~0xff) == 0xff00)
 			FATAL("l3-stack gives us a process id 0xff00-0xffff\n");
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | INDICATION, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_CR_IND, DIRECTION_IN);
 		if (p_m_d_l3id)
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
 		add_trace("callref", "new", "0x%x", dinfo);
@@ -532,8 +534,23 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		p_m_d_l3id = dinfo;
 		p_m_d_ces = setup->ces;
 	}
+#endif
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
+	dec_ie_calling_pn(l3m, &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
+	dec_ie_called_pn(l3m, &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
+	dec_ie_keypad(l3m, (unsigned char *)keypad, sizeof(keypad));
+	/* te-mode: CNIP (calling name identification presentation) */
+	if (!p_m_d_ntmode)
+		dec_facility_centrex(l3m, (unsigned char *)p_callerinfo.name, sizeof(p_callerinfo.name));
+	dec_ie_useruser(l3m, &useruser_protocol, useruser, &useruser_len);
+	dec_ie_complete(l3m, &p_dialinginfo.sending_complete);
+	dec_ie_redir_nr(l3m, &redir_type, &redir_plan, &redir_present, &redir_screen, &redir_reason, (unsigned char *)p_redirinfo.id, sizeof(p_redirinfo.id));
+	dec_ie_channel_id(l3m, &exclusive, &channel);
+	dec_ie_hlc(l3m, &hlc_coding, &hlc_interpretation, &hlc_presentation, &hlc_hlc, &hlc_exthlc);
+	dec_ie_bearer(l3m, &bearer_coding, &bearer_capability, &bearer_mode, &bearer_rate, &bearer_multi, &bearer_user);
+#else
 	dec_ie_calling_pn(setup->CALLING_PN, (Q931_info_t *)((unsigned long)data+headerlen), &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
 	dec_ie_called_pn(setup->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(setup->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
@@ -546,6 +563,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_channel_id(setup->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_hlc(setup->HLC, (Q931_info_t *)((unsigned long)data+headerlen), &hlc_coding, &hlc_interpretation, &hlc_presentation, &hlc_hlc, &hlc_exthlc);
 	dec_ie_bearer(setup->BEARER, (Q931_info_t *)((unsigned long)data+headerlen), &bearer_coding, &bearer_capability, &bearer_mode, &bearer_rate, &bearer_multi, &bearer_user);
+#endif
 	end_trace();
 
 	/* if blocked, release call with MT_RELEASE_COMPLETE */
@@ -559,7 +577,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 27); /* temporary unavailable */
 #else
@@ -776,7 +794,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 #else
@@ -821,18 +839,29 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_INFORMATION INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::information_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	INFORMATION_t *information = (INFORMATION_t *)((unsigned long)data + headerlen);
+#endif
 	int type, plan;
 	unsigned char keypad[32] = "";
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_called_pn(information->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(information->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
 	dec_ie_complete(information->COMPLETE, (Q931_info_t *)((unsigned long)data+headerlen), &p_dialinginfo.sending_complete);
+#else
+	dec_ie_called_pn(information->CALLED_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
+	dec_ie_keypad(information->KEYPAD, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)keypad, sizeof(keypad));
+	dec_ie_complete(information->COMPLETE, (Q931_info_t *)((unsigned long)data+headerlen), &p_dialinginfo.sending_complete);
+#endif
 	end_trace();
 
 	SCAT(p_dialinginfo.id, (char *)keypad);
@@ -859,18 +888,28 @@ void Pdss1::information_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_SETUP_ACCNOWLEDGE INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	SETUP_ACKNOWLEDGE_t *setup_acknowledge = (SETUP_ACKNOWLEDGE_t *)((unsigned long)data + headerlen);
+#endif
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_ACKNOWLEDGE_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_channel_id(setup_acknowledge->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_progress(setup_acknowledge->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
+#else
+	dec_ie_channel_id(setup_acknowledge->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+	dec_ie_progress(setup_acknowledge->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
+#endif
 	end_trace();
 
 	/* process channel */
@@ -893,10 +932,15 @@ void Pdss1::setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void 
 }
 
 /* CC_PROCEEDING INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::proceeding_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	CALL_PROCEEDING_t *proceeding = (CALL_PROCEEDING_t *)((unsigned long)data + headerlen);
+#endif
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
@@ -904,11 +948,18 @@ void Pdss1::proceeding_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int notify = -1, type, plan, present;
 	char redir[32];
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_channel_id(proceeding->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_progress(proceeding->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
 	dec_ie_notify(NULL/*proceeding->NOTIFY*/, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
 	dec_ie_redir_dn(proceeding->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
+#else
+	dec_ie_channel_id(proceeding->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+	dec_ie_progress(proceeding->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
+	dec_ie_notify(NULL/*proceeding->NOTIFY*/, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
+	dec_ie_redir_dn(proceeding->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
+#endif
 	end_trace();
 
 	ret = received_first_reply_to_setup(prim, channel, exclusive);
@@ -976,10 +1027,15 @@ void Pdss1::proceeding_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_ALERTING INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::alerting_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	ALERTING_t *alerting = (ALERTING_t *)((unsigned long)data + headerlen);
+#endif
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
@@ -987,11 +1043,18 @@ void Pdss1::alerting_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int notify = -1, type, plan, present;
 	char redir[32];
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_ALERTING_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_channel_id(alerting->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_progress(alerting->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
 	dec_ie_notify(NULL/*alerting->NOTIFY*/, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
 	dec_ie_redir_dn(alerting->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
+#else
+	dec_ie_channel_id(alerting->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+	dec_ie_progress(alerting->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &location, &progress);
+	dec_ie_notify(NULL/*alerting->NOTIFY*/, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
+	dec_ie_redir_dn(alerting->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
+#endif
 	end_trace();
 
 	/* process channel */
@@ -1059,11 +1122,12 @@ void Pdss1::alerting_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_CONNECT INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	CONNECT_t *connect = (CONNECT_t *)((unsigned long)data + headerlen);
@@ -1078,9 +1142,14 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	if (p_m_d_ntmode)
 		p_m_d_ces = connect->ces;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_channel_id(connect->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
 	dec_ie_connected_pn(connect->CONNECT_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, &screen, (unsigned char *)p_connectinfo.id, sizeof(p_connectinfo.id));
+#else
+	dec_ie_channel_id(connect->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+	dec_ie_connected_pn(connect->CONNECT_PN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, &screen, (unsigned char *)p_connectinfo.id, sizeof(p_connectinfo.id));
+#endif
 	/* te-mode: CONP (connected name identification presentation) */
 	if (!p_m_d_ntmode)
 		dec_facility_centrex(connect->FACILITY, (Q931_info_t *)((unsigned long)data+headerlen), (unsigned char *)p_connectinfo.name, sizeof(p_connectinfo.name));
@@ -1154,7 +1223,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_CONNECT | RESPONSE, MT_CONNECT, dinfo, sizeof(CONNECT_ACKNOWLEDGE_t), p_m_d_ntmode);
 		connect_acknowledge = (CONNECT_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_CONNECT | RESPONSE, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_RES, DIRECTION_OUT);
 		/* if we had no bchannel before, we send it now */
 		if (!bchannel_before && p_m_b_channel)
 #ifdef SOCKET_MISDN
@@ -1178,17 +1247,27 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_DISCONNECT INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	DISCONNECT_t *disconnect = (DISCONNECT_t *)((unsigned long)data + headerlen);
+#endif
 	int location, cause;
 	int coding, proglocation, progress;
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_progress(disconnect->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &proglocation, &progress);
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#else
+	dec_ie_progress(disconnect->PROGRESS, (Q931_info_t *)((unsigned long)data+headerlen), &coding, &proglocation, &progress);
+	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#endif
 	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
@@ -1212,7 +1291,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, dinfo, sizeof(RELEASE_t), p_m_d_ntmode);
 		release = (RELEASE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
 #else
@@ -1262,20 +1341,29 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_DISCONNECT INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::disconnect_ind_i(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	DISCONNECT_t *disconnect = (DISCONNECT_t *)((unsigned long)data + headerlen);
+#endif
 	int location, cause;
 
 	/* cause */
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_IND, DIRECTION_IN);
 	if (p_m_d_collect_cause > 0)
 	{
 		add_trace("old-cause", "location", "%d", p_m_d_collect_location);
 		add_trace("old-cause", "value", "%d", p_m_d_collect_cause);
 	}
+#ifdef SOCKET_MISDN
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#else
+	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#endif
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
 
@@ -1288,11 +1376,12 @@ void Pdss1::disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data
 }
 
 /* CC_RELEASE INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	RELEASE_t *release = (RELEASE_t *)((unsigned long)data + headerlen);
@@ -1300,8 +1389,12 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int location, cause;
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_cause(release->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#else
+	dec_ie_cause(release->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#endif
 	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
@@ -1332,7 +1425,7 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16);
 #else
@@ -1351,15 +1444,24 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_RELEASE_COMPLETE INDICATION (a reject) */
+#ifdef SOCKET_MISDN
+void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	RELEASE_COMPLETE_t *release_complete = (RELEASE_COMPLETE_t *)((unsigned long)data + headerlen);
+#endif
 	int location, cause;
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#else
+	dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+#endif
 	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
@@ -1383,8 +1485,13 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 }
 
 /* T312 timeout  */
-void Pdss1::t312_timeout(unsigned long prim, unsigned long dinfo, void *data)
+#ifdef SOCKET_MISDN
+void Pdss1::t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
+#else
+void Pdss1::t312_timeout_ind(unsigned long prim, unsigned long dinfo, void *data)
+{
+#endif
 	struct message *message;
 
 	// trace is done at message_isdn()
@@ -1412,17 +1519,27 @@ void Pdss1::t312_timeout(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_NOTIFY INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	NOTIFY_t *notifying = (NOTIFY_t *)((unsigned long)data + headerlen);
+#endif
 	struct message *message;
 	int notify, type, plan, present;
 	unsigned char notifyid[sizeof(message->param.notifyinfo.id)];
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_notify(notifying->NOTIFY, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
 	dec_ie_redir_dn(notifying->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, notifyid, sizeof(notifyid));
+#else
+	dec_ie_notify(notifying->NOTIFY, (Q931_info_t *)((unsigned long)data+headerlen), &notify);
+	dec_ie_redir_dn(notifying->REDIR_DN, (Q931_info_t *)((unsigned long)data+headerlen), &type, &plan, &present, notifyid, sizeof(notifyid));
+#endif
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist))
@@ -1472,12 +1589,13 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 
 /* CC_HOLD INDICATION */
-void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
-{
 	struct message *message;
 #ifdef SOCKET_MISDN
-	l3_msg *l3m;
+void Pdss1::hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
 #else
+void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
+{
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 //	HOLD_t *hold = (HOLD_t *)((unsigned long)data + headerlen);
@@ -1486,7 +1604,7 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 //	class Endpoint *epoint;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_HOLD_IND, DIRECTION_IN);
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist) || p_m_hold)
@@ -1497,7 +1615,7 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_HOLD_REJECT | REQUEST, MT_HOLD_REJECT, dinfo, sizeof(HOLD_REJECT_t), p_m_d_ntmode);
 		hold_reject = (HOLD_REJECT_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_HOLD_REJECT | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_HOLD_REJECT_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, p_m_hold?101:31); /* normal unspecified / incompatible state */
 #else
@@ -1544,7 +1662,7 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dmsg = create_l3msg(CC_HOLD_ACKNOWLEDGE | REQUEST, MT_HOLD_ACKNOWLEDGE, dinfo, sizeof(HOLD_ACKNOWLEDGE_t), p_m_d_ntmode);
 	hold_acknowledge = (HOLD_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_HOLD_ACKNOWLEDGE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_HOLD_ACKNOWLEDGE_REQ, DIRECTION_OUT);
 	end_trace();
 #ifdef SOCKET_MISDN
 	p_m_mISDNport->layer3->to_layer3(p_m_mISDNport->layer3, MT_HOLD_ACKNOWLEDGE, l3m);
@@ -1555,11 +1673,12 @@ void Pdss1::hold_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 
 /* CC_RETRIEVE INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	RETRIEVE_t *retrieve = (RETRIEVE_t *)((unsigned long)data + headerlen);
@@ -1570,8 +1689,12 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int channel, exclusive, cause;
 	int ret;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RETRIEVE_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_channel_id(retrieve->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+#else
+	dec_ie_channel_id(retrieve->CHANNEL_ID, (Q931_info_t *)((unsigned long)data+headerlen), &exclusive, &channel);
+#endif
 	end_trace();
 
 	if (!p_m_hold)
@@ -1585,7 +1708,7 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RETRIEVE_REJECT | REQUEST, MT_RETRIEVE_REJECT, dinfo, sizeof(RETRIEVE_REJECT_t), p_m_d_ntmode);
 		retrieve_reject = (RETRIEVE_REJECT_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RETRIEVE_REJECT | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RETRIEVE_REJECT_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, cause);
 #else
@@ -1633,7 +1756,7 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dmsg = create_l3msg(CC_RETRIEVE_ACKNOWLEDGE | REQUEST, MT_RETRIEVE_ACKNOWLEDGE, dinfo, sizeof(RETRIEVE_ACKNOWLEDGE_t), p_m_d_ntmode);
 	retrieve_acknowledge = (RETRIEVE_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_RETRIEVE_ACKNOWLEDGE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RETRIEVE_ACKNOWLEDGE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 	enc_ie_channel_id(l3m, 1, p_m_b_channel);
 #else
@@ -1648,11 +1771,12 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_SUSPEND INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	SUSPEND_t *suspend = (SUSPEND_t *)((unsigned long)data + headerlen);
@@ -1665,8 +1789,12 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int len;
 	int ret = -31; /* normal, unspecified */
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SUSPEND_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_call_id(suspend->CALL_ID, (Q931_info_t *)((unsigned long)data+headerlen), callid, &len);
+#else
+	dec_ie_call_id(suspend->CALL_ID, (Q931_info_t *)((unsigned long)data+headerlen), callid, &len);
+#endif
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist))
@@ -1678,7 +1806,7 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_SUSPEND_REJECT | REQUEST, MT_SUSPEND_REJECT, dinfo, sizeof(SUSPEND_REJECT_t), p_m_d_ntmode);
 		suspend_reject = (SUSPEND_REJECT_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_SUSPEND_REJECT | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_SUSPEND_REJECT_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 #else
@@ -1743,7 +1871,7 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dmsg = create_l3msg(CC_SUSPEND_ACKNOWLEDGE | REQUEST, MT_SUSPEND_ACKNOWLEDGE, dinfo, sizeof(SUSPEND_ACKNOWLEDGE_t), p_m_d_ntmode);
 	suspend_acknowledge = (SUSPEND_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_SUSPEND_ACKNOWLEDGE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SUSPEND_ACKNOWLEDGE_REQ, DIRECTION_OUT);
 	end_trace();
 #ifdef SOCKET_MISDN
 	p_m_mISDNport->layer3->to_layer3(p_m_mISDNport->layer3, MT_SUSPEND_ACKNOWLEDGE, l3m);
@@ -1756,11 +1884,12 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 }
 
 /* CC_RESUME INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#ifdef SOCKET_MISDN
-	l3_msg *l3m;
-#else
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	msg_t *dmsg;
 	RESUME_t *resume = (RESUME_t *)((unsigned long)data + headerlen);
@@ -1780,7 +1909,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		/* nt-library now gives us the id via CC_RESUME */
 		if (dinfo&(~0xff) == 0xff00)
 			FATAL("l3-stack gives us a process id 0xff00-0xffff\n");
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | INDICATION, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_CR_IND, DIRECTION_IN);
 		if (p_m_d_l3id)
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
 		add_trace("callref", "new", "0x%x", dinfo);
@@ -1791,8 +1920,12 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		p_m_d_ces = resume->ces;
 	}
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RESUME_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_call_id(resume->CALL_ID, (Q931_info_t *)((unsigned long)data+headerlen), callid, &len);
+#else
+	dec_ie_call_id(resume->CALL_ID, (Q931_info_t *)((unsigned long)data+headerlen), callid, &len);
+#endif
 	end_trace();
 
 	/* if blocked, release call */
@@ -1826,7 +1959,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 		dmsg = create_l3msg(CC_RESUME_REJECT | REQUEST, MT_RESUME_REJECT, dinfo, sizeof(RESUME_REJECT_t), p_m_d_ntmode);
 		resume_reject = (RESUME_REJECT_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RESUME_REJECT | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RESUME_REJECT_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, -ret);
 #else
@@ -1884,7 +2017,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dmsg = create_l3msg(CC_RESUME_ACKNOWLEDGE | REQUEST, MT_RESUME_ACKNOWLEDGE, dinfo, sizeof(RESUME_ACKNOWLEDGE_t), p_m_d_ntmode);
 	resume_acknowledge = (RESUME_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_RESUME_ACKNOWLEDGE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RESUME_ACKNOWLEDGE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 	enc_ie_channel_id(l3m, 1, p_m_b_channel);
 #else
@@ -1902,16 +2035,25 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 
 /* CC_FACILITY INDICATION */
+#ifdef SOCKET_MISDN
+void Pdss1::facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+#else
 void Pdss1::facility_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	FACILITY_t *facility = (FACILITY_t *)((unsigned long)data + headerlen);
+#endif
 	unsigned char facil[256];
 	int facil_len;
 	struct message *message;
 
-	l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_FACILITY_IND, DIRECTION_IN);
+#ifdef SOCKET_MISDN
 	dec_ie_facility(facility->FACILITY, (Q931_info_t *)((unsigned long)data+headerlen), facil, &facil_len);
+#else
+	dec_ie_facility(facility->FACILITY, (Q931_info_t *)((unsigned long)data+headerlen), facil, &facil_len);
+#endif
 	end_trace();
 
 	/* facility */
@@ -1939,15 +2081,20 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		case CC_TIMEOUT | INDICATION:
 		if (p_m_d_ntmode)
 		{
+#ifdef SOCKET_MISDN
+			#warning TESTEN!!!
+			timer_hex = *((int *)(((char *)data)/*+headerlen*/));
+#else
 			int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 			timer_hex = *((int *)(((char *)data)+headerlen));
+#endif
 		}
 		if (timer_hex==0x312 && p_m_d_ntmode)
 		{
-			l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+			l1l2l3_trace_header(p_m_mISDNport, this, L3_TIMEOUT_IND, DIRECTION_IN);
 			add_trace("timer", NULL, "%x", timer_hex);
 			end_trace();
-			t312_timeout(prim, dinfo, data);
+			t312_timeout_ind(prim, dinfo, data);
 		}
 		break;
 
@@ -1960,7 +2107,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		case CC_SETUP | CONFIRM:
 		if (p_m_d_ntmode)
 		{
-			l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | INDICATION, DIRECTION_IN);
+			l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_CR_IND, DIRECTION_IN);
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
 			/* nt-library now gives us a new id via CC_SETUP_CONFIRM */
 			if ((p_m_d_l3id&0xff00) != 0xff00)
@@ -2078,7 +2225,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 
 		case CC_RELEASE_CR | INDICATION:
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_CR | INDICATION, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_CR_IND, DIRECTION_IN);
 		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
 		end_trace();
 		if (p_m_d_ntmode)
@@ -2108,7 +2255,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 
 		case CC_NEW_CR | INDICATION:
-		l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_CR_IND, DIRECTION_IN);
 		if (p_m_d_l3id)
 			add_trace("callref", "old", "0x%x", p_m_d_l3id);
 		if (p_m_d_ntmode)
@@ -2126,7 +2273,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		break;
 
 		default:
-		l1l2l3_trace_header(p_m_mISDNport, this, prim, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_UNKNOWN, DIRECTION_IN);
 		add_trace("unhandled", "prim", "0x%x", prim);
 		end_trace();
 	}
@@ -2229,7 +2376,7 @@ void Pdss1::message_information(unsigned long epoint_id, int message_id, union p
 		dmsg = create_l3msg(CC_INFORMATION | REQUEST, MT_INFORMATION, p_m_d_l3id, sizeof(INFORMATION_t), p_m_d_ntmode);
 		information = (INFORMATION_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_INFORMATION | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)param->information.id);
 #else
@@ -2303,7 +2450,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 			dmsg = create_l3msg(CC_INFORMATION | REQUEST, MT_INFORMATION, p_m_d_l3id, sizeof(INFORMATION_t), p_m_d_ntmode);
 			information = (INFORMATION_t *)(dmsg->data + headerlen);
 #endif
-			l1l2l3_trace_header(p_m_mISDNport, this, CC_INFORMATION | REQUEST, DIRECTION_OUT);
+			l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 	 	 	if (p_m_d_ntmode)
 #ifdef SOCKET_MISDN
 				enc_ie_display(l3m, (unsigned char *)p_callerinfo.display);
@@ -2344,7 +2491,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 		channel = CHANNEL_NO;
 
 	/* creating l3id */
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_NEW_CR | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_CR_REQ, DIRECTION_OUT);
 	if (p_m_d_ntmode)
 	{
 		i = 0;
@@ -2397,7 +2544,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	dmsg = create_l3msg(CC_SETUP | REQUEST, MT_SETUP, p_m_d_l3id, sizeof(SETUP_t), p_m_d_ntmode);
 	setup = (SETUP_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_SETUP | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_REQ, DIRECTION_OUT);
 	/* channel information */
 	if (channel >= 0) /* it should */
 	{
@@ -2630,7 +2777,7 @@ void Pdss1::message_facility(unsigned long epoint_id, int message_id, union para
 	dmsg = create_l3msg(CC_FACILITY | REQUEST, MT_FACILITY, p_m_d_l3id, sizeof(FACILITY_t), p_m_d_ntmode);
 	facility = (FACILITY_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_FACILITY | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_FACILITY_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 	enc_ie_facility(l3m, (unsigned char *)param->facilityinfo.data, param->facilityinfo.len);
 #else
@@ -2728,7 +2875,7 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 			dmsg = create_l3msg(CC_NOTIFY | REQUEST, MT_NOTIFY, p_m_d_l3id, sizeof(NOTIFY_t), p_m_d_ntmode);
 			notification = (NOTIFY_t *)(dmsg->data + headerlen);
 #endif
-			l1l2l3_trace_header(p_m_mISDNport, this, CC_NOTIFY | REQUEST, DIRECTION_OUT);
+			l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 			enc_ie_notify(l3m, notify);
 #else
@@ -2763,7 +2910,7 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 		dmsg = create_l3msg(CC_INFORMATION | REQUEST, MT_INFORMATION, p_m_d_l3id, sizeof(INFORMATION_t), p_m_d_ntmode);
 		information = (INFORMATION_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_INFORMATION | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
 		enc_ie_display(l3m, (unsigned char *)param->notifyinfo.display);
 #else
@@ -2796,7 +2943,7 @@ void Pdss1::message_overlap(unsigned long epoint_id, int message_id, union param
 	dmsg = create_l3msg(CC_SETUP_ACKNOWLEDGE | REQUEST, MT_SETUP_ACKNOWLEDGE, p_m_d_l3id, sizeof(SETUP_ACKNOWLEDGE_t), p_m_d_ntmode);
 	setup_acknowledge = (SETUP_ACKNOWLEDGE_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_SETUP_ACKNOWLEDGE | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_ACKNOWLEDGE_REQ, DIRECTION_OUT);
 	/* channel information */
 	if (p_state == PORT_STATE_IN_SETUP)
 #ifdef SOCKET_MISDN
@@ -2842,7 +2989,7 @@ void Pdss1::message_proceeding(unsigned long epoint_id, int message_id, union pa
 	dmsg = create_l3msg(CC_PROCEEDING | REQUEST, MT_CALL_PROCEEDING, p_m_d_l3id, sizeof(CALL_PROCEEDING_t), p_m_d_ntmode);
 	proceeding = (CALL_PROCEEDING_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_PROCEEDING | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 	/* channel information */
 	if (p_state == PORT_STATE_IN_SETUP)
 #ifdef SOCKET_MISDN
@@ -2893,7 +3040,7 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 		dmsg = create_l3msg(CC_PROCEEDING | REQUEST, MT_CALL_PROCEEDING, p_m_d_l3id, sizeof(CALL_PROCEEDING_t), p_m_d_ntmode);
 		proceeding = (CALL_PROCEEDING_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_PROCEEDING | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 		/* channel information */
 #ifdef SOCKET_MISDN
 		enc_ie_channel_id(l3m, 1, p_m_b_channel);
@@ -2925,7 +3072,7 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 	dmsg = create_l3msg(CC_ALERTING | REQUEST, MT_ALERTING, p_m_d_l3id, sizeof(ALERTING_t), p_m_d_ntmode);
 	alerting = (ALERTING_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_ALERTING | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_ALERTING_REQ, DIRECTION_OUT);
 	/* channel information */
 	if (p_state == PORT_STATE_IN_SETUP)
 #ifdef SOCKET_MISDN
@@ -2979,7 +3126,7 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 		dmsg = create_l3msg(CC_PROCEEDING | REQUEST, MT_CALL_PROCEEDING, p_m_d_l3id, sizeof(CALL_PROCEEDING_t), p_m_d_ntmode);
 		proceeding = (CALL_PROCEEDING_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_PROCEEDING | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 		/* channel information */
 #ifdef SOCKET_MISDN
 		enc_ie_channel_id(l3m, 1, p_m_b_channel);
@@ -3020,7 +3167,7 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 		dmsg = create_l3msg(CC_INFORMATION | REQUEST, MT_INFORMATION, p_m_d_l3id, sizeof(INFORMATION_t), p_m_d_ntmode);
 		information = (INFORMATION_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_INFORMATION | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 		if (p_m_d_ntmode)
 #ifdef SOCKET_MISDN
 			enc_ie_display(l3m, (unsigned char *)p_connectinfo.display);
@@ -3049,7 +3196,7 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 	dmsg = create_l3msg(CC_CONNECT | REQUEST, MT_CONNECT, p_m_d_l3id, sizeof(CONNECT_t), p_m_d_ntmode);
 	connect = (CONNECT_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_CONNECT | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_REQ, DIRECTION_OUT);
 	/* connect information */
 	plan = 1;
 	switch (p_connectinfo.ntype)
@@ -3170,7 +3317,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_COMPLETE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 		/* send cause */
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
@@ -3200,7 +3347,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		dmsg = create_l3msg(CC_PROCEEDING | REQUEST, MT_CALL_PROCEEDING, p_m_d_l3id, sizeof(CALL_PROCEEDING_t), p_m_d_ntmode);
 		proceeding = (CALL_PROCEEDING_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_PROCEEDING | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 		/* channel information */
 #ifdef SOCKET_MISDN
 		enc_ie_channel_id(l3m, 1, p_m_b_channel);
@@ -3232,7 +3379,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 	dmsg = create_l3msg(CC_DISCONNECT | REQUEST, MT_DISCONNECT, p_m_d_l3id, sizeof(DISCONNECT_t), p_m_d_ntmode);
 	disconnect = (DISCONNECT_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_DISCONNECT | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_REQ, DIRECTION_OUT);
 	/* progress information */
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
@@ -3296,7 +3443,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		dmsg = create_l3msg(CC_RELEASE | REQUEST, MT_RELEASE, p_m_d_l3id, sizeof(RELEASE_t), p_m_d_ntmode);
 		release = (RELEASE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
 		/* send cause */
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
@@ -3334,7 +3481,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, p_m_d_l3id, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
 		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
 		/* send cause */
 #ifdef SOCKET_MISDN
 		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
@@ -3352,7 +3499,7 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 		free_epointid(epoint_id);
 #if 0
 		/* remove process */
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_RELEASE_CR | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_CR_REQ, DIRECTION_OUT);
 		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
 		end_trace();
 		if (p_m_d_ntmode)
@@ -3381,7 +3528,7 @@ wirklich erst proceeding?:
 		dmsg = create_l3msg(CC_PROCEEDING | REQUEST, MT_CALL_PROCEEDING, p_m_d_l3id, sizeof(CALL_PROCEEDING_t), p_m_d_ntmode);
 		proceeding = (CALL_PROCEEDING_t *)(dmsg->data + headerlen);
 #endif
-		l1l2l3_trace_header(p_m_mISDNport, this, CC_PROCEEDING | REQUEST, DIRECTION_OUT);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 		/* channel information */
 #ifdef SOCKET_MISDN
 		enc_ie_channel_id(l3m, 1, p_m_b_channel);
@@ -3413,7 +3560,7 @@ wirklich erst proceeding?:
 	dmsg = create_l3msg(CC_DISCONNECT | REQUEST, MT_DISCONNECT, p_m_d_l3id, sizeof(DISCONNECT_t), p_m_d_ntmode);
 	disconnect = (DISCONNECT_t *)(dmsg->data + headerlen);
 #endif
-	l1l2l3_trace_header(p_m_mISDNport, this, CC_DISCONNECT | REQUEST, DIRECTION_OUT);
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_REQ, DIRECTION_OUT);
 	/* progress information */
 	if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
@@ -3529,7 +3676,7 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 			act.dinfo = 0;
 			act.len = 0;
 			mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-			l1l2l3_trace_header(p_m_mISDNport, this, act.prim, DIRECTION_OUT);
+			l1l2l3_trace_header(p_m_mISDNport, this, L1_ACTIVATE_REQ, DIRECTION_OUT);
 			end_trace();
 //			/* set timeout */
 //			p_m_mISDNport->l1timeout = now+3;
@@ -3620,6 +3767,110 @@ int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union paramet
 /*
  * data from isdn-stack (layer-3) to pbx (port class)
  */
+#ifdef SOCKET_MISDN
+int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+	class Port *port;
+	class Pdss1 *pdss1;
+	char name[32];
+
+	PDEBUG(DEBUG_ISDN, "cmd(0x%x) pid(0x%x)\n", cmd, pid);
+
+	/* find Port object of type ISDN */
+	port = port_first;
+	while(port)
+	{
+		/* are we ISDN ? */
+		if (port->p_type == PORT_TYPE_DSS1_NT_IN || port->p_type == PORT_TYPE_DSS1_NT_OUT)
+		{
+			pdss1 = (class Pdss1 *)port;
+			/* check out correct stack and id */
+			if (pdss1->p_m_mISDNport == mISDNport
+			 && pdss1->p_m_d_l3id == pid)
+			{
+				/* found port, the message belongs to */
+				break;
+			}
+		}
+		port = port->next;
+	}
+
+	/* aktueller prozess */
+	if (port)
+	{
+		/* if process id is master process, but a child disconnects */
+#warning hier das abfragen des child processes
+		if (0)
+		{
+			if (cmd == MT_DISCONNECT)
+			{
+				/* send special indication for child disconnect */
+				pdss1->disconnect_ind_i(cmd, pid, l3m);
+				return(0);
+			}
+			// ignoring other messages from child processes
+			return(0);
+		}
+		/* if process id and layer 3 id matches */
+		if (pid == pdss1->p_m_d_l3id)
+		{
+			pdss1->message_isdn(cmd, pid, l3m);
+			return(0);
+		}
+	}
+
+	/* d-message */
+	switch(cmd)
+	{
+		case MT_SETUP:
+		/* creating port object */
+		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
+
+			FATAL("Cannot create Port instance.\n");
+		pdss1->message_isdn(cmd, pid, l3m);
+		break;
+
+		case MT_RESUME:
+		/* creating port object */
+		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
+			FATAL("Cannot create Port instance.\n");
+		pdss1->message_isdn(cmd, pid, l3m);
+		break;
+
+		case MT_FREE:
+		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", hh->dinfo);
+		break;
+
+		case MT_RELEASE_COMPLETE:
+		PERROR("must be ignored by stack, not sent to app\n");
+		break;
+
+		case MT_FACILITY:
+		// facility als broadcast
+		break;
+
+		default:
+		PERROR("unhandled message: cmd(0x%x) pid(0x%x)\n", cmd, pid);
+		port = port_first;
+		while(port)
+		{
+			if (port->p_type == PORT_TYPE_DSS1_NT_IN || port->p_type == PORT_TYPE_DSS1_NT_OUT)
+			{
+				pdss1 = (class Pdss1 *)port;
+				/* check out correct stack */
+				if (pdss1->p_m_mISDNport == mISDNport)
+				/* check out correct id */
+				PERROR("unhandled message: pid=%x is not associated with port-dinfo=%x\n", pid, pdss1->p_m_d_l3id);
+			}
+			port = port->next;
+		}
+		return(-EINVAL);
+	}
+	return(0);
+}
+#else
 /* NOTE: nt mode use mISDNuser_head_t as header */
 int stack2manager_nt(void *dat, void *arg)
 {
@@ -3711,9 +3962,11 @@ int stack2manager_nt(void *dat, void *arg)
 		break;
 
 		case DL_ESTABLISH | INDICATION:
+		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
+		goto ss_estab;
 		case DL_ESTABLISH | CONFIRM:
+		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_CON, DIRECTION_IN);
 		ss_estab:
-		l1l2l3_trace_header(mISDNport, NULL, hh->prim, DIRECTION_IN);
 		add_trace("tei", NULL, "%d", hh->dinfo);
 		end_trace();
 		if (mISDNport->ptp && hh->dinfo == 0)
@@ -3730,9 +3983,11 @@ int stack2manager_nt(void *dat, void *arg)
 		break;
 
 		case DL_RELEASE | INDICATION:
+		l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
+		goto ss_rel;
 		case DL_RELEASE | CONFIRM:
+		l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_CON, DIRECTION_IN);
 		ss_rel:
-		l1l2l3_trace_header(mISDNport, NULL, hh->prim, DIRECTION_IN);
 		add_trace("tei", NULL, "%d", hh->dinfo);
 		end_trace();
 		if (mISDNport->ptp && hh->dinfo == 0)
@@ -3741,9 +3996,6 @@ int stack2manager_nt(void *dat, void *arg)
 			time(&mISDNport->l2establish);
 			PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
 		}
-//#warning debugging usleep crash
-//		printf("JOLLY release port %d\n", mISDNport->portnum);
-		usleep(1);
 		break;
 
 		case CC_SETUP | INDICATION:
@@ -3794,6 +4046,7 @@ int stack2manager_nt(void *dat, void *arg)
 	free_msg(msg);
 	return(0);
 }
+#endif // stacktomanager
 
 /* NOTE: te mode use iframe_t as header */
 int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg)

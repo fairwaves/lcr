@@ -47,6 +47,8 @@ extern int classuse;
 extern int fduse;
 extern int fhuse;
 
+extern pthread_mutex_t mutex_lcr; // lcr process mutex
+
 #ifdef SOCKET_MISDN
 extern FILE *debug_fp;
 #else

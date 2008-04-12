@@ -32,6 +32,25 @@ class Pdss1 : public PmISDN
 //	void isdn_show_send_message(unsigned long prim, msg_t *msg);
 	int received_first_reply_to_setup(unsigned long prim, int channel, int exclusive);
 	int hunt_bchannel(int exclusive, int channel);
+#ifdef SOCKET_MISDN
+	void information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void disconnect_ind_i(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+#else
 	void information_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void *data);
@@ -42,13 +61,14 @@ class Pdss1 : public PmISDN
 	void release_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void release_complete_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void disconnect_ind_i(unsigned long prim, unsigned long dinfo, void *data);
-	void t312_timeout(unsigned long prim, unsigned long dinfo, void *data);
+	void t312_timeout_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void notify_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void facility_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void hold_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void retrieve_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void suspend_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void resume_ind(unsigned long prim, unsigned long dinfo, void *data);
+#endif
 	void message_information(unsigned long epoint_id, int message_id, union parameter *param);
 	void message_setup(unsigned long epoint_id, int message_id, union parameter *param);
 	void message_notify(unsigned long epoint_id, int message_id, union parameter *param);

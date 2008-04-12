@@ -10,26 +10,10 @@
 \*****************************************************************************/ 
 
 #include "main.h"
-#include <poll.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#ifdef SOCKET_MISDN
-#include <netinet/udp.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include <linux/mISDNif.h>
-#include <q931.h>
-#include <mlayer3.h>
-#else
+#ifndef SOCKET_MISDN
 extern "C" {
 #include <mISDNuser/net_l2.h>
 }
-#endif
 
 #ifndef CMX_TXDATA_ON
 #define OLD_MISDN
@@ -71,10 +55,11 @@ extern "C" {
 #ifndef ISDN_PID_L4_B_USER
 #define ISDN_PID_L4_B_USER 0x440000ff
 #endif
+#endif
 
 // timeouts if activating/deactivating response from mISDN got lost
-#define B_TIMER_ACTIVATING 1
-#define B_TIMER_DEACTIVATING 1
+#define B_TIMER_ACTIVATING 1 // seconds
+#define B_TIMER_DEACTIVATING 1 // seconds
 
 /* list of mISDN ports */
 struct mISDNport *mISDNport_first;
@@ -83,7 +68,7 @@ struct mISDNport *mISDNport_first;
 unsigned char mISDN_rand[256];
 int mISDN_rand_count = 0;
 
-#ifdef MISDN_SOCKET
+#ifdef SOCKET_MISDN
 int mISDNsocket = -1;
 
 int mISDN_initialize(void)
@@ -325,41 +310,46 @@ static struct isdn_message {
 	char *name;
 	unsigned long value;
 } isdn_message[] = {
-	{"TIMEOUT", CC_TIMEOUT},
-	{"SETUP", CC_SETUP},
-	{"SETUP_ACK", CC_SETUP_ACKNOWLEDGE},
-	{"PROCEEDING", CC_PROCEEDING},
-	{"ALERTING", CC_ALERTING},
-	{"CONNECT", CC_CONNECT},
-	{"CONNECT RES", CC_CONNECT},
-	{"CONNECT_ACK", CC_CONNECT_ACKNOWLEDGE},
-	{"DISCONNECT", CC_DISCONNECT},
-	{"RELEASE", CC_RELEASE},
-	{"RELEASE_COMP", CC_RELEASE_COMPLETE},
-	{"INFORMATION", CC_INFORMATION},
-	{"PROGRESS", CC_PROGRESS},
-	{"NOTIFY", CC_NOTIFY},
-	{"SUSPEND", CC_SUSPEND},
-	{"SUSPEND_ACK", CC_SUSPEND_ACKNOWLEDGE},
-	{"SUSPEND_REJ", CC_SUSPEND_REJECT},
-	{"RESUME", CC_RESUME},
-	{"RESUME_ACK", CC_RESUME_ACKNOWLEDGE},
-	{"RESUME_REJ", CC_RESUME_REJECT},
-	{"HOLD", CC_HOLD},
-	{"HOLD_ACK", CC_HOLD_ACKNOWLEDGE},
-	{"HOLD_REJ", CC_HOLD_REJECT},
-	{"RETRIEVE", CC_RETRIEVE},
-	{"RETRIEVE_ACK", CC_RETRIEVE_ACKNOWLEDGE},
-	{"RETRIEVE_REJ", CC_RETRIEVE_REJECT},
-	{"FACILITY", CC_FACILITY},
-	{"STATUS", CC_STATUS},
-	{"RESTART", CC_RESTART},
-	{"RELEASE_CR", CC_RELEASE_CR},
-	{"NEW_CR", CC_NEW_CR},
-	{"DL_ESTABLISH", DL_ESTABLISH},
-	{"DL_RELEASE", DL_RELEASE},
-	{"PH_ACTIVATE", PH_ACTIVATE},
-	{"PH_DEACTIVATE", PH_DEACTIVATE},
+	{"PH_ACTIVATE", L1_ACTIVATE_REQ},
+	{"PH_DEACTIVATE", L1_DEACTIVATE_REQ},
+	{"DL_ESTABLISH", L2_ESTABLISH_REQ},
+	{"DL_RELEASE", L2_RELEASE_REQ},
+	{"UNKNOWN", L3_UNKNOWN},
+	{"MT_TIMEOUT", L3_TIMEOUT_REQ},
+	{"MT_SETUP", L3_SETUP_REQ},
+	{"MT_SETUP_ACK", L3_SETUP_ACKNOWLEDGE_REQ},
+	{"MT_PROCEEDING", L3_PROCEEDING_REQ},
+	{"MT_ALERTING", L3_ALERTING_REQ},
+	{"MT_CONNECT", L3_CONNECT_REQ},
+	{"MT_CONNECT_ACK", L3_CONNECT_ACKNOWLEDGE_REQ},
+	{"MT_DISCONNECT", L3_DISCONNECT_REQ},
+	{"MT_RELEASE", L3_RELEASE_REQ},
+	{"MT_RELEASE_COMP", L3_RELEASE_COMPLETE_REQ},
+	{"MT_INFORMATION", L3_INFORMATION_REQ},
+	{"MT_PROGRESS", L3_PROGRESS_REQ},
+	{"MT_NOTIFY", L3_NOTIFY_REQ},
+	{"MT_SUSPEND", L3_SUSPEND_REQ},
+	{"MT_SUSPEND_ACK", L3_SUSPEND_ACKNOWLEDGE_REQ},
+	{"MT_SUSPEND_REJ", L3_SUSPEND_REJECT_REQ},
+	{"MT_RESUME", L3_RESUME_REQ},
+	{"MT_RESUME_ACK", L3_RESUME_ACKNOWLEDGE_REQ},
+	{"MT_RESUME_REJ", L3_RESUME_REJECT_REQ},
+	{"MT_HOLD", L3_HOLD_REQ},
+	{"MT_HOLD_ACK", L3_HOLD_ACKNOWLEDGE_REQ},
+	{"MT_HOLD_REJ", L3_HOLD_REJECT_REQ},
+	{"MT_RETRIEVE", L3_RETRIEVE_REQ},
+	{"MT_RETRIEVE_ACK", L3_RETRIEVE_ACKNOWLEDGE_REQ},
+	{"MT_RETRIEVE_REJ", L3_RETRIEVE_REJECT_REQ},
+	{"MT_FACILITY", L3_FACILITY_REQ},
+	{"MT_STATUS", L3_STATUS_REQ},
+	{"MT_RESTART", L3_RESTART_REQ},
+#ifdef SOCKET_MISDN
+	{"MT_ASSIGN", L3_ASSIGN_REQ},
+	{"MT_FREE", L3_FREE_REQ},
+#else
+	{"MT_NEW_CR", L3_NEW_CR_REQ},
+	{"MT_RELEASE_CR", L3_RELEASE_CR_REQ},
+#endif
 
 	{NULL, 0},
 };
@@ -369,7 +359,7 @@ static char *isdn_prim[4] = {
 	" INDICATION",
 	" RESPONSE",
 };
-void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction)
+void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long msg, int direction)
 {
 	int i;
 	char msgtext[64] = "<<UNKNOWN MESSAGE>>";
@@ -378,17 +368,17 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 	i = 0;
 	while(isdn_message[i].name)
 	{
-		if (isdn_message[i].value == (prim&0xffffff00))
+		if (isdn_message[i].value == (msg&0xffffff00))
 		{
 			SCPY(msgtext, isdn_message[i].name);
 			break;
 		}
 		i++;
 	}
-	SCAT(msgtext, isdn_prim[prim&0x00000003]);
+	SCAT(msgtext, isdn_prim[msg&0x00000003]);
 
 	/* add direction */
-	if (direction && (prim&0xffffff00)!=CC_NEW_CR && (prim&0xffffff00)!=CC_RELEASE_CR)
+	if (direction && (msg&0xffffff00)!=L3_NEW_CR_REQ && (msg&0xffffff00)!=L3_RELEASE_CR_REQ)
 	{
 		if (mISDNport)
 		{
@@ -2230,7 +2220,7 @@ int mISDN_handler(void)
 
 				PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 				mISDNport->ml3->to_layer2(mISDNport->ml3, DL_ESTABLISH_REQ);
-				l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH_REQ, DIRECTION_OUT);
+				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 				end_trace();
 				return(1);
 			}
@@ -2364,7 +2354,7 @@ int mISDN_handler(void)
 					act.len = 0;
 					mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
 				}
-				l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | REQUEST, DIRECTION_OUT);
+				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 				end_trace();
 				return(1);
 			}
@@ -2501,19 +2491,19 @@ int mISDN_handler(void)
 			case MGR_SHORTSTATUS | CONFIRM:
 			switch(frm->dinfo) {
 				case SSTATUS_L1_ACTIVATED:
-				l1l2l3_trace_header(mISDNport, NULL, PH_ACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+				l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 				end_trace();
 				goto ss_act;
 				case SSTATUS_L1_DEACTIVATED:
-				l1l2l3_trace_header(mISDNport, NULL, PH_DEACTIVATE | (frm->prim & 0x3), DIRECTION_IN);
+				l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 				end_trace();
 				goto ss_deact;
 				case SSTATUS_L2_ESTABLISHED:
-				l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH | (frm->prim & 0x3), DIRECTION_IN);
+				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ | (frm->prim & 0x3), DIRECTION_IN);
 				end_trace();
 				goto ss_estab;
 				case SSTATUS_L2_RELEASED:
-				l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE | (frm->prim & 0x3), DIRECTION_IN);
+				l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 				end_trace();
 				goto ss_rel;
 			}
@@ -2521,7 +2511,7 @@ int mISDN_handler(void)
 
 			case PH_ACTIVATE | CONFIRM:
 			case PH_ACTIVATE | INDICATION:
-			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 			end_trace();
 			if (mISDNport->ntmode)
 			{
@@ -2536,7 +2526,7 @@ int mISDN_handler(void)
 
 			case PH_DEACTIVATE | CONFIRM:
 			case PH_DEACTIVATE | INDICATION:
-			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 			end_trace();
 			if (mISDNport->ntmode)
 			{
@@ -2556,7 +2546,7 @@ int mISDN_handler(void)
 
 			case DL_ESTABLISH | INDICATION:
 			case DL_ESTABLISH | CONFIRM:
-			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH_REQ | (frm->prim & 0x3), DIRECTION_IN);
 			end_trace();
 			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 			ss_estab:
@@ -2570,7 +2560,7 @@ int mISDN_handler(void)
 
 			case DL_RELEASE | INDICATION:
 			case DL_RELEASE | CONFIRM:
-			l1l2l3_trace_header(mISDNport, NULL, frm->prim, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE_REQ | (frm->prim & 0x3), DIRECTION_IN);
 			end_trace();
 			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 			ss_rel:
@@ -2699,43 +2689,46 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 
 	if (cmd == MT_ASSIGN)
 	{
+		if (angeforderte, dann schreiben, weil wir )
 		ueberdenken!!!
 	}
 	
 	/* lock LCR */
+	pthread_mutex_lock(&mutex_lcr);
 	achtung MT_ASSIGN kommt hier an
-	lock it baby
 
 	/* d-message */
 	switch(cmd)
 	{
+#warning shortstatus
+#if 0
 		case MGR_SHORTSTATUS_IND:
 		case MGR_SHORTSTATUS_CONF:
 		switch(frm->dinfo) {
 			case SSTATUS_L1_ACTIVATED:
-			l1l2l3_trace_header(mISDNport, NULL, PH_ACTIVATE_IND, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
 			end_trace();
 			goto ss_act;
 			case SSTATUS_L1_DEACTIVATED:
-			l1l2l3_trace_header(mISDNport, NULL, PH_DEACTIVATE_IND, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
 			end_trace();
 			goto ss_deact;
 			case SSTATUS_L2_ESTABLISHED:
-			l1l2l3_trace_header(mISDNport, NULL, DL_ESTABLISH_IND, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
 			end_trace();
 			goto ss_estab;
 			case SSTATUS_L2_RELEASED:
-			l1l2l3_trace_header(mISDNport, NULL, DL_RELEASE_IND, DIRECTION_IN);
+			l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 			end_trace();
 			goto ss_rel;
 		}
 		break;
+#endif
 
-		case PH_ACTIVATE_CONF:
-		case PH_ACTIVATE_IND:
-		l1l2l3_trace_header(mISDNport, NULL, cmd, DIRECTION_IN);
+		case MT_L1ACTIVATE:
+		l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
 		end_trace();
-		ss_act:
+//		ss_act:
 		mISDNport->l1link = 1;
 #if 0
 		if (mISDNport->ntmode)
@@ -2743,11 +2736,10 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 #endif
 		break;
 
-		case PH_DEACTIVATE | CONFIRM:
-		case PH_DEACTIVATE | INDICATION:
-		l1l2l3_trace_header(mISDNport, NULL, cmd, DIRECTION_IN);
+		case MT_L1DEACTIVATE:
+		l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
 		end_trace();
-		ss_deact:
+//		ss_deact:
 		mISDNport->l1link = 0;
 raus mit der setup-queue, da dies im stack geschieht
 #if 0
@@ -2756,17 +2748,15 @@ raus mit der setup-queue, da dies im stack geschieht
 #endif
 		break;
 
-		case PH_CONTROL_CONFIRM:
-		case PH_CONTROL_INDICATION:
+		case MT_L1CONTROL:
 		PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+		// special config commands for interface (ip-address/LOS/AIS/RDI/SLIP)
 		break;
 
-		case DL_ESTABLISH_IND:
-		case DL_ESTABLISH_CONF:
-		l1l2l3_trace_header(mISDNport, NULL, cmd, DIRECTION_IN);
+		case MT_L2ESTABLISH:
+		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
 		end_trace();
-		if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
-		ss_estab:
+//		ss_estab:
 		if (mISDNport->l2establish)
 		{
 			mISDNport->l2establish = 0;
@@ -2775,11 +2765,10 @@ raus mit der setup-queue, da dies im stack geschieht
 		mISDNport->l2link = 1;
 		break;
 
-		case DL_RELEASE_IND:
-		case DL_RELEASE_CONF:
-		l1l2l3_trace_header(mISDNport, NULL, cmd, DIRECTION_IN);
+		case MT_L2RELEASE:
+		l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 		end_trace();
-		ss_rel:
+//		ss_rel:
 		mISDNport->l2link = 0;
 		if (mISDNport->ptp)
 		{
@@ -2790,15 +2779,16 @@ raus mit der setup-queue, da dies im stack geschieht
 
 		default:
 		/* l3-data is sent to LCR */
-		message_from_mlayer3(mISDNport, cmd, pid, l3m);
+		stack2manager(mISDNport, cmd, pid, l3m);
 	}
-
-	/* unlock LCR */
-	unlock it baby
 
 	/* free message */
 	if (l3m)
 		free_l3_msg(l3m);
+
+	/* unlock LCR */
+	pthread_mutex_unlock(&mutex_lcr);
+
 	return(0);
 
 }

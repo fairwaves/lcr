@@ -87,16 +87,16 @@ void mISDN_port_reorder(void);
 int mISDN_handler(void);
 #ifdef SOCKET_MISDN
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
-int stack2manager_te(struct mISDNport *mISDNport,l3_msg *l3m);
+int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 #else
 void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause);
 int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
+int stack2manager_nt(void *dat, void *arg);
 msg_t *create_l2msg(int prim, int dinfo, int size);
 #endif
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
 void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
 void setup_queue(struct mISDNport *mISDNport, int link);
-int stack2manager_nt(void *dat, void *arg);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);

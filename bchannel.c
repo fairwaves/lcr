@@ -49,7 +49,7 @@ enum {
 	BSTATE_ACTIVE,
 };
 
-#ifdef MISDN_SOCKET
+#ifdef SOCKET_MISDN
 int bchannel_socket = -1;
 
 int bchannel_initialize(void)
