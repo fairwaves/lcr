@@ -18,7 +18,11 @@ WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
 INSTALL_BIN = /usr/local/bin
 INSTALL_DATA = /usr/local/lcr
 
+ifdef WITH-SOCKET
+LIBS += -lmISDN -lpthread
+else
 LIBS += -lisdnnet -lmISDN -lpthread
+endif
 CHANLIBS += -lmISDN
 
 # give location of the curses or ncurses library
@@ -38,7 +42,7 @@ GEN = ./gentones
 GENW = ./genwave
 GENRC = ./genrc
 GENEXT = ./genextension
-CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\" -I/usr/include/mISDNuser/
+CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 #CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO

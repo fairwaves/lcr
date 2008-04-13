@@ -15,11 +15,16 @@ class Pdss1 : public PmISDN
 	public:
 	Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
 	~Pdss1();
+#ifdef SOCKET_MISDN
+	unsigned int p_m_d_l3id;		/* current l3 process id */
+	void message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+#else
 	int p_m_d_l3id;				/* current l3 process id */
+	void message_isdn(unsigned long prim, unsigned long dinfo, void *data);
+#endif
 	int p_m_d_ces;				/* ntmode: tei&sapi */
 	int handler(void);
 	int message_epoint(unsigned long epoint_id, int message, union parameter *param);
-	void message_isdn(unsigned long prim, unsigned long dinfo, void *data);
 
 	int p_m_d_ntmode;			/* flags the nt-mode */
 	struct message *p_m_d_queue;		/* queue for SETUP if link is down */
@@ -30,9 +35,9 @@ class Pdss1 : public PmISDN
 
 	void new_state(int state);		/* set new state */
 //	void isdn_show_send_message(unsigned long prim, msg_t *msg);
-	int received_first_reply_to_setup(unsigned long prim, int channel, int exclusive);
 	int hunt_bchannel(int exclusive, int channel);
 #ifdef SOCKET_MISDN
+	int received_first_reply_to_setup(unsigned long cmd, int channel, int exclusive);
 	void information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
@@ -51,6 +56,7 @@ class Pdss1 : public PmISDN
 	void suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 #else
+	int received_first_reply_to_setup(unsigned long prim, int channel, int exclusive);
 	void information_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_ind(unsigned long prim, unsigned long dinfo, void *data);
 	void setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void *data);

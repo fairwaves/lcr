@@ -49,6 +49,7 @@ struct mISDNport {
 #ifdef SOCKET_MISDN
 	int b_socket[128];
 #else
+	int procids[256]; /* keep track of free ids */
 	int b_stid[128];
 	unsigned long b_addr[128];
 #endif
@@ -56,7 +57,6 @@ struct mISDNport {
 	double b_timer[128]; /* timer for state machine */
 	unsigned long b_remote_id[128]; /* the socket currently exported */
 	unsigned long b_remote_ref[128]; /* the ref currently exported */
-	int procids[128]; /* keep track of free ids */
 	int locally; /* local causes are sent as local causes not remote */
 };
 extern mISDNport *mISDNport_first;
@@ -92,11 +92,11 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause);
 int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
 int stack2manager_nt(void *dat, void *arg);
+void setup_queue(struct mISDNport *mISDNport, int link);
 msg_t *create_l2msg(int prim, int dinfo, int size);
 #endif
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
 void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
-void setup_queue(struct mISDNport *mISDNport, int link);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
@@ -110,7 +110,7 @@ class PmISDN : public Port
 	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
 	~PmISDN();
 #ifdef SOCKET_MISDN
-	void bchannel_receive(unsigned char *frm, int len);
+	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
 #else
 	void bchannel_receive(iframe_t *frm);
 #endif

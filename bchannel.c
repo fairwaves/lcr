@@ -225,7 +225,7 @@ int bchannel_create(struct bchannel *channel)
 
 	if (channel->b_sock)
 	{
-		PERROR("Error: Socket already created for handle %d\n", channel->handle);
+		PERROR("Error: Socket already created for handle 0x%x\n", channel->handle);
 		return(0);
 	}
 
@@ -233,7 +233,7 @@ int bchannel_create(struct bchannel *channel)
 	channel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
 	if (channel->b_sock < 0)
 	{
-		PERROR("Error: Failed to open bchannel-socket for handle %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", channel->handle);
+		PERROR("Error: Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", channel->handle);
 		return(0);
 	}
 	
@@ -241,7 +241,7 @@ int bchannel_create(struct bchannel *channel)
 	ret = ioctl(channel->b_sock, FIONBIO, &on);
 	if (ret < 0)
 	{
-		PERROR("Error: Failed to set bchannel-socket handle %d into nonblocking IO\n", channel->handle);
+		PERROR("Error: Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", channel->handle);
 		close(channel->b_sock);
 		channel->b_sock = -1;
 		return(0);
@@ -251,10 +251,10 @@ int bchannel_create(struct bchannel *channel)
 	addr.family = AF_ISDN;
 	addr.dev = (channel->handle>>8)-1;
 	addr.channel = channel->handle && 0xff;
-	ret = bind(di->bchan, (struct sockaddr *)&addr, sizeof(addr));
+	ret = bind(channel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		PERROR("Error: Failed to bind bchannel-socket for handle %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", channel->handle);
+		PERROR("Error: Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", channel->handle);
 		close(channel->b_sock);
 		channel->b_sock = -1;
 		return(0);

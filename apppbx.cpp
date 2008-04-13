@@ -3881,12 +3881,12 @@ void EndpointAppPBX::join_join(void)
 	{
 		if (other_relation->epoint_id == other_eapp->ea_endpoint->ep_serial)
 		{
-		/* detach other endpoint on hold */
+			/* detach other endpoint on hold */
 			*other_relation_pointer = other_relation->next;
 			FREE(other_relation, sizeof(struct join_relation));
 			cmemuse--;
 			other_relation = *other_relation_pointer;
-			other_eapp->ea_endpoint->ep_join_id = NULL;
+			other_eapp->ea_endpoint->ep_join_id = 0;
 			continue;
 		}
 
