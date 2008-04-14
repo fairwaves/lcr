@@ -74,7 +74,8 @@ void Pdss1::dec_ie_complete(unsigned char *p, Q931_info_t *qi, int *complete)
 			*complete = 1;
 	} else
 #else
-	unsigned char *p = l3m->sending_complete;
+	// special case: p is not a pointer, it's a value
+	unsigned char p = l3m->sending_complete;
 #endif
 	if (p)
 		*complete = 1;

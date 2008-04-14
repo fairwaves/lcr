@@ -92,7 +92,7 @@ int mISDN_initialize(void)
 	mISDNsocket = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
 	if (mISDNsocket < 0)
 	{
-		fprintf(stderr, "Cannot open mISDN due to %s. (Does your Kernel support socket based mISDN?)\n", strerror(errno));
+		fprintf(stderr, "Cannot open mISDN due to '%s'. (Does your Kernel support socket based mISDN?)\n", strerror(errno));
 		return(-1);
 	}
 

@@ -283,7 +283,7 @@ int admin_route(struct admin_queue **responsep)
 			end_trace();
 		}
 
-		apppbx->e_action_timeout = NULL;
+		apppbx->e_action_timeout = 0;
 		apppbx->e_rule = NULL;
 		apppbx->e_ruleset = NULL;
 

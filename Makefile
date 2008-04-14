@@ -19,7 +19,7 @@ INSTALL_BIN = /usr/local/bin
 INSTALL_DATA = /usr/local/lcr
 
 ifdef WITH-SOCKET
-LIBS += -lmISDN -lpthread
+LIBS += -lmisdn -lpthread
 else
 LIBS += -lisdnnet -lmISDN -lpthread
 endif
