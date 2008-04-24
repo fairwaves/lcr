@@ -3789,7 +3789,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 		frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
 		frm->dinfo = 0;
 		frm->len = ISDN_LOAD;
-		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
+		memset(buf+mISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
 		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+ISDN_LOAD, TIMEOUT_1SEC);
 #endif
 		p_m_load += ISDN_LOAD;
