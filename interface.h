@@ -9,9 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#define FLAG_PORT_USE		1
-#define FLAG_PORT_PTP		(1<<1)
-
 enum {	/* interface type */
 	IF_TYPE_DIRECT,
 	IF_TYPE_EXTENSION,
@@ -51,6 +48,7 @@ struct interface_port {
 	int			ptp; /* force load stack in PTP mode */
 	int			ptmp; /* force load stack in PTP mode */
 	int			nt; /* load stack in NT-mode */
+	int			l2hold; /* hold layer 2 (1=force, -1=disable */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */

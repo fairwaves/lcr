@@ -13,14 +13,6 @@
 
 struct options options = {
 	"/usr/local/lcr/log",		/* log file */
-	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 	0x0000,				/* debug mode */
 	'a',				/* a-law */
 	"0",				/* national prefix */
@@ -139,31 +131,6 @@ int read_options(void)
 
 			PDEBUG(DEBUG_CONFIG, "log file: %s\n", options.log);
 		} else
-		if (!strcmp(option,"port"))
-		{
-			i = strtol(param, NULL, 0);
-			if (i < 1 || i > sizeof(options.ports))
-			{
-				PERROR_RUNTIME("Error in %s (line %d): port number %s out of range.\n", filename, line, option);
-				goto error;
-			}
-			options.ports[i] |= FLAG_PORT_USE;
-
-			PDEBUG(DEBUG_CONFIG, "adding interface: %d (param=%s)\n", i, param);
-			if (strstr(param, "ptp"))
-			{
-				options.ports[i] |= FLAG_PORT_PTP;
-				PDEBUG(DEBUG_CONFIG, " -> interface shall be ptp\n");
-			}
-		} else
-#if 0
-		if (!strcmp(option,"ptp"))
-		{
-			options.ptp = 1;
-
-			PDEBUG(DEBUG_CONFIG, "ptp layer-2 watch and keep established.\n");
-		} else
-#endif
 		if (!strcmp(option,"alaw"))
 		{
 			options.law = 'a';

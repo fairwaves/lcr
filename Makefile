@@ -48,7 +48,7 @@ ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
 endif
 ifdef WITH-SOCKET
-CFLAGS += -DSOCKET_MISDN
+CFLAGS += -DSOCKET_MISDN -I/usr/include/mISDNuser
 endif
 ifdef WITH-CRYPTO
 LIBDIR += -L/usr/local/ssl/lib

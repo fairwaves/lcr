@@ -60,12 +60,20 @@ extern "C" {
 
 #else
 // socket mISDN
-#include <sys/socket.h>
 extern "C" {
 }
-#include <mISDNuser/mISDNif.h>
-#include <mISDNuser/q931.h>
-#include <mISDNuser/mlayer3.h>
+#include <q931.h>
+
+#undef offsetof
+#ifdef __compiler_offsetof
+#define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
+#else
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#endif
+
+#define container_of(ptr, type, member) ({			\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 #endif
 
 // timeouts if activating/deactivating response from mISDN got lost
@@ -461,7 +469,11 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned lo
 	mISDN_write(mISDNdevice, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
 #endif
 	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
+#ifdef SOCKET_MISDN
+	if (c1 == DSP_CONF_JOIN)
+#else
 	if (c1 == CMX_CONF_JOIN)
+#endif
 		add_trace(trace_name, NULL, "0x%08x", trace_value);
 	else
 		add_trace(trace_name, NULL, "%d", trace_value);
@@ -679,11 +691,42 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 	int handle;
 
 	handle = mISDNport->b_socket[i];
+	port = mISDNport->b_port[i];
+	if (!port)
+	{
+		PERROR("bchannel index i=%d not associated with a port object\n", i);
+		return;
+	}
+
+	/* set dsp features */
+	if (port->p_m_txdata)
+		ph_control(mISDNport, port, handle, (port->p_m_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
+	if (port->p_m_delay)
+		ph_control(mISDNport, port, handle, DSP_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
+	if (port->p_m_tx_gain)
+		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_TX, port->p_m_tx_gain, "DSP-TX_GAIN", port->p_m_tx_gain);
+	if (port->p_m_rx_gain)
+		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_RX, port->p_m_rx_gain, "DSP-RX_GAIN", port->p_m_rx_gain);
+	if (port->p_m_pipeline[0])
+		ph_control_block(mISDNport, port, handle, DSP_PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
+	if (port->p_m_conf)
+		ph_control(mISDNport, port, handle, DSP_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
+	if (port->p_m_echo)
+		ph_control(mISDNport, port, handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1);
+	if (port->p_m_tone)
+		ph_control(mISDNport, port, handle, DSP_TONE_PATT_ON, port->p_m_tone, "DSP-TONE", port->p_m_tone);
+	if (port->p_m_rxoff)
+		ph_control(mISDNport, port, handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+//	if (port->p_m_txmix)
+//		ph_control(mISDNport, port, handle, DSP_MIX_ON, 0, "DSP-MIX", 1);
+	if (port->p_m_dtmf)
+		ph_control(mISDNport, port, handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
+	if (port->p_m_crypt)
+		ph_control_block(mISDNport, port, handle, DSP_BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
 #else
 	unsigned long handle;
 
 	handle = mISDNport->b_addr[i];
-#endif
 	port = mISDNport->b_port[i];
 	if (!port)
 	{
@@ -720,6 +763,7 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 		ph_control(mISDNport, port, handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
 	if (port->p_m_crypt)
 		ph_control_block(mISDNport, port, handle, BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
+#endif
 }
 
 /*
@@ -1631,7 +1675,11 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		}
 		switch(cont)
 		{
+#ifdef SOCKET_MISDN
+			case DSP_BF_REJECT:
+#else
 			case BF_REJECT:
+#endif
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "error");
 			end_trace();
@@ -1641,7 +1689,11 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 			message_put(message);
 			break;
 
+#ifdef SOCKET_MISDN
+			case DSP_BF_ACCEPT:
+#else
 			case BF_ACCEPT:
+#endif
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "ok");
 			end_trace();
@@ -1670,7 +1722,11 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 #endif
 		{
 #ifndef OLD_MISDN
+#ifdef SOCKET_MISDN
+			case DSP_TX_DATA:
+#else
 			case CMX_TX_DATA:
+#endif
 			if (!p_m_txdata)
 			{
 				/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
@@ -1776,7 +1832,7 @@ void PmISDN::set_echotest(int echo)
 		if (p_m_b_channel)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_echo?CMX_ECHO_ON:CMX_ECHO_OFF, 0, "DSP-ECHO", p_m_echo);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_echo?DSP_ECHO_ON:DSP_ECHO_OFF, 0, "DSP-ECHO", p_m_echo);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_echo?CMX_ECHO_ON:CMX_ECHO_OFF, 0, "DSP-ECHO", p_m_echo);
 #endif
@@ -1809,7 +1865,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		{
 			PDEBUG(DEBUG_ISDN, "we reset tone from id=%d to OFF.\n", p_m_tone);
 #ifdef SOCKET_MISDN
-			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], TONE_PATT_OFF, 0, "DSP-TONE", 0);
+			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_TONE_PATT_OFF, 0, "DSP-TONE", 0);
 #else
 			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], TONE_PATT_OFF, 0, "DSP-TONE", 0);
 #endif
@@ -1895,7 +1951,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		if (p_m_b_index > -1)
 		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_tone?TONE_PATT_ON:TONE_PATT_OFF, p_m_tone, "DSP-TONE", p_m_tone);
+			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_tone?DSP_TONE_PATT_ON:DSP_TONE_PATT_OFF, p_m_tone, "DSP-TONE", p_m_tone);
 #else
 			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_tone?TONE_PATT_ON:TONE_PATT_OFF, p_m_tone, "DSP-TONE", p_m_tone);
 #endif
@@ -1919,7 +1975,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_index > -1)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
 #endif
@@ -1932,7 +1988,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_index > -1)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
 #endif
@@ -1950,7 +2006,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_index > -1)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], (p_m_conf)?CMX_CONF_JOIN:CMX_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], (p_m_conf)?DSP_CONF_JOIN:DSP_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], (p_m_conf)?CMX_CONF_JOIN:CMX_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
 #endif
@@ -1979,7 +2035,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 			if (p_m_b_index > -1)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_delay?DSP_DELAY:DSP_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
 #else
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_delay?CMX_DELAY:CMX_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
 #endif
@@ -2017,7 +2073,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 		if (p_m_b_index > -1)
 		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 #ifdef SOCKET_MISDN
-			ph_control_block(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_crypt?BF_ENABLE_KEY:BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len, "DSP-CRYPT", p_m_crypt_key_len);
+			ph_control_block(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_crypt?DSP_BF_ENABLE_KEY:DSP_BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len, "DSP-CRYPT", p_m_crypt_key_len);
 #else
 			ph_control_block(p_m_mISDNport, this, p_m_mISDNport->b_addr[p_m_b_index], p_m_crypt?BF_ENABLE_KEY:BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len, "DSP-CRYPT", p_m_crypt_key_len);
 #endif
@@ -2052,7 +2108,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 		{
 			PDEBUG(DEBUG_BCHANNEL, "for sending CR_MESSAGE_REQ, we reset txmix from txmix=%d.\n", p_m_txmix);
 #ifdef SOCKET_MISDN
-			ph_control(p_m_mISDNport, this, p_mISDNport->b_socket[p_m_b_index], CMX_MIX_OFF, 0, "DSP-TXMIX", 0);
+			ph_control(p_m_mISDNport, this, p_mISDNport->b_socket[p_m_b_index], DSP_MIX_OFF, 0, "DSP-TXMIX", 0);
 #else
 			ph_control(p_m_mISDNport, this, p_mISDNport->b_addr[p_m_b_index], CMX_MIX_OFF, 0, "DSP-TXMIX", 0);
 #endif
@@ -2107,6 +2163,8 @@ int mISDN_handler(void)
 	int i;
 	unsigned char buffer[2048+MISDN_HEADER_LEN];
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
+	struct mbuffer *mb;
+	struct l3_msg *l3m;
 
 	/* process all ports */
 	mISDNport = mISDNport_first;
@@ -2136,7 +2194,7 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], CMX_RECEIVE_ON, 0, "DSP-RXOFF", 0);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_ON, 0, "DSP-RXOFF", 0);
 						return(1);
 					}
 				} else
@@ -2148,7 +2206,7 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], CMX_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 						return(1);
 					}
 				}
@@ -2162,7 +2220,7 @@ int mISDN_handler(void)
 						isdnport->p_m_txdata = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], CMX_TXDATA_ON, 0, "DSP-TXDATA", 1);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_ON, 0, "DSP-TXDATA", 1);
 						return(1);
 					}
 				} else
@@ -2174,7 +2232,7 @@ int mISDN_handler(void)
 						isdnport->p_m_txdata = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], CMX_TXDATA_OFF, 0, "DSP-TXDATA", 0);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_OFF, 0, "DSP-TXDATA", 0);
 						return(1);
 					}
 				}
@@ -2231,6 +2289,70 @@ int mISDN_handler(void)
 			
 			i++;
 		}
+
+		/* handle queued up-messages (d-channel) */
+		while ((mb = mdequeue(&mISDNport->upqueue)))
+		{
+			l3m = &mb->l3;
+			switch(l3m->type)
+			{
+#warning SOCKET TBD: Layer 1 indication
+#if 0
+				case MT_L1ACTIVATE:
+				l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
+				end_trace();
+				mISDNport->l1link = 1;
+				break;
+	
+				case MT_L1DEACTIVATE:
+				l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
+				end_trace();
+				mISDNport->l1link = 0;
+				break;
+
+				case MT_L1CONTROL:
+				PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+				// special config commands for interface (ip-address/LOS/AIS/RDI/SLIP)
+				break;
+#endif
+
+				case MT_L2ESTABLISH:
+				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
+				end_trace();
+				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
+				{
+					if (mISDNport->l2establish)
+					{
+						mISDNport->l2establish = 0;
+						PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+					}
+					mISDNport->l2link = 1;
+				}
+				break;
+
+				case MT_L2RELEASE:
+				l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
+				end_trace();
+				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
+				{
+					mISDNport->l2link = 0;
+					if (mISDNport->l2hold)
+					{
+						time(&mISDNport->l2establish);
+						PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
+					}
+				}
+				break;
+
+				default:
+				/* l3-data is sent to LCR */
+				stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
+			}
+		}
+
+		/* free message */
+		free_l3_msg(l3m);
+
 #if 0
 		if (mISDNport->l1timeout && now>mISDNport->l1timeout)
 		{ ---}
@@ -2243,13 +2365,17 @@ int mISDN_handler(void)
 		{
 			if (now-mISDNport->l2establish > 5)
 			{
+				mISDNport->l2establish = 0;
+				if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
+				{
 
-				PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
-#warning SOCKET TBD
-//				mISDNport->ml3->to_layer2(mISDNport->ml3, DL_ESTABLISH_REQ);
-//				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
-//				end_trace();
-				return(1);
+					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
+					mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+					end_trace();
+					time(&mISDNport->l2establish);
+					return(1);
+				}
 			}
 		}
 
@@ -2361,29 +2487,34 @@ int mISDN_handler(void)
 		{
 			if (now-mISDNport->l2establish > 5)
 			{
-				if (mISDNport->ntmode)
+				mISDNport->l2establish = 0;
+				if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
 				{
-					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link NT portnum=%d.\n", mISDNport->portnum);
-					time(&mISDNport->l2establish);
-					/* establish */
-					dmsg = create_l2msg(DL_ESTABLISH | REQUEST, 0, 0);
-					if (mISDNport->nst.manager_l3(&mISDNport->nst, dmsg))
-						free_msg(dmsg);
-				} else {
-					iframe_t act;
+					if (mISDNport->ntmode)
+					{
+						PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link NT portnum=%d.\n", mISDNport->portnum);
+						time(&mISDNport->l2establish);
+						/* establish */
+						dmsg = create_l2msg(DL_ESTABLISH | REQUEST, 0, 0);
+						if (mISDNport->nst.manager_l3(&mISDNport->nst, dmsg))
+							free_msg(dmsg);
+					} else {
+						iframe_t act;
 
-					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link TE portnum=%d.\n", mISDNport->portnum);
+						PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link TE portnum=%d.\n", mISDNport->portnum);
+						time(&mISDNport->l2establish);
+						/* establish */
+						act.prim = DL_ESTABLISH | REQUEST; 
+						act.addr = (mISDNport->upper_id & ~LAYER_ID_MASK) | 3 | FLG_MSG_DOWN;
+						act.dinfo = 0;
+						act.len = 0;
+						mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
+					}
+					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+					end_trace();
 					time(&mISDNport->l2establish);
-					/* establish */
-					act.prim = DL_ESTABLISH | REQUEST; 
-					act.addr = (mISDNport->upper_id & ~LAYER_ID_MASK) | 3 | FLG_MSG_DOWN;
-					act.dinfo = 0;
-					act.len = 0;
-					mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
+					return(1);
 				}
-				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
-				end_trace();
-				return(1);
 			}
 		}
 		if ((dmsg = msg_dequeue(&mISDNport->downqueue)))
@@ -2577,12 +2708,15 @@ int mISDN_handler(void)
 			end_trace();
 			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 			ss_estab:
-			if (mISDNport->l2establish)
+			if (!mISDNport->ntmode || mISDNport->ptp)
 			{
-				mISDNport->l2establish = 0;
-				PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+				if (mISDNport->l2establish)
+				{
+					mISDNport->l2establish = 0;
+					PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+				}
+				mISDNport->l2link = 1;
 			}
-			mISDNport->l2link = 1;
 			break;
 
 			case DL_RELEASE | INDICATION:
@@ -2591,11 +2725,14 @@ int mISDN_handler(void)
 			end_trace();
 			if (!mISDNport->ntmode) break; /* !!!!!!!!!!!!!!!! */
 			ss_rel:
-			mISDNport->l2link = 0;
-			if (mISDNport->ptp)
+			if (!mISDNport->ntmode || mISDNport->ptp)
 			{
-				time(&mISDNport->l2establish);
-				PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
+				mISDNport->l2link = 0;
+				if (mISDNport->l2hold)
+				{
+					time(&mISDNport->l2establish);
+					PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
+				}
 			}
 			break;
 
@@ -2714,10 +2851,11 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 {
 	/* IMPORTAINT:
 	 *
-	 * l3m must be freed, except for MT_ASSIGN
+	 * l3m must be queued, except for MT_ASSIGN
 	 *
 	 */
 	struct mISDNport *mISDNport = (struct mISDNport *)ml3->priv;
+	struct mbuffer *mb;
 
 	/* special MT_ASSIGN handling:
 	 *
@@ -2740,105 +2878,27 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 		return(0);
 	}
 	
-	/* lock LCR */
-	pthread_mutex_lock(&mutex_lcr);
-
-	/* d-message */
-	switch(cmd)
+	/* queue message, create, if required */
+	if (!l3m)
 	{
-#warning SOCKET TBD
-#if 0
-		case MGR_SHORTSTATUS_IND:
-		case MGR_SHORTSTATUS_CNF:
-		switch(frm->dinfo) {
-			case SSTATUS_L1_ACTIVATED:
-			l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
-			end_trace();
-			goto ss_act;
-			case SSTATUS_L1_DEACTIVATED:
-			l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
-			end_trace();
-			goto ss_deact;
-			case SSTATUS_L2_ESTABLISHED:
-			l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
-			end_trace();
-			goto ss_estab;
-			case SSTATUS_L2_RELEASED:
-			l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
-			end_trace();
-			goto ss_rel;
-		}
-		break;
-#endif
-
-#warning SOCKET TBD
-#if 0
-		case MT_L1ACTIVATE:
-		l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
-		end_trace();
-//		ss_act:
-		mISDNport->l1link = 1;
-		break;
-
-		case MT_L1DEACTIVATE:
-		l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
-		end_trace();
-//		ss_deact:
-		mISDNport->l1link = 0;
-		break;
-
-		case MT_L1CONTROL:
-		PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
-		// special config commands for interface (ip-address/LOS/AIS/RDI/SLIP)
-		break;
-#endif
-
-		case MT_L2ESTABLISH:
-		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
-		end_trace();
-//		ss_estab:
-		if (mISDNport->l2establish)
-		{
-			mISDNport->l2establish = 0;
-			PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
-		}
-		mISDNport->l2link = 1;
-		break;
-
-		case MT_L2RELEASE:
-		l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
-		end_trace();
-//		ss_rel:
-		mISDNport->l2link = 0;
-		if (mISDNport->ptp)
-		{
-			time(&mISDNport->l2establish);
-			PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
-		}
-		break;
-
-		default:
-		/* l3-data is sent to LCR */
-		stack2manager(mISDNport, cmd, pid, l3m);
+		l3m = alloc_l3_msg();
+		if (!l3m)
+			FATAL("No memory for layer 3 message\n");
 	}
-
-	/* free message */
-	if (l3m)
-		free_l3_msg(l3m);
-
-	/* unlock LCR */
-	pthread_mutex_unlock(&mutex_lcr);
-
-	return(0);
-
+	mb = container_of(l3m, struct mbuffer, l3);
+	l3m->type = cmd;
+	l3m->pid = pid;
+	mqueue_tail(&mISDNport->upqueue, mb);
+	return 0;
 }
+
 #endif
 
 
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, struct interface *interface)
+struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, struct interface *interface)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2900,20 +2960,16 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 		bri = 1;
 		nt = 1;
 	}
-#ifdef ISDN_P_TE_E1
 	if (devinfo.Dprotocols & (1 << ISDN_P_TE_E1))
 	{
 		pri = 1;
 		te = 1;
 	}
-#endif
-#ifdef ISDN_P_NT_E1
 	if (devinfo.Dprotocols & (1 << ISDN_P_NT_E1))
 	{
 		pri = 1;
 		nt = 1;
 	}
-#endif
 #ifdef ISDN_P_FXS
 	if (devinfo.Dprotocols & (1 << ISDN_P_FXS))
 	{
@@ -2930,7 +2986,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 #endif
 	if (force_nt && !nt)
 	{
-		PERROR_RUNTIME("Port %d does not support NT-mode.\n", port);
+		PERROR_RUNTIME("Port %d does not support NT-mode\n", port);
 		return(NULL);
 	}
 	if (bri && pri)
@@ -2953,7 +3009,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 		PERROR_RUNTIME("Port %d does not support NT-mode nor TE-mode!\n", port);
 		return(NULL);
 	}
-	/* force nt, by turning off TE */
+	/* set NT by turning off TE */
 	if (force_nt && nt)
 		te = 0;
 	/* if TE an NT is supported (and not forced to NT), turn off NT */
@@ -3048,20 +3104,38 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
+	/* if pri, set PTP */
+	if (pri)
+		ptp = 1;
+	
+	/* set l2hold */
+	switch (l2hold)
+	{
+		case -1: // off
+		l2hold = 0;
+		break;
+		case 1: // on
+		l2hold = 0;
+		break;
+		default:
+		if (ptp)
+			l2hold = 1;
+		else
+			l2hold = 0;
+		break;
+	}
+		
 	/* allocate ressources of port */
 #ifdef SOCKET_MISDN
 	/* open layer 3 */
 	protocol = (nt)?L3_PROTOCOL_DSS1_USER:L3_PROTOCOL_DSS1_NET;
 	prop = 0;
 	if (ptp) // ptp forced
-	       prop |= MISDN_FLG_PTP;
-#warning SOCKET TBD
-#if 0
-	if (ptmp && pri) // ptmp forced
-	       prop |= FLG_FORCE_PTMP;
-#endif
+	       prop |= (1 << MISDN_FLG_PTP);
 	if (nt) // supports hold/retrieve on nt-mode
-	       prop |= MISDN_FLG_NET_HOLD;
+	       prop |= (1 << MISDN_FLG_NET_HOLD);
+	if (l2hold) // supports layer 2 hold
+	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	mISDNport->ml3 = open_layer3(port-1, protocol, prop , do_layer3, mISDNport);
 	if (!mISDNport->ml3)
 	{
@@ -3091,16 +3165,6 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 	msg_queue_init(&mISDNport->downqueue);
 	mISDNport->d_stid = stinf->id;
 	PDEBUG(DEBUG_ISDN, "d_stid = 0x%x.\n", mISDNport->d_stid);
-	if ((stinf->pid.protocol[2]&ISDN_PID_L2_DF_PTP) || (nt&&ptp) || pri)
-	{
-		PDEBUG(DEBUG_ISDN, "Port is point-to-point.\n");
-		ptp = 1;
-		if (ptmp && nt)
-		{
-			PDEBUG(DEBUG_ISDN, "Port is forced to point-to-multipoint.\n");
-			ptp = 0;
-		}
-	}
 
 	/* create layer intance */
 	memset(&li, 0, sizeof(li));
@@ -3196,6 +3260,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 	mISDNport->ntmode = nt;
 	mISDNport->pri = pri;
 	mISDNport->ptp = ptp;
+	mISDNport->l2hold = l2hold;
 	PDEBUG(DEBUG_ISDN, "Port has %d b-channels.\n", mISDNport->b_num);
 	i = 0;
 	while(i < mISDNport->b_num)
@@ -3212,12 +3277,11 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 
 #ifdef SOCKET_MISDN
 	/* if ptp, pull up the link */
-	if (mISDNport->ptp)
+	if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
 	{
-#warning SOCKET TBD
-//		mISDNport->ml3->to_layer2(mISDNport->ml3, DL_ESTABLISH_REQ);
-//		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
-//		end_trace();
+		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+		end_trace();
 		time(&mISDNport->l2establish);
 	}
 #else
@@ -3232,10 +3296,9 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 		act.dinfo = SSTATUS_BROADCAST_BIT | SSTATUS_ALL;
 		act.len = 0;
 		mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-		time(&mISDNport->l2establish);
 	}
 	/* if ptp AND te-mode, pull up the link */
-	if (mISDNport->ptp && !mISDNport->ntmode)
+	if (mISDNport->l2hold && !mISDNport->ntmode)
 	{
 		iframe_t act;
 		/* L2 */
@@ -3244,13 +3307,13 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 		act.dinfo = 0;
 		act.len = 0;
 		mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-		time(&mISDNport->l2establish);
 
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		end_trace();
+		time(&mISDNport->l2establish);
 	}
 	/* if ptp AND nt-mode, pull up the link */
-	if (mISDNport->ptp && mISDNport->ntmode)
+	if (mISDNport->l2hold && mISDNport->ntmode && mISDNport->ptp)
 	{
 		msg_t *dmsg;
 		/* L2 */
@@ -3259,8 +3322,15 @@ struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, stru
 			free_msg(dmsg);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		end_trace();
+		time(&mISDNport->l2establish);
 	}
 #endif
+
+#ifdef SOCKET_MISDN
+	/* init stack queue */
+	mqueue_init(&mISDNport->upqueue);
+#endif
+	
 	/* initially, we assume that the link is down, exept for nt-ptmp */
 	mISDNport->l2link = (mISDNport->ntmode && !mISDNport->ptp)?1:0;
 
@@ -3353,6 +3423,7 @@ void mISDNport_close(struct mISDNport *mISDNport)
 
 #ifdef SOCKET_MISDN
 	close_layer3(mISDNport->ml3);
+	mqueue_purge(&mISDNport->upqueue);
 #else
 	/* free ressources of port */
 	msg_queue_purge(&mISDNport->downqueue);
@@ -3484,20 +3555,16 @@ void mISDN_port_info(void)
 			bri = 1;
 			nt = 1;
 		}
-#ifdef ISDN_P_TE_E1
 		if (devinfo.Dprotocols & (1 << ISDN_P_TE_E1))
 		{
 			pri = 1;
 			te = 1;
 		}
-#endif
-#ifdef ISDN_P_NT_E1
 		if (devinfo.Dprotocols & (1 << ISDN_P_NT_E1))
 		{
 			pri = 1;
 			nt = 1;
 		}
-#endif
 #ifdef ISDN_P_FXS
 		if (devinfo.Dprotocols & (1 << ISDN_P_FXS))
 		{

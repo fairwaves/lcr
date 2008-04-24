@@ -21,9 +21,7 @@ extern "C" {
 #include <sys/socket.h>
 extern "C" {
 }
-#include <mISDNuser/mISDNif.h>
-#include <mISDNuser/q931.h>
-#include <mISDNuser/mlayer3.h>
+#include <q931.h>
 extern unsigned long mt_assign_pid;
 #endif
 
@@ -531,9 +529,9 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id)
+	if (p_m_d_l3id != pid)
 	{
-		/* release is case the ID is already in use */
+		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
 		l3m = create_l3msg();
@@ -547,8 +545,6 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 		return;
 	}
 	p_m_d_l3id = pid;
-#warning SOCKET TBD
-	// soll die ces wirklich von der pid abgeleitet werden oder kommt da noch ein "l3m->ces" ?
 	p_m_d_ces = pid >> 16;
 	end_trace();
 #else
@@ -1186,8 +1182,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 	if (p_m_d_ntmode)
 #ifdef SOCKET_MISDN
-#warning SOCKET TBD
-//		p_m_d_ces = connect->ces;
+		p_m_d_ces = pid >> 16;
 #else
 		p_m_d_ces = connect->ces;
 #endif
@@ -1967,7 +1962,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id)
+	if (p_m_d_l3id != pid)
 	{
 		/* release is case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
@@ -2163,10 +2158,17 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (cmd)
 	{
 		case MT_TIMEOUT:
-#warning SOCKET TBD
-//		if (p_m_d_ntmode)
-//			timer_hex = *((int *)(((char *)data)/*+headerlen*/));
-		if (timer_hex==0x312)
+		if (!l3m->cause)
+		{
+			PERROR("Pdss1(%s) timeout without cause.\n", p_name);
+			break;
+		}
+		if (l3m->cause[1] != 5)
+		{
+			PERROR("Pdss1(%s) expecting timeout with timer diagnostic.\n", p_name);
+			break;
+		}
+		if (l3m->cause[4]=='3' && l3m->cause[5]=='1' && l3m->cause[6]=='2')
 		{
 			l1l2l3_trace_header(p_m_mISDNport, this, L3_TIMEOUT_IND, DIRECTION_IN);
 			add_trace("timer", NULL, "%x", timer_hex);
@@ -4041,7 +4043,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 			pdss1 = (class Pdss1 *)port;
 			/* check out correct stack and id */
 			if (pdss1->p_m_mISDNport == mISDNport
-			 && pdss1->p_m_d_l3id == pid)
+			 && (pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == (pid & MISDN_PID_CRVAL_MASK))
 			{
 				/* found port, the message belongs to */
 				break;
@@ -4054,9 +4056,9 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	if (port)
 	{
 		/* if process id is master process, but a child disconnects */
-#warning SOCKET TBD
-//hier das abfragen des child processes
-		if (0)
+		if (mISDNport->ntmode
+		 && (pid & MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER
+		 && (pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == MISDN_PID_MASTER)
 		{
 			if (cmd == MT_DISCONNECT)
 			{
@@ -4068,7 +4070,8 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 			return(0);
 		}
 		/* if process id and layer 3 id matches */
-		pdss1->message_isdn(cmd, pid, l3m);
+		if (pid == pdss1->p_m_d_l3id)
+			pdss1->message_isdn(cmd, pid, l3m);
 		return(0);
 	}
 

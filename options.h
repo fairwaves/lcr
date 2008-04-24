@@ -11,8 +11,6 @@
 
 struct options {
 	char	log[128];		/* location of log file */
-	char	ports[256];		/* use of ports */
-//	int	ptp;			/* if layer 2 should be watched */
 	int	deb;			/* debugging */
 	char	law;			/* 'a' or 'u' law */
 

@@ -155,6 +155,7 @@ static int inter_ptp(struct interface *interface, char *filename, int line, char
 	ifport->ptp = 1;
 	return(0);
 }
+#if 0
 static int inter_ptmp(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_port *ifport;
@@ -183,6 +184,7 @@ static int inter_ptmp(struct interface *interface, char *filename, int line, cha
 	ifport->ptmp = 1;
 	return(0);
 }
+#endif
 static int inter_nt(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 #ifdef SOCKET_MISDN
@@ -295,6 +297,34 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 	while(*ifportp)
 		ifportp = &((*ifportp)->next);
 	*ifportp = ifport;
+	return(0);
+}
+static int inter_l2hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	if (!strcmp(value, "yes"))
+	{
+		ifport->l2hold = 1;
+	} else
+	if (!strcmp(value, "no"))
+	{
+		ifport->l2hold = -1;
+	} else
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expecting parameter 'yes' or 'no'.\n", filename, line, parameter);
+		return(-1);
+	}
 	return(0);
 }
 static int inter_channel_out(struct interface *interface, char *filename, int line, char *parameter, char *value)
@@ -836,10 +866,13 @@ struct interface_param interface_param[] = {
 	"This is required on NT-mode ports that are multipoint by default.\n"
 	"This parameter must follow a 'port' parameter."},
 
+#if 0
 	{"ptmp", &inter_ptmp, "",
 	"The given port above is opened as point-to-multipoint.\n"
 	"This is required on PRI NT-mode ports that are point-to-point by default.\n"
 	"This parameter must follow a 'port' parameter."},
+#endif
+
 	{"nt", &inter_nt, "",
 	"The given port above is opened in NT-mode.\n"
 #ifdef SOCKET_MISDN
@@ -847,6 +880,11 @@ struct interface_param interface_param[] = {
 #else
 	"This parameter is only required for socket based mISDN driver.\n"
 #endif
+	"This parameter must follow a 'port' parameter."},
+
+	{"layer2hold", &inter_l2hold, "yes | no",
+	"The given port will continuously try to establish layer 2 link and hold it.\n"
+	"It is required for PTP links in most cases, therefore it is default.\n"
 	"This parameter must follow a 'port' parameter."},
 
 	{"channel-out", &inter_channel_out, "[force,][<number>][,...][,free][,any][,no]",
@@ -894,13 +932,6 @@ struct interface_param interface_param[] = {
 	{"nodtmf", &inter_nodtmf, "",
 	"Disables DTMF detection for this interface.\n"
 	"This parameter must follow a 'port' parameter."},
-
-#if 0
-	{"layer2keep", &inter_layer2keep, "yes | no",
-	"By default, layer 2 is establised and kept up on PTP interfaces.\n"
-	".\n"
-	"This parameter must follow a 'port' parameter."},
-#endif
 
 	{"filter", &inter_filter, "<filter> <parameters>",
 	"Adds/appends a filter. Filters are ordered in transmit direction.\n"
@@ -1256,7 +1287,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->ptmp, ifport->nt, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->nt, ifport->l2hold, ifport->interface);
 	if (mISDNport)
 	{
 		/* link port */

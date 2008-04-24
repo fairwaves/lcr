@@ -36,7 +36,7 @@ struct mISDNport {
 	int ptp; /* if ptp is set, we keep track of l2link */
 	int l1link; /* if l1 is available (only works with nt-mode) */
 	int l2link; /* if l2 is available (at PTP we take this serious) */
-//	time_t l1timeout; /* timout when establishing link */
+	int l2hold; /* set, if layer 2 must be hold/checked */
 	time_t l2establish; /* time until establishing after link failure */
 	int use; /* counts the number of port that uses this port */
 	int ntmode; /* is TRUE if port is nt mode */
@@ -47,6 +47,7 @@ struct mISDNport {
 	int b_reserved; /* number of bchannels reserved or in use */
 	class PmISDN *b_port[128]; /* bchannel assigned to port object */
 #ifdef SOCKET_MISDN
+	struct mqueue upqueue;
 	int b_socket[128];
 #else
 	int procids[256]; /* keep track of free ids */
@@ -80,7 +81,7 @@ calls with no bchannel (call waiting, call on hold).
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
 void mISDN_port_info(void);
-struct mISDNport *mISDNport_open(int port, int ptp, int ptmp, int force_nt, struct interface *interface);
+struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

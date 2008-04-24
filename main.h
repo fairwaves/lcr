@@ -47,7 +47,7 @@ extern int classuse;
 extern int fduse;
 extern int fhuse;
 
-extern pthread_mutex_t mutex_lcr; // lcr process mutex
+//extern pthread_mutex_t mutex_lcr; // lcr process mutex
 
 #ifdef SOCKET_MISDN
 extern FILE *debug_fp;
@@ -136,6 +136,8 @@ extern "C" {
 #ifndef SOCKET_MISDN
 #include <mISDNuser/isdn_net.h>
 #include <mISDNuser/net_l3.h>
+#else
+#include <mbuffer.h>
 #endif
 #ifdef __cplusplus
 }
