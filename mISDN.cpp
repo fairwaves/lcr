@@ -3780,7 +3780,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 #ifdef SOCKET_MISDN
 		hh->prim = DL_DATA_REQ; 
 		hh->id = 0;
-		memcpy(buf+MISDN_HEADER_LEN, data, ISDN_LOAD);
+		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
 		ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD, 0, NULL, 0);
 		if (!ret)
 			PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
@@ -3789,7 +3789,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 		frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
 		frm->dinfo = 0;
 		frm->len = ISDN_LOAD;
-		memcpy(buf+mISDN_HEADER_LEN, data, ISDN_LOAD);
+		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
 		mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+ISDN_LOAD, TIMEOUT_1SEC);
 #endif
 		p_m_load += ISDN_LOAD;
