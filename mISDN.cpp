@@ -286,7 +286,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
  */
 PmISDN::~PmISDN()
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	/* remove bchannel relation */
 	drop_bchannel();
@@ -1511,7 +1511,7 @@ on empty load, remote-audio causes the load with the remote audio to be increase
  */
 int PmISDN::handler(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	int elapsed = 0;
 	int ret;
 
@@ -1647,7 +1647,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 #endif
 	unsigned char *data_temp;
 	unsigned long length_temp;
-	struct message *message;
+	struct lcr_msg *message;
 	unsigned char *p;
 	int l;
 
@@ -1962,7 +1962,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 
 
 /* MESSAGE_mISDNSIGNAL */
-//extern struct message *dddebug;
+//extern struct lcr_msg *dddebug;
 void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union parameter *param)
 {
 	switch(param->mISDNsignal.message)
@@ -2052,7 +2052,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 /* MESSAGE_CRYPT */
 void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	switch(param->crypt.type)
 	{

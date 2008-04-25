@@ -74,7 +74,7 @@ static void vbox_trace_header(class VBoxPort *vbox, char *message, int direction
  */
 int VBoxPort::handler(void)
 {
-	struct message	*message;
+	struct lcr_msg	*message;
 	unsigned long	tosend;
 	unsigned char	buffer[ISDN_TRANSMIT];
 	time_t		currenttime;
@@ -201,7 +201,7 @@ int VBoxPort::handler(void)
  */
 int VBoxPort::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	class Endpoint *epoint;
 	char filename[256], *c;
 

@@ -13,15 +13,15 @@
 
 MESSAGES
 
-struct message *message_first = NULL;
-struct message **messagepointer_end = &message_first;
+struct lcr_msg *message_first = NULL;
+struct lcr_msg **messagepointer_end = &message_first;
 
 /* creates a new message with the given attributes. the message must be filled then. after filling, the message_put must be called */
-struct message *message_create(int id_from, int id_to, int flow, int type)
+struct lcr_msg *message_create(int id_from, int id_to, int flow, int type)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
-	message = (struct message *)MALLOC(sizeof(struct message));
+	message = (struct lcr_msg *)MALLOC(sizeof(struct lcr_msg));
 	if (!message)
 		FATAL("No memory for message.\n");
 	mmemuse++;
@@ -35,7 +35,7 @@ struct message *message_create(int id_from, int id_to, int flow, int type)
 }
 
 /* attaches a message to the end of the message chain */
-void message_put(struct message *message)
+void message_put(struct lcr_msg *message)
 {
 	if (message->id_to == 0)
 	{
@@ -51,12 +51,12 @@ void message_put(struct message *message)
 	messagepointer_end = &(message->next);
 }
 
-struct message *message_forward(int id_from, int id_to, int flow, union parameter *param)
+struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	/* get point to message */
-	message = (struct message *)((unsigned long)param - ((unsigned long)(&message->param) - (unsigned long)message));
+	message = (struct lcr_msg *)((unsigned long)param - ((unsigned long)(&message->param) - (unsigned long)message));
 
 	/* protect, so forwarded messages are not freed after handling */
 	message->keep = 1;
@@ -70,9 +70,9 @@ struct message *message_forward(int id_from, int id_to, int flow, union paramete
 }
 
 /* detaches the first messages from the message chain */
-struct message *message_get(void)
+struct lcr_msg *message_get(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!message_first)
 	{
@@ -94,11 +94,11 @@ struct message *message_get(void)
 }
 
 /* free a message */
-void message_free(struct message *message)
+void message_free(struct lcr_msg *message)
 {
 	if (message->keep)
 		return;
-	FREE(message, sizeof(struct message));
+	FREE(message, sizeof(struct lcr_msg));
 	mmemuse--;
 }
 

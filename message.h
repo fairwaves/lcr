@@ -352,8 +352,8 @@ enum { /* message flow */
 };
 
 /* message structure */
-struct message {
-	struct message *next;
+struct lcr_msg {
+	struct lcr_msg *next;
 	int type; /* type of message */
 	int flow; /* from where to where */
 	unsigned long id_from; /* in case of flow==PORT_TO_EPOINT: id_from is the port's serial, id_to is the epoint's serial */
@@ -431,11 +431,11 @@ enum { /* messages between entities */
 };
 
 
-struct message *message_create(int id_from, int id_to, int flow, int type);
-void message_put(struct message *message);
-struct message *message_forward(int id_from, int id_to, int flow, union parameter *param);
-struct message *message_get(void);
-void message_free(struct message *message);
+struct lcr_msg *message_create(int id_from, int id_to, int flow, int type);
+void message_put(struct lcr_msg *message);
+struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param);
+struct lcr_msg *message_get(void);
+void message_free(struct lcr_msg *message);
 
 
 

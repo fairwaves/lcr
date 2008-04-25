@@ -179,7 +179,7 @@ void EndpointAppPBX::new_state(int state)
 void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause)
 {
 	struct port_list *portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	char cause[16];
 
 	/* message to test call */
@@ -428,7 +428,7 @@ char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int
 void EndpointAppPBX::notify_active(void)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	int notify = 0;
 
 	switch(e_tx_state)
@@ -536,7 +536,7 @@ void EndpointAppPBX::keypad_function(char digit)
 /* set tone pattern for port */
 void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!tone)
 		tone = "";
@@ -830,7 +830,7 @@ void EndpointAppPBX::out_setup(void)
 	class Port		*port;
 //	class pdss1		*pdss1;
 	struct port_list	*portlist;
-	struct message		*message;
+	struct lcr_msg		*message;
 	int			anycall = 0;
 	int			cause = CAUSE_RESSOURCEUNAVAIL;
 	char			*p;
@@ -1325,7 +1325,7 @@ int EndpointAppPBX::handler(void)
 	if (e_cfnr_release)
 	{
 		struct port_list *portlist;
-		struct message *message;
+		struct lcr_msg *message;
 
 		if (now >= e_cfnr_release)
 		{
@@ -1466,7 +1466,7 @@ void EndpointAppPBX::hookflash(void)
 /* port MESSAGE_SETUP */
 void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message		*message;
+	struct lcr_msg		*message;
 	char			buffer[256];
 	int			writeext;		/* flags need to write extension after modification */
 	class Port		*port;
@@ -1849,7 +1849,7 @@ void EndpointAppPBX::port_crypt(struct port_list *portlist, int message_type, un
 /* port MESSAGE_OVERLAP */
 void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
@@ -1902,7 +1902,7 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 /* port MESSAGE_PROCEEDING */
 void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
@@ -1944,7 +1944,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 /* port MESSAGE_ALERTING */
 void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
@@ -1986,7 +1986,7 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 /* port MESSAGE_CONNECT */
 void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	char buffer[256];
 	unsigned long port_id = portlist->port_id;
 	struct port_list *tportlist;
@@ -2196,7 +2196,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 /* port MESSAGE_DISCONNECT MESSAGE_RELEASE */
 void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message	*message;
+	struct lcr_msg	*message;
 	char		buffer[256];
 	unsigned long	port_id = portlist->port_id;
 	int		cause,
@@ -2410,7 +2410,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 {
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
-	struct message *message;
+	struct lcr_msg *message;
 	char *logtext = "";
 	char buffer[64];
 
@@ -2557,7 +2557,7 @@ void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type,
 {
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
-	struct message *message;
+	struct lcr_msg *message;
 
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_FACILITY);
 	memcpy(&message->param.facilityinfo, &param->facilityinfo, sizeof(struct facility_info));
@@ -2596,7 +2596,7 @@ void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, u
 void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
-	struct message *message;
+	struct lcr_msg *message;
 
 	portlist = ea_endpoint->ep_portlist;
 	while(portlist)
@@ -2826,7 +2826,7 @@ void EndpointAppPBX::join_crypt(struct port_list *portlist, int message_type, un
 /* join MESSAGE_INFORMATION */
 void EndpointAppPBX::join_information(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	e_overlap = 1;
 
@@ -2843,7 +2843,7 @@ void EndpointAppPBX::join_information(struct port_list *portlist, int message_ty
 /* join MESSAGE_FACILITY */
 void EndpointAppPBX::join_facility(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!e_ext.facility && e_ext.number[0])
 	{
@@ -2863,7 +2863,7 @@ void EndpointAppPBX::join_facility(struct port_list *portlist, int message_type,
 /* join MESSAGE_MORE */
 void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	new_state(EPOINT_STATE_IN_OVERLAP);
 	
@@ -2892,7 +2892,7 @@ void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, 
 /* join MESSAGE_PROCEEDING */
 void EndpointAppPBX::join_proceeding(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	new_state(EPOINT_STATE_IN_PROCEEDING);
 
@@ -2920,7 +2920,7 @@ void EndpointAppPBX::join_proceeding(struct port_list *portlist, int message_typ
 /* join MESSAGE_ALERTING */
 void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	new_state(EPOINT_STATE_IN_ALERTING);
 
@@ -2955,7 +2955,7 @@ void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type,
 /* join MESSAGE_CONNECT */
 void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	new_state(EPOINT_STATE_CONNECT);
 //			UCPY(e_join_tone, "");
@@ -3008,7 +3008,7 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *param)
 {
 	char cause[16];
-	struct message *message;
+	struct lcr_msg *message;
 	struct port_list *portlist = NULL;
 
 
@@ -3122,7 +3122,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 /* join MESSAGE_SETUP */
 void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 //	struct interface	*interface;
 
 	/* if we already in setup state, we just update the dialing with new digits */
@@ -3238,7 +3238,7 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 /* join MESSAGE_mISDNSIGNAL */
 void EndpointAppPBX::join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	while(portlist)
 	{
@@ -3252,7 +3252,7 @@ void EndpointAppPBX::join_mISDNsignal(struct port_list *portlist, int message_ty
 /* join MESSAGE_NOTIFY */
 void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	int new_state;
 
 	if (param->notifyinfo.notify)
@@ -3316,7 +3316,7 @@ void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, u
 void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!join_id)
 	{
@@ -3555,7 +3555,7 @@ int match_list(char *list, char *item)
 
 void EndpointAppPBX::pick_join(char *extensions)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	struct port_list *portlist;
 	class Port *port;
 	class EndpointAppPBX *eapp, *found;
@@ -3761,7 +3761,7 @@ reject:
  */
 void EndpointAppPBX::join_join(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	struct join_relation *our_relation, *other_relation;
 	struct join_relation **our_relation_pointer, **other_relation_pointer;
 	class Join *our_join, *other_join;
@@ -4371,7 +4371,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 
 void EndpointAppPBX::message_disconnect_port(struct port_list *portlist, int cause, int location, char *display)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!portlist)
 		return;

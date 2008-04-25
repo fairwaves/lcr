@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 {
 	int			ret = -1;
 	int			lockfd = -1; /* file lock */
-	struct message		*message;
+	struct lcr_msg		*message;
 	class Port		*port;
 	class Endpoint		*epoint;
 	class Join		*join;

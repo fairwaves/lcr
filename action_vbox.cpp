@@ -80,7 +80,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 {
 	int			language = e_ext.vbox_language;
 	struct route_param	*rparam;
-	struct message		*message;
+	struct lcr_msg		*message;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	/* get extension */
@@ -668,7 +668,7 @@ void EndpointAppPBX::vbox_handler(void)
 	if (e_vbox_display_refresh && e_ext.vbox_display!=VBOX_DISPLAY_OFF)
 	{
 		char counter[32];
-		struct message *message;
+		struct lcr_msg *message;
 
 		SPRINT(counter, "%02d:%02d", e_vbox_counter/60, e_vbox_counter%60);
 		if (e_vbox_counter_max)
@@ -899,7 +899,7 @@ void EndpointAppPBX::vbox_message_eof(void)
  */
 void EndpointAppPBX::set_tone_vbox(char *tone)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (tone == NULL)
 		tone = "";
@@ -927,7 +927,7 @@ void EndpointAppPBX::set_tone_vbox(char *tone)
 void EndpointAppPBX::set_play_vbox(char *file, int offset)
 {
 	char filename[256];
-	struct message *message;
+	struct lcr_msg *message;
 
 	SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, e_vbox, file);
 	
@@ -958,7 +958,7 @@ void EndpointAppPBX::set_play_vbox(char *file, int offset)
  */
 void EndpointAppPBX::set_play_speed(int speed)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!ea_endpoint->ep_portlist)
 	{

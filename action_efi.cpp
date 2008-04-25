@@ -33,7 +33,7 @@ void EndpointAppPBX::action_init_efi(void)
 {
 //	int			language = e_ext.vbox_language;
 //	struct route_param	*rparam;
-	struct message		*message;
+	struct lcr_msg		*message;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	/* if no caller id */
@@ -70,7 +70,7 @@ void EndpointAppPBX::efi_message_eof(void)
 {
 //	char buffer[32];
 	char digit[] = "number_00";
-//	struct message		*message;
+//	struct lcr_msg		*message;
 //	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
@@ -148,7 +148,7 @@ void EndpointAppPBX::efi_message_eof(void)
  */
 void EndpointAppPBX::set_tone_efi(char *tone)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (tone == NULL)
 		tone = "";

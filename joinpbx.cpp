@@ -28,7 +28,7 @@
 static int notify_state_change(int join_id, int epoint_id, int old_state, int new_state)
 {
 	int notify_off = 0, notify_on = 0;
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (old_state == new_state)
 		return(old_state);
@@ -298,7 +298,7 @@ JoinPBX::~JoinPBX()
 void JoinPBX::bridge(void)
 {
 	struct join_relation *relation;
-	struct message *message;
+	struct lcr_msg *message;
 	int numconnect = 0, relations = 0;
 	class Endpoint *epoint;
 	struct port_list *portlist;
@@ -493,7 +493,7 @@ void JoinPBX::bridge_data(unsigned long epoint_from, struct join_relation *relat
 int JoinPBX::release(struct join_relation *relation, int location, int cause)
 {
 	struct join_relation *reltemp, **relationpointer;
-	struct message *message;
+	struct lcr_msg *message;
 	class Join *join;
 	int destroy = 0;
 
@@ -656,7 +656,7 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 	struct join_relation *relation, *reltemp;
 	int num;
 	int new_state;
-	struct message *message;
+	struct lcr_msg *message;
 //	int size, writesize, oldpointer;
 	char *number, *numbers;
 
@@ -1006,7 +1006,7 @@ int track_notify(int oldstate, int notify)
 int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union parameter *param, char *newnumber)
 {
 	struct join_relation *relation;
-	struct message *message;
+	struct lcr_msg *message;
 	class Endpoint *epoint;
 
 	PDEBUG(DEBUG_JOIN, "no endpoint found, so we will create an endpoint and send the setup message we have.\n");
@@ -1042,7 +1042,7 @@ int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 void JoinPBX::play_jingle(int in)
 {
 	struct join_relation *relation;
-	struct message *message;
+	struct lcr_msg *message;
 
 	relation = j_relation;
 
