@@ -1,7 +1,6 @@
 chan_lcr:
 
 milestones:
-- der grosse bugfix im mISDN
 - das cli
 - auf- und abbau von calls und instanzen
 - informationen in den jeweiligen messages umwandeln

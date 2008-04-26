@@ -27,7 +27,6 @@ From that point on, the ref is not valid, so no other message may be sent
 with that reference.
 
 */
-bchannel-handling muss noch
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -678,6 +677,86 @@ static struct ast_channel_tech misdn_tech = {
 	.properties=0
 };
 
+/*
+ * cli
+ */
+static int cli_show_lcr (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_show_calls (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_reload_routing (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_reload_interfaces (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_port_block (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_port_unblock (int fd, int argc, char *argv[])
+{
+}
+
+static int cli_port_unload (int fd, int argc, char *argv[])
+{
+}
+
+static struct ast_cli_entry cli_show_lcr =
+{ {"lcr", "show", "lcr", NULL},
+ lcr_show_lcr,
+ "Shows current states of LCR core",
+ "Usage: lcr show lcr\n",
+};
+
+static struct ast_cli_entry cli_show_calls =
+{ {"lcr", "show", "calls", NULL},
+ lcr_show_calls,
+ "Shows current calls made by LCR and Asterisk",
+ "Usage: lcr show calls\n",
+};
+
+static struct ast_cli_entry cli_reload_routing =
+{ {"lcr", "reload", "routing", NULL},
+ lcr_reload_routing,
+ "Reloads routing conf of LCR, current uncomplete calls will be disconnected",
+ "Usage: lcr reload routing\n",
+};
+
+static struct ast_cli_entry cli_reload_interfaces =
+{ {"lcr", "reload", "interfaces", NULL},
+ lcr_reload_interfaces,
+ "Reloads interfaces conf of LCR",
+ "Usage: lcr reload interfaces\n",
+};
+
+static struct ast_cli_entry cli_port_block =
+{ {"lcr", "port", "block", NULL},
+ lcr_port_block,
+ "Blocks LCR port for further calls",
+ "Usage: lcr port block \"<port>\"\n",
+};
+
+static struct ast_cli_entry cli_port_unblock =
+{ {"lcr", "port", "unblock", NULL},
+ lcr_port_unblock,
+ "Unblocks or loads LCR port, port is opened my mISDN",
+ "Usage: lcr port unblock \"<port>\"\n",
+};
+
+static struct ast_cli_entry cli_port_unload =
+{ {"lcr", "port", "unload", NULL},
+ lcr_port_unload,
+ "Unloads LCR port, port is closes by mISDN",
+ "Usage: lcr port unload \"<port>\"\n",
+};
+
 
 /*
  * module loading and destruction
@@ -714,6 +793,7 @@ int load_module(void)
 	ast_cli_register(&cli_reload_interfaces);
 	ast_cli_register(&cli_port_block);
 	ast_cli_register(&cli_port_unblock);
+	ast_cli_register(&cli_port_unload);
   
 	ast_register_application("misdn_set_opt", misdn_set_opt_exec, "misdn_set_opt",
 				 "misdn_set_opt(:<opt><optarg>:<opt><optarg>..):\n"
