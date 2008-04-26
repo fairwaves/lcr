@@ -38,9 +38,9 @@ struct lcr_fdset lcr_fdset[FD_SETSIZE];
 #endif
 
 pthread_mutex_t mutexd; // debug output mutex
-//pthread_mutex_t mutext; // trace output mutex
+pthread_mutex_t mutext; // trace output mutex
 pthread_mutex_t mutexe; // error output mutex
-pthread_mutex_t mutex_lcr; // lcr process mutex
+//pthread_mutex_t mutex_lcr; // lcr process mutex
 
 int memuse = 0;
 int mmemuse = 0;
@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 {
 	int			ret = -1;
 	int			lockfd = -1; /* file lock */
-	struct message		*message;
+	struct lcr_msg		*message;
 	class Port		*port;
 	class Endpoint		*epoint;
 	class Join		*join;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 #endif
 
 	/* lock LCR process */
-	pthread_mutex_lock(&mutex_lcr);
+//	pthread_mutex_lock(&mutex_lcr);
 
 	/* current time */
 	GET_NOW();
@@ -648,9 +648,9 @@ BUDETECT
 		/* did we do nothing? so we wait to give time to other processes */
 		if (all_idle)
 		{
-			pthread_mutex_unlock(&mutex_lcr); // unlock LCR
+//			pthread_mutex_unlock(&mutex_lcr); // unlock LCR
 			debug_usleep(4000, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-			pthread_mutex_lock(&mutex_lcr); // lock LCR
+//			pthread_mutex_lock(&mutex_lcr); // lock LCR
 			idletime += 4000;
 		}
 	}
@@ -778,7 +778,7 @@ free:
 	MEMCHECK("file handler(s) left",fhuse)
 
 	/* unlock LCR process */
-	pthread_mutex_unlock(&mutex_lcr);
+//	pthread_mutex_unlock(&mutex_lcr);
 
 	/* take me out */
 	return(ret);

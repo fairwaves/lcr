@@ -1451,7 +1451,7 @@ unsigned char *EndpointAppPBX::cryptman_getinf(unsigned char *buf, int element, 
  */
 void EndpointAppPBX::cryptman_msg2peer(unsigned char *buf)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	unsigned char *p = buf;
 	int len = 0;
 	int l;
@@ -1493,7 +1493,7 @@ void EndpointAppPBX::cryptman_msg2peer(unsigned char *buf)
  */
 void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (len > (int)sizeof(message->param.crypt.data))
 	{
@@ -1522,7 +1522,7 @@ void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
  */
 void EndpointAppPBX::cryptman_msg2user(int msg, char *text)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	/* send message */
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 	message->param.crypt.type = msg;
@@ -1617,7 +1617,7 @@ int cryptman_encode_bch(unsigned char *data, int len, unsigned char *buf, int bu
 void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 {
 	int i;
-	struct message *message;
+	struct lcr_msg *message;
 
 	retry:
 	if (!l)
@@ -1791,7 +1791,7 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
  */
 void EndpointAppPBX::encrypt_shared(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	char *errstr = "";
 	class Port *port;
 	int type, key_len;
@@ -1897,7 +1897,7 @@ void EndpointAppPBX::encrypt_shared(void)
  */
 void EndpointAppPBX::encrypt_keyex(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	char *errstr = "";
 	class Port *port;
 
@@ -1948,7 +1948,7 @@ void EndpointAppPBX::encrypt_keyex(void)
  */
 void EndpointAppPBX::encrypt_off(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (e_crypt!=CRYPT_ON && e_crypt!=CRYPT_OFF)
 	{
@@ -1985,7 +1985,7 @@ void EndpointAppPBX::encrypt_off(void)
  */
 void EndpointAppPBX::encrypt_result(int msg, char *text)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	switch(msg)
 	{

@@ -523,7 +523,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	unsigned char useruser[128];
 	int useruser_len = 0, useruser_protocol;
 	class Endpoint *epoint;
-	struct message *message;
+	struct lcr_msg *message;
 
 #ifdef SOCKET_MISDN
 	/* process given callref */
@@ -879,7 +879,7 @@ void Pdss1::information_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 	int type, plan;
 	unsigned char keypad[32] = "";
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -929,7 +929,7 @@ void Pdss1::setup_acknowledge_ind(unsigned long prim, unsigned long dinfo, void 
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_ACKNOWLEDGE_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -977,7 +977,7 @@ void Pdss1::proceeding_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
-	struct message *message;
+	struct lcr_msg *message;
 	int notify = -1, type, plan, present;
 	char redir[32];
 
@@ -1076,7 +1076,7 @@ void Pdss1::alerting_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int exclusive, channel;
 	int coding, location, progress;
 	int ret;
-	struct message *message;
+	struct lcr_msg *message;
 	int notify = -1, type, plan, present;
 	char redir[32];
 
@@ -1177,7 +1177,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int exclusive, channel;
 	int type, plan, present, screen;
 	int ret;
-	struct message *message;
+	struct lcr_msg *message;
 	int bchannel_before;
 
 	if (p_m_d_ntmode)
@@ -1310,7 +1310,7 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 	int location, cause;
 	int coding, proglocation, progress;
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -1439,7 +1439,7 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 	RELEASE_t *release = (RELEASE_t *)((unsigned long)data + headerlen);
 #endif
 	int location, cause;
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -1509,7 +1509,7 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 	RELEASE_COMPLETE_t *release_complete = (RELEASE_COMPLETE_t *)((unsigned long)data + headerlen);
 #endif
 	int location, cause;
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -1547,7 +1547,7 @@ void Pdss1::t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *
 void Pdss1::t312_timeout_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
 #endif
-	struct message *message;
+	struct lcr_msg *message;
 
 	// trace is done at message_isdn()
 	
@@ -1583,7 +1583,7 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int headerlen = (p_m_d_ntmode)?mISDNUSER_HEAD_SIZE:mISDN_HEADER_LEN;
 	NOTIFY_t *notifying = (NOTIFY_t *)((unsigned long)data + headerlen);
 #endif
-	struct message *message;
+	struct lcr_msg *message;
 	int notify, type, plan, present;
 	unsigned char notifyid[sizeof(message->param.notifyinfo.id)];
 
@@ -1644,7 +1644,7 @@ void Pdss1::notify_ind(unsigned long prim, unsigned long dinfo, void *data)
 
 
 /* CC_HOLD INDICATION */
-	struct message *message;
+	struct lcr_msg *message;
 #ifdef SOCKET_MISDN
 void Pdss1::hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
@@ -1740,7 +1740,7 @@ void Pdss1::retrieve_ind(unsigned long prim, unsigned long dinfo, void *data)
 	RETRIEVE_REJECT_t *retrieve_reject;
 	RETRIEVE_ACKNOWLEDGE_t *retrieve_acknowledge;
 #endif
-	struct message *message;
+	struct lcr_msg *message;
 	int channel, exclusive, cause;
 	int ret;
 
@@ -1838,7 +1838,7 @@ void Pdss1::suspend_ind(unsigned long prim, unsigned long dinfo, void *data)
 	SUSPEND_ACKNOWLEDGE_t *suspend_acknowledge;
 	SUSPEND_REJECT_t *suspend_reject;
 #endif
-	struct message *message;
+	struct lcr_msg *message;
 	class Endpoint *epoint;
 	unsigned char callid[8];
 	int len;
@@ -1955,7 +1955,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int len;
 	int channel, exclusive;
 	class Endpoint *epoint;
-	struct message *message;
+	struct lcr_msg *message;
 	int ret;
 
 #ifdef SOCKET_MISDN
@@ -2125,7 +2125,7 @@ void Pdss1::facility_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 	unsigned char facil[256];
 	int facil_len;
-	struct message *message;
+	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_FACILITY_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -2298,7 +2298,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		 */
 		while(p_epointlist)
 		{
-			struct message *message;
+			struct lcr_msg *message;
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_cause:CAUSE_UNSPECIFIED;
 			message->param.disconnectinfo.location = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_location:LOCATION_PRIVATE_LOCAL;
@@ -2484,7 +2484,7 @@ void Pdss1::message_isdn(unsigned long prim, unsigned long dinfo, void *data)
 		 */
 		while(p_epointlist)
 		{
-			struct message *message;
+			struct lcr_msg *message;
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_cause:CAUSE_UNSPECIFIED;
 			message->param.disconnectinfo.location = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_location:LOCATION_PRIVATE_LOCAL;
@@ -2654,7 +2654,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	/* release if port is blocked */
 	if (p_m_mISDNport->ifport->block)
 	{
-		struct message *message;
+		struct lcr_msg *message;
 
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = 27; // temp. unavail.
@@ -2737,7 +2737,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 	ret = p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_ASSIGN, 0, NULL);
 	if (mt_assign_pid == 0 || ret < 0)
 	{
-		struct message *message;
+		struct lcr_msg *message;
 
 		add_trace("callref", NULL, "no free id");
 		end_trace();
@@ -2765,7 +2765,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 		}
 		if (i == 0x100)
 		{
-			struct message *message;
+			struct lcr_msg *message;
 
 			add_trace("callref", NULL, "no free id");
 			end_trace();
@@ -3554,7 +3554,7 @@ void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union pa
 	DISCONNECT_t *disconnect;
 	RELEASE_COMPLETE_t *release_complete;
 #endif
-	struct message *message;
+	struct lcr_msg *message;
 	char *p = NULL;
 
 	/* we reject during incoming setup when we have no tones. also if we are in outgoing setup state */
@@ -3854,7 +3854,7 @@ wirklich erst proceeding?:
  */
 int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (PmISDN::message_epoint(epoint_id, message_id, param))
 		return(1);
@@ -4378,7 +4378,7 @@ void setup_queue(struct mISDNport *mISDNport, int link)
 {
 	class Port *port;
 	class Pdss1 *pdss1;
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (!mISDNport->ntmode)
 		return;

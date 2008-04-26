@@ -27,6 +27,7 @@ From that point on, the ref is not valid, so no other message may be sent
 with that reference.
 
 */
+bchannel-handling muss noch
 
 #include <stdio.h>
 #include <stdlib.h>

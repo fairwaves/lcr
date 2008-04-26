@@ -207,7 +207,7 @@ Port::Port(int type, char *portname, struct port_settings *settings)
 Port::~Port(void)
 {
 	class Port *temp, **tempp;
-	struct message *message;
+	struct lcr_msg *message;
 
 	if (p_record)
 		close_record(0, 0);
@@ -440,7 +440,7 @@ void Port::set_vbox_tone(char *dir, char *name)
 void Port::set_vbox_play(char *name, int offset)
 {
 	signed long size;
-	struct message *message;
+	struct lcr_msg *message;
 
 	/* use ser_box_tone() */
 	set_vbox_tone("", name);
@@ -554,7 +554,7 @@ read_more:
 		if (((p_tone_size-p_tone_left)/8000) != (p_tone_size-tone_left_before)/8000)
 		{
 //printf("\nsize=%d left=%d\n\n",p_tone_size,p_tone_left);
-			struct message *message;
+			struct lcr_msg *message;
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_COUNTER);
 			message->param.counter.current = (p_tone_size-p_tone_left)/8000;
 			message->param.counter.max = -1;
@@ -589,7 +589,7 @@ read_more:
 try_loop:
 	if (p_tone_eof && ACTIVE_EPOINT(p_epointlist))
 	{
-		struct message *message;
+		struct lcr_msg *message;
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_EOF);
 		message_put(message);
 	}
@@ -643,7 +643,7 @@ int Port::handler(void)
  * this is called by the message_epoint inherited by child classes
  * therefor a return=1 means: stop, no more processing
  */
-//extern struct message *dddebug;
+//extern struct lcr_msg *dddebug;
 int Port::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
 {
 	/* check if we got audio data from one remote port */

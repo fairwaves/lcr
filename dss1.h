@@ -27,8 +27,8 @@ class Pdss1 : public PmISDN
 	int message_epoint(unsigned long epoint_id, int message, union parameter *param);
 
 	int p_m_d_ntmode;			/* flags the nt-mode */
-	struct message *p_m_d_queue;		/* queue for SETUP if link is down */
-	struct message *p_m_d_notify_pending;	/* queue for NOTIFY if not connected */
+	struct lcr_msg *p_m_d_queue;		/* queue for SETUP if link is down */
+	struct lcr_msg *p_m_d_notify_pending;	/* queue for NOTIFY if not connected */
 
 	int p_m_d_collect_cause;		/* collecting cause and location */
 	int p_m_d_collect_location;

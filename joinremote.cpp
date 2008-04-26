@@ -91,7 +91,7 @@ void JoinRemote::message_epoint(unsigned long epoint_id, int message_type, union
 
 void JoinRemote::message_remote(int message_type, union parameter *param)
 {
-	struct message *message;
+	struct lcr_msg *message;
 
 	/* create relation if no relation exists */
 	if (!j_epoint_id)
@@ -113,7 +113,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 		return;
 	}
 	
-	/* cannot just forward, because param is not of container "struct message" */
+	/* cannot just forward, because param is not of container "struct lcr_msg" */
 	message = message_create(j_serial, j_epoint_id, JOIN_TO_EPOINT, message_type);
 	memcpy(&message->param, param, sizeof(message->param));
 	message_put(message);

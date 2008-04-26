@@ -121,7 +121,7 @@ void EndpointAppPBX::action_init_remote(void)
 {
 	struct route_param	*rparam;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
-	struct message		*message;
+	struct lcr_msg		*message;
 	struct capa_info	capainfo;
 	struct caller_info	callerinfo;
 	struct redir_info	redirinfo;
@@ -169,7 +169,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	struct redir_info	redirinfo;
 	struct dialing_info	dialinginfo;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
-	struct message		*message;
+	struct lcr_msg		*message;
 	struct extension	ext;
 	struct route_param	*rparam;
 
@@ -277,7 +277,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	struct dialing_info dialinginfo;
 	char *p;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	struct route_param *rparam;
 
 	/* special processing of delete characters '*' and '#' */
@@ -438,7 +438,7 @@ void EndpointAppPBX::action_dialing_external(void)
 
 void EndpointAppPBX::action_dialing_remote(void)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	struct dialing_info dialinginfo;
 //	struct route_param *rparam;
 
@@ -465,7 +465,7 @@ void EndpointAppPBX::action_dialing_vbox_record(void)
 {
 	struct dialing_info dialinginfo;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	struct extension ext;
 	struct route_param *rparam;
 
@@ -546,7 +546,7 @@ void EndpointAppPBX::action_init_partyline(void)
 	class Join *join;
 	class JoinPBX *joinpbx;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	struct route_param *rparam;
 	int partyline, jingle = 0;
 	struct join_relation *relation;
@@ -647,7 +647,7 @@ void EndpointAppPBX::action_hangup_call(void)
 void EndpointAppPBX::action_dialing_login(void)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	char *extension;
 	struct route_param *rparam;
 
@@ -991,7 +991,7 @@ void EndpointAppPBX::action_init_redial_reply(void)
 */
 void EndpointAppPBX::_action_redial_reply(int in)
 {
-	struct message *message;
+	struct lcr_msg *message;
 	char *last;
 	struct route_param *rparam;
 
@@ -1090,7 +1090,7 @@ void EndpointAppPBX::action_dialing_reply(void)
 void EndpointAppPBX::action_dialing_powerdial(void)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	struct route_param *rparam;
 
 	/* power dialing only possible if we have a last dialed number */
@@ -1321,7 +1321,7 @@ void EndpointAppPBX::action_dialing_test(void)
 	unsigned int cause;
 	char causestr[16];
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	class Port *port;
 	char testcode[32] = "";
 	struct route_param *rparam;
@@ -1533,7 +1533,7 @@ void EndpointAppPBX::action_init_play(void)
 void EndpointAppPBX::action_dialing_calculator(void)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	double value1, value2, v, sign1;
 	int komma1, komma2, k, state, mode, first;
 	char *p;
@@ -1877,7 +1877,7 @@ void EndpointAppPBX::action_dialing_disconnect(void)
 {
 	struct route_param *rparam;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	int cause = CAUSE_NORMAL; /* normal call clearing */
 	int location = LOCATION_PRIVATE_LOCAL;
 	char cause_string[256] = "", display[84] = "";
@@ -1947,7 +1947,7 @@ void EndpointAppPBX::action_dialing_help(void)
 	struct numbering *numbering = numbering_int;
 	char dialing[sizeof(e_dialinginfo.id)];
 	int i;
-	struct message *message;
+	struct lcr_msg *message;
 	struct route_param *rparam;
 
 	/* in case we have no menu (this should never happen) */
@@ -2222,7 +2222,7 @@ void EndpointAppPBX::action_dialing_password_wr(void)
 void EndpointAppPBX::process_dialing(void)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
-	struct message *message;
+	struct lcr_msg *message;
 	struct route_param *rparam;
 
 //#warning Due to HANG-BUG somewhere here, I added some HANG-BUG-DEBUGGING output that cannot be disabled. after bug has been found, this will be removed.
