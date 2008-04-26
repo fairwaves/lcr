@@ -35,7 +35,7 @@ LCR = ./lcr
 LCRADMIN = ./lcradmin
 CFLAGS_LCRADMIN = -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-ASTERISK
-CHAN_LCR = ./chan_lcr
+CHAN_LCR = ./chan_lcr.so
 endif
 LCRWATCH = ./lcrwatch
 GEN = ./gentones
@@ -158,7 +158,10 @@ trace.o: trace.c *.h Makefile
 	$(PP) -c $(CFLAGS) trace.c -o trace.o
 
 chan_lcr.o: chan_lcr.c *.h Makefile
-	$(CC) -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
+	$(CC) -D_GNU_SOURCE  -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
+
+chan_lcr.so: chan_lcr.o *.h Makefile
+	gcc -shared -x $(LDFLAGS) -o chan_lcr.so chan_lcr.o
 
 bchannel.o: bchannel.c *.h Makefile
 	$(CC) -c $(CFLAGS) bchannel.c -o bchannel.o

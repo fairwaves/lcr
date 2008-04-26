@@ -40,12 +40,42 @@ with that reference.
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+
+#include <pthread.h>
+#include <semaphore.h>
+
 #include "extension.h"
 #include "message.h"
 #include "lcrsocket.h"
 #include "cause.h"
 #include "bchannel.h"
 #include "chan_lcr.h"
+
+
+
+#include <asterisk/module.h>
+#include <asterisk/channel.h>
+#include <asterisk/config.h>
+#include <asterisk/logger.h>
+#include <asterisk/pbx.h>
+#include <asterisk/options.h>
+#include <asterisk/io.h>
+#include <asterisk/frame.h>
+#include <asterisk/translate.h>
+#include <asterisk/cli.h>
+#include <asterisk/musiconhold.h>
+#include <asterisk/dsp.h>
+#include <asterisk/translate.h>
+#include <asterisk/file.h>
+#include <asterisk/callerid.h>
+#include <asterisk/indications.h>
+#include <asterisk/app.h>
+#include <asterisk/features.h>
+#include <asterisk/sched.h>
+
+int lcr_debug=1;
+int mISDN_created=1;
+
 
 int lcr_sock = -1;
 
@@ -185,14 +215,14 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			case BCHANNEL_ASSIGN:
 			if ((bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				fprintf(stderr, "error: bchannel handle %x already assigned.\n", param->bchannel.handle);
+				fprintf(stderr, "error: bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 			/* create bchannel */
 			bchannel = alloc_bchannel(param->bchannel.handle);
 			if (!bchannel)
 			{
-				fprintf(stderr, "error: alloc bchannel handle %x failed.\n", param->bchannel.handle);
+				fprintf(stderr, "error: alloc bchannel handle %x failed.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 
@@ -218,7 +248,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				bchannel->ref = ref;
 				call->bchannel_handle = param->bchannel.handle;
 #warning hier muesen alle stati gesetzt werden falls sie vor dem b-kanal verfügbar waren
-				bchannel_join(call->bridge_id);
+				bchannel_join(bchannel, call->bridge_id);
 			}
 			if (bchannel_create(bchannel))
 				bchannel_activate(bchannel, 1);
@@ -232,8 +262,8 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			case BCHANNEL_REMOVE:
 			if (!(bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				alle fprintf nach ast_log
-				fprintf(stderr, "error: bchannel handle %x not assigned.\n", param->bchannel.handle);
+				#warning alle fprintf nach ast_log
+				fprintf(stderr, "error: bchannel handle %x not assigned.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 			/* unlink from call */
@@ -305,56 +335,56 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 	switch(message_type)
 	{
 		case MESSAGE_SETUP:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_OVERLAP:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_PROCEEDING:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_ALERTING:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_CONNECT:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_DISCONNECT:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_RELEASE:
-todo
+#warning todo
 		free_call(call);
 		return(0);
 
 		case MESSAGE_INFORMATION:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_FACILITY:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_PATTERN:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_NOPATTERN:
-todo
+#warning todo
 		break;
 
 		case MESSAGE_AUDIOPATH:
-todo
+#warning todo
 		break;
 
 		default:
-unhandled
+#warning unhandled
 	}
 	return(0);
 }
@@ -371,6 +401,9 @@ int handle_socket(void)
 	struct admin_message msg;
 	struct admin_list *admin;
 
+	int sock;
+
+	#warning SOCKET FEHLT!
 	/* read from socket */
 	len = read(sock, &msg, sizeof(msg));
 	if (len == 0)
@@ -446,7 +479,6 @@ int open_socket(void)
 	char *socket_name = SOCKET_NAME;
 	int conn;
 	struct sockaddr_un sock_address;
-	int ret;
 	unsigned long on = 1;
 	union parameter param;
 
@@ -503,7 +535,7 @@ void lcr_thread(void)
 		work = 0;
 
 		/* handle socket */
-		ret = handle_socket();
+		int ret = handle_socket();
 		if (ret < 0)
 			break;
 		if (ret)
@@ -519,161 +551,105 @@ void lcr_thread(void)
 	}
 }
 
-/* call from asterisk (new instance) */
-static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
+static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 {
-	int port=0;
-	int r;
-	struct chan_list *ch=MISDN_ASTERISK_TECH_PVT(ast);
-	struct misdn_bchannel *newbc;
-	char *opts=NULL, *ext;
-	char dest_cp[256];
-	
-	{
-		strncpy(dest_cp,dest,sizeof(dest_cp)-1);
-		dest_cp[sizeof(dest_cp)]=0;
 
-		ext=dest_cp;
-		strsep(&ext,"/");
-		if (ext) {
-			opts=ext;
-			strsep(&opts,"/");
-		}  else {
-			ast_log(LOG_WARNING, "Malformed dialstring\n");
-			return -1;
-		}
-	}
-
-	if (!ast) {
-		ast_log(LOG_WARNING, " --> ! misdn_call called on ast_channel *ast where ast == NULL\n");
-		return -1;
-	}
-
-	if (((ast->_state != AST_STATE_DOWN) && (ast->_state != AST_STATE_RESERVED)) || !dest  ) {
-		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
-		ast->hangupcause=41;
-		ast_setstate(ast, AST_STATE_DOWN);
-		return -1;
-	}
-
-	if (!ch) {
-		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
-		ast->hangupcause=41;
-		ast_setstate(ast, AST_STATE_DOWN);
-		return -1;
-	}
-	
-	newbc=ch->bc;
-	
-	if (!newbc) {
-		ast_log(LOG_WARNING, " --> ! misdn_call called on %s, neither down nor reserved (or dest==NULL)\n", ast->name);
-		ast->hangupcause=41;
-		ast_setstate(ast, AST_STATE_DOWN);
-		return -1;
-	}
-	
-	port=newbc->port;
-
-	
-	chan_misdn_log(1, port, "* CALL: %s\n",dest);
-	
-	chan_misdn_log(2, port, " --> * dad:%s tech:%s ctx:%s\n",ast->exten,ast->name, ast->context);
-	
-	chan_misdn_log(3, port, " --> * adding2newbc ext %s\n",ast->exten);
-	if (ast->exten) {
-		int l = sizeof(newbc->dad);
-		strncpy(ast->exten,ext,sizeof(ast->exten));
-
-		strncpy(newbc->dad,ext,l);
-
-		newbc->dad[l-1] = 0;
-	}
-	newbc->rad[0]=0;
-	chan_misdn_log(3, port, " --> * adding2newbc callerid %s\n",AST_CID_P(ast));
-	if (ast_strlen_zero(newbc->oad) && AST_CID_P(ast) ) {
-
-		if (AST_CID_P(ast)) {
-			int l = sizeof(newbc->oad);
-			strncpy(newbc->oad,AST_CID_P(ast), l);
-			newbc->oad[l-1] = 0;
-		}
-	}
-
-	{
-		struct chan_list *ch=MISDN_ASTERISK_TECH_PVT(ast);
-		if (!ch) { ast_verbose("No chan_list in misdn_call\n"); return -1;}
-		
-		newbc->capability=ast->transfercapability;
-		pbx_builtin_setvar_helper(ast,"TRANSFERCAPABILITY",ast_transfercapability2str(newbc->capability));
-		if ( ast->transfercapability == INFO_CAPABILITY_DIGITAL_UNRESTRICTED) {
-			chan_misdn_log(2, port, " --> * Call with flag Digital\n");
-		}
-		
-
-		/* update screening and presentation */ 
-		update_config(ch,ORG_AST);
-		
-		/* fill in some ies from channel vary*/
-		import_ch(ast, newbc, ch);
-		
-		/* Finally The Options Override Everything */
-		if (opts)
-			misdn_set_opt_exec(ast,opts);
-		else
-			chan_misdn_log(2,port,"NO OPTS GIVEN\n");
-
-		/*check for bridging*/
-		int bridging;
-		misdn_cfg_get( 0, MISDN_GEN_BRIDGING, &bridging, sizeof(int));
-		if (bridging && ch->other_ch) {
-			chan_misdn_log(1, port, "Disabling EC (aka Pipeline) on both Sides\n");
-			*ch->bc->pipeline=0;
-			*ch->other_ch->bc->pipeline=0;
-		}
-		
-		r=misdn_lib_send_event( newbc, EVENT_SETUP );
-		
-		/** we should have l3id after sending setup **/
-		ch->l3id=newbc->l3_id;
-	}
-	
-	if ( r == -ENOCHAN  ) {
-		chan_misdn_log(0, port, " --> * Theres no Channel at the moment .. !\n");
-		chan_misdn_log(1, port, " --> * SEND: State Down pid:%d\n",newbc?newbc->pid:-1);
-		ast->hangupcause=34;
-		ast_setstate(ast, AST_STATE_DOWN);
-		return -1;
-	}
-	
-	chan_misdn_log(2, port, " --> * SEND: State Dialing pid:%d\n",newbc?newbc->pid:1);
-
-	ast_setstate(ast, AST_STATE_DIALING);
-	ast->hangupcause=16;
-
-wenn pattern available soll gestoppt werden, sonst nicht:	
-	if (newbc->nt) stop_bc_tones(ch);
-
-	ch->state=MISDN_CALLING;
-	
-	return 0; 
 }
 
 
-static struct ast_channel_tech misdn_tech = {
+/* call from asterisk (new instance) */
+static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
+{
+        struct lcr_pvt *lcr=ast->tech_pvt;
+
+        if (!lcr) return -1;
+
+        char buf[128];
+        char *port_str, *dad, *p;
+
+        ast_copy_string(buf, dest, sizeof(buf)-1);
+        p=buf;
+        port_str=strsep(&p, "/");
+        dad=strsep(&p, "/");
+
+        if (lcr_debug)
+                ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
+
+
+	return 0; 
+}
+
+static int lcr_answer(struct ast_channel *c)
+{
+        struct lcr_pvt *lcr=c->tech_pvt;
+        return 0;
+}
+
+static int lcr_hangup(struct ast_channel *c)
+{
+        struct lcr_pvt *lcr=c->tech_pvt;
+	c->tech_pvt=NULL;
+}
+
+
+static int lcr_write(struct ast_channel *c, struct ast_frame *f)
+{
+        struct lcr_pvt *lcrm= c->tech_pvt;
+}
+
+
+static struct ast_frame *lcr_read(struct ast_channel *c)
+{
+        struct lcr_pvt *lcr = c->tech_pvt;
+}
+
+static int lcr_indicate(struct ast_channel *c, int cond, const void *data, size_t datalen)
+{
+        int res = -1;
+
+        switch (cond) {
+                case AST_CONTROL_BUSY:
+                case AST_CONTROL_CONGESTION:
+                case AST_CONTROL_RINGING:
+                        return -1;
+                case -1:
+                        return 0;
+
+                case AST_CONTROL_VIDUPDATE:
+                        res = -1;
+                        break;
+                case AST_CONTROL_HOLD:
+                        ast_verbose(" << Console Has Been Placed on Hold >> \n");
+                        //ast_moh_start(c, data, g->mohinterpret);
+                        break;
+                case AST_CONTROL_UNHOLD:
+                        ast_verbose(" << Console Has Been Retrieved from Hold >> \n");
+                        //ast_moh_stop(c);
+                        break;
+
+                default:
+                        ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, c->name);
+                        return -1;
+        }
+
+        return 0;
+}
+
+static struct ast_channel_tech lcr_tech = {
 	.type="lcr",
 	.description="Channel driver for connecting to Linux-Call-Router",
-	.capabilities= je nach option?AST_FORMAT_ALAW:AST_FORMAT_ULAW ,
+	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
-	.send_digit=lcr_digit,
+//	.send_digit=lcr_digit,
 	.call=lcr_call,
-	.bridge=lcr_bridge, 
+//	.bridge=lcr_bridge, 
 	.hangup=lcr_hangup,
 	.answer=lcr_answer,
 	.read=lcr_read,
 	.write=lcr_write,
-	.indicate=lcr_indication,
-	.fixup=lcr_fixup,
-	.send_text=lcr_send_text,
+	.indicate=lcr_indicate,
+//	.fixup=lcr_fixup,
+//	.send_text=lcr_send_text,
 	.properties=0
 };
 
@@ -688,52 +664,23 @@ int load_module(void)
 //	lcr_cfg_update_ptp();
 
 	if (!(lcr_sock = open_socket())) {
-		ast_log(LOG_ERROR, "Unable to connect %s\n", misdn_type);
+		ast_log(LOG_ERROR, "Unable to connect\n");
 		lcr_sock = -1;
 		/* continue with closed socket */
 	}
 
 	if (!bchannel_initialize()) {
 		ast_log(LOG_ERROR, "Unable to open mISDN device\n");
-		unload_module();
 		return -1;
 	}
 	mISDN_created = 1;
 
 	if (ast_channel_register(&lcr_tech)) {
-		ast_log(LOG_ERROR, "Unable to register channel class %s\n", misdn_type);
-		unload_module();
+		ast_log(LOG_ERROR, "Unable to register channel class\n");
 		return -1;
 	}
   
-	ast_cli_register(&cli_show_lcr);
-	ast_cli_register(&cli_show_calls);
-
-	ast_cli_register(&cli_reload_routing);
-	ast_cli_register(&cli_reload_interfaces);
-	ast_cli_register(&cli_port_block);
-	ast_cli_register(&cli_port_unblock);
-  
-	ast_register_application("misdn_set_opt", misdn_set_opt_exec, "misdn_set_opt",
-				 "misdn_set_opt(:<opt><optarg>:<opt><optarg>..):\n"
-				 "Sets mISDN opts. and optargs\n"
-				 "\n"
-				 "The available options are:\n"
-				 "    d - Send display text on called phone, text is the optparam\n"
-				 "    n - don't detect dtmf tones on called channel\n"
-				 "    h - make digital outgoing call\n" 
-				 "    c - make crypted outgoing call, param is keyindex\n"
-				 "    e - perform echo cancelation on this channel,\n"
-				 "        takes taps as arguments (32,64,128,256)\n"
-				 "    s - send Non Inband DTMF as inband\n"
-				 "   vr - rxgain control\n"
-				 "   vt - txgain control\n"
-		);
-
-	
-	lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
-
-	chan_lcr_log(0, 0, "-- mISDN Channel Driver Registred -- (BE AWARE THIS DRIVER IS EXPERIMENTAL!)\n");
+	//lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
 
 	return 0;
 }
@@ -743,18 +690,7 @@ int unload_module(void)
 	/* First, take us out of the channel loop */
 	ast_log(LOG_VERBOSE, "-- Unregistering mISDN Channel Driver --\n");
 	
-	misdn_tasks_destroy();
 	
-	if (!g_config_initialized) return 0;
-	
-	ast_cli_unregister(&cli_show_lcr);
-	ast_cli_unregister(&cli_show_calls);
-	ast_cli_unregister(&cli_reload_routing);
-	ast_cli_unregister(&cli_reload_interfaces);
-	ast_cli_unregister(&cli_port_block);
-	ast_cli_unregister(&cli_port_unblock);
-	ast_unregister_application("misdn_set_opt");
-  
 	ast_channel_unregister(&lcr_tech);
 
 	if (mISDN_created) {
@@ -767,17 +703,18 @@ int unload_module(void)
 		lcr_sock = -1;
 	}
 
-	was ist mit dem mutex
-	
 	return 0;
 }
 
-int reload(void)
+static int reload_module(void)
 {
-	reload_config();
-
+//	reload_config();
 	return 0;
 }
+
+
+ast_mutex_t usecnt_lock;
+int usecnt;
 
 int usecount(void)
 {
@@ -787,6 +724,9 @@ int usecount(void)
 	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
+
+
+char *desc="Channel driver for lcr";
 
 char *description(void)
 {
@@ -798,4 +738,12 @@ char *key(void)
 	return ASTERISK_GPL_KEY;
 }
 
+#define AST_MODULE "chan_lcr"
+AST_MODULE_INFO(ASTERISK_GPL_KEY,
+                                AST_MODFLAG_DEFAULT,
+                                "Channel driver for lcr",
+                                .load = load_module,
+                                .unload = unload_module,
+                                .reload = reload_module,
+                           );
 
