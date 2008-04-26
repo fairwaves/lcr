@@ -76,6 +76,8 @@ with that reference.
 int lcr_debug=1;
 int mISDN_created=1;
 
+char lcr_type[]="LCR";
+
 
 int lcr_sock = -1;
 
@@ -551,18 +553,51 @@ void lcr_thread(void)
 	}
 }
 
+
+static struct ast_channel *lcr_ast_new(struct chan_call *call, char *exten, char *callerid, int ref);
+
 static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 {
+	struct ast_channel *ast=NULL;
 
+ 	char buf[128];
+        char *port_str, *ext, *p;
+        int port;
+
+        ast_copy_string(buf, data, sizeof(buf)-1);
+        p=buf;
+        port_str=strsep(&p, "/");
+        ext=strsep(&p, "/");
+        ast_verbose("portstr:%s ext:%s\n",port_str, ext);
+
+	sprintf(buf,"%s/%s",lcr_type,(char*)data);
+
+	struct chan_call *call=alloc_call();
+
+	if (call) {
+#warning hier muss jetzt wohl eine Ref angefordert werden!
+		ast=lcr_ast_new(call, ext, NULL, 0 );
+
+		if (ast) {
+			call->ast=ast;
+		} else {
+			ast_log(LOG_WARNING, "Could not create new Asterisk Channel\n");
+			free_call(call);
+		}
+	} else {
+		ast_log(LOG_WARNING, "Could not create new Lcr Call Handle\n");
+	}
+
+	return ast;
 }
 
 
 /* call from asterisk (new instance) */
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
-        struct lcr_pvt *lcr=ast->tech_pvt;
+        struct chan_call *call=ast->tech_pvt;
 
-        if (!lcr) return -1;
+        if (!call) return -1;
 
         char buf[128];
         char *port_str, *dad, *p;
@@ -575,32 +610,33 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
         if (lcr_debug)
                 ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
 
-
+#warning hier müssen wi eine der geholten REFs nehmen und ein SETUP schicken, die INFOS zum SETUP stehen im Ast pointer drin, bzw. werden hier übergeben.
+	
 	return 0; 
 }
 
 static int lcr_answer(struct ast_channel *c)
 {
-        struct lcr_pvt *lcr=c->tech_pvt;
+        struct chan_call *call=c->tech_pvt;
         return 0;
 }
 
 static int lcr_hangup(struct ast_channel *c)
 {
-        struct lcr_pvt *lcr=c->tech_pvt;
+        struct chan_call *call=c->tech_pvt;
 	c->tech_pvt=NULL;
 }
 
 
 static int lcr_write(struct ast_channel *c, struct ast_frame *f)
 {
-        struct lcr_pvt *lcrm= c->tech_pvt;
+        struct chan_call *callm= c->tech_pvt;
 }
 
 
 static struct ast_frame *lcr_read(struct ast_channel *c)
 {
-        struct lcr_pvt *lcr = c->tech_pvt;
+        struct chan_call *call = c->tech_pvt;
 }
 
 static int lcr_indicate(struct ast_channel *c, int cond, const void *data, size_t datalen)
@@ -636,7 +672,7 @@ static int lcr_indicate(struct ast_channel *c, int cond, const void *data, size_
 }
 
 static struct ast_channel_tech lcr_tech = {
-	.type="lcr",
+	.type=lcr_type,
 	.description="Channel driver for connecting to Linux-Call-Router",
 	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
@@ -652,6 +688,34 @@ static struct ast_channel_tech lcr_tech = {
 //	.send_text=lcr_send_text,
 	.properties=0
 };
+
+#warning das muss mal aus der config datei gelesen werden:
+char lcr_context[]="from-lcr";
+
+static struct ast_channel *lcr_ast_new(struct chan_call *call, char *exten, char *callerid, int ref)
+{
+	struct ast_channel *tmp;
+	char *cid_name = 0, *cid_num = 0;
+
+
+	if (callerid)
+                ast_callerid_parse(callerid, &cid_name, &cid_num);
+
+	tmp = ast_channel_alloc(1, AST_STATE_RESERVED, cid_num, cid_name, "", exten, "", 0, "%s/%d", lcr_type,  ref);
+
+	if (tmp) {
+		tmp->tech = &lcr_tech;
+		tmp->writeformat = AST_FORMAT_ALAW;
+		tmp->readformat = AST_FORMAT_ALAW;
+
+		ast_copy_string(tmp->context, lcr_context, AST_MAX_CONTEXT);
+
+	}
+
+	return tmp;
+}
+
+
 
 /*
  * cli
