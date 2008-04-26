@@ -656,31 +656,31 @@ static struct ast_channel_tech lcr_tech = {
 /*
  * cli
  */
-static int cli_show_lcr (int fd, int argc, char *argv[])
+static int lcr_show_lcr (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_show_calls (int fd, int argc, char *argv[])
+static int lcr_show_calls (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_reload_routing (int fd, int argc, char *argv[])
+static int lcr_reload_routing (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_reload_interfaces (int fd, int argc, char *argv[])
+static int lcr_reload_interfaces (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_port_block (int fd, int argc, char *argv[])
+static int lcr_port_block (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_port_unblock (int fd, int argc, char *argv[])
+static int lcr_port_unblock (int fd, int argc, char *argv[])
 {
 }
 
-static int cli_port_unload (int fd, int argc, char *argv[])
+static int lcr_port_unload (int fd, int argc, char *argv[])
 {
 }
 
