@@ -18,6 +18,8 @@ struct chan_call {
 	unsigned long		bchannel_handle;
 					/* reference to bchannel, if set */
 	unsigned short bridge_id; /* 0 = off, equal ids are bridged */
+
+	struct ast_channel *ast;
 };
 
 enum {
