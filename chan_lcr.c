@@ -11,22 +11,79 @@
 
 /*
 
-How does it work:
+Registering to LCR:
 
-To connect, open a socket and send a MESSAGE_HELLO to admin socket with
+To connect, open an LCR socket and send a MESSAGE_HELLO to socket with
 the application name. This name is unique an can be used for routing calls.
+Now the channel driver is linked to LCR and can receive and make calls.
 
-To make a call, send a MESSAGE_NEWREF and a new reference is received.
-When receiving a call, a new reference is received.
-The reference is received with MESSAGE_NEWREF.
 
-Make a MESSAGE_SETUP or receive a MESSAGE_SETUP with the reference.
+Call is initiated by LCR:
 
-To release call and reference, send or receive MESSAGE_RELEASE.
-From that point on, the ref is not valid, so no other message may be sent
-with that reference.
+If a call is received from LCR, a MESSAGE_NEWREF is received first.
+A new chan_call instance is created. The call reference (ref) is given by
+MESSAGE_NEWREF. The state is CHAN_LCR_STATE_IN_PREPARE.
+After receiving MESSAGE_SETUP from LCR, the ast_channel instance is created
+using ast_channel_alloc(1).  The setup information is given to asterisk.
+The new Asterisk instance pointer (ast) is stored to chan_call structure.
+The state changes to CHAN_LCR_STATE_IN_SETUP.
+
+
+Call is initiated by Asterisk:
+
+If a call is reveiced from Asterisk, a new chan_call instance is created.
+The new Asterisk instance pointer (ast) is stored to chan_call structure.
+A MESSASGE_NEWREF is sent to LCR requesting a new call reference (ref).
+The current call ref is set to 0, the state is CHAN_LCR_STATE_OUT_PREPARE.
+Further dialing information is queued.
+After the new callref is received by special MESSAGE_NEWREF reply, new ref
+is stored in the chan_call structure. 
+The setup information is sent to LCR using MESSAGE_SETUP.
+The state changes to CHAN_LCR_STATE_OUT_SETUP.
+
+
+Call is in process:
+
+During call process, messages are received and sent.
+The state changes accordingly.
+Any message is allowed to be sent to LCR at any time except MESSAGE_RELEASE.
+If a MESSAGE_OVERLAP is received, further dialing is required.
+Queued dialing information, if any, is sent to LCR using MESSAGE_DIALING.
+In this case, the state changes to CHAN_LCR_STATE_OUT_DIALING.
+
+
+Call is released by LCR:
+
+A MESSAGE_RELEASE is received with the call reference (ref) to be released.
+The current ref is set to 0, to indicate released reference.
+The state changes to CHAN_LCR_STATE_RELEASE.
+ast_queue_hangup() is called, if asterisk instance (ast) exists, if not,
+the chan_call instance is destroyed.
+After lcr_hangup() is called-back by Asterisk, the chan_call instance
+is destroyed, because the current ref is set to 0 and the state equals
+CHAN_LCR_STATE_RELEASE.
+If the ref is 0 and the state is not CHAN_LCR_STATE_RELEASE, see the proceedure
+"Call is released by Asterisk".
+
+
+Call is released by Asterisk:
+
+lcr_hangup() is called-back by Asterisk. If the call reference (ref) is set,
+a MESSAGE_RELEASE is sent to LCR and the chan_call instance is destroyed.
+If the ref is 0 and the state is not CHAN_LCR_STATE_RELEASE, the new state is
+set to CHAN_LCR_STATE_RELEASE.
+Later, if the MESSAGE_NEWREF reply is received, a MESSAGE_RELEASE is sent to
+LCR and the chan_call instance is destroyed.
+If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
+"Call is released by LCR".
 
 */
+
+locking asterisk process and handler
+reconnect after socket closed, release all calls.
+debug of call handling
+denke an alle info-elements in jeder message (from asterisk & from lcr)
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,6 +129,8 @@ with that reference.
 #include <asterisk/app.h>
 #include <asterisk/features.h>
 #include <asterisk/sched.h>
+
+CHAN_LCR_STATE // state description structure
 
 int lcr_debug=1;
 int mISDN_created=1;
@@ -123,6 +182,8 @@ struct chan_call *alloc_call(void)
 		callp = &((*callp)->next);
 
 	*callp = (struct chan_call *)malloc(sizeof(struct chan_call));
+	if (*callp)
+		memset(*callp, 0, sizeof(struct chan_call));
 	return(*callp);
 }
 
@@ -194,6 +255,145 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 	memcpy(&admin->msg.param, param, sizeof(union parameter));
 
 	return(0);
+}
+
+/*
+ * incoming setup from LCR
+ */
+static void lcr_in_setup(struct chan_call *call, int message_type, union parameter *param)
+{
+	struct ast_channel *ast;
+	union parameter newparam;
+
+	/* create asterisk channel instrance */
+	ast = ast_channel_alloc(1);
+	if (!ast)
+	{
+		/* release */
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
+		newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		send_message(MESSAGE_RELEASE, call->ref, &newparam);
+		/* remove call */
+		free_call(call);
+		return;
+	}
+	/* set ast pointer */
+	call->ast = ast;
+	
+	/* fill setup information */
+#warning todo: setup-info reinschreiben
+
+	/* send setup to asterisk */
+#warning todo: setup bei der asterisk triggern
+
+	/* change state */
+	call->state = CHAN_LCR_STATE_IN_SETUP;
+}
+
+/*
+ * incoming setup acknowledge from LCR
+ */
+static void lcr_in_overlap(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* send pending digits in dialque */
+	if (call->dialque)
+		send_dialing_to_lcr(call);
+	/* change to overlap state */
+	call->state = CHAN_LCR_STATE_OUT_DIALING;
+}
+
+/*
+ * incoming proceeding from LCR
+ */
+static void lcr_in_proceeding(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* change state */
+	call->state = CHAN_LCR_STATE_OUT_PROCEEDING;
+	/* send event to asterisk */
+	ast_queue_... todo
+}
+
+/*
+ * incoming alerting from LCR
+ */
+static void lcr_in_alerting(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* change state */
+	call->state = CHAN_LCR_STATE_OUT_ALERTING;
+	/* send event to asterisk */
+	ast_queue_... todo
+}
+
+/*
+ * incoming connect from LCR
+ */
+static void lcr_in_connect(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* change state */
+	call->state = CHAN_LCR_STATE_CONNECT;
+	/* copy connectinfo */
+	todo
+	/* send event to asterisk */
+	ast_queue_... todo
+}
+
+/*
+ * incoming disconnect from LCR
+ */
+static void lcr_in_disconnect(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* change state */
+	call->state = CHAN_LCR_STATE_IN_DISCONNECT;
+	/* copy disconnect info */
+	todo
+	/* send event to asterisk */
+	ast_queue_... todo
+}
+
+/*
+ * incoming setup acknowledge from LCR
+ */
+static void lcr_in_release(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* release ref */
+	call->ref = NULL;
+	/* change to release state */
+	call->state = CHAN_LCR_STATE_RELEASE;
+	/* copy release info */
+	todo
+	/* if we have an asterisk instance, send hangup, else we are done */
+	if (call->ast)
+	{
+		ast_queue_hangup(call->ast);
+	} else
+	{
+		free_call(call);
+	}
+	
+}
+
+/*
+ * incoming information from LCR
+ */
+static void lcr_in_information(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* copy digits */
+	todo and write them, maybe queue them for asterisk
+	/* send event to asterisk */
+	ast_queue_... todo
+}
+
+/*
+ * incoming information from LCR
+ */
+static void lcr_in_facility(struct chan_call *call, int message_type, union parameter *param)
+{
+	/* copy progress info */
+	todo and write them, maybe queue them for asterisk
+	/* send event to asterisk */
+	ast_queue_... todo
+	or maybe use bride info to forward facility.
 }
 
 /*
@@ -298,8 +498,13 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				fprintf(stderr, "illegal new ref %d received\n", ref);
 				return(-1);
 			}
+			/* allocate new call instance */
 			call = alloc_call();
+			/* new state */
+			call->state = CHAN_LCR_STATE_IN_PREPARE;
+			/* set ref */
 			call->ref = ref;
+			/* wait for setup (or release from asterisk) */
 		} else
 		{
 			/* new ref, as requested from this remote application */
@@ -312,8 +517,22 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				send_message(MESSAGE_RELEASE, ref, &newparam);
 				return(0);
 			}
+			/* store new ref */
 			call->ref = ref;
-#warning process call (send setup, if pending)
+			/* send pending setup info */
+			if (call->state == CHAN_LCR_STATE_OUT_PREPARE)
+				send_setup_to_lcr(call);
+			/* release if asterisk has signed off */
+			else if (call->state == CHAN_LCR_STATE_RELEASE)
+			{
+				/* send release */
+				newparam.disconnectinfo.cause = todo
+				newparam.disconnectinfo.location = todo
+				send_message(MESSAGE_RELEASE, ref, &newparam);
+				/* free call */
+				free_call(call);
+				return(0);
+			}
 		}
 		return(0);
 	}
@@ -335,40 +554,39 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 	switch(message_type)
 	{
 		case MESSAGE_SETUP:
-#warning todo
+		lcr_in_setup(call, message_type, param);
 		break;
 
 		case MESSAGE_OVERLAP:
-#warning todo
+		lcr_in_overlap(call, message_type, param);
 		break;
 
 		case MESSAGE_PROCEEDING:
-#warning todo
+		lcr_in_proceeding(call, message_type, param);
 		break;
 
 		case MESSAGE_ALERTING:
-#warning todo
+		lcr_in_alerting(call, message_type, param);
 		break;
 
 		case MESSAGE_CONNECT:
-#warning todo
+		lcr_in_connect(call, message_type, param);
 		break;
 
 		case MESSAGE_DISCONNECT:
-#warning todo
+		lcr_in_disconnect(call, message_type, param);
 		break;
 
 		case MESSAGE_RELEASE:
-#warning todo
-		free_call(call);
-		return(0);
+		lcr_in_release(call, message_type, param);
+		break;
 
 		case MESSAGE_INFORMATION:
-#warning todo
+		lcr_in_disconnect(call, message_type, param);
 		break;
 
 		case MESSAGE_FACILITY:
-#warning todo
+		lcr_in_disconnect(call, message_type, param);
 		break;
 
 		case MESSAGE_PATTERN:
@@ -526,6 +744,8 @@ void close_socket(int sock)
 }
 
 
+hander thread muss noch
+socket muss per timer fuer das öffnen checken
 void lcr_thread(void)
 {
 	int work;
@@ -551,13 +771,74 @@ void lcr_thread(void)
 	}
 }
 
-static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
+/*
+ * send setup info to LCR
+ * this function is called, when asterisk call is received and ref is received
+ */
+static void send_setup_to_lcr(struct chan_call *call)
 {
+	if (!ast || !call->ref)
+		return;
 
+	/* send setup message to LCR */
+	memset(&newparam, 0, sizeof(union parameter));
+	newparam.setup.xxxxxx = 
+	send_message(MESSAGE_SETUP, call->ref, &newparam);
+	/* change to outgoing setup state */
+	call->state = CHAN_LCR_STATE_OUT_SETUP;
 }
 
+/*
+ * send dialing info to LCR
+ * this function is called, when setup acknowledge is received and dialing
+ * info is available.
+ */
+static void send_dialing_to_lcr(struct chan_call *call)
+{
+	if (!ast || !call->ref || !call->dialque)
+		return;
+	
+	/* send setup message to LCR */
+	memset(&newparam, 0, sizeof(union parameter));
+	strncpy(newparam.dialinginfo.id, call->dialque, sizeof(newparam.dialinginfo.id)-1);
+	call->dialque[0] = '\0';
+	send_message(MESSAGE_INFORMATION, call->ref, &newparam);
+}
 
-/* call from asterisk (new instance) */
+/*
+ * new asterisk instance
+ */
+static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
+{
+	/* create call instance */
+	call = alloc_call();
+	if (!call)
+	{
+		/* failed to create instance */
+		return NULL;
+	}
+	/* create asterisk channel instrance */
+	ast = ast_channel_alloc(1);
+	if (!ast)
+	{
+		free_call(call);
+		/* failed to create instance */
+		return NULL;
+	}
+	/* link together */
+	ast->tech_pvt = call;
+	call->ast = ast;
+	/* send MESSAGE_NEWREF */
+	memset(&newparam, 0, sizeof(union parameter));
+	newparam.direction = 0; /* request from app */
+	send_message(MESSAGE_NEWREF, 0, &newparam);
+	/* set state */
+	call->state = CHAN_LCR_STATE_OUT_PREPARE;
+}
+
+/*
+ * call from asterisk
+ */
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
         struct lcr_pvt *lcr=ast->tech_pvt;
@@ -567,10 +848,15 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
         char buf[128];
         char *port_str, *dad, *p;
 
+	hier muss noch
         ast_copy_string(buf, dest, sizeof(buf)-1);
         p=buf;
         port_str=strsep(&p, "/");
         dad=strsep(&p, "/");
+
+	/* send setup message, if we already have a callref */
+	if (call->ref)
+		send_setup_to_lcr(call);
 
         if (lcr_debug)
                 ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
@@ -579,18 +865,67 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	return 0; 
 }
 
+static int lcr_digit(struct ast_channel *ast, char digit)
+{
+	char buf[]="x";
+
+	/* only pass IA5 number space */
+	if (digit > 126 || digit < 32)
+		return 0;
+
+	/* send information or queue them */
+	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING)
+	{
+		send_dialing_to_lcr(call);
+	} else
+	if (!call->ref
+	 && (call->state == CHAN_LCR_STATE_OUT_PREPARE || call->state == CHAN_LCR_STATE_OUT_SETUP));
+	{
+		*buf = digit;
+		strncat(call->dialque, buf, strlen(char->dialque)-1);
+	} else
+	{
+digits kommen, koennen aber nicht verwendet werden.
+	sollen wir sie als info senden (im connect zb.)
+	}
+}
+
 static int lcr_answer(struct ast_channel *c)
 {
         struct lcr_pvt *lcr=c->tech_pvt;
         return 0;
 }
 
-static int lcr_hangup(struct ast_channel *c)
+static int lcr_hangup(struct ast_channel *ast)
 {
-        struct lcr_pvt *lcr=c->tech_pvt;
-	c->tech_pvt=NULL;
-}
+        struct chan_call *call = ast->tech_pvt;
 
+	/* disconnect asterisk, maybe not required */
+	ast->tech_pvt = NULL;
+	if (ref)
+	{
+		/* release */
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
+		newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		send_message(MESSAGE_RELEASE, call->ref, &newparam);
+		/* remove call */
+		free_call(call);
+		return;
+	} else
+	{
+		/* ref is not set, due to prepare setup or release */
+		if (call->state == CHAN_LCR_STATE_RELEASE)
+		{
+			/* we get the response to our release */
+			free_call(call);
+		} else
+		{
+			/* during prepare, we change to release state */
+			call->state = CHAN_LCR_STATE_RELEASE;
+		}
+	} 
+}
 
 static int lcr_write(struct ast_channel *c, struct ast_frame *f)
 {
@@ -640,7 +975,7 @@ static struct ast_channel_tech lcr_tech = {
 	.description="Channel driver for connecting to Linux-Call-Router",
 	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
-//	.send_digit=lcr_digit,
+	.send_digit=lcr_digit,
 	.call=lcr_call,
 //	.bridge=lcr_bridge, 
 	.hangup=lcr_hangup,
@@ -853,7 +1188,7 @@ char *key(void)
 #define AST_MODULE "chan_lcr"
 AST_MODULE_INFO(ASTERISK_GPL_KEY,
                                 AST_MODFLAG_DEFAULT,
-                                "Channel driver for lcr",
+                                "Channel driver for LCR",
                                 .load = load_module,
                                 .unload = unload_module,
                                 .reload = reload_module,

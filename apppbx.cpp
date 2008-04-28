@@ -3437,6 +3437,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_mISDNsignal(portlist, message_type, param);
 		break;
 
+was ist hiermit
 #if 0
 		/* JOIN requests bchannel */
 		case MESSAGE_BCHANNEL: /* indicates the need of own bchannel access */

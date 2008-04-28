@@ -19,7 +19,7 @@ enum { /* interface types */
 };
 
 enum { /* number types */
-	INFO_NTYPE_UNKNOWN,
+	INFO_NTYPE_UNKNOWN = 0,
 	INFO_NTYPE_SUBSCRIBER,
 	INFO_NTYPE_NATIONAL,
 	INFO_NTYPE_INTERNATIONAL,
