@@ -85,6 +85,41 @@ debug of call handling
 denke an alle info-elements in jeder message (from asterisk & from lcr)
 ausloesen beim socket-verlust
 
+bei "ast_channel_alloc" kannste die Callerid und den type usw. setzten. 
+da kannste auch die calledPartyNum setzen. Um asterisk ein Setup zu schicken rufst du einfach "ast_pbx_start( channel ) " auf. Die ganzen queue baren indications und Controls findest du in "include/asterisk/frame.h"
+
+Also zusammenfassend:
+
+Messages die zum Asterisk gehen:
+
+SETUP - >                               ast_pbx_start(ast)
+	CONNECT ->                        ast_queue_control(ast, 
+			AST_CONTROL_ANSWER);
+PROCEEDING ->                 ast_queue_control(ast, 
+		AST_CONTROL_PROCEEDING);
+ALERTING  ->                       ast_queue_control(ast, 
+		AST_CONTROL_RINGING);
+DISCONNECT ->                  ast_queue_hangup(ast);
+
+Messages die vom Asterisk kommen:
+
+lcr_request -> NEWREF
+lcr_call -> SETUP
+lcr_answer -> CONNECT
+lcr_hangup -> RELEASE_(complete)
+	lcr_indicate(AST_CONTROL_RINGING) -> ALERTING
+	lcr_indicate(AST_CONTROL_PROCEEDING) -> PROCEEDING
+	lcr_indicate(AST_CONTROL_PROGRESS) -> PROGRESS
+	lcr_indicate(AST_CONTROL_BUSY) -> DISCONNECT ( cause=17 )
+	
+
+
+
+
+
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1209,12 +1244,15 @@ int load_module(void)
 
 	if (!bchannel_initialize()) {
 		ast_log(LOG_ERROR, "Unable to open mISDN device\n");
+		close_socket(lcr_sock);
 		return -1;
 	}
 	mISDN_created = 1;
 
 	if (ast_channel_register(&lcr_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel class\n");
+		bchannel_deinitialize();
+		close_socket(lcr_sock);
 		return -1;
 	}
  
@@ -1256,6 +1294,9 @@ int load_module(void)
 	if ((pthread_create(&chan_tid, NULL, chan_thread, arg)<0))
 	{
 		failed to create thread
+		bchannel_deinitialize();
+		close_socket(lcr_sock);
+		ast_channel_unregister(&lcr_tech);
 		return -1;
 	}
 	return 0;
