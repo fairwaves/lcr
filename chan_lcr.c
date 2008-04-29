@@ -754,6 +754,8 @@ static void *chan_thread(void *arg)
 {
 	int work;
 
+	pthread_mutex_lock(&chan_lock);
+
 	while(!quit)
 	{
 		work = 0;
@@ -777,6 +779,9 @@ static void *chan_thread(void *arg)
 			pthread_mutex_lock(&chan_lock);
 		}
 	}
+	
+	pthread_mutex_unlock(&chan_lock);
+
 	return NULL;
 }
 
