@@ -137,7 +137,9 @@ int mISDN_created=1;
 
 char lcr_type[]="LCR";
 
+pthread_t chan_tid;
 pthread_mutex_t chan_lock;
+int quit;
 
 int lcr_sock = -1;
 
@@ -747,13 +749,12 @@ void close_socket(int sock)
 }
 
 
-hander thread muss noch
 socket muss per timer fuer das öffnen checken
-void lcr_thread(void)
+static void *chan_thread(void *arg)
 {
 	int work;
 
-	while(42)
+	while(!quit)
 	{
 		work = 0;
 
@@ -776,6 +777,7 @@ void lcr_thread(void)
 			pthread_mutex_lock(&chan_lock);
 		}
 	}
+	return NULL;
 }
 
 /*
@@ -1245,6 +1247,12 @@ int load_module(void)
 	//lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
 #endif
 
+	quit = 1;	
+	if ((pthread_create(&chan_tid, NULL, chan_thread, arg)<0))
+	{
+		failed to create thread
+		return -1;
+	}
 	return 0;
 }
 
@@ -1252,7 +1260,9 @@ int unload_module(void)
 {
 	/* First, take us out of the channel loop */
 	ast_log(LOG_VERBOSE, "-- Unregistering mISDN Channel Driver --\n");
-	
+
+	quit = 1;
+	pthread_join(chan_tid, NULL);	
 	
 	ast_channel_unregister(&lcr_tech);
 
