@@ -83,7 +83,7 @@ locking asterisk process and handler
 reconnect after socket closed, release all calls.
 debug of call handling
 denke an alle info-elements in jeder message (from asterisk & from lcr)
-
+ausloesen beim socket-verlust
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,6 +137,7 @@ int mISDN_created=1;
 
 char lcr_type[]="LCR";
 
+pthread_mutex_t chan_lock;
 
 int lcr_sock = -1;
 
@@ -769,7 +770,11 @@ void lcr_thread(void)
 			work = 1;
 		
 		if (!work)
+		{
+			pthread_mutex_unlock(&chan_lock);
 			usleep(30000);
+			pthread_mutex_lock(&chan_lock);
+		}
 	}
 }
 
@@ -853,6 +858,8 @@ static void send_dialing_to_lcr(struct chan_call *call)
  */
 static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 {
+	pthread_mutex_lock(&chan_lock);
+
 	/* create call instance */
 	call = alloc_call();
 	if (!call)
@@ -877,6 +884,8 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 	send_message(MESSAGE_NEWREF, 0, &newparam);
 	/* set state */
 	call->state = CHAN_LCR_STATE_OUT_PREPARE;
+
+	pthread_mutex_unlock(&chan_lock);
 }
 
 /*
@@ -885,11 +894,12 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
         struct chan_call *call=ast->tech_pvt;
+        char buf[128];
+        char *port_str, *dad, *p;
 
         if (!call) return -1;
 
-        char buf[128];
-        char *port_str, *dad, *p;
+	pthread_mutex_lock(&chan_lock);
 
 	hier muss noch
         ast_copy_string(buf, dest, sizeof(buf)-1);
@@ -906,6 +916,7 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 
 #warning hier müssen wi eine der geholten REFs nehmen und ein SETUP schicken, die INFOS zum SETUP stehen im Ast pointer drin, bzw. werden hier übergeben.
 	
+	pthread_mutex_unlock(&chan_lock);
 	return 0; 
 }
 
@@ -913,9 +924,13 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 {
 	char buf[]="x";
 
+	if (!call) return -1;
+
 	/* only pass IA5 number space */
 	if (digit > 126 || digit < 32)
 		return 0;
+
+	pthread_mutex_lock(&chan_lock);
 
 	/* send information or queue them */
 	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING)
@@ -932,27 +947,32 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 digits kommen, koennen aber nicht verwendet werden.
 	sollen wir sie als info senden (im connect zb.)
 	}
+
+	pthread_mutex_unlock(&chan_lock);
+	
+	return(0);
 }
 
 static int lcr_answer(struct ast_channel *c)
 {
         struct chan_call *call=c->tech_pvt;
+	if (!call) return -1;
+	pthread_mutex_lock(&chan_lock);
+	pthread_mutex_unlock(&chan_lock);
         return 0;
 }
 
 static int lcr_hangup(struct ast_channel *ast)
 {
-<<<<<<< HEAD:chan_lcr.c
         struct chan_call *call = ast->tech_pvt;
-=======
-        struct chan_call *call=c->tech_pvt;
-	c->tech_pvt=NULL;
-}
->>>>>>> 350450b9cadc6107449fe2630843d4f898f680b7:chan_lcr.c
 
+	if (!call)
+		return 0;
+
+	pthread_mutex_lock(&chan_lock);
 	/* disconnect asterisk, maybe not required */
 	ast->tech_pvt = NULL;
-	if (ref)
+	if (call->ref)
 	{
 		/* release */
 		memset(&newparam, 0, sizeof(union parameter));
@@ -961,7 +981,8 @@ static int lcr_hangup(struct ast_channel *ast)
 		send_message(MESSAGE_RELEASE, call->ref, &newparam);
 		/* remove call */
 		free_call(call);
-		return;
+		pthread_mutex_unlock(&chan_lock);
+		return 0;
 	} else
 	{
 		/* ref is not set, due to prepare setup or release */
@@ -975,29 +996,42 @@ static int lcr_hangup(struct ast_channel *ast)
 			call->state = CHAN_LCR_STATE_RELEASE;
 		}
 	} 
+	pthread_mutex_unlock(&chan_lock);
+	return 0;
 }
 
 static int lcr_write(struct ast_channel *c, struct ast_frame *f)
 {
-        struct chan_call *callm= c->tech_pvt;
+        struct chan_call *call= c->tech_pvt;
+	if (!call) return 0;
+	pthread_mutex_lock(&chan_lock);
+	pthread_mutex_unlock(&chan_lock);
 }
 
 
 static struct ast_frame *lcr_read(struct ast_channel *c)
 {
         struct chan_call *call = c->tech_pvt;
+	if (!call) return 0;
+	pthread_mutex_lock(&chan_lock);
+	pthread_mutex_unlock(&chan_lock);
 }
 
 static int lcr_indicate(struct ast_channel *c, int cond, const void *data, size_t datalen)
 {
         int res = -1;
+	if (!call) return -1;
+
+	pthread_mutex_lock(&chan_lock);
 
         switch (cond) {
                 case AST_CONTROL_BUSY:
                 case AST_CONTROL_CONGESTION:
                 case AST_CONTROL_RINGING:
+			pthread_mutex_unlock(&chan_lock);
                         return -1;
                 case -1:
+			pthread_mutex_unlock(&chan_lock);
                         return 0;
 
                 case AST_CONTROL_VIDUPDATE:
@@ -1014,9 +1048,11 @@ static int lcr_indicate(struct ast_channel *c, int cond, const void *data, size_
 
                 default:
                         ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, c->name);
+			pthread_mutex_unlock(&chan_lock);
                         return -1;
         }
 
+	pthread_mutex_unlock(&chan_lock);
         return 0;
 }
 
@@ -1156,6 +1192,8 @@ int load_module(void)
 
 //	lcr_cfg_update_ptp();
 
+	pthread_mutex_init(&chan_lock, NULL);
+	
 	if (!(lcr_sock = open_socket())) {
 		ast_log(LOG_ERROR, "Unable to connect\n");
 		lcr_sock = -1;
