@@ -9,19 +9,10 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "main.h"
-#define __u8 unsigned char
-#define __u16 unsigned short
-#define __u32 unsigned long
-#include "linux/isdnif.h"
+//#define __u8 unsigned char
+//#define __u16 unsigned short
+//#define __u32 unsigned long
 
 
 /* notify endpoint about state change (if any) */

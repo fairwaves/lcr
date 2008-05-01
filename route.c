@@ -231,6 +231,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_APPLICATION,
 	  "application",PARAM_TYPE_STRING,
 	  "application=<name>", "Name of remote application to make call to."},
+	{ PARAM_EXTEN,
+	  "exten",	PARAM_TYPE_STRING,
+	  "exten=<extension>", "Give exten parameter to the remote application."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -249,7 +252,7 @@ struct action_defs action_defs[] = {
 	  "Same as 'extern'"},
 	{ ACTION_REMOTE,
 	  "remote",	&EndpointAppPBX::action_init_remote, &EndpointAppPBX::action_dialing_remote, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_TIMEOUT,
+	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_EXTEN | PARAM_TIMEOUT,
 	  "Call is routed to Remote application, like Asterisk."},
 	{ ACTION_VBOX_RECORD,
 	  "vbox-record",&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_vbox_record, &EndpointAppPBX::action_hangup_call,
@@ -1962,8 +1965,8 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	e_match_timeout = 0; /* no timeout */
 	e_match_to_action = NULL;
 
-	SCPY(callerid, numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
-	SCPY(redirid, numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype));
+	SCPY(callerid, numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international));
+	SCPY(redirid, numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype, options.national, options.international));
 	
 	PDEBUG(DEBUG_ROUTE, "parsing ruleset '%s'\n", ruleset->name);
 	while(rule)

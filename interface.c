@@ -1356,13 +1356,13 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 		}
 		if (ifmsn)
 		{
-			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (found in MSN list)");
+			start_trace(0, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, DIRECTION_IN, 0, 0, "SCREEN (found in MSN list)");
 			add_trace("msn", NULL, "%s", id);
 			end_trace();
 		}
 		if (!ifmsn && msn1) // not in list, first msn given
 		{
-			start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, DIRECTION_IN, 0, 0, "SCREEN (not found in MSN list)");
+			start_trace(0, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, DIRECTION_IN, 0, 0, "SCREEN (not found in MSN list)");
 			add_trace("msn", "given", "%s", id);
 			add_trace("msn", "used", "%s", msn1);
 			end_trace();
@@ -1395,7 +1395,7 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 	}
 	if (ifscreen) // match
 	{
-		start_trace(0, interface, numberrize_callerinfo(id, *type), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (found in screen list)");
+		start_trace(0, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (found in screen list)");
 		switch(*type)
 		{
 			case INFO_NTYPE_UNKNOWN:

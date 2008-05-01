@@ -10,14 +10,6 @@
 \*****************************************************************************/ 
 
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <poll.h>
 #include "main.h"
 
 class EndpointAppPBX *apppbx_first = NULL;
@@ -146,7 +138,7 @@ void EndpointAppPBX::trace_header(char *name, int direction)
 	/* init trace with given values */
 	start_trace(0,
 		    NULL,
-		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype),
+		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international),
 		    e_dialinginfo.id,
 		    direction,
 		    CATEGORY_EP,
@@ -282,7 +274,7 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 				} else
 				{
 					/* numberrize caller id and use it to dial to the callback */
-					SCPY(e_dialinginfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype));
+					SCPY(e_dialinginfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype, options.national, options.international));
 				}
 				e_dialinginfo.itype = INFO_ITYPE_ISDN;
 				e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
@@ -338,7 +330,7 @@ char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int
 	static char display[81];
 
 	display[0] = '\0';
-	char *cid = numberrize_callerinfo(id, ntype);
+	char *cid = numberrize_callerinfo(id, ntype, options.national, options.international);
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d extension='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (extension)?extension:"NULL", (name)?name:"NULL");
 
@@ -1031,7 +1023,7 @@ void EndpointAppPBX::out_setup(void)
 			if (message->param.setup.callerinfo.id[0] && e_ext.clip_prefix[0])
 			{
 				SCPY(message->param.setup.callerinfo.id, e_ext.clip_prefix);
-				SCAT(message->param.setup.callerinfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype));
+				SCAT(message->param.setup.callerinfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype, options.national, options.international));
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
 			/* use internal caller id */
@@ -1996,7 +1988,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
 	/* signal to call tool */
-	admin_call_response(e_adminid, ADMIN_CALL_CONNECT, numberrize_callerinfo(param->connectinfo.id,param->connectinfo.ntype), 0, 0, 0);
+	admin_call_response(e_adminid, ADMIN_CALL_CONNECT, numberrize_callerinfo(param->connectinfo.id,param->connectinfo.ntype, options.national, options.international), 0, 0, 0);
 
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_connectinfo));
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing all other ports (start)\n", ea_endpoint->ep_serial);
@@ -2082,7 +2074,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			port = find_port_id(portlist->port_id);
 			if (port)
 			{
-				SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype));
+				SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype, options.national, options.international));
 				e_connectinfo.present = INFO_PRESENT_ALLOWED;
 			}
 		}
@@ -2415,7 +2407,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 	char buffer[64];
 
 	/* signal to call tool */
-	admin_call_response(e_adminid, ADMIN_CALL_NOTIFY, numberrize_callerinfo(param->notifyinfo.id,param->notifyinfo.ntype), 0, 0, param->notifyinfo.notify);
+	admin_call_response(e_adminid, ADMIN_CALL_NOTIFY, numberrize_callerinfo(param->notifyinfo.id,param->notifyinfo.ntype, options.national, options.international), 0, 0, param->notifyinfo.notify);
 	if (param->notifyinfo.notify)
 	{
 		e_rx_state = track_notify(e_rx_state, param->notifyinfo.notify);
@@ -2972,7 +2964,7 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 		if (e_ext.number[0] && message->param.connectinfo.id[0] && e_ext.clip_prefix[0])
 		{
 			SCPY(message->param.connectinfo.id, e_ext.clip_prefix);
-			SCAT(message->param.connectinfo.id, numberrize_callerinfo(e_connectinfo.id,e_connectinfo.ntype));
+			SCAT(message->param.connectinfo.id, numberrize_callerinfo(e_connectinfo.id,e_connectinfo.ntype, options.national, options.international));
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 		}
 
@@ -3437,7 +3429,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_mISDNsignal(portlist, message_type, param);
 		break;
 
-was ist hiermit
+#warning was ist hiermit
 #if 0
 		/* JOIN requests bchannel */
 		case MESSAGE_BCHANNEL: /* indicates the need of own bchannel access */
@@ -4057,7 +4049,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("from", NULL, "CH(%lu)", port_id);
 		if (param->setup.callerinfo.extension[0])
 			add_trace("extension", NULL, "%s", param->setup.callerinfo.extension);
-		add_trace("caller id", "number", "%s", numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype));
+		add_trace("caller id", "number", "%s", numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international));
 		switch(param->setup.callerinfo.present)
 		{
 		      	case INFO_PRESENT_RESTRICTED:
@@ -4071,7 +4063,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		}
 		if (param->setup.redirinfo.id[0])
 		{
-			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(param->setup.redirinfo.id, param->setup.redirinfo.ntype));
+			add_trace("redir'ing", "number", "%s", numberrize_callerinfo(param->setup.redirinfo.id, param->setup.redirinfo.ntype, options.national, options.international));
 			switch(param->setup.redirinfo.present)
 			{
 				case INFO_PRESENT_RESTRICTED:
@@ -4124,7 +4116,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("from", NULL, "CH(%lu)", port_id);
 		if (param->connectinfo.extension[0])
 			add_trace("extension", NULL, "%s", param->connectinfo.extension);
-		add_trace("connect id", "number", "%s", numberrize_callerinfo(param->connectinfo.id, param->connectinfo.ntype));
+		add_trace("connect id", "number", "%s", numberrize_callerinfo(param->connectinfo.id, param->connectinfo.ntype, options.national, options.international));
 		switch(param->connectinfo.present)
 		{
 		      	case INFO_PRESENT_RESTRICTED:
@@ -4271,7 +4263,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("indicator", NULL, "%s", logtext);
 		if (param->notifyinfo.id[0])
 		{
-			add_trace("redir'on", "number", "%s", numberrize_callerinfo(param->notifyinfo.id, param->notifyinfo.ntype));
+			add_trace("redir'on", "number", "%s", numberrize_callerinfo(param->notifyinfo.id, param->notifyinfo.ntype, options.national, options.international));
 			switch(param->notifyinfo.present)
 			{
 				case INFO_PRESENT_RESTRICTED:

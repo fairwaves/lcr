@@ -37,6 +37,8 @@ wir koennen informationen, wie notifys einfach parallel zur bridge weiterreichen
 
 call transfer
 
+doku: remote, exten
+
 doku: action execute geht mit fork
 
 doku: rx_vol -> rx_gain 

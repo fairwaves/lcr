@@ -50,36 +50,14 @@ enum {
 };
 
 #ifdef SOCKET_MISDN
-int bchannel_socket = -1;
 
 int bchannel_initialize(void)
 {
-	/* try to open raw socket to check kernel */
-	bchannel_socket = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
-	if (bchannel_socket < 0)
-	{
-		PERROR("Cannot open mISDN due to %s. (Does your Kernel support socket based mISDN?)\n", strerror(errno));
-		return(-1);
-	}
-
-	mISDN_debug_init(global_debug, NULL, NULL, NULL);
-
-	bchannel_pid = get_pid();
-
-	/* init mlayer3 */
-	init_layer3(4); // buffer of 4
-
 	return(0);
 }
 
 void bchannel_deinitialize(void)
 {
-	cleanup_layer3();
-
-	mISDN_debug_close();
-
-	if (bchannel_socket > -1)
-		close(bchannel_socket);
 }
 #else
 int bchannel_entity = 0; /* used for udevice */
@@ -850,7 +828,17 @@ void free_bchannel(struct bchannel *channel)
 #else
 			if (channel->b_stid)
 #endif
-				bchannel_destroy(channel);
+			bchannel_destroy(channel);
+			if (channel->call)
+			{
+				if (channel->call->channel)
+					channel->call->channel = NULL;
+			}
+			if (channel->bridge_channel)
+			{
+				if (channel->bridge_channel->bridge_channel)
+					channel->bridge_channel->bridge_channel = NULL;
+			}
 			free(channel);
 			return;
 		}

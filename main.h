@@ -150,6 +150,7 @@ extern "C" {
 #include "endpoint.h"
 #include "endpointapp.h"
 #include "apppbx.h"
+#include "callerid.h"
 #include "route.h"
 #include "port.h"
 #include "mISDN.h"

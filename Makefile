@@ -127,6 +127,9 @@ endpointapp.o: endpointapp.cpp *.h Makefile
 apppbx.o: apppbx.cpp *.h Makefile
 	$(PP) -c $(CFLAGS) apppbx.cpp -o apppbx.o
 
+callerid.o: callerid.c *.h Makefile
+	$(PP) -c $(CFLAGS) callerid.c -o callerid.o
+
 join.o: join.cpp *.h Makefile
 	$(PP) -c $(CFLAGS) join.cpp -o join.o
 
@@ -187,6 +190,7 @@ $(LCR): main.o \
 	endpoint.o \
 	endpointapp.o \
 	apppbx.o \
+	callerid.o \
 	crypt.o \
 	action.o \
 	action_vbox.o \
@@ -214,6 +218,7 @@ $(LCR): main.o \
 	endpoint.o \
 	endpointapp.o \
 	apppbx.o \
+	callerid.o \
 	crypt.o \
 	action.o \
 	action_vbox.o \

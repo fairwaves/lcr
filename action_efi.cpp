@@ -9,13 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "main.h"
 
 enum {
@@ -107,7 +100,7 @@ void EndpointAppPBX::efi_message_eof(void)
 		e_efi_digit = 0;
 		// fall through
 		case EFI_STATE_DIGIT:
-		digit[8] = numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype)[e_efi_digit];
+		digit[8] = numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype, options.national, options.international)[e_efi_digit];
 		if (digit[8])
 		{
 			set_tone_efi(digit);

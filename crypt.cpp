@@ -140,14 +140,10 @@ the message type is encoded as element
 
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
+#include "main.h"
 #ifdef CRYPTO
 #include <openssl/rsa.h>
 #endif
-#include "main.h"
 
 
 /* convert key string to binary key vector
@@ -1831,7 +1827,7 @@ void EndpointAppPBX::encrypt_shared(void)
 			errstr = "No Remote ID";
 			goto reject;
 		}
-		ret = parse_secrets((char *)e_ext.number, (char *)numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype), &auth_pointer, &crypt_pointer, &key_pointer);
+		ret = parse_secrets((char *)e_ext.number, (char *)numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international), &auth_pointer, &crypt_pointer, &key_pointer);
 	}
 	if (!ret)
 	{

@@ -9,23 +9,10 @@
 **                                                                           **
 \*****************************************************************************/
 
-#include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
-#include <sys/types.h>
-//#include <sys/stat.h>
-//#include <unistd.h>
-//#include <signal.h>
-//#include <fcntl.h>
-#include <sys/ioctl.h>
-//#include <sys/file.h>
-//#include <errno.h>
-//#include <sys/mman.h>
-//#include <sys/resource.h>
+#include "main.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <curses.h>
-#include "main.h"
 
 
 char *socket_name = SOCKET_NAME;
@@ -274,7 +261,7 @@ int admin_route(struct admin_queue **responsep)
 			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 			start_trace(0,
 				NULL,
-				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype),
+				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype, options.national, options.international),
 				apppbx->e_dialinginfo.id,
 				DIRECTION_NONE,
 		   		CATEGORY_EP,
@@ -516,7 +503,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 		FATAL("No memory for Endpoint Application instance\n");
 	apppbx->e_adminid = admin->sockserial;
 	admin->epointid = epoint->ep_serial;
-	SCPY(apppbx->e_callerinfo.id, nationalize_callerinfo(msg->u.call.callerid, &apppbx->e_callerinfo.ntype));
+	SCPY(apppbx->e_callerinfo.id, nationalize_callerinfo(msg->u.call.callerid, &apppbx->e_callerinfo.ntype, options.national, options.international));
 	if (msg->u.call.present)
 		apppbx->e_callerinfo.present = INFO_PRESENT_ALLOWED;
 	else

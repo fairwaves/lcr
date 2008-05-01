@@ -317,7 +317,7 @@ void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *ms
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:0,
 		    (mISDNport)?((mISDNport->ifport)?mISDNport->ifport->interface:NULL):NULL,
-		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
+		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
 		    direction,
 		    CATEGORY_CH,
@@ -428,7 +428,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:0,
 		    mISDNport?mISDNport->ifport->interface:NULL,
-		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype):NULL,
+		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
 		    direction,
 		    CATEGORY_CH,

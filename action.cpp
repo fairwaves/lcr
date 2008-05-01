@@ -9,61 +9,9 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <poll.h>
 #include "main.h"
-#include "linux/isdnif.h"
 
 extern char **environ;
-
-
-/* create caller id from digits by comparing with national and international
- * prefixes.
- */
-char *nationalize_callerinfo(char *string, int *ntype)
-{
-	if (!strncmp(options.international, string, strlen(options.international)))
-	{
-		*ntype = INFO_NTYPE_INTERNATIONAL;
-		return(string+strlen(options.international)); 
-	}
-	if (!strncmp(options.national, string, strlen(options.national)))
-	{
-		*ntype = INFO_NTYPE_NATIONAL;
-		return(string+strlen(options.national)); 
-	}
-	*ntype = INFO_NTYPE_SUBSCRIBER;
-	return(string);
-}
-
-/* create number (including access codes) from caller id
- * prefixes.
- */
-char *numberrize_callerinfo(char *string, int ntype)
-{
-	static char result[256];
-
-	switch(ntype)
-	{
-		case INFO_NTYPE_INTERNATIONAL:
-		UCPY(result, options.international);
-		SCAT(result, string);
-		return(result);
-		break;
-
-		case INFO_NTYPE_NATIONAL:
-		UCPY(result, options.national);
-		SCAT(result, string);
-		return(result);
-		break;
-
-		default:
-		return(string);
-	}
-}
 
 
 /*
@@ -126,7 +74,8 @@ void EndpointAppPBX::action_init_remote(void)
 	struct caller_info	callerinfo;
 	struct redir_info	redirinfo;
 	struct dialing_info	dialinginfo;
-	char remote[32];
+	char			exten[128] = "";
+	char 			remote[32];
 
 	if (!(rparam = routeparam(e_action, PARAM_APPLICATION)))
 	{
@@ -146,16 +95,23 @@ void EndpointAppPBX::action_init_remote(void)
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 
+	if ((rparam = routeparam(e_action, PARAM_EXTEN)))
+	{
+		SCPY(exten, rparam->string_value);
+	}
 	/* send setup to remote */
 	trace_header("ACTION remote (setup)", DIRECTION_NONE);
 	add_trace("number", NULL, dialinginfo.id);
 	add_trace("remote", NULL, remote);
+	if (exten[0])
+		add_trace("exten", NULL, remote);
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.capainfo, &capainfo, sizeof(struct capa_info));
+	SCPY(message->param.setup.exten, exten);
 	message_put(message);
 }
 
@@ -839,7 +795,7 @@ void EndpointAppPBX::_action_callerid_calleridnext(int next)
 				(!next)?e_ext.callerid_type:e_ext.id_next_call_type = INFO_NTYPE_UNKNOWN;
 			} else
 			{
-				SCPY((!next)?e_ext.callerid:e_ext.id_next_call, nationalize_callerinfo(callerid,&((!next)?e_ext.callerid_type:e_ext.id_next_call_type)));
+				SCPY((!next)?e_ext.callerid:e_ext.id_next_call, nationalize_callerinfo(callerid,&((!next)?e_ext.callerid_type:e_ext.id_next_call_type), options.national, options.international));
 			}
 			if (!next) e_ext.id_next_call_type = -1;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): nationalized callerid: '%s' type=%d\n", ea_endpoint->ep_serial, (!next)?e_ext.callerid:e_ext.id_next_call, (!next)?e_ext.callerid_type:e_ext.id_next_call_type);
@@ -855,9 +811,9 @@ void EndpointAppPBX::_action_callerid_calleridnext(int next)
 		trace_header("ACTION change-callerid (only next call)", DIRECTION_NONE);
 	else
 		trace_header("ACTION change-callerid (all future calls)", DIRECTION_NONE);
-	add_trace("old", "caller id", "%s", numberrize_callerinfo(old_id, old_type));
+	add_trace("old", "caller id", "%s", numberrize_callerinfo(old_id, old_type, options.national, options.international));
 	add_trace("old", "present", "%s", (old_present==INFO_PRESENT_RESTRICTED)?"restricted":"allowed");
-	add_trace("new", "caller id", "%s", numberrize_callerinfo(new_id, new_type));
+	add_trace("new", "caller id", "%s", numberrize_callerinfo(new_id, new_type, options.national, options.international));
 	add_trace("new", "present", "%s", (new_present==INFO_PRESENT_RESTRICTED)?"restricted":"allowed");
 	end_trace();
 	message_disconnect_port(portlist, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, "");
@@ -2063,7 +2019,7 @@ void EndpointAppPBX::action_hangup_execute(void)
 		argv[i++] = rparam->string_value;
 	}
 	argv[i++] = e_extdialing;
-	argv[i++] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype);
+	argv[i++] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international);
 	argv[i++] = e_callerinfo.extension;
 	argv[i++] = e_callerinfo.name;
 	SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
@@ -2548,7 +2504,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 		}
 
 		if (e_callerinfo.id[0])
-			SPRINT(callertext, "%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
+			SPRINT(callertext, "%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international));
 		else
 			SPRINT(callertext, "unknown");
 		/* allpy restriction */
@@ -2566,7 +2522,7 @@ void EndpointAppPBX::process_hangup(int cause, int location)
 			if (e_callerinfo.extension[0])
 				SPRINT(callertext, "intern:%s", e_callerinfo.extension);
 			else
-				SPRINT(callertext, "extern:%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype));
+				SPRINT(callertext, "extern:%s", numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international));
 			if (!!strcmp(callertext, e_ext.last_in[0]))
 			{
 				i = MAX_REMEMBER-1;

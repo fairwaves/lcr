@@ -801,7 +801,7 @@ void Port::close_record(int beep, int mute)
 //	apply_callerid_restriction(p_record_anon_ignore, callerinfo.id, &callerinfo.ntype, &callerinfo.present, &callerinfo.screen, callerinfo.extension, callerinfo.name);
 
 	SCPY(number, p_dialinginfo.id);
-	SCPY(callerid, numberrize_callerinfo(callerinfo.id, callerinfo.ntype));
+	SCPY(callerid, numberrize_callerinfo(callerinfo.id, callerinfo.ntype, options.national, options.international));
 	if (callerid[0] == '\0')
 	{
 		if (callerinfo.present == INFO_PRESENT_RESTRICTED)

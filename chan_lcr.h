@@ -10,16 +10,15 @@
 \*****************************************************************************/
 
 /* structure for all calls */
+struct bchannel;
 struct chan_call {
 	struct chan_call	*next;	/* link to next call instance */
 	int			state;	/* current call state CHAN_LCR_STATE */
 	unsigned long		ref;	/* callref for this channel */
 	struct ast_channel	*ast;	/* current asterisk channel */
-	unsigned long		bchannel_handle;
+	struct bchannel		*channel;
 					/* reference to bchannel, if set */
-	unsigned short bridge_id; /* 0 = off, equal ids are bridged */
-
-	struct ast_channel *ast;
+	int			cause, location;
 };
 
 enum {

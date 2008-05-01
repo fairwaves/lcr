@@ -26,7 +26,7 @@ enum { /* number types */
 };
 
 enum { /* number presentation */
-	INFO_PRESENT_NULL,
+	INFO_PRESENT_NULL = 0,
 	INFO_PRESENT_ALLOWED,
 	INFO_PRESENT_RESTRICTED,
 	INFO_PRESENT_NOTAVAIL,
@@ -38,7 +38,7 @@ enum { /* number presentation */
 };
 
 enum { /* redirection reason */
-	INFO_REDIR_UNKNOWN,
+	INFO_REDIR_UNKNOWN = 0,
 	INFO_REDIR_BUSY,
 	INFO_REDIR_NORESPONSE,
 	INFO_REDIR_UNCONDITIONAL,
@@ -257,6 +257,7 @@ struct message_setup {
 	struct redir_info redirinfo;		/* info on redirection (to the calling user) */
 	struct capa_info capainfo;		/* info on l2,l3 capability */
 	struct useruser_info useruser;		/* user-user */
+	char exten[128];			/* asterisk extension */
 };
 
 /* call-info structure PARK */

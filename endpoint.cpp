@@ -9,7 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
 #include "main.h"
 
 unsigned long epoint_serial = 1; /* initial value must be 1, because 0== no epoint */

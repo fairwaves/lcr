@@ -350,8 +350,6 @@ class EndpointAppPBX : public EndpointApp
 };
 
 
-char *nationalize_callerinfo(char *string, int *type);
-char *numberrize_callerinfo(char *string, int type);
 void apply_callerid_restriction(struct extension *ext, char *id, int *ntype, int *present, int *screen, char *extension, char *name);
 void send_mail(char *filename, char *callerid, char *callerintern, char *callername, char *vbox_email, int vbox_year, int vbox_mon, int vbox_mday, int vbox_hour, int vbox_min, char *terminal);
 

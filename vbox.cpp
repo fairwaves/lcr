@@ -13,16 +13,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <poll.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "main.h"
 
 /* note: recording log is written at endpoint */
@@ -60,7 +50,7 @@ static void vbox_trace_header(class VBoxPort *vbox, char *message, int direction
 	/* init trace with given values */
 	start_trace(0,
 		    NULL,
-		    vbox?numberrize_callerinfo(vbox->p_callerinfo.id, vbox->p_callerinfo.ntype):NULL,
+		    vbox?numberrize_callerinfo(vbox->p_callerinfo.id, vbox->p_callerinfo.ntype, options.national, options.international):NULL,
 		    vbox?vbox->p_dialinginfo.id:NULL,
 		    direction,
 		    CATEGORY_CH,

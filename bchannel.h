@@ -12,7 +12,7 @@
 
 struct bchannel {
 	struct bchannel *next;
-	unsigned long ref;		/* ref for link to call process */
+	struct chan_call *call;		/* ink to call process */
 	unsigned long handle;		/* handle for stack id */
 #ifdef SOCKET_MISDN
 	int b_sock;			/* socket for b-channel */
@@ -20,6 +20,9 @@ struct bchannel {
 	unsigned long b_stid;		/* stack id */
 	unsigned long b_addr;		/* channel address */
 #endif
+	unsigned short bridge_id;	/* bridge id */
+	struct bchannel *bridge_channel;
+					/* remote channel */
 	int b_state;
 	int b_txdata;
 	int b_delay;
