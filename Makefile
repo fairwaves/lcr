@@ -267,7 +267,7 @@ install:
 	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)
-ifdef WITH_ASTERISK
+ifdef WITH-ASTERISK
 	cp $(CHAN_LCR) $(INSTALL_BIN)
 endif
 #	cp $(LCRWATCH) $(INSTALL_BIN)

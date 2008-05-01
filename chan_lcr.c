@@ -79,10 +79,9 @@ If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
 
 */
 
-todo (before first compile)
-reconnect after socket closed, release all calls.
-debug of call handling
-ausloesen beim socket-verlust
+#warning reconnect after socket closed, release all calls.
+#warning debug of call handling
+#warning ausloesen beim socket-verlust
 
 
 #include <stdio.h>
@@ -101,14 +100,7 @@ ausloesen beim socket-verlust
 #include <pthread.h>
 #include <semaphore.h>
 
-#include "extension.h"
-#include "message.h"
-#include "lcrsocket.h"
-#include "cause.h"
-#include "bchannel.h"
-#include "chan_lcr.h"
-
-
+pthread_mutex_t chan_lock;
 
 #include <asterisk/module.h>
 #include <asterisk/channel.h>
@@ -130,16 +122,25 @@ ausloesen beim socket-verlust
 #include <asterisk/features.h>
 #include <asterisk/sched.h>
 
+#include "extension.h"
+#include "message.h"
+#include "lcrsocket.h"
+#include "cause.h"
+#include "bchannel.h"
+#include "chan_lcr.h"
+#include "callerid.h"
+
 CHAN_LCR_STATE // state description structure
 
 int lcr_debug=1;
 int mISDN_created=1;
 
-char lcr_type[]="LCR";
+char lcr_type[]="lcr";
 
 pthread_t chan_tid;
-pthread_mutex_t chan_lock;
 int quit;
+
+int glob_channel = 0;
 
 int lcr_sock = -1;
 
@@ -147,6 +148,8 @@ struct admin_list {
 	struct admin_list *next;
 	struct admin_msg msg;
 } *admin_first = NULL;
+
+static struct ast_channel_tech lcr_tech;
 
 /*
  * channel and call instances
@@ -166,6 +169,7 @@ struct chan_call *find_call_ref(unsigned long ref)
 	return(call);
 }
 
+#if 0
 struct chan_call *find_call_handle(unsigned long handle)
 {
 	struct chan_call *call = call_first;
@@ -178,6 +182,7 @@ struct chan_call *find_call_handle(unsigned long handle)
 	}
 	return(call);
 }
+#endif
 
 struct chan_call *alloc_call(void)
 {
@@ -201,10 +206,10 @@ void free_call(struct chan_call *call)
 		if (*temp == call)
 		{
 			*temp = (*temp)->next;
-			if (call->bch)
+			if (call->channel)
 			{
-				if (call->bch->call)
-					call->bch->call = NULL;
+				if (call->channel->call)
+					call->channel->call = NULL;
 			}
 			free(call);
 			return;
@@ -215,20 +220,20 @@ void free_call(struct chan_call *call)
 
 unsigned short new_brige_id(void)
 {
-	struct chan_call *call;
+	struct bchannel *channel;
 	unsigned short id = 1;
 
 	/* search for lowest bridge id that is not in use and not 0 */
 	while(id)
 	{
-		call = call_first;
-		while(call)
+		channel = bchannel_first;
+		while(channel)
 		{
-			if (call->bridge_id == id)
+			if (channel->bridge_id == id)
 				break;
-			call = call->next;
+			channel = channel->next;
 		}
-		if (!call)
+		if (!channel)
 			break;
 		id++;
 	}
@@ -268,6 +273,90 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 }
 
 /*
+ * send setup info to LCR
+ * this function is called, when asterisk call is received and ref is received
+ */
+static void send_setup_to_lcr(struct chan_call *call)
+{
+	union parameter newparam;
+
+	if (!call->ast || !call->ref)
+		return;
+
+	/* send setup message to LCR */
+	memset(&newparam, 0, sizeof(union parameter));
+       	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;	
+       	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;	
+	if (call->ast->cid.cid_num) if (call->ast->cid.cid_num[0])
+		strncpy(newparam.setup.callerinfo.id, call->ast->cid.cid_num, sizeof(newparam.setup.callerinfo.id)-1);
+	if (call->ast->cid.cid_name) if (call->ast->cid.cid_name[0])
+		strncpy(newparam.setup.callerinfo.name, call->ast->cid.cid_name, sizeof(newparam.setup.callerinfo.name)-1);
+	if (call->ast->cid.cid_rdnis) if (call->ast->cid.cid_rdnis[0])
+	{
+		strncpy(newparam.setup.redirinfo.id, call->ast->cid.cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
+       		newparam.setup.redirinfo.itype = INFO_ITYPE_CHAN;	
+ 	      	newparam.setup.redirinfo.ntype = INFO_NTYPE_UNKNOWN;	
+	}
+	switch(call->ast->cid.cid_pres & AST_PRES_RESTRICTION)
+	{
+		case AST_PRES_ALLOWED:
+		newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
+		break;
+		case AST_PRES_RESTRICTED:
+		newparam.setup.callerinfo.present = INFO_PRESENT_RESTRICTED;
+		break;
+		case AST_PRES_UNAVAILABLE:
+		newparam.setup.callerinfo.present = INFO_PRESENT_NOTAVAIL;
+		break;
+		default:
+		newparam.setup.callerinfo.present = INFO_PRESENT_NULL;
+	}
+	switch(call->ast->cid.cid_ton)
+	{
+		case 4:
+		newparam.setup.callerinfo.ntype = INFO_NTYPE_SUBSCRIBER;
+		break;
+		case 2:
+		newparam.setup.callerinfo.ntype = INFO_NTYPE_NATIONAL;
+		break;
+		case 1:
+		newparam.setup.callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
+		break;
+		default:
+		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
+	}
+	newparam.setup.capainfo.bearer_capa = call->ast->transfercapability;
+#warning todo
+//	newparam.setup.capainfo.bearer_user = alaw 3, ulaw 2;
+	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
+	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
+	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
+	send_message(MESSAGE_SETUP, call->ref, &newparam);
+
+	/* change to outgoing setup state */
+	call->state = CHAN_LCR_STATE_OUT_SETUP;
+}
+
+/*
+ * send dialing info to LCR
+ * this function is called, when setup acknowledge is received and dialing
+ * info is available.
+ */
+static void send_dialque_to_lcr(struct chan_call *call)
+{
+	union parameter newparam;
+
+	if (!call->ast || !call->ref || !call->dialque)
+		return;
+	
+	/* send setup message to LCR */
+	memset(&newparam, 0, sizeof(union parameter));
+	strncpy(newparam.information.id, call->dialque, sizeof(newparam.information.id)-1);
+	call->dialque[0] = '\0';
+	send_message(MESSAGE_INFORMATION, call->ref, &newparam);
+}
+
+/*
  * in case of a bridge, the unsupported message can be forwarded directly
  * to the remote call.
  */
@@ -291,8 +380,9 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	union parameter newparam;
 
 	/* create asterisk channel instrance */
-	ast = ast_channel_alloc(1);
-	if (!ast)
+#warning anstatt vom lcr "setup.exten" zu bekommen, sollten wir den context übertragen, der dann in der channel.conf zu dem richtigen ruleset führt.
+	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
+	if (!call->ast)
 	{
 		/* release */
 		memset(&newparam, 0, sizeof(union parameter));
@@ -310,48 +400,50 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	
 	/* fill setup information */
 	if (param->setup.exten[0])
-		strdup(ast->exten, param->setup.exten);
+		strncpy(ast->exten, param->setup.exten, AST_MAX_EXTENSION);
 	if (param->setup.callerinfo.id[0])
-		strdup(ast->cid->cid_num, param->setup.callerinfo.id);
+		ast->cid.cid_num = strdup(param->setup.callerinfo.id);
 	if (param->setup.callerinfo.name[0])
-		strdup(ast->cid->cid_name, param->setup.callerinfo.name);
+		ast->cid.cid_name = strdup(param->setup.callerinfo.name);
+#warning todo
+#if 0
 	if (param->setup.redirinfo.id[0])
-		strdup(ast->cid->cid_name, numberrize_callerinfo(param->setup.callerinfo.name, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
+		ast->cid.cid_name = strdup(numberrize_callerinfo(param->setup.callerinfo.name, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
+#endif
 	switch (param->setup.callerinfo.present)
 	{
 		case INFO_PRESENT_ALLOWED:
-			ast->cid->cid_pres = AST_PRESENT_ALLOWED;
+			ast->cid.cid_pres = AST_PRES_ALLOWED;
 		break;
 		case INFO_PRESENT_RESTRICTED:
-			ast->cid->cid_pres = AST_PRESENT_RESTRICTED;
+			ast->cid.cid_pres = AST_PRES_RESTRICTED;
 		break;
 		default:
-			ast->cid->cid_pres = AST_PRESENT_UNAVAILABLE;
+			ast->cid.cid_pres = AST_PRES_UNAVAILABLE;
 	}
 	switch (param->setup.callerinfo.ntype)
 	{
 		case INFO_NTYPE_SUBSCRIBER:
-			ast->cid->cid_ton = AST_wasnu;
+			ast->cid.cid_ton = 4;
 		break;
 		case INFO_NTYPE_NATIONAL:
-			ast->cid->cid_ton = AST_wasnu;
+			ast->cid.cid_ton = 2;
 		break;
 		case INFO_NTYPE_INTERNATIONAL:
-			ast->cid->cid_ton = AST_wasnu;
+			ast->cid.cid_ton = 1;
 		break;
 		default:
-			ast->cid->cid_ton = AST_wasnu;
+			ast->cid.cid_ton = 0;
 	}
-	ast->transfercapability = param->setup.bearerinfo.capability;
+	ast->transfercapability = param->setup.capainfo.bearer_capa;
 
 	/* configure channel */
-	ast->state = AST_STATE_RESERVED;
-	snprintf(ast->name, sizeof(ast->name), "%s/%d", lcr_type, ++glob_channel);
-	ast->name[sizeof(ast->name)-1] = '\0';
-	ast->type = lcr_type;
+#warning todo
+#if 0
 	ast->nativeformat = configfile->lawformat;
 	ast->readformat = ast->rawreadformat = configfile->lawformat;
 	ast->writeformat = ast->rawwriteformat = configfile->lawformat;
+#endif
 	ast->hangupcause = 0;
 
 	/* change state */
@@ -391,7 +483,7 @@ static void lcr_in_proceeding(struct chan_call *call, int message_type, union pa
 	call->state = CHAN_LCR_STATE_OUT_PROCEEDING;
 	/* send event to asterisk */
 	if (call->ast)
-		ast_queue_control(ast, AST_CONTROL_PROCEEDING);
+		ast_queue_control(call->ast, AST_CONTROL_PROCEEDING);
 }
 
 /*
@@ -403,7 +495,7 @@ static void lcr_in_alerting(struct chan_call *call, int message_type, union para
 	call->state = CHAN_LCR_STATE_OUT_ALERTING;
 	/* send event to asterisk */
 	if (call->ast)
-		ast_queue_control(ast, AST_CONTROL_RINGING);
+		ast_queue_control(call->ast, AST_CONTROL_RINGING);
 }
 
 /*
@@ -414,10 +506,10 @@ static void lcr_in_connect(struct chan_call *call, int message_type, union param
 	/* change state */
 	call->state = CHAN_LCR_STATE_CONNECT;
 	/* copy connectinfo */
-	memcpy(call->connectinfo, param->connectinfo, sizeof(struct connect_info));
+	memcpy(&call->connectinfo, &param->connectinfo, sizeof(struct connect_info));
 	/* send event to asterisk */
 	if (call->ast)
-		ast_queue_control(ast, AST_CONTROL_ANSWER);
+		ast_queue_control(call->ast, AST_CONTROL_ANSWER);
 }
 
 /*
@@ -430,8 +522,8 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	/* change state */
 	call->state = CHAN_LCR_STATE_IN_DISCONNECT;
 	/* save cause */
-	call->cause = param.disconnectinfo.cause;
-	call->location = param.disconnectinfo.location;
+	call->cause = param->disconnectinfo.cause;
+	call->location = param->disconnectinfo.location;
 	/* if bridge, forward disconnect and return */
 	if (call->channel)
 		if (call->channel->bridge_channel)
@@ -443,8 +535,8 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	/* release lcr */
 	newparam.disconnectinfo.cause = CAUSE_NORMAL;
 	newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-	send_message(MESSAGE_RELEASE, ref, &newparam);
-	ref = 0;
+	send_message(MESSAGE_RELEASE, call->ref, &newparam);
+	call->ref = 0;
 	/* release asterisk */
 	call->ast->hangupcause = call->cause;
 	ast_queue_hangup(call->ast);
@@ -458,12 +550,15 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 static void lcr_in_release(struct chan_call *call, int message_type, union parameter *param)
 {
 	/* release ref */
-	call->ref = NULL;
+	call->ref = 0;
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
 	/* copy release info */
 	if (!call->cause)
-	       call->cause = param.disconnectinfo.cause;
+	{
+	       call->cause = param->disconnectinfo.cause;
+	       call->location = param->disconnectinfo.location;
+	}
 	/* if we have an asterisk instance, send hangup, else we are done */
 	if (call->ast)
 	{
@@ -487,7 +582,7 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	if (!call->ast) return;
 	
 	/* copy digits */
-	p = param->dialinginfo.id;
+	p = param->information.id;
 	if (call->state == CHAN_LCR_STATE_IN_DIALING && *p)
 	{
 		while (*p)
@@ -577,10 +672,11 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			/* link to call */
 			if ((call = find_call_ref(ref)))
 			{
-				bchannel->ref = ref;
-				call->bchannel_handle = param->bchannel.handle;
+				bchannel->call = call;
+				call->channel = bchannel;
 #warning hier muesen alle stati gesetzt werden falls sie vor dem b-kanal verfügbar waren
-				bchannel_join(bchannel, call->bridge_id);
+				if (bchannel->bridge_id)
+					bchannel_join(bchannel, bchannel->bridge_id);
 			}
 			if (bchannel_create(bchannel))
 				bchannel_activate(bchannel, 1);
@@ -598,12 +694,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				fprintf(stderr, "error: bchannel handle %x not assigned.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
-			/* unlink from call */
-			if ((call = find_call_ref(bchannel->ref)))
-			{
-				call->bchannel_handle = 0;
-			}
-			/* destroy and remove bchannel */
+			/* unklink from call and destroy bchannel */
 			free_bchannel(bchannel);
 
 			/* acknowledge */
@@ -627,7 +718,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			/* new ref from lcr */
 			if (!ref || find_call_ref(ref))
 			{
-				fprintf(stderr, "illegal new ref %d received\n", ref);
+				fprintf(stderr, "illegal new ref %ld received\n", ref);
 				return(-1);
 			}
 			/* allocate new call instance */
@@ -658,8 +749,15 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			else if (call->state == CHAN_LCR_STATE_RELEASE)
 			{
 				/* send release */
-				newparam.disconnectinfo.cause = todo
-				newparam.disconnectinfo.location = todo
+				if (call->cause)
+				{
+					newparam.disconnectinfo.cause = call->cause;
+					newparam.disconnectinfo.location = call->location;
+				} else
+				{
+					newparam.disconnectinfo.cause = 16;
+					newparam.disconnectinfo.location = 5;
+				}
 				send_message(MESSAGE_RELEASE, ref, &newparam);
 				/* free call */
 				free_call(call);
@@ -739,6 +837,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 
 		default:
 #warning unhandled
+		break;
 	}
 	return(0);
 }
@@ -824,7 +923,7 @@ int handle_socket(void)
 }
 
 /*
- * open and close socket
+ * open and close socket and thread
  */
 int open_socket(void)
 {
@@ -879,8 +978,6 @@ void close_socket(int sock)
 		close(sock);
 }
 
-
-socket muss per timer fuer das öffnen checken
 static void *chan_thread(void *arg)
 {
 	int work;
@@ -917,133 +1014,12 @@ static void *chan_thread(void *arg)
 }
 
 /*
- * send setup info to LCR
- * this function is called, when asterisk call is received and ref is received
- */
-static void send_setup_to_lcr(struct chan_call *call)
-{
-	union parameter newparam;
-
-	if (!ast || !call->ref)
-		return;
-
-	/* send setup message to LCR */
-	memset(&newparam, 0, sizeof(union parameter));
-       	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;	
-       	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;	
-	if (ast->cid->cid_num) if (ast->cid->cid_num[0])
-		strncpy(newparam.setup.callerinfo.id, ast->cid->cid_num, sizeof(newparam.setup.callerinfo.id)-1);
-	if (ast->cid->cid_name) if (ast->cid->cid_name[0])
-		strncpy(newparam.setup.callerinfo.name, ast->cid->cid_name, sizeof(newparam.setup.callerinfo.name)-1);
-	if (ast->cid->cid_rdnis) if (ast->cid->cid_rdnis[0])
-	{
-		strncpy(newparam.setup.redirinfo.id, ast->cid->cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
-       		newparam.setup.redirinfo.itype = INFO_ITYPE_CHAN;	
- 	      	newparam.setup.redirinfo.ntype = INFO_NTYPE_UNKNOWN;	
-	}
-	switch(ast->cid->cid_pres & AST_PRES_RESTRICTION)
-	{
-		case AST_PRES_ALLOWED:
-		newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
-		break;
-		case AST_PRES_RESTRICTED:
-		newparam.setup.callerinfo.present = INFO_PRESENT_RESTRICTED;
-		break;
-		case AST_PRES_UNAVAILABLE:
-		newparam.setup.callerinfo.present = INFO_PRESENT_NOTAVAIL;
-		break;
-		default:
-		newparam.setup.callerinfo.present = INFO_PRESENT_NULL;
-	}
-	switch(ast->cid->cid_ton)
-	{
-		case AST_wasist:
-		newparam.setup.callerinfo.ntype = INFO_NTYPE_SUBSCRIBER;
-		break;
-		case AST_wasist:
-		newparam.setup.callerinfo.ntype = INFO_NTYPE_NATIONAL;
-		break;
-		case AST_wasist:
-		newparam.setup.callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
-		break;
-	}
-	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
-	newparam.setup.capainfo.bearer_user = alaw 3, ulaw 2;
-	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
-	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
-	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
-	send_message(MESSAGE_SETUP, call->ref, &newparam);
-
-	/* change to outgoing setup state */
-	call->state = CHAN_LCR_STATE_OUT_SETUP;
-}
-
-#if 0
-CHRISTIAN: das war ein konflikt beim pullen
-siehe anderes lcr_request();
-bedenke: das ast_log muss noch üeberall eingepflegt werden
-
-static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
-{
-	struct chan_call *call=alloc_call();
-
-	if (call) {
-#warning hier muss jetzt wohl eine Ref angefordert werden!
-		ast=lcr_ast_new(call, ext, NULL, 0 );
-
-		if (ast) {
-			call->ast=ast;
-		} else {
-			ast_log(LOG_WARNING, "Could not create new Asterisk Channel\n");
-			free_call(call);
-		}
-	} else {
-		ast_log(LOG_WARNING, "Could not create new Lcr Call Handle\n");
-	}
-
-	return ast;
-}
-
-	struct ast_channel *ast=NULL;
-
- 	char buf[128];
-        char *port_str, *ext, *p;
-        int port;
-
-        ast_copy_string(buf, data, sizeof(buf)-1);
-        p=buf;
-        port_str=strsep(&p, "/");
-        ext=strsep(&p, "/");
-        ast_verbose("portstr:%s ext:%s\n",port_str, ext);
-
-	sprintf(buf,"%s/%s",lcr_type,(char*)data);
-#endif
-
-/*
- * send dialing info to LCR
- * this function is called, when setup acknowledge is received and dialing
- * info is available.
- */
-static void send_dialque_to_lcr(struct chan_call *call)
-{
-	union parameter newparam;
-
-	if (!ast || !call->ref || !call->dialque)
-		return;
-	
-	/* send setup message to LCR */
-	memset(&newparam, 0, sizeof(union parameter));
-	strncpy(newparam.dialinginfo.id, call->dialque, sizeof(newparam.dialinginfo.id)-1);
-	call->dialque[0] = '\0';
-	send_message(MESSAGE_INFORMATION, call->ref, &newparam);
-}
-
-/*
  * new asterisk instance
  */
 static struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 {
 	union parameter newparam;
+	struct ast_channel *ast;
 
 	pthread_mutex_lock(&chan_lock);
 
@@ -1318,35 +1294,6 @@ static struct ast_channel_tech lcr_tech = {
 //	.send_text=lcr_send_text,
 	.properties=0
 };
-
-#warning das muss mal aus der config datei gelesen werden:
-char lcr_context[]="from-lcr";
-
-
-TODO: muss oben ins lcr_in setup und ins lcr_request
-static struct ast_channel *lcr_ast_new(struct chan_call *call, char *exten, char *callerid, int ref)
-{
-	struct ast_channel *tmp;
-	char *cid_name = 0, *cid_num = 0;
-
-
-	if (callerid)
-                ast_callerid_parse(callerid, &cid_name, &cid_num);
-
-	tmp = ast_channel_alloc(1, AST_STATE_RESERVED, cid_num, cid_name, "", exten, "", 0, "%s/%d", lcr_type,  ref);
-
-	if (tmp) {
-		tmp->tech = &lcr_tech;
-		tmp->writeformat = AST_FORMAT_ALAW;
-		tmp->readformat = AST_FORMAT_ALAW;
-
-		ast_copy_string(tmp->context, lcr_context, AST_MAX_CONTEXT);
-
-	}
-
-	return tmp;
-}
-
 
 
 /*

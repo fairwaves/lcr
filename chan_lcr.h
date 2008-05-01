@@ -19,6 +19,11 @@ struct chan_call {
 	struct bchannel		*channel;
 					/* reference to bchannel, if set */
 	int			cause, location;
+					/* store cause from lcr */
+	unsigned char		dialque[64];
+					/* queue dialing prior setup ack */
+	struct connect_info	connectinfo;
+					/* store connectinfo form lcr */
 };
 
 enum {
@@ -39,8 +44,8 @@ enum {
 };
 
 #define CHAN_LCR_STATE static const struct chan_lcr_state { \
-	char name, \
-	char meaning, \
+	char *name; \
+	char *meaning; \
 } chan_lcr_state[] = { \
 	{ "IN_PREPARE", \
 	  "New call from ISDN is waiting for setup." }, \
