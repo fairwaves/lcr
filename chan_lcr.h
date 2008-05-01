@@ -15,8 +15,8 @@ struct chan_call {
 	struct chan_call	*next;	/* link to next call instance */
 	int			state;	/* current call state CHAN_LCR_STATE */
 	unsigned long		ref;	/* callref for this channel */
-	struct ast_channel	*ast;	/* current asterisk channel */
-	struct bchannel		*channel;
+	void			*ast;	/* current asterisk channel */
+	struct bchannel		*bchannel;
 					/* reference to bchannel, if set */
 	int			cause, location;
 					/* store cause from lcr */
@@ -24,6 +24,10 @@ struct chan_call {
 					/* queue dialing prior setup ack */
 	struct connect_info	connectinfo;
 					/* store connectinfo form lcr */
+	int			bridge_id;
+					/* current ID or 0 */
+	struct chan_call	*bridge_call;
+					/* remote instance or NULL */
 };
 
 enum {

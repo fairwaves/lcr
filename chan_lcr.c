@@ -97,10 +97,7 @@ If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <pthread.h>
 #include <semaphore.h>
-
-pthread_mutex_t chan_lock;
 
 #include <asterisk/module.h>
 #include <asterisk/channel.h>
@@ -138,6 +135,7 @@ int mISDN_created=1;
 char lcr_type[]="lcr";
 
 pthread_t chan_tid;
+ast_mutex_t chan_lock;
 int quit;
 
 int glob_channel = 0;
@@ -170,6 +168,19 @@ struct chan_call *find_call_ref(unsigned long ref)
 }
 
 #if 0
+struct chan_call *find_call_ast(struct ast_channel *ast)
+{
+	struct chan_call *call = call_first;
+
+	while(call)
+	{
+		if (call->ast == ast)
+			break;
+		call = call->next;
+	}
+	return(call);
+}
+
 struct chan_call *find_call_handle(unsigned long handle)
 {
 	struct chan_call *call = call_first;
@@ -206,10 +217,15 @@ void free_call(struct chan_call *call)
 		if (*temp == call)
 		{
 			*temp = (*temp)->next;
-			if (call->channel)
+			if (call->bchannel)
 			{
-				if (call->channel->call)
-					call->channel->call = NULL;
+				if (call->bchannel->call)
+					call->bchannel->call = NULL;
+			}
+			if (call->bridge_call)
+			{
+				if (call->bridge_call->bridge_call)
+					call->bridge_call->bridge_call = NULL;
 			}
 			free(call);
 			return;
@@ -218,22 +234,22 @@ void free_call(struct chan_call *call)
 	}
 }
 
-unsigned short new_brige_id(void)
+unsigned short new_bridge_id(void)
 {
-	struct bchannel *channel;
+	struct chan_call *call;
 	unsigned short id = 1;
 
 	/* search for lowest bridge id that is not in use and not 0 */
 	while(id)
 	{
-		channel = bchannel_first;
-		while(channel)
+		call = call_first;
+		while(call)
 		{
-			if (channel->bridge_id == id)
+			if (call->bridge_id == id)
 				break;
-			channel = channel->next;
+			call = call->next;
 		}
-		if (!channel)
+		if (!call)
 			break;
 		id++;
 	}
@@ -279,6 +295,7 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 static void send_setup_to_lcr(struct chan_call *call)
 {
 	union parameter newparam;
+	struct ast_channel *ast = call->ast;
 
 	if (!call->ast || !call->ref)
 		return;
@@ -287,17 +304,17 @@ static void send_setup_to_lcr(struct chan_call *call)
 	memset(&newparam, 0, sizeof(union parameter));
        	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;	
        	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;	
-	if (call->ast->cid.cid_num) if (call->ast->cid.cid_num[0])
-		strncpy(newparam.setup.callerinfo.id, call->ast->cid.cid_num, sizeof(newparam.setup.callerinfo.id)-1);
-	if (call->ast->cid.cid_name) if (call->ast->cid.cid_name[0])
-		strncpy(newparam.setup.callerinfo.name, call->ast->cid.cid_name, sizeof(newparam.setup.callerinfo.name)-1);
-	if (call->ast->cid.cid_rdnis) if (call->ast->cid.cid_rdnis[0])
+	if (ast->cid.cid_num) if (ast->cid.cid_num[0])
+		strncpy(newparam.setup.callerinfo.id, ast->cid.cid_num, sizeof(newparam.setup.callerinfo.id)-1);
+	if (ast->cid.cid_name) if (ast->cid.cid_name[0])
+		strncpy(newparam.setup.callerinfo.name, ast->cid.cid_name, sizeof(newparam.setup.callerinfo.name)-1);
+	if (ast->cid.cid_rdnis) if (ast->cid.cid_rdnis[0])
 	{
-		strncpy(newparam.setup.redirinfo.id, call->ast->cid.cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
+		strncpy(newparam.setup.redirinfo.id, ast->cid.cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
        		newparam.setup.redirinfo.itype = INFO_ITYPE_CHAN;	
  	      	newparam.setup.redirinfo.ntype = INFO_NTYPE_UNKNOWN;	
 	}
-	switch(call->ast->cid.cid_pres & AST_PRES_RESTRICTION)
+	switch(ast->cid.cid_pres & AST_PRES_RESTRICTION)
 	{
 		case AST_PRES_ALLOWED:
 		newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
@@ -311,7 +328,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 		default:
 		newparam.setup.callerinfo.present = INFO_PRESENT_NULL;
 	}
-	switch(call->ast->cid.cid_ton)
+	switch(ast->cid.cid_ton)
 	{
 		case 4:
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_SUBSCRIBER;
@@ -325,7 +342,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 		default:
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
-	newparam.setup.capainfo.bearer_capa = call->ast->transfercapability;
+	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
 #warning todo
 //	newparam.setup.capainfo.bearer_user = alaw 3, ulaw 2;
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
@@ -364,11 +381,8 @@ static void bridge_message_if_bridged(struct chan_call *call, int message_type, 
 {
 	/* check bridge */
 	if (!call) return;
-	if (!call->channel) return;
-	if (!call->channel->bridge_channel) return;
-	if (!call->channel->bridge_channel->call) return;
-	if (!call->channel->bridge_channel->call->ref) return;
-	send_message(MESSAGE_RELEASE, call->channel->bridge_channel->call->ref, param);
+	if (!call->bridge_call) return;
+	send_message(MESSAGE_RELEASE, call->bridge_call->ref, param);
 }
 
 /*
@@ -517,6 +531,7 @@ static void lcr_in_connect(struct chan_call *call, int message_type, union param
  */
 static void lcr_in_disconnect(struct chan_call *call, int message_type, union parameter *param)
 {
+	struct ast_channel *ast = call->ast;
 	union parameter newparam;
 
 	/* change state */
@@ -525,21 +540,19 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	call->cause = param->disconnectinfo.cause;
 	call->location = param->disconnectinfo.location;
 	/* if bridge, forward disconnect and return */
-	if (call->channel)
-		if (call->channel->bridge_channel)
-			if (call->channel->bridge_channel->call)
-			{
-				bridge_message_if_bridged(call, message_type, param);
-				return;
-			}
+	if (call->bridge_call)
+	{
+		bridge_message_if_bridged(call, message_type, param);
+		return;
+	}
 	/* release lcr */
 	newparam.disconnectinfo.cause = CAUSE_NORMAL;
 	newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	send_message(MESSAGE_RELEASE, call->ref, &newparam);
 	call->ref = 0;
 	/* release asterisk */
-	call->ast->hangupcause = call->cause;
-	ast_queue_hangup(call->ast);
+	ast->hangupcause = call->cause;
+	ast_queue_hangup(ast);
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
 }
@@ -549,6 +562,8 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
  */
 static void lcr_in_release(struct chan_call *call, int message_type, union parameter *param)
 {
+	struct ast_channel *ast = call->ast;
+
 	/* release ref */
 	call->ref = 0;
 	/* change to release state */
@@ -560,10 +575,10 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
 	       call->location = param->disconnectinfo.location;
 	}
 	/* if we have an asterisk instance, send hangup, else we are done */
-	if (call->ast)
+	if (ast)
 	{
-		call->ast->hangupcause = call->cause;
-		ast_queue_hangup(call->ast);
+		ast->hangupcause = call->cause;
+		ast_queue_hangup(ast);
 	} else
 	{
 		free_call(call);
@@ -673,10 +688,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			if ((call = find_call_ref(ref)))
 			{
 				bchannel->call = call;
-				call->channel = bchannel;
+				call->bchannel = bchannel;
 #warning hier muesen alle stati gesetzt werden falls sie vor dem b-kanal verf�gbar waren
-				if (bchannel->bridge_id)
-					bchannel_join(bchannel, bchannel->bridge_id);
+				if (call->bridge_id)
+					bchannel_join(bchannel, call->bridge_id);
 			}
 			if (bchannel_create(bchannel))
 				bchannel_activate(bchannel, 1);
@@ -812,7 +827,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		break;
 
 		case MESSAGE_INFORMATION:
-		lcr_in_disconnect(call, message_type, param);
+		lcr_in_information(call, message_type, param);
 		break;
 
 		case MESSAGE_NOTIFY:
@@ -982,7 +997,7 @@ static void *chan_thread(void *arg)
 {
 	int work;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
 	while(!quit)
 	{
@@ -1002,13 +1017,13 @@ static void *chan_thread(void *arg)
 		
 		if (!work)
 		{
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
 			usleep(30000);
-			pthread_mutex_lock(&chan_lock);
+			ast_mutex_lock(&chan_lock);
 		}
 	}
 	
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
 
 	return NULL;
 }
@@ -1020,8 +1035,9 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 {
 	union parameter newparam;
 	struct ast_channel *ast;
+        struct chan_call *call;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
 	/* create call instance */
 	call = alloc_call();
@@ -1031,7 +1047,7 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 		return NULL;
 	}
 	/* create asterisk channel instrance */
-	ast = ast_channel_alloc(1);
+	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
 	if (!ast)
 	{
 		free_call(call);
@@ -1043,13 +1059,14 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 	call->ast = ast;
 	ast->tech = &lcr_tech;
 	/* configure channel */
-	ast->state = AST_STATE_RESERVED;
 	snprintf(ast->name, sizeof(ast->name), "%s/%d", lcr_type, ++glob_channel);
 	ast->name[sizeof(ast->name)-1] = '\0';
-	ast->type = lcr_type;
+#warning todo
+#if 0
 	ast->nativeformat = configfile->lawformat;
 	ast->readformat = ast->rawreadformat = configfile->lawformat;
 	ast->writeformat = ast->rawwriteformat = configfile->lawformat;
+#endif
 	ast->hangupcause = 0;
 	/* send MESSAGE_NEWREF */
 	memset(&newparam, 0, sizeof(union parameter));
@@ -1058,7 +1075,9 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 	/* set state */
 	call->state = CHAN_LCR_STATE_OUT_PREPARE;
 
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
+
+	return ast;
 }
 
 /*
@@ -1066,36 +1085,34 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
  */
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
-	union parameter newparam;
         struct chan_call *call=ast->tech_pvt;
-        char buf[128];
-        char *port_str, *dad, *p;
 
         if (!call) return -1;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
-	hier muss noch
+#warning	hier muss noch
+#if 0
         ast_copy_string(buf, dest, sizeof(buf)-1);
         p=buf;
         port_str=strsep(&p, "/");
         dad=strsep(&p, "/");
+#endif
 
 	/* send setup message, if we already have a callref */
 	if (call->ref)
 		send_setup_to_lcr(call);
 
-        if (lcr_debug)
-                ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
+//        if (lcr_debug)
+  //              ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
 
-#warning hier müssen wi eine der geholten REFs nehmen und ein SETUP schicken, die INFOS zum SETUP stehen im Ast pointer drin, bzw. werden hier übergeben.
-	
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
 	return 0; 
 }
 
 static int lcr_digit(struct ast_channel *ast, char digit)
 {
+        struct chan_call *call = ast->tech_pvt;
 	union parameter newparam;
 	char buf[]="x";
 
@@ -1105,52 +1122,48 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	if (digit > 126 || digit < 32)
 		return 0;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
 	/* send information or queue them */
 	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING)
 	{
 		memset(&newparam, 0, sizeof(union parameter));
-		newparam.dialinginfo.id[0] = digit;
-		newparam.dialinginfo.id[1] = '\0';
+		newparam.information.id[0] = digit;
+		newparam.information.id[1] = '\0';
 		send_message(MESSAGE_INFORMATION, call->ref, &newparam);
 	} else
 	if (!call->ref
 	 && (call->state == CHAN_LCR_STATE_OUT_PREPARE || call->state == CHAN_LCR_STATE_OUT_SETUP));
 	{
 		*buf = digit;
-		strncat(call->dialque, buf, strlen(char->dialque)-1);
+		strncat(call->dialque, buf, strlen(call->dialque)-1);
 	}
 
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
 	
 	return(0);
 }
 
-static int lcr_answer(struct ast_channel *c)
+static int lcr_answer(struct ast_channel *ast)
 {
 	union parameter newparam;
-        struct chan_call *call=c->tech_pvt;
+        struct chan_call *call = ast->tech_pvt;
 	
 	if (!call) return -1;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
-	/* check bridged connectinfo */
-	if (call->bchannel)
-		if (call->bchannel->bridge_channel)
-			if (call->bchannel->bridge_channel->call)
-			{
-				memcpy(call->connectinfo, call->bchannel->bridge_channel->call->connectinfo, sizeof(struct connect_info));
-			}
+	/* copy connectinfo, if bridged */
+	if (call->bridge_call)
+		memcpy(&call->connectinfo, &call->bridge_call->connectinfo, sizeof(struct connect_info));
 	/* send connect message to lcr */
 	memset(&newparam, 0, sizeof(union parameter));
-	memcpy(param->connectinfo, call->connectinfo, sizeof(struct connect_info));
+	memcpy(&newparam.connectinfo, &call->connectinfo, sizeof(struct connect_info));
 	send_message(MESSAGE_CONNECT, call->ref, &newparam);
 	/* change state */
 	call->state = CHAN_LCR_STATE_CONNECT;
 	
-   	pthread_mutex_unlock(&chan_lock);
+   	ast_mutex_unlock(&chan_lock);
         return 0;
 }
 
@@ -1162,7 +1175,7 @@ static int lcr_hangup(struct ast_channel *ast)
 	if (!call)
 		return 0;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 	/* disconnect asterisk, maybe not required */
 	ast->tech_pvt = NULL;
 	if (call->ref)
@@ -1174,7 +1187,7 @@ static int lcr_hangup(struct ast_channel *ast)
 		send_message(MESSAGE_RELEASE, call->ref, &newparam);
 		/* remove call */
 		free_call(call);
-		pthread_mutex_unlock(&chan_lock);
+		ast_mutex_unlock(&chan_lock);
 		return 0;
 	} else
 	{
@@ -1189,16 +1202,17 @@ static int lcr_hangup(struct ast_channel *ast)
 			call->state = CHAN_LCR_STATE_RELEASE;
 		}
 	} 
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
 
 static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 {
-        struct chan_call *call= ast->tech_pvt;
+        struct chan_call *call = ast->tech_pvt;
 	if (!call) return 0;
-	pthread_mutex_lock(&chan_lock);
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
+	return 0;
 }
 
 
@@ -1206,18 +1220,20 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
         struct chan_call *call = ast->tech_pvt;
 	if (!call) return 0;
-	pthread_mutex_lock(&chan_lock);
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
+	return 0;
 }
 
 static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, size_t datalen)
 {
+        struct chan_call *call = ast->tech_pvt;
 	union parameter newparam;
         int res = -1;
 
 	if (!call) return -1;
 
-	pthread_mutex_lock(&chan_lock);
+	ast_mutex_lock(&chan_lock);
 
         switch (cond) {
                 case AST_CONTROL_BUSY:
@@ -1229,11 +1245,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			/* change state */
 			call->state = CHAN_LCR_STATE_OUT_DISCONNECT;
 			/* return */
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
                         return 0;
                 case AST_CONTROL_CONGESTION:
 			/* return */
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
                         return -1;
                 case AST_CONTROL_RINGING:
 			/* send message to lcr */
@@ -1242,11 +1258,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			/* change state */
 			call->state = CHAN_LCR_STATE_OUT_ALERTING;
 			/* return */
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
                         return 0;
                 case -1:
 			/* return */
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
                         return 0;
 
                 case AST_CONTROL_VIDUPDATE:
@@ -1266,23 +1282,130 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                         break;
 
                 default:
-                        ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, c->name);
+                        ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, ast->name);
 			/* return */
-			pthread_mutex_unlock(&chan_lock);
+			ast_mutex_unlock(&chan_lock);
                         return -1;
         }
 
 	/* return */
-	pthread_mutex_unlock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
         return 0;
 }
 
+/*
+ * bridge process
+ */
+enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
+				  struct ast_channel *ast2, int flags,
+				  struct ast_frame **fo,
+				  struct ast_channel **rc, int timeoutms)
+
+{
+	struct chan_call	*call1, *call2;
+	struct ast_channel	*carr[2], *who;
+	int			to = -1;
+	struct ast_frame	*f;
+	int			bridge_id;
+ 
+#if 0
+	if (config nobridge) {
+		ast_log(LOG_NOTICE, "Falling back to Asterisk bridging\n");
+		return AST_BRIDGE_FAILED;
+	}
+
+	if (! (flags&AST_BRIDGE_DTMF_CHANNEL_0) )
+		call1->ignore_dtmf=1;
+	
+	if (! (flags&AST_BRIDGE_DTMF_CHANNEL_1) )
+		call2->ignore_dtmf=1;
+#endif
+
+	/* join via dsp (if the channels are currently open) */
+	bridge_id = new_bridge_id();
+	ast_mutex_lock(&chan_lock);
+	call1 = ast1->tech_pvt;
+	call2 = ast2->tech_pvt;
+	if (call1)
+	{
+		call1->bridge_id = bridge_id;
+		if (call1->bchannel)
+			bchannel_join(call1->bchannel, bridge_id);
+	}
+	if (call2)
+	{
+		call2->bridge_id = bridge_id;
+		if (call2->bchannel)
+			bchannel_join(call2->bchannel, bridge_id);
+	}
+	ast_mutex_unlock(&chan_lock);
+	
+	while(1) {
+		who = ast_waitfor_n(carr, 2, &to);
+
+		if (!who) {
+			ast_log(LOG_NOTICE,"misdn_bridge: empty read, breaking out\n");
+			break;
+		}
+		f = ast_read(who);
+    
+		if (!f || f->frametype == AST_FRAME_CONTROL) {
+			/* got hangup .. */
+			*fo=f;
+			*rc=who;
+			break;
+		}
+		
+		if ( f->frametype == AST_FRAME_DTMF ) {
+			*fo=f;
+			*rc=who;
+			break;
+		}
+	
+#warning kann einfach gesendet werden. dsp slittet automatisch, wenn frames kommen, bis der fifo leer ist.
+#if 0
+		if (f->frametype == AST_FRAME_VOICE) {
+	
+			continue;
+		}
+#endif
+
+		if (who == ast1) {
+			ast_write(ast2,f);
+		}
+		else {
+			ast_write(ast1,f);
+		}
+    
+	}
+	
+	/* split channels */
+	ast_mutex_lock(&chan_lock);
+	call1 = ast1->tech_pvt;
+	call2 = ast2->tech_pvt;
+	if (call1)
+	{
+		call1->bridge_id = 0;
+		if (call1->bchannel)
+			bchannel_join(call1->bchannel, 0);
+	}
+	if (call2)
+	{
+		call2->bridge_id = 0;
+		if (call2->bchannel)
+			bchannel_join(call2->bchannel, 0);
+	}
+	ast_mutex_unlock(&chan_lock);
+	
+	
+	return AST_BRIDGE_COMPLETE;
+}
 static struct ast_channel_tech lcr_tech = {
 	.type=lcr_type,
 	.description="Channel driver for connecting to Linux-Call-Router",
 	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
-	.send_digit=lcr_digit,
+	.send_digit_begin=lcr_digit,
 	.call=lcr_call,
 	.bridge=lcr_bridge, 
 	.hangup=lcr_hangup,
@@ -1301,30 +1424,37 @@ static struct ast_channel_tech lcr_tech = {
  */
 static int lcr_show_lcr (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_show_calls (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_reload_routing (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_reload_interfaces (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_port_block (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_port_unblock (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static int lcr_port_unload (int fd, int argc, char *argv[])
 {
+	return 0;
 }
 
 static struct ast_cli_entry cli_show_lcr =
@@ -1386,7 +1516,7 @@ int load_module(void)
 
 //	lcr_cfg_update_ptp();
 
-	pthread_mutex_init(&chan_lock, NULL);
+	ast_mutex_init(&chan_lock);
 	
 	if (!(lcr_sock = open_socket())) {
 		ast_log(LOG_ERROR, "Unable to connect\n");
@@ -1443,9 +1573,9 @@ int load_module(void)
 #endif
 
 	quit = 1;	
-	if ((pthread_create(&chan_tid, NULL, chan_thread, arg)<0))
+	if ((pthread_create(&chan_tid, NULL, chan_thread, NULL)<0))
 	{
-		failed to create thread
+		/* failed to create thread */
 		bchannel_deinitialize();
 		close_socket(lcr_sock);
 		ast_channel_unregister(&lcr_tech);
