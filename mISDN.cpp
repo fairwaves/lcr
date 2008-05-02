@@ -3153,7 +3153,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 		
 	/* allocate ressources of port */
 #ifdef SOCKET_MISDN
-	/* open layer 3 */
+	/* open layer 3 and init upqueue */
 	protocol = (nt)?L3_PROTOCOL_DSS1_USER:L3_PROTOCOL_DSS1_NET;
 	prop = 0;
 	if (ptp) // ptp forced
@@ -3165,9 +3165,11 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	mISDNport->ml3 = open_layer3(port-1, protocol, prop , do_layer3, mISDNport);
 	if (!mISDNport->ml3)
 	{
-		PERROR_RUNTIME("Cannot get layer(%d) id of port %d\n", nt?2:4, port);
+		PERROR_RUNTIME("oper_layer3() failed for port %d\n", port);
+		mISDNport_close(mISDNport);
 		return(NULL);
 	}
+	mqueue_init(&mISDNport->upqueue);
 
 #if 0
 	/* if ntmode, establish L1 to send the tei removal during start */
@@ -3352,11 +3354,6 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	}
 #endif
 
-#ifdef SOCKET_MISDN
-	/* init stack queue */
-	mqueue_init(&mISDNport->upqueue);
-#endif
-	
 	/* initially, we assume that the link is down, exept for nt-ptmp */
 	mISDNport->l2link = (mISDNport->ntmode && !mISDNport->ptp)?1:0;
 
@@ -3448,8 +3445,12 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	}
 
 #ifdef SOCKET_MISDN
-	close_layer3(mISDNport->ml3);
-	mqueue_purge(&mISDNport->upqueue);
+	/* close layer 3, if open and purge upqueue */
+	if (mISDNport->ml3)
+	{
+		close_layer3(mISDNport->ml3);
+		mqueue_purge(&mISDNport->upqueue);
+	}
 #else
 	/* free ressources of port */
 	msg_queue_purge(&mISDNport->downqueue);

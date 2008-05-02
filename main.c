@@ -176,7 +176,7 @@ void sighandler(int sigset)
 		return;
 	if (!quit)
 	{
-		quit=1;
+		quit = sigset;
 		/* set scheduler & priority */
 		if (options.schedule > 1)
 		{
@@ -185,7 +185,7 @@ void sighandler(int sigset)
 			sched_setscheduler(0, SCHED_OTHER, &schedp);
 		}
 		fprintf(stderr, "LCR: Signal received: %d\n", sigset);
-		PERROR("Signal received: %d\n", sigset);
+		PDEBUG(DEBUG_LOG, "Signal received: %d\n", sigset);
 	}
 }
 
@@ -659,8 +659,8 @@ BUDETECT
 	SPRINT(tracetext, "%s terminated", NAME);
 	printf("%s\n", tracetext);
 	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
-	if (ret)
-		add_trace("error", NULL, "%d", ret);
+	if (quit)
+		add_trace("signal", NULL, "%d", quit);
 	end_trace();
 	ret=0;
 
