@@ -207,7 +207,8 @@ int main(int argc, char *argv[])
 	struct sched_param	schedp;
 	char 			*debug_prefix = "alloc";
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
-        			created_lock = 0, created_signal = 0, created_debug = 0;
+        			created_lock = 0, created_signal = 0, created_debug = 0,
+				created_misdn = 0;
 	int			idletime = 0, idlecheck = 0;
 	char			tracetext[256];
 
@@ -307,6 +308,7 @@ int main(int argc, char *argv[])
 	/* init mISDN */
 	if (mISDN_initialize() < 0)
 		goto free;
+	created_misdn = 1;
 	created_debug = 1;
 
 	/* read ruleset(s) */
@@ -751,7 +753,8 @@ free:
 			fprintf(stderr, "cannot destroy 'PDEBUG' mutex\n");
 
 	/* deinitialize mISDN */
-	mISDN_deinitialize();
+	if (created_misdn)
+		mISDN_deinitialize();
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \

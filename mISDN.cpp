@@ -532,7 +532,10 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	}
 
 	/* open socket */
-	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
+#warning testing without bchannel
+return(0);
+#warning testing without DSP
+	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_RAW/*ISDN_P_B_L2DSP*/);
 	if (mISDNport->b_socket[i] < 0)
 	{
 		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
@@ -2296,25 +2299,48 @@ int mISDN_handler(void)
 			l3m = &mb->l3;
 			switch(l3m->type)
 			{
-#warning SOCKET TBD: Layer 1 indication
-#if 0
-				case MT_L1ACTIVATE:
+				case MPH_ACTIVATE_IND:
 				l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
 				end_trace();
 				mISDNport->l1link = 1;
 				break;
 	
-				case MT_L1DEACTIVATE:
+				case MPH_DEACTIVATE_IND:
 				l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
 				end_trace();
 				mISDNport->l1link = 0;
 				break;
 
-				case MT_L1CONTROL:
-				PDEBUG(DEBUG_ISDN, "Received PH_CONTROL for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
-				// special config commands for interface (ip-address/LOS/AIS/RDI/SLIP)
+				case MPH_INFORMATION_IND:
+				PDEBUG(DEBUG_ISDN, "Received MPH_INFORMATION_IND for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+				switch (l3m->pid)
+				{
+					case L1_SIGNAL_LOS_ON:
+					mISDNport->los = 1;
+					break;
+					case L1_SIGNAL_LOS_OFF:
+					mISDNport->los = 0;
+					break;
+					case L1_SIGNAL_AIS_ON:
+					mISDNport->ais = 1;
+					break;
+					case L1_SIGNAL_AIS_OFF:
+					mISDNport->ais = 0;
+					break;
+					case L1_SIGNAL_RDI_ON:
+					mISDNport->rdi = 1;
+					break;
+					case L1_SIGNAL_RDI_OFF:
+					mISDNport->rdi = 0;
+					break;
+					case L1_SIGNAL_SLIP_TX:
+					mISDNport->slip_tx++;
+					break;
+					case L1_SIGNAL_SLIP_RX:
+					mISDNport->slip_rx++;
+					break;
+				}
 				break;
-#endif
 
 				case MT_L2ESTABLISH:
 				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
@@ -2944,7 +2970,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 #ifdef SOCKET_MISDN
 	devinfo.id = port - 1;
 	ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
-	if (ret <= 0)
+	if (ret < 0)
 	{
 		PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", i, ret);
 		return(NULL);
@@ -3537,7 +3563,7 @@ void mISDN_port_info(void)
 #ifdef SOCKET_MISDN
 		devinfo.id = i - 1;
 		ret = ioctl(sock, IMGETDEVINFO, &devinfo);
-		if (ret <= 0)
+		if (ret < 0)
 		{
 			fprintf(stderr, "Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", i, ret);
 			break;
@@ -3582,18 +3608,24 @@ void mISDN_port_info(void)
 		if ((te || nt) && (bri || pri || pots))
 			useable = 1;
 
-		if (te && bri)
-			printf("TE-mode BRI S/T interface line (for phone lines)");
-		if (nt && bri)
-			printf("NT-mode BRI S/T interface port (for phones)");
-		if (te && pri)
-			printf("TE-mode PRI E1  interface line (for phone lines)");
-		if (nt && pri)
-			printf("NT-mode PRI E1  interface port (for E1 terminals)");
-		if (te && pots)
-			printf("FXS     POTS    interface port (for analog lines)");
-		if (nt && pots)
-			printf("FXO     POTS    interface port (for analog phones)");
+		if (te && nt && bri)
+			printf("TE/NT-mode BRI S/T (for phone lines & phones)");
+		if (te && !nt && bri)
+			printf("TE-mode    BRI S/T (for phone lines)");
+		if (nt && !te && bri)
+			printf("NT-mode    BRI S/T (for phones)");
+		if (te && nt && pri)
+			printf("TE/NT-mode PRI E1  (for phone lines & E1 devices)");
+		if (te && !nt && pri)
+			printf("TE-mode    PRI E1  (for phone lines)");
+		if (nt && !te && pri)
+			printf("NT-mode    PRI E1  (for E1 devices)");
+		if (te && nt && pots)
+			printf("FXS/FXO    POTS    (for analog lines & phones)");
+		if (te && !nt && pots)
+			printf("FXS        POTS    (for analog lines)");
+		if (nt && !te && pots)
+			printf("FXO        POTS    (for analog phones)");
 		if (pots)
 		{
 			useable = 0;
@@ -3641,7 +3673,7 @@ void mISDN_port_info(void)
 			useable = 1;
 			nt = 1;
 			pri = 1;
-			printf("NT-mode PRI E1  interface port (for E1 terminals)");
+			printf("NT-mode PRI E1  interface port (for E1 devices)");
 			break;
 			default:
 			useable = 0;

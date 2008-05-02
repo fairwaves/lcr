@@ -1,73 +1,36 @@
+socket-test:
+
+- testswitches und karte einbauen
+- call-aufbau ohne bchannel
+- call-aufbau mit bchannel
+- dsp
+- hfc-multi
+- call nach extern
+- l1oip
+
+
 chan_lcr:
 
-milestones:
 - das cli
-- auf- und abbau von calls und instanzen
-- informationen in den jeweiligen messages umwandeln
-- setup-queue
+- bchannel handling
+- config gile
 - einbau von b-channel-features
-- durchcompilieren
-- testen
-
-
-CLI:
-show calls
-show lcr
-block/unblock port
-reload interfaces/routing
-release call
-
-setup:
-es werden setupdaten gespeichert, bis eine ref vom lcr erfolgt.
-dabei werden zusätzliche wahlinformationen der rufummer hinzugefügt.
-die gespeicherten daten sind die schnittmenge von den informationen des lcr und der asterisk.
-
-
-bridge: jede instanz (chan_call) hat eine bridge_id
-wenn keine bridge, dann ist sie 0.
-mit new_bridge_id() wird eine neue id gesucht. diese wird in beide instanzen eingetragen
-zudem wird fuer jede instanz (zwei) der bridge eine bchannel_join ausgeführt, wenn die bchannels verfügbar sind.
-schon implementiert: falls der bchannel später kommt, wird der join beim exporieren des b-channels ausgeführt.
-
-info-bridge:
-wir koennen informationen, wie notifys einfach parallel zur bridge weiterreichen. z.b. notify "es wird angeklopft", "das gespraech wird gehalten", "sie werden weitergeleitet". auch display informationen und facilities
-
-
 
 
 call transfer
-
-doku: remote, exten
-
-doku: action execute geht mit fork
-
-doku: rx_vol -> rx_gain 
-
-context
-doku: context
-
-fuer asterisk: dejitter tx_buffer in dsp.o
-
-doku: tout in interface.conf
-
-layer-2-hold interface feature
-
-neue params zum aufbau eines externen/internen calls
-neue params zun aufbau eines externen/internen calls dokumentieren
-
-neuen partyline-param dokumentieren
-
-dokumentieren: aufzeichnung der ansage mit 0 ohne beep beenden
-doku: gain, pipeline, crypt
-
-make asterisk call implementation
-
 display message during nothing/play
 
-maybe:
-delay - per param setzen, lokal als mISDNsignal und remote mittels setup
+doku: 
 
-
-
+- remote, exten
+- action execute geht mit fork
+- rx_vol -> rx_gain 
+- interface context
+- tout in interface.conf
+- layer-2-hold interface feature
+- neue params zun aufbau eines externen/internen calls
+- neuen partyline-param dokumentieren
+- aufzeichnung der ansage mit 0 ohne beep beenden
+- gain, pipeline, crypt
 
 

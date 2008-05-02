@@ -73,6 +73,7 @@ struct admin_response_interface {
 	int		use; /* number of ports that use this interface */
 	int		l1link; /* down(0) or up(1) */
 	int		l2link; /* down(0) or up(1) */
+	int		los, ais, rdi, slip_tx, slip_rx;
 	int		channels;
 	char		busy[256]; /* if port is idle(0) busy(1) */
 	unsigned long	port[256]; /* current port */

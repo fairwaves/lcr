@@ -681,6 +681,27 @@ char *admin_state(int sock, char *argv[])
 				}
 				color((m[i].u.i.l1link)?green:blue);
 				addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
+				if (m[i].u.i.los)
+				{
+					color(red);
+					addstr(" LOS");
+				}
+				if (m[i].u.i.ais)
+				{
+					color(red);
+					addstr(" AIS");
+				}
+				if (m[i].u.i.rdi)
+				{
+					color(red);
+					addstr(" RDI");
+				}
+				if (m[i].u.i.slip_tx || m[i].u.i.slip_rx)
+				{
+					color(red);
+					SPRINT(buffer, " SLIP(tx:%d rx:%d)", m[i].u.i.slip_tx, m[i].u.i.slip_rx);
+					addstr(buffer);
+				}
 				if (m[i].u.i.block)
 				{
 					color(red);

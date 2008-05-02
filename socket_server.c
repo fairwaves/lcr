@@ -855,6 +855,15 @@ int admin_state(struct admin_queue **responsep)
 				response->am[num].u.i.l1link = mISDNport->l1link;
 				/* l2link */
 				response->am[num].u.i.l2link = mISDNport->l2link;
+				/* los */
+				response->am[num].u.i.los = mISDNport->los;
+				/* ais */
+				response->am[num].u.i.ais = mISDNport->ais;
+				/* rdi */
+				response->am[num].u.i.rdi = mISDNport->rdi;
+				/* slip */
+				response->am[num].u.i.slip_tx = mISDNport->slip_tx;
+				response->am[num].u.i.slip_rx = mISDNport->slip_rx;
 				/* channels */
 				response->am[num].u.i.channels = mISDNport->b_num;
 				/* channel info */

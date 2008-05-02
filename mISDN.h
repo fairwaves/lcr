@@ -59,6 +59,7 @@ struct mISDNport {
 	unsigned long b_remote_id[128]; /* the socket currently exported */
 	unsigned long b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
+	int los, ais, rdi, slip_rx, slip_tx;
 };
 extern mISDNport *mISDNport_first;
 
