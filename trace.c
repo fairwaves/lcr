@@ -49,6 +49,8 @@ void _start_trace(const char *__file, int __line, int port, struct interface *in
 	trace.serial = serial;
 	if (name) if (name[0])
 		SCPY(trace.name, name);
+	if (!trace.name[0])
+		SCPY(trace.name, "<unknown>");
 	trace.sec = now_tv.tv_sec;
 	trace.usec = now_tv.tv_usec;
 }

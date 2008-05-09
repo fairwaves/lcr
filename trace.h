@@ -26,7 +26,6 @@
 #define L2_RELEASE_CON			0x0002f101
 #define L2_RELEASE_IND			0x0002f102
 #define L2_RELEASE_RES			0x0002f103
-#define L3_UNKNOWN			0x0003f200
 #define L3_ALERTING_REQ			0x00030100
 #define L3_ALERTING_IND			0x00030102
 #define L3_PROCEEDING_REQ		0x00030200
@@ -105,6 +104,7 @@
 #endif
 #define L3_TIMEOUT_REQ			0x0003f200
 #define L3_TIMEOUT_IND			0x0003f202
+#define L3_UNKNOWN			0x0003ff00
 
 
 struct trace_element {

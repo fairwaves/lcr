@@ -529,7 +529,7 @@ void Pdss1::setup_ind(unsigned long prim, unsigned long dinfo, void *data)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id != pid)
+	if (p_m_d_l3id)
 	{
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
@@ -1181,11 +1181,13 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	int bchannel_before;
 
 	if (p_m_d_ntmode)
+	{
 #ifdef SOCKET_MISDN
 		p_m_d_ces = pid >> 16;
 #else
 		p_m_d_ces = connect->ces;
 #endif
+	}
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -1285,7 +1287,7 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 		end_trace();
 #ifdef SOCKET_MISDN
-		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CONNECT, p_m_d_l3id, l3m);
+		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CONNECT_ACKNOWLEDGE, p_m_d_l3id, l3m);
 #else
 		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
 #endif
@@ -1510,13 +1512,22 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 #endif
 	int location, cause;
 	struct lcr_msg *message;
-
+	
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_IND, DIRECTION_IN);
+	/* in case layer 2 is down during setup, we send cause 27 loc 5 */
+	if (p_state == PORT_STATE_OUT_SETUP && !p_m_mISDNport->l1link)
+	{
+		cause = 27;
+		location = 5;
+	} else
+	{
 #ifdef SOCKET_MISDN
-	dec_ie_cause(l3m, &location, &cause);
+		dec_ie_cause(l3m, &location, &cause);
 #else
-	dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
+		dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 #endif
+		add_trace("layer 1", NULL, (p_m_mISDNport->l1link)?"up":"down");
+	}
 	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
@@ -1543,12 +1554,12 @@ void Pdss1::release_complete_ind(unsigned long prim, unsigned long dinfo, void *
 #ifdef SOCKET_MISDN
 void Pdss1::t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
+	// not required, release is performed with MT_FREE
+}
 #else
 void Pdss1::t312_timeout_ind(unsigned long prim, unsigned long dinfo, void *data)
 {
-#endif
 	struct lcr_msg *message;
-
 	// trace is done at message_isdn()
 	
 	/* sending release to endpoint */
@@ -1572,6 +1583,7 @@ void Pdss1::t312_timeout_ind(unsigned long prim, unsigned long dinfo, void *data
 	new_state(PORT_STATE_RELEASE);
 	p_m_delete = 1;
 }
+#endif
 
 /* CC_NOTIFY INDICATION */
 #ifdef SOCKET_MISDN
@@ -1962,7 +1974,7 @@ void Pdss1::resume_ind(unsigned long prim, unsigned long dinfo, void *data)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id != pid)
+	if (p_m_d_l3id)
 	{
 		/* release is case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
@@ -2153,7 +2165,7 @@ void Pdss1::facility_ind(unsigned long prim, unsigned long dinfo, void *data)
 #ifdef SOCKET_MISDN
 void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
-	int timer_hex=0;
+	int timer = 0;
 
 	switch (cmd)
 	{
@@ -2163,18 +2175,19 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 			PERROR("Pdss1(%s) timeout without cause.\n", p_name);
 			break;
 		}
-		if (l3m->cause[1] != 5)
+		if (l3m->cause[0] != 5)
 		{
-			PERROR("Pdss1(%s) expecting timeout with timer diagnostic.\n", p_name);
+			PERROR("Pdss1(%s) expecting timeout with timer diagnostic. (got len=%d)\n", p_name, l3m->cause[0]);
 			break;
 		}
-		if (l3m->cause[4]=='3' && l3m->cause[5]=='1' && l3m->cause[6]=='2')
-		{
-			l1l2l3_trace_header(p_m_mISDNport, this, L3_TIMEOUT_IND, DIRECTION_IN);
-			add_trace("timer", NULL, "%x", timer_hex);
-			end_trace();
+		timer = (l3m->cause[3]-'0')*100;
+		timer += (l3m->cause[4]-'0')*10;
+		timer += (l3m->cause[5]-'0');
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_TIMEOUT_IND, DIRECTION_IN);
+		add_trace("timer", NULL, "%d", timer);
+		end_trace();
+		if (timer == 312)
 			t312_timeout_ind(cmd, pid, l3m);
-		}
 		break;
 
 		case MT_SETUP:
@@ -2291,17 +2304,22 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_m_d_l3id = 0;
 		p_m_d_ces = -1;
 		p_m_delete = 1;
-//#warning remove me
-//PDEBUG(DEBUG_LOG, "JOLLY release cr %d\n", p_serial);
 		/* sending release to endpoint in case we still have an endpoint
 		 * this is because we don't get any response if a release_complete is received (or a release in release state)
 		 */
-		while(p_epointlist)
+		while(p_epointlist) // only if not already released
 		{
 			struct lcr_msg *message;
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_cause:CAUSE_UNSPECIFIED;
-			message->param.disconnectinfo.location = (p_m_d_collect_cause!=CAUSE_NOUSER)?p_m_d_collect_location:LOCATION_PRIVATE_LOCAL;
+			if (p_m_d_collect_cause)
+			{
+				message->param.disconnectinfo.cause = p_m_d_collect_cause;
+				message->param.disconnectinfo.location = p_m_d_collect_location;
+			} else
+			{
+				message->param.disconnectinfo.cause = CAUSE_NOUSER;
+				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			}
 			message_put(message);
 			/* remove epoint */
 			free_epointlist(p_epointlist);
@@ -2793,11 +2811,9 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 		ncr.len = 0;
 		/* send message */
  		mISDN_write(mISDNdevice, &ncr, mISDN_HEADER_LEN+ncr.len, TIMEOUT_1SEC);
-//		if (!dmsg)
-//			goto nomem;
 	}
-	add_trace("callref", "new", "0x%x", p_m_d_l3id);
 #endif
+	add_trace("callref", "new", "0x%x", p_m_d_l3id);
 	end_trace();
 
 	/* preparing setup message */
@@ -4029,8 +4045,8 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 
 	if (pid == 0)
 	{
-		PERROR("PID is 0. change it.... quick...\n");
-		return(-EINVAL);
+		PDEBUG(DEBUG_ISDN, "ignoring dummy process from phone.\n");
+		return(0);
 	}
 
 	/* find Port object of type ISDN */
@@ -4055,22 +4071,36 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	/* aktueller prozess */
 	if (port)
 	{
+		if (cmd == MT_ASSIGN)
+		{
+			/* stack gives us new layer 3 id (during connect) */
+			l1l2l3_trace_header(mISDNport, pdss1, L3_NEW_L3ID_IND, DIRECTION_IN);
+			add_trace("callref", "old", "0x%x", pdss1->p_m_d_l3id);
+			/* nt-library now gives us a new id via CC_SETUP_CONFIRM */
+			if ((pdss1->p_m_d_l3id&MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER)
+				PERROR("    strange setup-procid 0x%x\n", pdss1->p_m_d_l3id);
+			pdss1->p_m_d_l3id = pid;
+			add_trace("callref", "new", "0x%x", pdss1->p_m_d_l3id);
+			end_trace();
+			return(0);
+		}
 		/* if process id is master process, but a child disconnects */
 		if (mISDNport->ntmode
 		 && (pid & MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER
-		 && (pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == MISDN_PID_MASTER)
+		 && (pdss1->p_m_d_l3id & MISDN_PID_CRTYPE_MASK) == MISDN_PID_MASTER)
 		{
-			if (cmd == MT_DISCONNECT)
+			if (cmd == MT_DISCONNECT
+			 || cmd == MT_RELEASE)
 			{
 				/* send special indication for child disconnect */
 				pdss1->disconnect_ind_i(cmd, pid, l3m);
 				return(0);
 			}
-			// ignoring other messages from child processes
-			return(0);
+			if (cmd == MT_RELEASE_COMPLETE)
+				return(0);
 		}
 		/* if process id and layer 3 id matches */
-		if (pid == pdss1->p_m_d_l3id)
+//		if (pid == pdss1->p_m_d_l3id)
 			pdss1->message_isdn(cmd, pid, l3m);
 		return(0);
 	}
@@ -4096,7 +4126,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		break;
 
 		case MT_FREE:
-		PERROR("unhandled message from stack: call ref released (l3id=0x%x)\n", pid);
+		PDEBUG(DEBUG_ISDN, "unused call ref released (l3id=0x%x)\n", pid);
 		break;
 
 		case MT_RELEASE_COMPLETE:

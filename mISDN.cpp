@@ -104,8 +104,11 @@ int mISDN_initialize(void)
 		return(-1);
 	}
 
+	/* init mlayer3 */
+	init_layer3(4); // buffer of 4
+
 	/* open debug, if enabled and not only stack debugging */
-	if (options.deb && (options.deb != DEBUG_STACK))
+	if (options.deb)
 	{
 		SPRINT(filename, "%s/debug.log", INSTALL_DATA);
 		debug_fp = fopen(filename, "a");
@@ -117,9 +120,6 @@ int mISDN_initialize(void)
 		mISDN_debug_init(0xffffffff, filename, filename, filename);
 	} else
 		mISDN_debug_init(0, NULL, NULL, NULL);
-
-	/* init mlayer3 */
-	init_layer3(4); // buffer of 4
 
 	return(0);
 }
@@ -427,7 +427,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:0,
-		    mISDNport?mISDNport->ifport->interface:NULL,
+		    mISDNport?(mISDNport->ifport?mISDNport->ifport->interface:NULL):NULL,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
 		    direction,
@@ -440,28 +440,36 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 /*
  * send control information to the channel (dsp-module)
  */
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
-{
 #ifdef SOCKET_MISDN
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long sock, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
+{
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
+	if (sock < 0)
+		return;
+
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
 	*d++ = c2;
-	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
+	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
 	if (!ret)
-		PERROR("Failed to send to socket %d\n", handle);
+		PERROR("Failed to send to socket %d\n", sock);
 #else
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long addr, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
+{
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	iframe_t *ctrl = (iframe_t *)buffer; 
 	unsigned long *d = (unsigned long *)&ctrl->data.p;
 
+	if (!addr)
+		return;
+
 	ctrl->prim = PH_CONTROL | REQUEST;
-	ctrl->addr = handle | FLG_MSG_DOWN;
+	ctrl->addr = addr | FLG_MSG_DOWN;
 	ctrl->dinfo = 0;
 	ctrl->len = sizeof(int)*2;
 	*d++ = c1;
@@ -480,28 +488,36 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned lo
 	end_trace();
 }
 
-void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
-{
 #ifdef SOCKET_MISDN
+void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
+{
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
+	if (sock < 0)
+		return;
+
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
-	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
+	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
 	if (!ret)
-		PERROR("Failed to send to socket %d\n", handle);
+		PERROR("Failed to send to socket %d\n", sock);
 #else
+void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long addr, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
+{
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+c2_len];
 	iframe_t *ctrl = (iframe_t *)buffer;
 	unsigned long *d = (unsigned long *)&ctrl->data.p;
 
+	if (!addr)
+		return;
+
 	ctrl->prim = PH_CONTROL | REQUEST;
-	ctrl->addr = handle | FLG_MSG_DOWN;
+	ctrl->addr = addr | FLG_MSG_DOWN;
 	ctrl->dinfo = 0;
 	ctrl->len = sizeof(int)+c2_len;
 	*d++ = c1;
@@ -525,17 +541,16 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	unsigned long on = 1;
 	struct sockaddr_mISDN addr;
 
-	if (mISDNport->b_socket[i])
+	if (mISDNport->b_socket[i] > -1)
 	{
 		PERROR("Error: Socket already created for index %d\n", i);
 		return(0);
 	}
 
 	/* open socket */
-#warning testing without bchannel
-return(0);
-#warning testing without DSP
-	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_RAW/*ISDN_P_B_L2DSP*/);
+//#warning testing without DSP
+//	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_RAW);
+	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
 	if (mISDNport->b_socket[i] < 0)
 	{
 		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
@@ -658,7 +673,9 @@ static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 	struct mISDNhead act;
 	int ret;
 
-	act.prim = (activate)?DL_ESTABLISH_REQ:DL_RELEASE_REQ; 
+	if (mISDNport->b_socket[i] < 0)
+		return;
+	act.prim = (activate)?PH_ACTIVATE_REQ:PH_DEACTIVATE_REQ; 
 	act.id = 0;
 	ret = sendto(mISDNport->b_socket[i], &act, MISDN_HEADER_LEN, 0, NULL, 0);
 	if (!ret)
@@ -693,6 +710,8 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 #ifdef SOCKET_MISDN
 	int handle;
 
+	if (mISDNport->b_socket[i] < 0)
+		return;
 	handle = mISDNport->b_socket[i];
 	port = mISDNport->b_port[i];
 	if (!port)
@@ -776,15 +795,14 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 static void _bchannel_destroy(struct mISDNport *mISDNport, int i)
 {
 #ifdef SOCKET_MISDN
+	if (mISDNport->b_socket[i] < 0)
+		return;
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove socket", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
 	add_trace("socket", NULL, "%d", mISDNport->b_socket[i]);
 	end_trace();
-	if (mISDNport->b_socket[i] > -1)
-	{
-		close(mISDNport->b_socket[i]);
-		mISDNport->b_socket[i] = -1;
-	}
+	close(mISDNport->b_socket[i]);
+	mISDNport->b_socket[i] = -1;
 #else
 	unsigned char buff[1024];
 
@@ -1595,20 +1613,23 @@ int PmISDN::handler(void)
 			}
 
 			/* send data */
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+			{
 #ifdef SOCKET_MISDN
-			frm->prim = DL_DATA_REQ;
-			frm->id = 0;
-			ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
-			if (!ret)
-				PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
+				frm->prim = PH_DATA_REQ;
+				frm->id = 0;
+				ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
+				if (!ret)
+					PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
 #else
-			frm->prim = DL_DATA | REQUEST; 
-			frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
-			frm->dinfo = 0;
-			frm->len = ISDN_LOAD - p_m_load - tosend;
-			if (frm->len)
-				mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
+				frm->prim = DL_DATA | REQUEST; 
+				frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;
+				frm->dinfo = 0;
+				frm->len = ISDN_LOAD - p_m_load - tosend;
+				if (frm->len)
+					mISDN_write(mISDNdevice, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
 #endif
+			}
 			p_m_load += ISDN_LOAD - p_m_load - tosend;
 		}
 	}
@@ -2195,7 +2216,7 @@ int mISDN_handler(void)
 					{
 						/* turn on RX */
 						isdnport->p_m_rxoff = 0;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_ON, 0, "DSP-RXOFF", 0);
 						return(1);
@@ -2207,7 +2228,7 @@ int mISDN_handler(void)
 					{
 						/* turn off RX */
 						isdnport->p_m_rxoff = 1;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 						return(1);
@@ -2221,7 +2242,7 @@ int mISDN_handler(void)
 					{
 						/* turn on RX */
 						isdnport->p_m_txdata = 1;
-						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_ON, 0, "DSP-TXDATA", 1);
 						return(1);
@@ -2233,7 +2254,7 @@ int mISDN_handler(void)
 					{
 						/* turn off RX */
 						isdnport->p_m_txdata = 0;
-						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_OFF, 0, "DSP-TXDATA", 0);
 						return(1);
@@ -2374,10 +2395,9 @@ int mISDN_handler(void)
 				/* l3-data is sent to LCR */
 				stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
 			}
+			/* free message */
+			free_l3_msg(l3m);
 		}
-
-		/* free message */
-		free_l3_msg(l3m);
 
 #if 0
 		if (mISDNport->l1timeout && now>mISDNport->l1timeout)
@@ -2451,7 +2471,7 @@ int mISDN_handler(void)
 					{
 						/* turn on RX */
 						isdnport->p_m_rxoff = 0;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_RECEIVE_ON, 0, "DSP-RXOFF", 0);
 						return(1);
@@ -2463,7 +2483,7 @@ int mISDN_handler(void)
 					{
 						/* turn off RX */
 						isdnport->p_m_rxoff = 1;
-						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 						return(1);
@@ -2477,7 +2497,7 @@ int mISDN_handler(void)
 					{
 						/* turn on RX */
 						isdnport->p_m_txdata = 1;
-						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n", __FUNCTION__);
 #ifndef OLD_MISDN
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_ON, 0, "DSP-TXDATA", 1);
@@ -2491,7 +2511,7 @@ int mISDN_handler(void)
 					{
 						/* turn off RX */
 						isdnport->p_m_txdata = 0;
-						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n");
+						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n", __FUNCTION__);
 #ifndef OLD_MISDN
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
 							ph_control(mISDNport, isdnport, mISDNport->b_addr[isdnport->p_m_b_index], CMX_TXDATA_OFF, 0, "DSP-TXDATA", 0);
@@ -2893,13 +2913,11 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 	 * we must check if we get a reply and we know that we lcr is currently
 	 * locked.
 	 */
-	if (cmd == MT_ASSIGN)
+	if (cmd==MT_ASSIGN && (pid&MISDN_PID_CR_FLAG) && (pid>>16)==MISDN_CES_MASTER)
 	{
 		/* let's do some checking if someone changes stack behaviour */
 		if (mt_assign_pid != 0)
 			FATAL("someone played with the mISDNuser stack. MT_ASSIGN not currently expected.\n");
-		if ((pid >> 16) != MISDN_CES_MASTER)
-			FATAL("someone played with the mISDNuser stack. MT_ASSIGN is expected with master CES.\n");
 		mt_assign_pid = pid;
 		return(0);
 	}
@@ -3130,7 +3148,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
-	/* if pri, set PTP */
+	/* if pri, must set PTP */
 	if (pri)
 		ptp = 1;
 	
@@ -3141,7 +3159,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 		l2hold = 0;
 		break;
 		case 1: // on
-		l2hold = 0;
+		l2hold = 1;
 		break;
 		default:
 		if (ptp)
@@ -3154,22 +3172,33 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	/* allocate ressources of port */
 #ifdef SOCKET_MISDN
 	/* open layer 3 and init upqueue */
-	protocol = (nt)?L3_PROTOCOL_DSS1_USER:L3_PROTOCOL_DSS1_NET;
-	prop = 0;
+	protocol = (nt)?L3_PROTOCOL_DSS1_NET:L3_PROTOCOL_DSS1_USER;
+	prop = (1 << MISDN_FLG_L2_CLEAN);
 	if (ptp) // ptp forced
 	       prop |= (1 << MISDN_FLG_PTP);
 	if (nt) // supports hold/retrieve on nt-mode
 	       prop |= (1 << MISDN_FLG_NET_HOLD);
 	if (l2hold) // supports layer 2 hold
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
+	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
+	mqueue_init(&mISDNport->upqueue);
 	mISDNport->ml3 = open_layer3(port-1, protocol, prop , do_layer3, mISDNport);
 	if (!mISDNport->ml3)
 	{
-		PERROR_RUNTIME("oper_layer3() failed for port %d\n", port);
+		mqueue_purge(&mISDNport->upqueue);
+		PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
+		start_trace(port,
+		    	interface,
+			NULL,
+			NULL,
+			DIRECTION_NONE,
+			CATEGORY_CH,
+			0,
+			"PORT (open failed)");
+		end_trace();
 		mISDNport_close(mISDNport);
 		return(NULL);
 	}
-	mqueue_init(&mISDNport->upqueue);
 
 #if 0
 	/* if ntmode, establish L1 to send the tei removal during start */
@@ -3367,6 +3396,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 		    CATEGORY_CH,
 		    0,
 		    "PORT (open)");
+	add_trace("mode", NULL, (mISDNport->ntmode)?"network":"terminal");
 	add_trace("channels", NULL, "%d", mISDNport->b_num);
 	end_trace();
 	return(mISDNport);
@@ -3786,7 +3816,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 
 	if (p_m_b_index < 0)
 		return;
-	if (!p_m_mISDNport->b_socket[p_m_b_index])
+	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_ACTIVE)
 		return;
 #else
 	unsigned char buf[mISDN_HEADER_LEN+((length>ISDN_LOAD)?length:ISDN_LOAD)];
@@ -3811,7 +3841,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 	if (p_m_load==0 && ISDN_LOAD>0)
 	{
 #ifdef SOCKET_MISDN
-		hh->prim = DL_DATA_REQ; 
+		hh->prim = PH_DATA_REQ; 
 		hh->id = 0;
 		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
 		ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD, 0, NULL, 0);
@@ -3836,7 +3866,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 
 	/* make and send frame */
 #ifdef SOCKET_MISDN
-	hh->prim = DL_DATA_REQ;
+	hh->prim = PH_DATA_REQ;
 	hh->id = 0;
 	memcpy(buf+MISDN_HEADER_LEN, data, length);
 	ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+length, 0, NULL, 0);
