@@ -456,7 +456,7 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned lo
 	*d++ = c1;
 	*d++ = c2;
 	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
-	if (!ret)
+	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", sock);
 #else
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long addr, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
@@ -504,7 +504,7 @@ void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int s
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
 	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
-	if (!ret)
+	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", sock);
 #else
 void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long addr, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
@@ -678,7 +678,7 @@ static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 	act.prim = (activate)?PH_ACTIVATE_REQ:PH_DEACTIVATE_REQ; 
 	act.id = 0;
 	ret = sendto(mISDNport->b_socket[i], &act, MISDN_HEADER_LEN, 0, NULL, 0);
-	if (!ret)
+	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", mISDNport->b_socket[i]);
 #else
 	iframe_t act;
@@ -1619,7 +1619,7 @@ int PmISDN::handler(void)
 				frm->prim = PH_DATA_REQ;
 				frm->id = 0;
 				ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
-				if (!ret)
+				if (ret <= 0)
 					PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
 #else
 				frm->prim = DL_DATA | REQUEST; 
@@ -3845,7 +3845,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 		hh->id = 0;
 		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
 		ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD, 0, NULL, 0);
-		if (!ret)
+		if (ret <= 0)
 			PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
 #else
 		frm->prim = DL_DATA | REQUEST; 
@@ -3870,7 +3870,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 	hh->id = 0;
 	memcpy(buf+MISDN_HEADER_LEN, data, length);
 	ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+length, 0, NULL, 0);
-	if (!ret)
+	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
 #else
 	frm->prim = DL_DATA | REQUEST; 
