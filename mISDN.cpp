@@ -1613,14 +1613,14 @@ int PmISDN::handler(void)
 			}
 
 			/* send data */
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && ISDN_LOAD-p_m_load-tosend > 0)
 			{
 #ifdef SOCKET_MISDN
 				frm->prim = PH_DATA_REQ;
 				frm->id = 0;
 				ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
 				if (ret <= 0)
-					PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
+					PERROR("Failed to send to socket %d (samples = %d)\n", p_m_mISDNport->b_socket[p_m_b_index], ISDN_LOAD-p_m_load-tosend);
 #else
 				frm->prim = DL_DATA | REQUEST; 
 				frm->addr = p_m_mISDNport->b_addr[p_m_b_index] | FLG_MSG_DOWN;

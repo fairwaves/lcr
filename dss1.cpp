@@ -1180,14 +1180,10 @@ void Pdss1::connect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	struct lcr_msg *message;
 	int bchannel_before;
 
+#ifndef SOCKET_MISDN
 	if (p_m_d_ntmode)
-	{
-#ifdef SOCKET_MISDN
-		p_m_d_ces = pid >> 16;
-#else
 		p_m_d_ces = connect->ces;
 #endif
-	}
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_IND, DIRECTION_IN);
 #ifdef SOCKET_MISDN
@@ -4088,6 +4084,8 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 			if ((pdss1->p_m_d_l3id&MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER)
 				PERROR("    strange setup-procid 0x%x\n", pdss1->p_m_d_l3id);
 			pdss1->p_m_d_l3id = pid;
+			if (port->p_state == PORT_STATE_CONNECT)
+				pdss1->p_m_d_ces = pid >> 16;
 			add_trace("callref", "new", "0x%x", pdss1->p_m_d_l3id);
 			end_trace();
 			return(0);

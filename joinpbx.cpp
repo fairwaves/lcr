@@ -411,7 +411,7 @@ void JoinPBX::bridge(void)
 	/* one member in a join, so we put her on hold */
 	if ((relations==1 || numconnect==1)/* && !j_partyline_jingle*/)
 	{
-		PDEBUG(DEBUG_JOIN, "join%d 1 member or only 1 connected, put on hold\n");
+		PDEBUG(DEBUG_JOIN, "join%d 1 member or only 1 connected, put on hold\n", j_serial);
 		relation = j_relation;
 		while(relation)
 		{
@@ -424,7 +424,7 @@ void JoinPBX::bridge(void)
 	} else
 	/* if conference/partyline (or more than two members and more than one is connected), so we set conference state */ 
 	{
-		PDEBUG(DEBUG_JOIN, "join%d %d members, %d connected, signal conference\n", relations, numconnect);
+		PDEBUG(DEBUG_JOIN, "join%d %d members, %d connected, signal conference\n", j_serial, relations, numconnect);
 		relation = j_relation;
 		while(relation)
 		{
@@ -734,7 +734,7 @@ void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union pa
 			case MESSAGE_RELEASE:
 			PDEBUG(DEBUG_JOIN, "releasing from join\n");
 			release(relation, 0, 0);
-			if (j_relation && j_partyline_jingle)
+			if (j_partyline_jingle)
 			       play_jingle(0);
 			break;
 
@@ -1041,11 +1041,10 @@ void JoinPBX::play_jingle(int in)
 		return;
 	if (!relation->next)
 		return;
-
 	while(relation)
 	{
 		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_TONE);
-		SCPY(message->param.tone.name, (char *)((in)?"left":"joined"));
+		SCPY(message->param.tone.name, (char *)((in)?"joined":"left"));
 		message_put(message);
 		relation = relation->next;
 	}

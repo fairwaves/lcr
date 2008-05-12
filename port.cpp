@@ -303,6 +303,17 @@ void Port::set_tone(char *dir, char *name)
 	if (name == NULL)
 		name = "";
 
+#if 0
+	/* if tones is jingle, store next tone */
+	if ((p_tone_fh >= 0 || p_tone_fetched)
+	 && (!strcmp(p_tone_name, "left") || !strcmp(p_tone_name, "joined")))
+	{
+		SCPY(p_tone_dir, dir);
+		SCPY(p_tone_name, name);
+		return;
+	}
+#endif
+
 	/* no counter, no eof, normal speed */
 	p_tone_counter = 0;
 	p_tone_eof = 0;
