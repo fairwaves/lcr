@@ -2365,6 +2365,7 @@ int mISDN_handler(void)
 
 				case MT_L2ESTABLISH:
 				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
+				add_trace("tei", NULL, "%d", l3m->pid);
 				end_trace();
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
@@ -2379,6 +2380,7 @@ int mISDN_handler(void)
 
 				case MT_L2RELEASE:
 				l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
+				add_trace("tei", NULL, "%d", l3m->pid);
 				end_trace();
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
@@ -2418,6 +2420,7 @@ int mISDN_handler(void)
 					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 					mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+					add_trace("tei", NULL, "%d", 0);
 					end_trace();
 					time(&mISDNport->l2establish);
 					return(1);
@@ -2557,6 +2560,7 @@ int mISDN_handler(void)
 						mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
 					}
 					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+					add_trace("tei", NULL, "%d", 0);
 					end_trace();
 					time(&mISDNport->l2establish);
 					return(1);
@@ -3338,6 +3342,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	{
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
+		add_trace("tei", NULL, "%d", 0);
 		end_trace();
 		time(&mISDNport->l2establish);
 	}

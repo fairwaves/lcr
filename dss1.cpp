@@ -4058,11 +4058,19 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		{
 			pdss1 = (class Pdss1 *)port;
 			/* check out correct stack and id */
-			if (pdss1->p_m_mISDNport == mISDNport
-			 && (pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == (pid & MISDN_PID_CRVAL_MASK))
+			if (pdss1->p_m_mISDNport == mISDNport)
 			{
-				/* found port, the message belongs to */
-				break;
+				if (pdss1->p_m_d_l3id & MISDN_PID_CR_FLAG)
+				{
+					/* local callref, so match value only */
+					if ((pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == (pid & MISDN_PID_CRVAL_MASK))
+						break; // found
+				} else
+				{
+					/* remote callref, ref + channel id */
+					if (pdss1->p_m_d_l3id == pid)
+						break; // found
+				}
 			}
 		}
 		port = port->next;
