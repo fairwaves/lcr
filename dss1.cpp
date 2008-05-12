@@ -2203,7 +2203,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		case MT_SETUP_ACKNOWLEDGE:
 		if (p_state != PORT_STATE_OUT_SETUP)
 		{
-			PERROR("Pdss1(%s) received setup_acknowledge, but we are not in outgoing setup state, IGNORING.\n", p_name);
+			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received setup_acknowledge, but we are not in outgoing setup state, IGNORING.\n", p_name);
 			break;
 		}
 		setup_acknowledge_ind(cmd, pid, l3m);
@@ -2213,7 +2213,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP)
 		{
-			PERROR("Pdss1(%s) received proceeding, but we are not in outgoing setup OR overlap state, IGNORING.\n", p_name);
+			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received proceeding, but we are not in outgoing setup OR overlap state, IGNORING.\n", p_name);
 			break;
 		}
 		proceeding_ind(cmd, pid, l3m);
@@ -2224,7 +2224,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		 && p_state != PORT_STATE_OUT_OVERLAP
 		 && p_state != PORT_STATE_OUT_PROCEEDING)
 		{
-			PERROR("Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding state, IGNORING.\n", p_name);
+			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding state, IGNORING.\n", p_name);
 			break;
 		}
 		alerting_ind(cmd, pid, l3m);
@@ -2236,7 +2236,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		 && p_state != PORT_STATE_OUT_PROCEEDING
 		 && p_state != PORT_STATE_OUT_ALERTING)
 		{
-			PERROR("Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding OR ALERTING state, IGNORING.\n", p_name);
+			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding OR ALERTING state, IGNORING.\n", p_name);
 			break;
 		}
 		connect_ind(cmd, pid, l3m);
@@ -4107,9 +4107,15 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 			if (cmd == MT_RELEASE_COMPLETE)
 				return(0);
 		}
-		/* if process id and layer 3 id matches */
-//		if (pid == pdss1->p_m_d_l3id)
-			pdss1->message_isdn(cmd, pid, l3m);
+		/* if we have child pid and got different child pid message, ignore */
+		if (mISDNport->ntmode
+		 && (pid & MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER
+		 && (pdss1->p_m_d_l3id & MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER
+		 && pid != pdss1->p_m_d_l3id)
+			return(0);
+
+		/* process message */
+		pdss1->message_isdn(cmd, pid, l3m);
 		return(0);
 	}
 
