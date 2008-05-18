@@ -1319,8 +1319,6 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_cause(disconnect->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 #endif
 	end_trace();
-	if (location == LOCATION_PRIVATE_LOCAL)
-		location = LOCATION_PRIVATE_REMOTE;
 
 	if (cause < 0)
 		cause = 16;
@@ -1343,9 +1341,9 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
 #ifdef SOCKET_MISDN
-		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
+		enc_ie_cause(l3m, location, cause); /* normal */
 #else
-		enc_ie_cause(&release->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16); /* normal */
+		enc_ie_cause(&release->CAUSE, dmsg, location, cause); /* normal */
 #endif
 		add_trace("reason", NULL, "no remote patterns");
 		end_trace();
@@ -1356,6 +1354,8 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 #endif
 
 		/* sending release to endpoint */
+		if (location == LOCATION_PRIVATE_LOCAL)
+			location = LOCATION_PRIVATE_REMOTE;
 		while(p_epointlist)
 		{
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -1371,6 +1371,8 @@ void Pdss1::disconnect_ind(unsigned long prim, unsigned long dinfo, void *data)
 	}
 
 	/* sending disconnect to active endpoint and release to inactive endpoints */
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 	if (ACTIVE_EPOINT(p_epointlist))
 	{
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DISCONNECT);
@@ -1446,13 +1448,28 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 	dec_ie_cause(release->CAUSE, (Q931_info_t *)((unsigned long)data+headerlen), &location, &cause);
 #endif
 	end_trace();
-	if (location == LOCATION_PRIVATE_LOCAL)
-		location = LOCATION_PRIVATE_REMOTE;
 
 	if (cause < 0)
 		cause = 16;
 
+#ifndef SOCKET_MISDN
+	/* only in NT mode we must send release_complete, if we got a release confirm */
+	if (prim == (CC_RELEASE | CONFIRM))
+	{
+		/* sending release complete */
+		RELEASE_COMPLETE_t *release_complete;
+		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
+		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, location, cause);
+		end_trace();
+		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
+	}
+#endif
+
 	/* sending release to endpoint */
+	if (location == LOCATION_PRIVATE_LOCAL)
+		location = LOCATION_PRIVATE_REMOTE;
 	while(p_epointlist)
 	{
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -1461,35 +1478,6 @@ void Pdss1::release_ind(unsigned long prim, unsigned long dinfo, void *data)
 		message_put(message);
 		/* remove epoint */
 		free_epointlist(p_epointlist);
-	}
-
-	/* only in NT mode we must send release_complete, if we got a release confirm */
-#ifdef SOCKET_MISDN
-	if (cmd == MT_RELEASE)
-#else
-	if (prim == (CC_RELEASE | CONFIRM))
-#endif
-	{
-		/* sending release complete */
-#ifdef SOCKET_MISDN
-		l3m = create_l3msg();
-#else
-		RELEASE_COMPLETE_t *release_complete;
-		dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST, MT_RELEASE_COMPLETE, dinfo, sizeof(RELEASE_COMPLETE_t), p_m_d_ntmode);
-		release_complete = (RELEASE_COMPLETE_t *)(dmsg->data + headerlen);
-#endif
-		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
-#ifdef SOCKET_MISDN
-		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16);
-#else
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 16);
-#endif
-		end_trace();
-#ifdef SOCKET_MISDN
-		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, p_m_d_l3id, l3m);
-#else
-		msg_queue_tail(&p_m_mISDNport->downqueue, dmsg);
-#endif
 	}
 
 	new_state(PORT_STATE_RELEASE);
@@ -3577,8 +3565,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		while(p_epointlist)
 		{
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = 16;
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			memcpy(&message->param, param, sizeof(union parameter));
 			message_put(message);
 			/* remove epoint */
 			free_epointlist(p_epointlist);
@@ -3593,9 +3580,9 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 		/* send cause */
 #ifdef SOCKET_MISDN
-		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		enc_ie_cause(l3m, (!p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_REMOTE:param->disconnectinfo.location, param->disconnectinfo.cause);
 #else
-		enc_ie_cause(&release_complete->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		enc_ie_cause(&release_complete->CAUSE, dmsg, (!p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_REMOTE:param->disconnectinfo.location, param->disconnectinfo.cause);
 #endif
 		end_trace();
 #ifdef SOCKET_MISDN
@@ -3664,9 +3651,9 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 #endif
 	/* send cause */
 #ifdef SOCKET_MISDN
-	enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+	enc_ie_cause(l3m, (!p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_REMOTE:param->disconnectinfo.location, param->disconnectinfo.cause);
 #else
-	enc_ie_cause(&disconnect->CAUSE, dmsg, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+	enc_ie_cause(&disconnect->CAUSE, dmsg, (!p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_REMOTE:param->disconnectinfo.location, param->disconnectinfo.cause);
 #endif
 	/* send display */
 	if (param->disconnectinfo.display[0])

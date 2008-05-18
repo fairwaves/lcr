@@ -1,19 +1,8 @@
-socket-test:
-
-- testswitches und karte einbauen
-- call-aufbau ohne bchannel
-- call-aufbau mit bchannel
-- dsp
-- hfc-multi
-- call nach extern
-- l1oip
-
 
 chan_lcr:
 
 - das cli
-- bchannel handling
-- config gile
+- config file
 - einbau von b-channel-features
 
 

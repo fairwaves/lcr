@@ -79,13 +79,6 @@ If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
 
 */
 
-u_char flip_bits[256];
-
-#warning TODO: bchannel oeffnen und aktivieren (wer macht das?:)
-#warning reconnect after socket closed, release all calls.
-#warning debug of call handling
-#warning ausloesen beim socket-verlust
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,13 +124,16 @@ u_char flip_bits[256];
 
 CHAN_LCR_STATE // state description structure
 
+u_char flip_bits[256];
+
 int lcr_debug=1;
 int mISDN_created=1;
 
 char lcr_type[]="lcr";
 
 pthread_t chan_tid;
-ast_mutex_t chan_lock;
+ast_mutex_t chan_lock; /* global lock */
+ast_mutex_t log_lock; /* logging log */
 int quit;
 
 int glob_channel = 0;
@@ -150,6 +146,34 @@ struct admin_list {
 } *admin_first = NULL;
 
 static struct ast_channel_tech lcr_tech;
+
+/*
+ * logging
+ */
+void chan_lcr_log(int type, struct chan_call *call, struct ast_channel *ast, const char *fmt, ...)
+{
+	char buffer[1024];
+	char call_text[128] = "NULL";
+	char ast_text[128] = "NULL";
+	va_list args;
+
+	ast_mutex_lock(&log_lock);
+
+	va_start(args,fmt);
+	vsnprintf(buffer,sizeof(buffer)-1,fmt,args);
+	buffer[sizeof(buffer)-1]=0;
+	va_end(args);
+
+	if (call)
+		sprintf(call_text, "%ld", call->ref);
+	if (ast)
+		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
+	ast_text[sizeof(ast_text)-1] = '\0';
+	
+	ast_log(type, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+
+	ast_mutex_unlock(&log_lock);
+}
 
 /*
  * channel and call instances
@@ -197,24 +221,6 @@ struct chan_call *find_call_handle(unsigned long handle)
 }
 #endif
 
-struct chan_call *alloc_call(void)
-{
-	struct chan_call **callp = &call_first;
-
-	while(*callp)
-		callp = &((*callp)->next);
-
-	*callp = (struct chan_call *)malloc(sizeof(struct chan_call));
-	if (*callp)
-		memset(*callp, 0, sizeof(struct chan_call));
-	if (pipe((*callp)->pipe) < 0) {
-		free_call(*callp);
-		return;
-	}
-	return(*callp);
-}
-
-
 void free_call(struct chan_call *call)
 {
 	struct chan_call **temp = &call_first;
@@ -230,24 +236,44 @@ void free_call(struct chan_call *call)
 				close(call->pipe[1]);
 			if (call->bchannel)
 			{
-				if (call->bchannel->call)
-					call->bchannel->call = NULL;
-				else
-					warnung
+				if (call->bchannel->call != call)
+					CERROR(call, NULL, "Linked bchannel structure has no link to us.\n");
+				call->bchannel->call = NULL;
 			}
 			if (call->bridge_call)
 			{
-				if (call->bridge_call->bridge_call)
-					call->bridge_call->bridge_call = NULL;
-				else
-					warnung
+				if (call->bridge_call->bridge_call != call)
+					CERROR(call, NULL, "Linked call structure has no link to us.\n");
+				call->bridge_call->bridge_call = NULL;
 			}
+			CDEBUG(call, NULL, "Call instance freed.\n");
 			free(call);
 			return;
 		}
 		temp = &((*temp)->next);
 	}
+	CERROR(call, NULL, "Call instance not found in list.\n");
 }
+
+struct chan_call *alloc_call(void)
+{
+	struct chan_call **callp = &call_first;
+
+	while(*callp)
+		callp = &((*callp)->next);
+
+	*callp = (struct chan_call *)malloc(sizeof(struct chan_call));
+	if (*callp)
+		memset(*callp, 0, sizeof(struct chan_call));
+	if (pipe((*callp)->pipe) < 0) {
+		CERROR(*callp, NULL, "Failed to create pipe.\n");
+		free_call(*callp);
+		return(NULL);
+	}
+	CDEBUG(*callp, NULL, "Call instance allocated.\n");
+	return(*callp);
+}
+
 
 unsigned short new_bridge_id(void)
 {
@@ -268,20 +294,10 @@ unsigned short new_bridge_id(void)
 			break;
 		id++;
 	}
+	CDEBUG(NULL, NULL, "New bridge ID %d.\n", id);
 	return(id);
 }
 
-
-/*
- * receive bchannel data
- */
-void rx_data(struct bchannel *bchannel, unsigned char *data, int len)
-{
-}
-
-void rx_dtmf(struct bchannel *bchannel, char tone)
-{
-}
 
 /*
  * enque message to LCR
@@ -289,6 +305,12 @@ void rx_dtmf(struct bchannel *bchannel, char tone)
 int send_message(int message_type, unsigned long ref, union parameter *param)
 {
 	struct admin_list *admin, **adminp;
+
+	if (lcr_sock < 0) {
+		CDEBUG(NULL, NULL, "Ignoring message %d, because socket is closed.\n", message_type);
+		return -1;
+	}
+	CDEBUG(NULL, NULL, "Sending message %d to socket.\n", message_type);
 
 	adminp = &admin_first;
 	while(*adminp)
@@ -314,6 +336,8 @@ static void send_setup_to_lcr(struct chan_call *call)
 
 	if (!call->ast || !call->ref)
 		return;
+
+	CDEBUG(call, call->ast, "Sending setup to LCR.\n");
 
 	/* send setup message to LCR */
 	memset(&newparam, 0, sizeof(union parameter));
@@ -381,6 +405,8 @@ static void send_dialque_to_lcr(struct chan_call *call)
 	if (!call->ast || !call->ref || !call->dialque)
 		return;
 	
+	CDEBUG(call, call->ast, "Sending dial queue to LCR.\n");
+
 	/* send setup message to LCR */
 	memset(&newparam, 0, sizeof(union parameter));
 	strncpy(newparam.information.id, call->dialque, sizeof(newparam.information.id)-1);
@@ -397,6 +423,7 @@ static void bridge_message_if_bridged(struct chan_call *call, int message_type, 
 	/* check bridge */
 	if (!call) return;
 	if (!call->bridge_call) return;
+	CDEBUG(call, NULL, "Sending message due briding.\n");
 	send_message(message_type, call->bridge_call->ref, param);
 }
 
@@ -405,22 +432,25 @@ static void bridge_message_if_bridged(struct chan_call *call, int message_type, 
  * if it can match, proceed
  * if not, release
  */
-static void lcr_setup_pbx(struct chan_call *call, struct ast_channel *ast, int complete)
+static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int complete)
 {
 	int cause;
 
 	if (complete)
 	{
 		/* if not match */
-		if (!ast_canmatch_extension(ast, ast->context, call->dad, 1, call->oad))
+		if (!ast_canmatch_extension(ast, ast->context, ast->exten, 1, call->oad))
 		{
+			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", ast->exten, ast->context);
 			cause = 1;
 			goto release;
-		if (!ast_exists_extension(ast, ast->context, call->dad, 1, call->oad))
+		if (!ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad))
 		{
+			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", ast->exten, ast->context);
 			cause = 28;
 			goto release;
 		}
+		CDEBUG(call, ast, "Got 'sending complete', extensions matches.\n");
 		/* send setup acknowledge to lcr */
 		memset(&newparam, 0, sizeof(union parameter));
 		send_message(MESSAGE_PROCEEDING, call->ref, &newparam);
@@ -441,10 +471,13 @@ static void lcr_setup_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		call->state = CHAN_LCR_STATE_IN_DIALING;
 
 		/* if match, start pbx */
-		if (ast_exists_extension(ast, ast->context, dad, 1, oad))
+		if (ast_exists_extension(ast, ast->context, dad, 1, oad)) {
+			CDEBUG(call, ast, "Extensions matches.\n");
 			goto start;
+		}
 
 		/* if can match */
+		CDEBUG(call, ast, "Extensions may match, if more digits are dialed.\n");
 		return;
 	}
 
@@ -452,6 +485,7 @@ static void lcr_setup_pbx(struct chan_call *call, struct ast_channel *ast, int c
 	cause = 1;
 	release:
 	/* release lcr */
+	CDEBUG(call, ast, "Releasing due to extension missmatch.\n");
 	memset(&newparam, 0, sizeof(union parameter));
 	newparam.disconnectinfo.cause = cause;
 	newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -459,13 +493,14 @@ static void lcr_setup_pbx(struct chan_call *call, struct ast_channel *ast, int c
 	call->ref = 0;
 	/* release asterisk */
 	ast->hangupcause = call->cause;
-	ast_queue_hangup(ast);
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
+	ast_hangup(ast); // call will be destroyed here
 	return;
 	
 	start:
 	/* send setup to asterisk */
+	CDEBUG(call, ast, "Starting call to Asterisk due to matching extension.\n");
 	ret = ast_pbx_start(ast);
 	if (ret < 0)
 	{
@@ -484,11 +519,14 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	struct ast_channel *ast;
 	union parameter newparam;
 
+	CDEBUG(call, NULL, "Incomming setup from LCR. (callerid %d, dialing %d)\n", param->setup.callerinfo.id, param->setup.dialinginfo.id);
+
 	/* create asterisk channel instrance */
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
 	if (!ast)
 	{
 		/* release */
+		CERROR(call, NULL, "Failed to create Asterisk channel - releasing.\n");
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
 		newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -543,8 +581,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 			ast->cid.cid_ton = 0;
 	}
 	ast->transfercapability = param->setup.capainfo.bearer_capa;
-	strcpy(call->dad, param->setup.dialinginfo.id);
-	strcpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
+	strncpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter), sizeof(call->oad)-1);
 
 	/* configure channel */
 #warning todo
@@ -568,6 +605,8 @@ static void lcr_in_overlap(struct chan_call *call, int message_type, union param
 {
 	if (!call->ast) return;
 
+	CDEBUG(call, call->ast, "Incomming setup acknowledge from LCR.\n");
+
 	/* send pending digits in dialque */
 	if (call->dialque)
 		send_dialque_to_lcr(call);
@@ -580,10 +619,12 @@ static void lcr_in_overlap(struct chan_call *call, int message_type, union param
  */
 static void lcr_in_proceeding(struct chan_call *call, int message_type, union parameter *param)
 {
+	CDEBUG(call, call->ast, "Incomming proceeding from LCR.\n");
+
 	/* change state */
 	call->state = CHAN_LCR_STATE_OUT_PROCEEDING;
 	/* send event to asterisk */
-	if (call->ast)
+	if (call->ast && call->pbx_started)
 		ast_queue_control(call->ast, AST_CONTROL_PROCEEDING);
 }
 
@@ -592,10 +633,12 @@ static void lcr_in_proceeding(struct chan_call *call, int message_type, union pa
  */
 static void lcr_in_alerting(struct chan_call *call, int message_type, union parameter *param)
 {
+	CDEBUG(call, call->ast, "Incomming alerting from LCR.\n");
+
 	/* change state */
 	call->state = CHAN_LCR_STATE_OUT_ALERTING;
 	/* send event to asterisk */
-	if (call->ast)
+	if (call->ast && call->pbx_started)
 		ast_queue_control(call->ast, AST_CONTROL_RINGING);
 }
 
@@ -604,12 +647,14 @@ static void lcr_in_alerting(struct chan_call *call, int message_type, union para
  */
 static void lcr_in_connect(struct chan_call *call, int message_type, union parameter *param)
 {
+	CDEBUG(call, call->ast, "Incomming connect (answer) from LCR.\n");
+
 	/* change state */
 	call->state = CHAN_LCR_STATE_CONNECT;
 	/* copy connectinfo */
 	memcpy(&call->connectinfo, &param->connectinfo, sizeof(struct connect_info));
 	/* send event to asterisk */
-	if (call->ast)
+	if (call->ast && call->pbx_started)
 		ast_queue_control(call->ast, AST_CONTROL_ANSWER);
 }
 
@@ -621,30 +666,38 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	struct ast_channel *ast = call->ast;
 	union parameter newparam;
 
+	CDEBUG(call, call->ast, "Incomming disconnect from LCR. (cause=%d)\n", param.disconnectinfo.cause);
+
 	/* change state */
 	call->state = CHAN_LCR_STATE_IN_DISCONNECT;
 	/* save cause */
 	call->cause = param->disconnectinfo.cause;
 	call->location = param->disconnectinfo.location;
-per option
-
-wenn setup raus geht, pointer 
 	/* if bridge, forward disconnect and return */
+#ifdef TODO
+	feature flag
 	if (call->bridge_call)
 	{
+		CDEBUG(call, call->ast, "Only signal disconnect via bridge.\n");
 		bridge_message_if_bridged(call, message_type, param);
 		return;
 	}
-	/* release lcr */
-	newparam.disconnectinfo.cause = CAUSE_NORMAL;
-	newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-	send_message(MESSAGE_RELEASE, call->ref, &newparam);
+#endif
+	/* release lcr with same cause */
+	send_message(MESSAGE_RELEASE, call->ref, param);
 	call->ref = 0;
-	/* release asterisk */
-	ast->hangupcause = call->cause;
-	ast_queue_hangup(ast);
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
+	/* release asterisk */
+	if (ast)
+	{
+		ast->hangupcause = call->cause;
+		if (call->pbx_started)
+			ast_queue_hangup(ast);
+		else {
+			ast_hangup(ast); // call will be destroyed here
+		}
+	}
 }
 
 /*
@@ -653,6 +706,8 @@ wenn setup raus geht, pointer
 static void lcr_in_release(struct chan_call *call, int message_type, union parameter *param)
 {
 	struct ast_channel *ast = call->ast;
+
+	CDEBUG(call, call->ast, "Incomming release from LCR. (cause=%d)\n", param.disconnectinfo.cause);
 
 	/* release ref */
 	call->ref = 0;
@@ -668,7 +723,11 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
 	if (ast)
 	{
 		ast->hangupcause = call->cause;
-		ast_queue_hangup(ast);
+		if (call->pbx_started)
+			ast_queue_hangup(ast);
+		else {
+			ast_hangup(ast); // call will be destroyed here
+		}
 	} else
 	{
 		free_call(call);
@@ -684,11 +743,14 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	struct ast_frame fr;
 	char *p;
 
+	CDEBUG(call, call->ast, "Incomming information from LCR. (dialing=%d)\n", param.information.id);
+	
 	if (!call->ast) return;
 
 	/* pbx not started */
 	if (!call->pbx_started)
 	{
+		CDEBUG(call, call->ast, "Asterisk not started, adding digits to number.\n");
 		strncat(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
 		lcr_start_pbx(call, ast, param->information.complete);
 		return;
@@ -698,6 +760,7 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	p = param->information.id;
 	if (call->state == CHAN_LCR_STATE_IN_DIALING && *p)
 	{
+		CDEBUG(call, call->ast, "Asterisk is started, sending DTMF frame.\n");
 		while (*p)
 		{
 			/* send digit to asterisk */
@@ -710,8 +773,10 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 		}
 	}
 	/* use bridge to forware message not supported by asterisk */
-	if (call->state == CHAN_LCR_STATE_CONNECT)
+	if (call->state == CHAN_LCR_STATE_CONNECT) {
+		CDEBUG(call, call->ast, "Call is connected, briding.\n");
 		bridge_message_if_bridged(call, message_type, param);
+	}
 }
 
 /*
@@ -719,6 +784,8 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
  */
 static void lcr_in_notify(struct chan_call *call, int message_type, union parameter *param)
 {
+	CDEBUG(call, call->ast, "Incomming notify from LCR. (notify=%d)\n", param.notifyinfo.notify);
+
 	if (!call->ast) return;
 
 	/* use bridge to forware message not supported by asterisk */
@@ -730,6 +797,8 @@ static void lcr_in_notify(struct chan_call *call, int message_type, union parame
  */
 static void lcr_in_facility(struct chan_call *call, int message_type, union parameter *param)
 {
+	CDEBUG(call, call->ast, "Incomming facility from LCR.\n");
+
 	if (!call->ast) return;
 
 	/* use bridge to forware message not supported by asterisk */
@@ -753,16 +822,17 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		switch(param->bchannel.type)
 		{
 			case BCHANNEL_ASSIGN:
+			CDEBUG(NULL, NULL "Received BCHANNEL_ASSIGN message. (handle=%08lx)\n", param->bchannel.handle);
 			if ((bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				fprintf(stderr, "error: bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
+				CERROR(NULL, NULL, "bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 			/* create bchannel */
 			bchannel = alloc_bchannel(param->bchannel.handle);
 			if (!bchannel)
 			{
-				fprintf(stderr, "error: alloc bchannel handle %x failed.\n", (int)param->bchannel.handle);
+				CERROR(NULL, NULL, "alloc bchannel handle %x failed.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 
@@ -788,8 +858,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				bchannel->call = call;
 				call->bchannel = bchannel;
 #warning hier muesen alle stati gesetzt werden falls sie vor dem b-kanal verfügbar waren
-				if (call->bridge_id)
+				if (call->bridge_id) {
+					CDEBUG(call, call->ast, "Join bchannel, because call is already bridged.\n");
 					bchannel_join(bchannel, call->bridge_id);
+				}
 			}
 			if (bchannel_create(bchannel))
 				bchannel_activate(bchannel, 1);
@@ -801,10 +873,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			break;
 
 			case BCHANNEL_REMOVE:
+			CDEBUG(NULL, NULL, "Received BCHANNEL_REMOVE message. (handle=%08lx)\n", param->bchannel.handle);
 			if (!(bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
-				#warning alle fprintf nach ast_log
-				fprintf(stderr, "error: bchannel handle %x not assigned.\n", (int)param->bchannel.handle);
+				CERROR(NULL, NULL, "Bchannel handle %x not assigned.\n", (int)param->bchannel.handle);
 				return(-1);
 			}
 			/* unklink from call and destroy bchannel */
@@ -818,7 +890,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			break;
 
 			default:
-			fprintf(stderr, "received unknown bchannel message %d\n", param->bchannel.type);
+			CDEBUG(NULL, NULL, "Received unknown bchannel message %d.\n", param->bchannel.type);
 		}
 		return(0);
 	}
@@ -829,9 +901,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		if (param->direction)
 		{
 			/* new ref from lcr */
+			CDEBUG(NULL, NULL, "Received new ref by LCR, of call from LCR. (ref=%ld)\n", ref);
 			if (!ref || find_call_ref(ref))
 			{
-				fprintf(stderr, "illegal new ref %ld received\n", ref);
+				CERROR(NULL, NULL, "Illegal new ref %ld received.\n", ref);
 				return(-1);
 			}
 			/* allocate new call instance */
@@ -844,10 +917,12 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 		} else
 		{
 			/* new ref, as requested from this remote application */
+			CDEBUG(NULL, NULL, "Received new ref by LCR, as requested from chan_lcr. (ref=%ld)\n", ref);
 			call = find_call_ref(0);
 			if (!call)
 			{
 				/* send release, if ref does not exist */
+				CDEBUG(NULL, NULL, "No call found, that requests a ref.\n");
 				newparam.disconnectinfo.cause = CAUSE_NORMAL;
 				newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 				send_message(MESSAGE_RELEASE, ref, &newparam);
@@ -883,7 +958,7 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 	/* check ref */
 	if (!ref)
 	{
-		fprintf(stderr, "received message %d without ref\n", message_type);
+		CERROR(NULL, NULL, "Received message %d without ref.\n", message_type);
 		return(-1);
 	}
 	call = find_call_ref(ref);
@@ -955,6 +1030,43 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 	return(0);
 }
 
+/*
+ * release all calls (due to broken socket)
+ */
+static void release_all_calls(void)
+{
+	struct chan_call *call;
+
+again:
+	call = call_first;
+	while(call)
+	{
+		/* no ast, so we may directly free call */
+		if (!call->ast) {
+			CDEBUG(call, NULL, "Freeing call, because no Asterisk channel is linked.\n");
+			free_call(call);
+			goto again;
+		}
+		/* already in release process */
+		if (call->state == CHAN_LCR_STATE_RELEASE) {
+			call = call->next;
+			continue;
+		}
+		/* release or queue release */
+		call->ref = 0;
+		call->state = CHAN_LCR_STATE_RELEASE;
+		if (!call->pbx_started)
+		{
+			CDEBUG(call, call->ast, "Releasing call, because no Asterisk channel is not started.\n");
+			ast_hangup(call->ast); // call will be destroyed here
+			goto again;
+		}
+		CDEBUG(call, call->ast, "Queue call release, because Asterisk channel is running.\n");
+		ast_queue_hangup(call->ast);
+		call = call->next;
+	}
+}
+
 
 /* asterisk handler
  * warning! not thread safe
@@ -974,29 +1086,28 @@ int handle_socket(void)
 	len = read(sock, &msg, sizeof(msg));
 	if (len == 0)
 	{
-		printf("Socket closed\n");
+		CERROR(NULL, NULL, "Socket closed.\n");
 		return(-1); // socket closed
 	}
 	if (len > 0)
 	{
 		if (len != sizeof(msg))
 		{
-			fprintf(stderr, "Socket short read (%d)\n", len);
+			CERROR(NULL, NULL, "Socket short read. (len %d)\n", len);
 			return(-1); // socket error
 		}
 		if (msg.message != ADMIN_MESSAGE)
 		{
-			fprintf(stderr, "Socket received illegal message %d\n", msg.message);
+			CERROR(NULL, NULL, "Socket received illegal message %d.\n", msg.message);
 			return(-1); // socket error
 		}
 		receive_message(msg.u.msg.type, msg.u.msg.ref, &msg.u.msg.param);
-		printf("message received %d\n", msg.u.msg.type);
 		work = 1;
 	} else
 	{
 		if (errno != EWOULDBLOCK)
 		{
-			fprintf(stderr, "Socket error %d\n", errno);
+			CERROR(NULL, NULL, "Socket failed (errno %d).\n", errno);
 			return(-1);
 		}
 	}
@@ -1008,14 +1119,14 @@ int handle_socket(void)
 	len = write(sock, &admin->msg, sizeof(msg));
 	if (len == 0)
 	{
-		printf("Socket closed\n");
+		CERROR(NULL, NULL, "Socket closed.\n");
 		return(-1); // socket closed
 	}
 	if (len > 0)
 	{
 		if (len != sizeof(msg))
 		{
-			fprintf(stderr, "Socket short write (%d)\n", len);
+			CERROR(NULL, NULL, "Socket short write. (len %d)\n", len);
 			return(-1); // socket error
 		}
 		/* free head */
@@ -1027,7 +1138,7 @@ int handle_socket(void)
 	{
 		if (errno != EWOULDBLOCK)
 		{
-			fprintf(stderr, "Socket error %d\n", errno);
+			CERROR(NULL, NULL, "Socket failed (errno %d).\n", errno);
 			return(-1);
 		}
 	}
@@ -1051,7 +1162,7 @@ int open_socket(void)
 	/* open socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
 	{
-		ast_log(LOG_ERROR, "Failed to create socket.\n");
+		CERROR(NULL, NULL, "Failed to create socket.\n");
 		return(sock);
 	}
 
@@ -1064,7 +1175,7 @@ int open_socket(void)
 	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
 	{
 		close(sock);
-		ast_log(LOG_ERROR, "Failed to connect to socket \"%s\". Is LCR running?\n", sock_address.sun_path);
+		CERROR(NULL, NULL, "Failed to connect to socket '%s'. Is LCR running?\n", sock_address.sun_path);
 		return(conn);
 	}
 
@@ -1072,7 +1183,7 @@ int open_socket(void)
 	if ((ret = ioctl(sock, FIONBIO, (unsigned char *)(&on))) < 0)
 	{
 		close(sock);
-		ast_log(LOG_ERROR, "Failed to set socket into non-blocking IO.\n");
+		CERROR(NULL, NULL, "Failed to set socket into non-blocking IO.\n");
 		return(ret);
 	}
 
@@ -1095,32 +1206,58 @@ static void *chan_thread(void *arg)
 {
 	int work;
 	int ret;
+	union parameter param;
+	time_t retry = 0, now;
+
+	bchannel_pid = getpid();
+	
+	memset(&param, 0, sizeof(union parameter));
+	if (lcr_sock > 0)
+		time(&retry);
 
 	ast_mutex_lock(&chan_lock);
 
-	while(!quit)
-	{
+	while(!quit) {
 		work = 0;
 
-		/* handle socket */
-		ret = handle_socket();
-		if (ret < 0)
-			break;
-		if (ret)
-			work = 1;
+		if (lcr_sock > 0) {
+			/* handle socket */
+			ret = handle_socket();
+			if (ret < 0) {
+				CERROR(NULL, NULL, "Handling of socket failed - closing for some seconds.\n");
+				close_socket(lcr_sock);
+				lcr_sock = -1;
+				release_all_calls();
+				time(&retry);
+			}
+			if (ret)
+				work = 1;
+		} else {
+			time(&now);
+			if (retry && now-retry > 5) {
+				CERROR(NULL, NULL, "Retry to open socket.\n");
+				retry = 0;
+				if (!(lcr_sock = open_socket())) {
+					time(&retry);
+				}
+				work = 1;
+			}
+					
+		}
 
 		/* handle mISDN */
 		ret = bchannel_handle();
 		if (ret)
 			work = 1;
 		
-		if (!work)
-		{
+		if (!work) {
 			ast_mutex_unlock(&chan_lock);
 			usleep(30000);
 			ast_mutex_lock(&chan_lock);
 		}
 	}
+
+	CERROR(NULL, NULL, "Thread exit.\n");
 	
 	ast_mutex_unlock(&chan_lock);
 
@@ -1138,6 +1275,15 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 
 	ast_mutex_lock(&chan_lock);
 
+	CDEBUG(NULL, NULL, "Received request from Asterisk.\n");
+
+	/* if socket is closed */
+	if (lcr_sock < 0)
+	{
+		CERROR(NULL, NULL, "Rejecting call from Asterisk, because LCR not running.\n");
+		return NULL;
+	}
+	
 	/* create call instance */
 	call = alloc_call();
 	if (!call)
@@ -1149,6 +1295,7 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
 	if (!ast)
 	{
+		CERROR(NULL, NULL, "Failed to create Asterisk channel.\n");
 		free_call(call);
 		/* failed to create instance */
 		return NULL;
@@ -1189,25 +1336,18 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
         if (!call) {
+		CERROR(NULL, ast, "Received call from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 
+	CDEBUG(call, ast, "Received call from Asterisk.\n");
 
-#warning	hier muss noch
-#if 0
-        ast_copy_string(buf, dest, sizeof(buf)-1);
-        p=buf;
-        port_str=strsep(&p, "/");
-        dad=strsep(&p, "/");
-#endif
+	call->pbx_started = 1;
 
 	/* send setup message, if we already have a callref */
 	if (call->ref)
 		send_setup_to_lcr(call);
-
-//        if (lcr_debug)
-  //              ast_verbose("Call: ext:%s dest:(%s) -> dad(%s) \n", ast->exten,dest, dad);
 
 	ast_mutex_unlock(&chan_lock);
 	return 0; 
@@ -1226,13 +1366,17 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
         if (!call) {
+		CERROR(NULL, ast, "Received digit from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 
+	CDEBUG(call, ast, "Received digit Asterisk.\n");
+
 	/* send information or queue them */
 	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING)
 	{
+		CDEBUG(call, ast, "Sending digit to LCR, because we are in dialing state.\n");
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.information.id[0] = digit;
 		newparam.information.id[1] = '\0';
@@ -1241,6 +1385,7 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	if (!call->ref
 	 && (call->state == CHAN_LCR_STATE_OUT_PREPARE || call->state == CHAN_LCR_STATE_OUT_SETUP));
 	{
+		CDEBUG(call, ast, "Queue digits, because we are in setup/dialing state and have no ref yet.\n");
 		*buf = digit;
 		strncat(call->dialque, buf, strlen(call->dialque)-1);
 	}
@@ -1258,10 +1403,13 @@ static int lcr_answer(struct ast_channel *ast)
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
         if (!call) {
+		CERROR(NULL, ast, "Received answer from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 	
+	CDEBUG(call, ast, "Received answer from Asterisk.\n");
+		
 	/* copy connectinfo, if bridged */
 	if (call->bridge_call)
 		memcpy(&call->connectinfo, &call->bridge_call->connectinfo, sizeof(struct connect_info));
@@ -1280,13 +1428,22 @@ static int lcr_hangup(struct ast_channel *ast)
 {
 	union parameter newparam;
         struct chan_call *call;
+	pthread_t tid = pthread_self();
 
-	ast_mutex_lock(&chan_lock);
+	if (!pthread_equal(tid, call_tid))
+		ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
         if (!call) {
-		ast_mutex_unlock(&chan_lock);
+		CERROR(NULL, ast, "Received hangup from Asterisk, but no call instance exists.\n");
+		if (!pthread_equal(tid, call_tid))
+			ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
+
+	if (!pthread_equal(tid, call_tid))
+		CDEBUG(call, ast, "Received hangup from Asterisk thread.\n");
+	else
+		CDEBUG(call, ast, "Received hangup from LCR thread.\n");
 
 	/* disconnect asterisk, maybe not required */
 	ast->tech_pvt = NULL;
@@ -1294,13 +1451,15 @@ static int lcr_hangup(struct ast_channel *ast)
 	if (call->ref)
 	{
 		/* release */
+		CDEBUG(call, ast, "Releasing ref and freeing call instance.\n");
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
 		newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		send_message(MESSAGE_RELEASE, call->ref, &newparam);
 		/* remove call */
 		free_call(call);
-		ast_mutex_unlock(&chan_lock);
+		if (!pthread_equal(tid, call_tid))
+			ast_mutex_unlock(&chan_lock);
 		return 0;
 	} else
 	{
@@ -1308,14 +1467,17 @@ static int lcr_hangup(struct ast_channel *ast)
 		if (call->state == CHAN_LCR_STATE_RELEASE)
 		{
 			/* we get the response to our release */
+			CDEBUG(call, ast, "Freeing call instance, because we have no ref AND we are requesting no ref.\n");
 			free_call(call);
 		} else
 		{
 			/* during prepare, we change to release state */
+			CDEBUG(call, ast, "We must wait until we received our ref, until we can free call instance.\n");
 			call->state = CHAN_LCR_STATE_RELEASE;
 		}
 	} 
-	ast_mutex_unlock(&chan_lock);
+	if (!pthread_equal(tid, call_tid))
+		ast_mutex_unlock(&chan_lock);
 	return 0;
 }
 
@@ -1367,7 +1529,9 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	}
 
 	call->read_fr.frametype = AST_FRAME_SPEECH;
-#warning todo
+#ifdef TODO
+	format aus config
+#endif
 	call->read_fr.subtype = AST_FORMAT_ALAW;
 	call->read_fr.datalen = len;
 	call->read_fr.samples = len;
@@ -1387,12 +1551,14 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
         if (!call) {
+		CERROR(NULL, ast, "Received indicate from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 
         switch (cond) {
                 case AST_CONTROL_BUSY:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_BUSY from Asterisk.\n");
 			/* send message to lcr */
 			memset(&newparam, 0, sizeof(union parameter));
 			newparam.disconnectinfo.cause = 17;
@@ -1404,10 +1570,12 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			ast_mutex_unlock(&chan_lock);
                         return 0;
                 case AST_CONTROL_CONGESTION:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_CONGESTION from Asterisk.\n");
 			/* return */
 			ast_mutex_unlock(&chan_lock);
                         return -1;
                 case AST_CONTROL_RINGING:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_RINGING from Asterisk.\n");
 			/* send message to lcr */
 			memset(&newparam, 0, sizeof(union parameter));
 			send_message(MESSAGE_ALERTING, call->ref, &newparam);
@@ -1425,12 +1593,14 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                         res = -1;
                         break;
                 case AST_CONTROL_HOLD:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_HOLD from Asterisk.\n");
 			/* send message to lcr */
 			memset(&newparam, 0, sizeof(union parameter));
 			newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_HOLD;
 			send_message(MESSAGE_NOTIFY, call->ref, &newparam);
                         break;
                 case AST_CONTROL_UNHOLD:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_UNHOLD from Asterisk.\n");
 			/* send message to lcr */
 			memset(&newparam, 0, sizeof(union parameter));
 			newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_RETRIEVAL;
@@ -1438,7 +1608,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                         break;
 
                 default:
-                        ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, ast->name);
+			CERROR(call, ast, "Received indicate from Asterisk with unknown condition %d.\n", cond);
 			/* return */
 			ast_mutex_unlock(&chan_lock);
                         return -1;
@@ -1463,7 +1633,9 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	int			to = -1;
 	struct ast_frame	*f;
 	int			bridge_id;
- 
+
+	CDEBUG(NULL, ast, "Received briding request from Asterisk.\n");
+	
 	/* join via dsp (if the channels are currently open) */
 	ast_mutex_lock(&chan_lock);
 	bridge_id = new_bridge_id();
@@ -1489,7 +1661,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 		who = ast_waitfor_n(carr, 2, &to);
 
 		if (!who) {
-			ast_log(LOG_NOTICE,"misdn_bridge: empty read, breaking out\n");
+			CDEBUG(NULL, ast, "Empty read on bridge, breaking out.\n");
 			break;
 		}
 		f = ast_read(who);
@@ -1524,6 +1696,8 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
     
 	}
 	
+	CDEBUG(NULL, ast, "Releasing bride.\n");
+
 	/* split channels */
 	ast_mutex_lock(&chan_lock);
 	call1 = ast1->tech_pvt;
@@ -1554,7 +1728,9 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 static struct ast_channel_tech lcr_tech = {
 	.type=lcr_type,
 	.description="Channel driver for connecting to Linux-Call-Router",
-#warning todo
+#ifdef TODO
+	law from config
+#endif
 	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
 	.send_digit_begin=lcr_digit,
@@ -1671,22 +1847,21 @@ int load_module(void)
 			  || = (i<<7) | ((i&2)<<5) | ((i&4)<<3) | ((i&8)<<1);
 
 	ast_mutex_init(&chan_lock);
+	ast_mutex_init(&log_lock);
 	
 	if (!(lcr_sock = open_socket())) {
-		ast_log(LOG_ERROR, "Unable to connect\n");
-		lcr_sock = -1;
 		/* continue with closed socket */
 	}
 
 	if (!bchannel_initialize()) {
-		ast_log(LOG_ERROR, "Unable to open mISDN device\n");
+		CERROR(NULL, NULL, "Unable to open mISDN device\n");
 		close_socket(lcr_sock);
 		return -1;
 	}
 	mISDN_created = 1;
 
 	if (ast_channel_register(&lcr_tech)) {
-		ast_log(LOG_ERROR, "Unable to register channel class\n");
+		CERROR(NULL, NULL, "Unable to register channel class\n");
 		bchannel_deinitialize();
 		close_socket(lcr_sock);
 		return -1;
@@ -1721,12 +1896,11 @@ int load_module(void)
 	
 	lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
 
-	chan_lcr_log(0, 0, "-- mISDN Channel Driver Registred -- (BE AWARE THIS DRIVER IS EXPERIMENTAL!)\n");
 =======
 	//lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
 #endif
 
-	quit = 1;	
+	quit = 0;	
 	if ((pthread_create(&chan_tid, NULL, chan_thread, NULL)<0))
 	{
 		/* failed to create thread */
@@ -1741,7 +1915,7 @@ int load_module(void)
 int unload_module(void)
 {
 	/* First, take us out of the channel loop */
-	ast_log(LOG_VERBOSE, "-- Unregistering mISDN Channel Driver --\n");
+	CDEBUG(NULL, NULL, "-- Unregistering mISDN Channel Driver --\n");
 
 	quit = 1;
 	pthread_join(chan_tid, NULL);	
@@ -1767,7 +1941,8 @@ static int reload_module(void)
 	return 0;
 }
 
-
+#ifdef TODO
+mutex init fehlt noch
 ast_mutex_t usecnt_lock;
 int usecnt;
 
@@ -1779,6 +1954,7 @@ int usecount(void)
 	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
+#endif
 
 
 char *desc="Channel driver for lcr";

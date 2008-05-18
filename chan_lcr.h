@@ -16,6 +16,8 @@ struct chan_call {
 	int			state;	/* current call state CHAN_LCR_STATE */
 	unsigned long		ref;	/* callref for this channel */
 	void			*ast;	/* current asterisk channel */
+	int			pbx_started;
+					/* indicates if pbx que is available */
 	struct bchannel		*bchannel;
 					/* reference to bchannel, if set */
 	int			cause, location;
@@ -28,6 +30,8 @@ struct chan_call {
 					/* current ID or 0 */
 	struct chan_call	*bridge_call;
 					/* remote instance or NULL */
+	int			pipe[2];
+					/* pipe for receive data */
 };
 
 enum {
@@ -81,4 +85,8 @@ enum {
 	  "Call is waiting for complete release." }, \
 };
 
+
+#define CERROR(call, ast, arg...) chan_lcr_log(LOG_ERROR, call, ast, ##arg)
+#define CDEBUG(call, ast, arg...) chan_lcr_log(LOG_DEBUG, call, ast, ##arg)
+void chan_lcr_log(int type, struct chan_call *call, struct ast_channel *ast, const char *fmt, ...);
 
