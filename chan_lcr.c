@@ -79,10 +79,12 @@ If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
 
 */
 
+u_char flip_bits[256];
+
+#warning TODO: bchannel oeffnen und aktivieren (wer macht das?:)
 #warning reconnect after socket closed, release all calls.
 #warning debug of call handling
 #warning ausloesen beim socket-verlust
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -205,8 +207,13 @@ struct chan_call *alloc_call(void)
 	*callp = (struct chan_call *)malloc(sizeof(struct chan_call));
 	if (*callp)
 		memset(*callp, 0, sizeof(struct chan_call));
+	if (pipe((*callp)->pipe) < 0) {
+		free_call(*callp);
+		return;
+	}
 	return(*callp);
 }
+
 
 void free_call(struct chan_call *call)
 {
@@ -217,15 +224,23 @@ void free_call(struct chan_call *call)
 		if (*temp == call)
 		{
 			*temp = (*temp)->next;
+			if (call->pipe[0])
+				close(call->pipe[0]);
+			if (call->pipe[1])
+				close(call->pipe[1]);
 			if (call->bchannel)
 			{
 				if (call->bchannel->call)
 					call->bchannel->call = NULL;
+				else
+					warnung
 			}
 			if (call->bridge_call)
 			{
 				if (call->bridge_call->bridge_call)
 					call->bridge_call->bridge_call = NULL;
+				else
+					warnung
 			}
 			free(call);
 			return;
@@ -382,7 +397,83 @@ static void bridge_message_if_bridged(struct chan_call *call, int message_type, 
 	/* check bridge */
 	if (!call) return;
 	if (!call->bridge_call) return;
-	send_message(MESSAGE_RELEASE, call->bridge_call->ref, param);
+	send_message(message_type, call->bridge_call->ref, param);
+}
+
+/*
+ * check if extension matches and start asterisk
+ * if it can match, proceed
+ * if not, release
+ */
+static void lcr_setup_pbx(struct chan_call *call, struct ast_channel *ast, int complete)
+{
+	int cause;
+
+	if (complete)
+	{
+		/* if not match */
+		if (!ast_canmatch_extension(ast, ast->context, call->dad, 1, call->oad))
+		{
+			cause = 1;
+			goto release;
+		if (!ast_exists_extension(ast, ast->context, call->dad, 1, call->oad))
+		{
+			cause = 28;
+			goto release;
+		}
+		/* send setup acknowledge to lcr */
+		memset(&newparam, 0, sizeof(union parameter));
+		send_message(MESSAGE_PROCEEDING, call->ref, &newparam);
+
+		/* change state */
+		call->state = CHAN_LCR_STATE_IN_PROCEEDING;
+
+		goto start;
+	}
+
+	if (ast_canmatch_extension(ast, ast->context, dad, 1, oad))
+	{
+		/* send setup acknowledge to lcr */
+		memset(&newparam, 0, sizeof(union parameter));
+		send_message(MESSAGE_OVERLAP, call->ref, &newparam);
+
+		/* change state */
+		call->state = CHAN_LCR_STATE_IN_DIALING;
+
+		/* if match, start pbx */
+		if (ast_exists_extension(ast, ast->context, dad, 1, oad))
+			goto start;
+
+		/* if can match */
+		return;
+	}
+
+	/* if not match */
+	cause = 1;
+	release:
+	/* release lcr */
+	memset(&newparam, 0, sizeof(union parameter));
+	newparam.disconnectinfo.cause = cause;
+	newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+	send_message(MESSAGE_RELEASE, call->ref, &newparam);
+	call->ref = 0;
+	/* release asterisk */
+	ast->hangupcause = call->cause;
+	ast_queue_hangup(ast);
+	/* change to release state */
+	call->state = CHAN_LCR_STATE_RELEASE;
+	return;
+	
+	start:
+	/* send setup to asterisk */
+	ret = ast_pbx_start(ast);
+	if (ret < 0)
+	{
+		cause = (ret==-2)?34:27;
+		goto release;
+	}
+	call->pbx_started = 1;
+	return;
 }
 
 /*
@@ -394,9 +485,8 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	union parameter newparam;
 
 	/* create asterisk channel instrance */
-#warning anstatt vom lcr "setup.exten" zu bekommen, sollten wir den context übertragen, der dann in der channel.conf zu dem richtigen ruleset führt.
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
-	if (!call->ast)
+	if (!ast)
 	{
 		/* release */
 		memset(&newparam, 0, sizeof(union parameter));
@@ -411,10 +501,13 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	call->ast = ast;
 	ast->tech_pvt = call;
 	ast->tech = &lcr_tech;
+	ast->fds[0] = call->pipe[0];
 	
 	/* fill setup information */
-	if (param->setup.exten[0])
-		strncpy(ast->exten, param->setup.exten, AST_MAX_EXTENSION);
+	if (param->setup.dialinginfo.id)
+		strncpy(ast->exten, param->setup.dialinginfo.id, AST_MAX_EXTENSION-1);
+	if (param->setup.context[0])
+		strncpy(ast->context, param->setup.exten, AST_MAX_CONTEXT-1);
 	if (param->setup.callerinfo.id[0])
 		ast->cid.cid_num = strdup(param->setup.callerinfo.id);
 	if (param->setup.callerinfo.name[0])
@@ -422,7 +515,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 #warning todo
 #if 0
 	if (param->setup.redirinfo.id[0])
-		ast->cid.cid_name = strdup(numberrize_callerinfo(param->setup.callerinfo.name, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
+		ast->cid.cid_name = strdup(numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
 #endif
 	switch (param->setup.callerinfo.present)
 	{
@@ -450,6 +543,8 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 			ast->cid.cid_ton = 0;
 	}
 	ast->transfercapability = param->setup.capainfo.bearer_capa;
+	strcpy(call->dad, param->setup.dialinginfo.id);
+	strcpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, configfile->prefix_nat, configfile->prefix_inter));
 
 	/* configure channel */
 #warning todo
@@ -463,15 +558,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	/* change state */
 	call->state = CHAN_LCR_STATE_IN_SETUP;
 
-	/* send setup to asterisk */
-	ast_pbx_start(ast);
-
-	/* send setup acknowledge to lcr */
-	memset(&newparam, 0, sizeof(union parameter));
-	send_message(MESSAGE_OVERLAP, call->ref, &newparam);
-
-	/* change state */
-	call->state = CHAN_LCR_STATE_IN_DIALING;
+	lcr_start_pbx(call, ast, param->setup.dialinginfo.complete);
 }
 
 /*
@@ -539,6 +626,9 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	/* save cause */
 	call->cause = param->disconnectinfo.cause;
 	call->location = param->disconnectinfo.location;
+per option
+
+wenn setup raus geht, pointer 
 	/* if bridge, forward disconnect and return */
 	if (call->bridge_call)
 	{
@@ -595,6 +685,14 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	char *p;
 
 	if (!call->ast) return;
+
+	/* pbx not started */
+	if (!call->pbx_started)
+	{
+		strncat(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
+		lcr_start_pbx(call, ast, param->information.complete);
+		return;
+	}
 	
 	/* copy digits */
 	p = param->information.id;
@@ -996,6 +1094,7 @@ void close_socket(int sock)
 static void *chan_thread(void *arg)
 {
 	int work;
+	int ret;
 
 	ast_mutex_lock(&chan_lock);
 
@@ -1004,7 +1103,7 @@ static void *chan_thread(void *arg)
 		work = 0;
 
 		/* handle socket */
-		int ret = handle_socket();
+		ret = handle_socket();
 		if (ret < 0)
 			break;
 		if (ret)
@@ -1085,11 +1184,15 @@ static struct ast_channel *lcr_request(const char *type, int format, void *data,
  */
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
-        struct chan_call *call=ast->tech_pvt;
-
-        if (!call) return -1;
+        struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+
 
 #warning	hier muss noch
 #if 0
@@ -1112,17 +1215,20 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 
 static int lcr_digit(struct ast_channel *ast, char digit)
 {
-        struct chan_call *call = ast->tech_pvt;
+        struct chan_call *call;
 	union parameter newparam;
 	char buf[]="x";
-
-	if (!call) return -1;
 
 	/* only pass IA5 number space */
 	if (digit > 126 || digit < 32)
 		return 0;
 
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
 
 	/* send information or queue them */
 	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING)
@@ -1147,12 +1253,15 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 static int lcr_answer(struct ast_channel *ast)
 {
 	union parameter newparam;
-        struct chan_call *call = ast->tech_pvt;
-	
-	if (!call) return -1;
+        struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
-
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+	
 	/* copy connectinfo, if bridged */
 	if (call->bridge_call)
 		memcpy(&call->connectinfo, &call->bridge_call->connectinfo, sizeof(struct connect_info));
@@ -1170,14 +1279,18 @@ static int lcr_answer(struct ast_channel *ast)
 static int lcr_hangup(struct ast_channel *ast)
 {
 	union parameter newparam;
-        struct chan_call *call = ast->tech_pvt;
-
-	if (!call)
-		return 0;
+        struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+
 	/* disconnect asterisk, maybe not required */
 	ast->tech_pvt = NULL;
+	ast->fds[0] = -1;
 	if (call->ref)
 	{
 		/* release */
@@ -1208,9 +1321,24 @@ static int lcr_hangup(struct ast_channel *ast)
 
 static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 {
-        struct chan_call *call = ast->tech_pvt;
-	if (!call) return 0;
+        struct chan_call *call;
+	unsigned char *buffer[1024], *s, *d = buffer;
+
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+	if (call->bchannel && ((ii = f->samples)))
+	{
+		if (ii > sizeof(buffer))
+			ii = buffer;
+		s = f->data;
+		for (i = 0, i < ii, i++)
+			*d++ = flip_bits[*s++];
+		bchannel_transmit(call->bchannel, buffer, ii);
+	}
 	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
@@ -1218,22 +1346,50 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 
 static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
-        struct chan_call *call = ast->tech_pvt;
-	if (!call) return 0;
+        struct chan_call *call;
+	int i, len;
+	unsigned char *p;
+
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+	len = read(call->pipe[0], call->read_buf, sizeof(call->read_buf));
+	if (len <= 0)
+		return NULL;
+
+	p = call->read_buf;
+	for (i = 0, i < len, i++) {
+		*d = flip_bits[*d];
+		d++;
+	}
+
+	call->read_fr.frametype = AST_FRAME_SPEECH;
+#warning todo
+	call->read_fr.subtype = AST_FORMAT_ALAW;
+	call->read_fr.datalen = len;
+	call->read_fr.samples = len;
+	call->read_fr.delivery = ast_tv(0,0);
+	call->read_fr.data = call->read_buf;
 	ast_mutex_unlock(&chan_lock);
-	return 0;
+
+	return &call->read_fr;
 }
 
 static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, size_t datalen)
 {
-        struct chan_call *call = ast->tech_pvt;
 	union parameter newparam;
         int res = -1;
-
-	if (!call) return -1;
+        struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
+        call = ast->tech_pvt;
+        if (!call) {
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
 
         switch (cond) {
                 case AST_CONTROL_BUSY:
@@ -1308,35 +1464,24 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	struct ast_frame	*f;
 	int			bridge_id;
  
-#if 0
-	if (config nobridge) {
-		ast_log(LOG_NOTICE, "Falling back to Asterisk bridging\n");
-		return AST_BRIDGE_FAILED;
-	}
-
-	if (! (flags&AST_BRIDGE_DTMF_CHANNEL_0) )
-		call1->ignore_dtmf=1;
-	
-	if (! (flags&AST_BRIDGE_DTMF_CHANNEL_1) )
-		call2->ignore_dtmf=1;
-#endif
-
 	/* join via dsp (if the channels are currently open) */
-	bridge_id = new_bridge_id();
 	ast_mutex_lock(&chan_lock);
+	bridge_id = new_bridge_id();
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
-	if (call1)
+	if (call1 && call2)
 	{
 		call1->bridge_id = bridge_id;
 		if (call1->bchannel)
 			bchannel_join(call1->bchannel, bridge_id);
+		call1->bridge_call = call2;
 	}
 	if (call2)
 	{
 		call2->bridge_id = bridge_id;
 		if (call2->bchannel)
 			bchannel_join(call2->bchannel, bridge_id);
+		call2->bridge_call = call1;
 	}
 	ast_mutex_unlock(&chan_lock);
 	
@@ -1388,12 +1533,18 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 		call1->bridge_id = 0;
 		if (call1->bchannel)
 			bchannel_join(call1->bchannel, 0);
+		if (call1->bridge_call)
+			call1->bridge_call->bridge_call = NULL;
+		call1->bridge_call = NULL;
 	}
 	if (call2)
 	{
 		call2->bridge_id = 0;
 		if (call2->bchannel)
 			bchannel_join(call2->bchannel, 0);
+		if (call2->bridge_call)
+			call2->bridge_call->bridge_call = NULL;
+		call2->bridge_call = NULL;
 	}
 	ast_mutex_unlock(&chan_lock);
 	
@@ -1403,6 +1554,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 static struct ast_channel_tech lcr_tech = {
 	.type=lcr_type,
 	.description="Channel driver for connecting to Linux-Call-Router",
+#warning todo
 	.capabilities=AST_FORMAT_ALAW,
 	.requester=lcr_request,
 	.send_digit_begin=lcr_digit,
@@ -1512,9 +1664,11 @@ static struct ast_cli_entry cli_port_unload =
  */
 int load_module(void)
 {
-//	ast_mutex_init(&release_lock);
+	int i;
 
-//	lcr_cfg_update_ptp();
+	for (i = 0, i < 256, i++)
+		flip_bits[i] = (i>>7) | ((i>>5)&2) | ((i>>3)&4) | ((i>>1)&8)
+			  || = (i<<7) | ((i&2)<<5) | ((i&4)<<3) | ((i&8)<<1);
 
 	ast_mutex_init(&chan_lock);
 	

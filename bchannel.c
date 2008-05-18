@@ -210,6 +210,9 @@ int bchannel_create(struct bchannel *bchannel)
 		return(0);
 	}
 
+	/* default tx_dejitter */
+	bchannel->b_tx_dejitter = 1;
+
 	/* open socket */
 	channel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
 	if (bchannel->b_sock < 0)
@@ -380,33 +383,33 @@ static void bchannel_activated(struct bchannel *bchannel)
 
 	/* set dsp features */
 	if (bchannel->b_txdata)
-		ph_control(handle, (bchannel->b_txdata)?CMX_TXDATA_ON:CMX_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata);
+		ph_control(handle, (bchannel->b_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata);
 	if (bchannel->b_delay)
-		ph_control(handle, CMX_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay);
+		ph_control(handle, DSP_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay);
 	if (bchannel->b_tx_dejitter)
-		ph_control(handle, (bchannel->b_tx_dejitter)?CMX_TX_DEJITTER:CMX_TX_DEJ_OFF, 0, "DSP-DELAY", bchannel->b_tx_dejitter);
+		ph_control(handle, (bchannel->b_tx_dejitter)?DSP_TX_DEJITTER:DSP_TX_DEJ_OFF, 0, "DSP-TX_DEJITTER", bchannel->b_tx_dejitter);
 	if (bchannel->b_tx_gain)
-		ph_control(handle, VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain);
+		ph_control(handle, DSP_VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain);
 	if (bchannel->b_rx_gain)
-		ph_control(handle, VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain);
+		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain);
 	if (bchannel->b_pipeline[0])
 		ph_control_block(handle, PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
 	if (bchannel->b_conf)
-		ph_control(handle, CMX_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 	if (bchannel->b_echo)
-		ph_control(handle, CMX_ECHO_ON, 0, "DSP-ECHO", 1);
+		ph_control(handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1);
 	if (bchannel->b_tone)
-		ph_control(handle, TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone);
+		ph_control(handle, DSP_TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone);
 	if (bchannel->b_rxoff)
-		ph_control(handle, CMX_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+		ph_control(handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 //	if (bchannel->b_txmix)
-//		ph_control(handle, CMX_MIX_ON, 0, "DSP-MIX", 1);
+//		ph_control(handle, DSP_MIX_ON, 0, "DSP-MIX", 1);
 	if (bchannel->b_dtmf)
 		ph_control(handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
 	if (bchannel->b_crypt_len)
-		ph_control_block(handle, BF_ENABLE_KEY, bchannel->b_crypt_key, bchannel->b_crypt_len, "DSP-CRYPT", bchannel->b_crypt_len);
+		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_crypt_key, bchannel->b_crypt_len, "DSP-CRYPT", bchannel->b_crypt_len);
 	if (bchannel->b_conf)
-		ph_control(handle, CMX_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 
 	bchannel->b_state = BSTATE_ACTIVE;
 }
@@ -550,8 +553,17 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		return;
 	}
 
-	if (bchannel->rx_data)
-		bchannel->rx_data(bchannel, data, len);
+	if (!bchannel->call)
+	{
+		PDEBUG("PmISDN(%s) ignoring data, because no call associated with bchannel\n", p_name);
+		return;
+	}
+	len = write(bchannel->call->pipe[1], data, len);
+	if (len < 0)
+	{
+		PDEBUG("PmISDN(%s) broken pipe on bchannel pipe\n", p_name);
+		return;
+	}
 }
 
 
@@ -596,12 +608,18 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 
 	handle = bchannel->b_addr;
 #endif
-	if (id)
+	if (id) {
 		bchannel->b_conf = (id<<16) + bchannel_pid;
-	else
+		bchannel->b_rxoff = 1;
+	} else {
 		bchannel->b_conf = 0;
+		bchannel->b_rxoff = 0;
+	}
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control(handle, CMX_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+	{
+		ph_control(handle, DSP_RX_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+	}
 }
 
 

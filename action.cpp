@@ -74,7 +74,7 @@ void EndpointAppPBX::action_init_remote(void)
 	struct caller_info	callerinfo;
 	struct redir_info	redirinfo;
 	struct dialing_info	dialinginfo;
-	char			exten[128] = "";
+	char			context[128] = "";
 	char 			remote[32];
 
 	if (!(rparam = routeparam(e_action, PARAM_APPLICATION)))
@@ -95,23 +95,28 @@ void EndpointAppPBX::action_init_remote(void)
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 
+	if ((rparam = routeparam(e_action, PARAM_CONTEXT)))
+	{
+		SCPY(context, rparam->string_value);
+	}
 	if ((rparam = routeparam(e_action, PARAM_EXTEN)))
 	{
-		SCPY(exten, rparam->string_value);
+		SCPY(dialinginfo.id, rparam->string_value);
+		dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
 	/* send setup to remote */
 	trace_header("ACTION remote (setup)", DIRECTION_NONE);
 	add_trace("number", NULL, dialinginfo.id);
 	add_trace("remote", NULL, remote);
-	if (exten[0])
-		add_trace("exten", NULL, remote);
+	if (context[0])
+		add_trace("context", NULL, context);
 	end_trace();
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_SETUP);
 	memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.capainfo, &capainfo, sizeof(struct capa_info));
-	SCPY(message->param.setup.exten, exten);
+	SCPY(message->param.setup.context, context);
 	message_put(message);
 }
 

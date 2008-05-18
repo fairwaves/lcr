@@ -231,9 +231,12 @@ struct param_defs param_defs[] = {
 	{ PARAM_APPLICATION,
 	  "application",PARAM_TYPE_STRING,
 	  "application=<name>", "Name of remote application to make call to."},
+	{ PARAM_CONTEXT,
+	  "exten",	PARAM_TYPE_STRING,
+	  "exten=<extension>", "Give context parameter to the remote application."},
 	{ PARAM_EXTEN,
 	  "exten",	PARAM_TYPE_STRING,
-	  "exten=<extension>", "Give exten parameter to the remote application."},
+	  "exten=<extension>", "Give exten parameter to the remote application. (overrides dialed number)"},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -252,7 +255,7 @@ struct action_defs action_defs[] = {
 	  "Same as 'extern'"},
 	{ ACTION_REMOTE,
 	  "remote",	&EndpointAppPBX::action_init_remote, &EndpointAppPBX::action_dialing_remote, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_EXTEN | PARAM_TIMEOUT,
+	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_CONTEXT | PARAM_EXTEN | PARAM_TIMEOUT,
 	  "Call is routed to Remote application, like Asterisk."},
 	{ ACTION_VBOX_RECORD,
 	  "vbox-record",&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_vbox_record, &EndpointAppPBX::action_hangup_call,

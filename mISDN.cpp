@@ -1746,11 +1746,8 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 #endif
 		{
 #ifndef OLD_MISDN
-#ifdef SOCKET_MISDN
-			case DSP_TX_DATA:
-#else
+#ifndef SOCKET_MISDN
 			case CMX_TX_DATA:
-#endif
 			if (!p_m_txdata)
 			{
 				/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
@@ -1766,6 +1763,7 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 				record(data, len, 1); // from up
 			break;
 #endif
+#endif
 
 			default:
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
@@ -1779,6 +1777,23 @@ void PmISDN::bchannel_receive(iframe_t *frm)
 		return;
 	}
 #ifdef SOCKET_MISDN
+	if (hh->prim == PH_DATA_REQ || hh->prim == DL_DATA_REQ)
+	{
+		if (!p_m_txdata)
+		{
+			/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
+			PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) ignoring tx data, because 'txdata' is turned off\n", p_name);
+			return;
+		}
+		/* see below (same condition) */
+		if (p_state!=PORT_STATE_CONNECT
+			 && !p_m_mISDNport->tones)
+			return;
+//		printf(".");fflush(stdout);return;
+		if (p_record)
+			record(data, len, 1); // from up
+		return;
+	}
 	if (hh->prim != PH_DATA_IND && hh->prim != DL_DATA_IND)
 	{
 		PERROR("Bchannel received unknown primitve: 0x%x\n", hh->prim);

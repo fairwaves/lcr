@@ -257,7 +257,7 @@ struct message_setup {
 	struct redir_info redirinfo;		/* info on redirection (to the calling user) */
 	struct capa_info capainfo;		/* info on l2,l3 capability */
 	struct useruser_info useruser;		/* user-user */
-	char exten[128];			/* asterisk extension */
+	char context[128];			/* asterisk context */
 };
 
 /* call-info structure PARK */
