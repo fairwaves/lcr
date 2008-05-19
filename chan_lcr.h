@@ -20,10 +20,13 @@ struct chan_call {
 					/* indicates if pbx que is available */
 	struct bchannel		*bchannel;
 					/* reference to bchannel, if set */
+	int			audiopath;
+					/* audio is available */
 	int			cause, location;
 					/* store cause from lcr */
 	unsigned char		dialque[64];
 					/* queue dialing prior setup ack */
+	char			oad[64];/* caller id in number format */
 	struct connect_info	connectinfo;
 					/* store connectinfo form lcr */
 	int			bridge_id;
@@ -32,6 +35,10 @@ struct chan_call {
 					/* remote instance or NULL */
 	int			pipe[2];
 					/* pipe for receive data */
+	unsigned char		read_buff[1024];
+					/* read buffer for frame */
+	struct ast_frame	read_fr;
+					/* frame for read */
 };
 
 enum {
@@ -86,7 +93,7 @@ enum {
 };
 
 
-#define CERROR(call, ast, arg...) chan_lcr_log(LOG_ERROR, call, ast, ##arg)
-#define CDEBUG(call, ast, arg...) chan_lcr_log(LOG_DEBUG, call, ast, ##arg)
-void chan_lcr_log(int type, struct chan_call *call, struct ast_channel *ast, const char *fmt, ...);
+#define CERROR(call, ast, arg...) chan_lcr_log(__LOG_ERROR, __FILE__, __LINE__, call, ast, ##arg)
+#define CDEBUG(call, ast, arg...) chan_lcr_log(__LOG_DEBUG, __FILE__, __LINE__, call, ast, ##arg)
+void chan_lcr_log(int type, const char *file, int line, struct chan_call *call, struct ast_channel *ast, const char *fmt, ...);
 

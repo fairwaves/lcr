@@ -27,11 +27,6 @@ enum { /* relation types */
 	RELATION_TYPE_CONNECT,	/* interface is connected */
 };
 
-enum { /* relation audio state */
-	CHANNEL_STATE_CONNECT,	/* endpoint is connected to the join voice transmission in both dirs */
-	CHANNEL_STATE_HOLD,	/* endpoint is on hold state, no audio */
-};
-
 enum { /* states that results from last notification */
 	NOTIFY_STATE_ACTIVE, /* just the normal case, the party is active */
 	NOTIFY_STATE_SUSPEND, /* the party is inactive, because she has parked */

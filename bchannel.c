@@ -555,6 +555,11 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		CDEBUG("PmISDN(%s) ignoring data, because no call associated with bchannel\n", p_name);
 		return;
 	}
+	if (!bchannel->call->audiopath)
+	{
+		/* return, because we have no audio from port */
+		return;
+	}
 	len = write(bchannel->call->pipe[1], data, len);
 	if (len < 0)
 	{

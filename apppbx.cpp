@@ -1336,7 +1336,7 @@ int EndpointAppPBX::handler(void)
 			}
 			/* put on hold */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 			message_put(message);
 			/* indicate no patterns */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
@@ -1868,7 +1868,7 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 
 		/* connect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_CONNECT;
+		message->param.audiopath = 1;
 		message_put(message);
 	} else
 	{
@@ -1878,7 +1878,7 @@ void EndpointAppPBX::port_overlap(struct port_list *portlist, int message_type, 
 
 		/* disconnect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_HOLD;
+		message->param.audiopath = 0;
 		message_put(message);
 	}
 	new_state(EPOINT_STATE_OUT_OVERLAP);
@@ -1911,7 +1911,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 
 		/* connect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_CONNECT;
+		message->param.audiopath = 1;
 		message_put(message);
 	} else
 	{
@@ -1921,7 +1921,7 @@ void EndpointAppPBX::port_proceeding(struct port_list *portlist, int message_typ
 
 		/* disconnect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_HOLD;
+		message->param.audiopath = 0;
 		message_put(message);
 	}
 	/* if we are in a call */
@@ -1953,7 +1953,7 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 
 		/* connect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_CONNECT;
+		message->param.audiopath = 1;
 		message_put(message);
 	} else
 	{
@@ -1963,7 +1963,7 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 
 		/* disconnect audio, if not already */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_HOLD;
+		message->param.audiopath = 0;
 		message_put(message);
 	}
 	/* if we are in a call */
@@ -2088,7 +2088,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		message_put(message);
 
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_CONNECT;
+		message->param.audiopath = 1;
 		message_put(message);
 	} else if (!e_adminid)
 	{
@@ -2288,7 +2288,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			message_put(message);
 			/* connect audio, if not already */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = 1;
 			message_put(message);
 			/* send disconnect */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
@@ -2422,7 +2422,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		if (ea_endpoint->ep_join_id)
 		{
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 			message_put(message);
 		}
 		break;
@@ -2447,7 +2447,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 		if (ea_endpoint->ep_join_id)
 		{
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = 1;
 			message_put(message);
 		}
 		break;
@@ -2865,7 +2865,7 @@ void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, 
 	{
 		/* disconnect audio */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_HOLD;
+		message->param.audiopath = 0;
 		message_put(message);
 	}
 	if (e_action) if (e_action->index == ACTION_OUTDIAL || e_action->index == ACTION_EXTERNAL)
@@ -2895,9 +2895,9 @@ void EndpointAppPBX::join_proceeding(struct port_list *portlist, int message_typ
 		/* connect / disconnect audio */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 		if (e_ext.own_proceeding)
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 		else
-			message->param.audiopath = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = 1;
 		message_put(message);
 	}
 //			UCPY(e_join_tone, "proceeding");
@@ -2923,9 +2923,9 @@ void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type,
 		/* connect / disconnect audio */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 		if (e_ext.own_alerting)
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 		else
-			message->param.audiopath = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = 1;
 		message_put(message);
 	}
 	if (portlist)
@@ -2992,7 +2992,7 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 	set_tone(portlist, NULL);
 	e_join_pattern = 0;
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-	message->param.audiopath = CHANNEL_STATE_CONNECT;
+	message->param.audiopath = 1;
 	message_put(message);
 	e_start = now;
 }
@@ -3098,7 +3098,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	} else /* else we enable audio */
 	{
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-		message->param.audiopath = CHANNEL_STATE_CONNECT;
+		message->param.audiopath = 1;
 		message_put(message);
 	}
 	/* send disconnect message */
@@ -3140,7 +3140,7 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 
 			/* disconnect audio */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 			message_put(message);
 
 			/* get dialing info */
@@ -3463,13 +3463,8 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 			}
 			/* connect our audio tx and rx (blueboxing should be possibe before connect :)*/
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_CONNECT;
+			message->param.audiopath = 1;
 			message_put(message);
-//			/* tell remote epoint to connect audio also, because we like to hear the patterns */
-//			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_REMOTE_AUDIO);
-//			message->param.audiopath = CHANNEL_STATE_CONNECT;
-//			message_put(message);
-// patterns are available, remote already connected audio
 		}
 		break;
 
@@ -3482,7 +3477,7 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 			e_join_pattern = 0;
 			/* disconnect our audio tx and rx */
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = CHANNEL_STATE_HOLD;
+			message->param.audiopath = 0;
 			message_put(message);
 		}
 		break;
@@ -3715,7 +3710,7 @@ reject:
 
 	/* we send a connect to the audio path (not for vbox) */
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-	message->param.audiopath = CHANNEL_STATE_CONNECT;
+	message->param.audiopath = 1;
 	message_put(message);
 
 	/* beeing paranoid, we make call update */

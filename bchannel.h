@@ -42,6 +42,7 @@ struct bchannel {
 
 
 extern struct bchannel *bchannel_first;
+extern pid_t bchannel_pid;
 
 int bchannel_initialize(void);
 void bchannel_deinitialize(void);
