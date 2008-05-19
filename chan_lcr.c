@@ -1734,7 +1734,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	return AST_BRIDGE_COMPLETE;
 }
 static struct ast_channel_tech lcr_tech = {
-	.type=lcr_type,
+	.type="LCR",
 	.description="Channel driver for connecting to Linux-Call-Router",
 #ifdef TODO
 	law from config
