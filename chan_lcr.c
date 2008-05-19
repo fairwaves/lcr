@@ -1733,7 +1733,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	
 	return AST_BRIDGE_COMPLETE;
 }
-static struct ast_channel_tech lcr_tech = {
+struct ast_channel_tech lcr_tech = {
 	.type="LCR",
 	.description="Channel driver for connecting to Linux-Call-Router",
 #ifdef TODO
@@ -1794,49 +1794,49 @@ static int lcr_port_unload (int fd, int argc, char *argv[])
 	return 0;
 }
 
-static struct ast_cli_entry cli_show_lcr =
+struct ast_cli_entry cli_show_lcr =
 { {"lcr", "show", "lcr", NULL},
  lcr_show_lcr,
  "Shows current states of LCR core",
  "Usage: lcr show lcr\n",
 };
 
-static struct ast_cli_entry cli_show_calls =
+struct ast_cli_entry cli_show_calls =
 { {"lcr", "show", "calls", NULL},
  lcr_show_calls,
  "Shows current calls made by LCR and Asterisk",
  "Usage: lcr show calls\n",
 };
 
-static struct ast_cli_entry cli_reload_routing =
+struct ast_cli_entry cli_reload_routing =
 { {"lcr", "reload", "routing", NULL},
  lcr_reload_routing,
  "Reloads routing conf of LCR, current uncomplete calls will be disconnected",
  "Usage: lcr reload routing\n",
 };
 
-static struct ast_cli_entry cli_reload_interfaces =
+struct ast_cli_entry cli_reload_interfaces =
 { {"lcr", "reload", "interfaces", NULL},
  lcr_reload_interfaces,
  "Reloads interfaces conf of LCR",
  "Usage: lcr reload interfaces\n",
 };
 
-static struct ast_cli_entry cli_port_block =
+struct ast_cli_entry cli_port_block =
 { {"lcr", "port", "block", NULL},
  lcr_port_block,
  "Blocks LCR port for further calls",
  "Usage: lcr port block \"<port>\"\n",
 };
 
-static struct ast_cli_entry cli_port_unblock =
+struct ast_cli_entry cli_port_unblock =
 { {"lcr", "port", "unblock", NULL},
  lcr_port_unblock,
  "Unblocks or loads LCR port, port is opened my mISDN",
  "Usage: lcr port unblock \"<port>\"\n",
 };
 
-static struct ast_cli_entry cli_port_unload =
+struct ast_cli_entry cli_port_unload =
 { {"lcr", "port", "unload", NULL},
  lcr_port_unload,
  "Unloads LCR port, port is closes by mISDN",
@@ -1847,13 +1847,13 @@ static struct ast_cli_entry cli_port_unload =
 /*
  * module loading and destruction
  */
-int load_module(void)
+static int load_module(void)
 {
 	int i;
 
-	for (i = 0, i < 256, i++)
+	for (i = 0; i < 256; i++)
 		flip_bits[i] = (i>>7) | ((i>>5)&2) | ((i>>3)&4) | ((i>>1)&8)
-			  || = (i<<7) | ((i&2)<<5) | ((i&4)<<3) | ((i&8)<<1);
+			    || (i<<7) | ((i&2)<<5) | ((i&4)<<3) | ((i&8)<<1);
 
 	ast_mutex_init(&chan_lock);
 	ast_mutex_init(&log_lock);
@@ -1921,7 +1921,7 @@ int load_module(void)
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	/* First, take us out of the channel loop */
 	CDEBUG(NULL, NULL, "-- Unregistering mISDN Channel Driver --\n");
@@ -1944,7 +1944,7 @@ int unload_module(void)
 	return 0;
 }
 
-static int reload_module(void)
+int reload_module(void)
 {
 //	reload_config();
 	return 0;
@@ -1979,11 +1979,11 @@ char *key(void)
 }
 
 #define AST_MODULE "chan_lcr"
-AST_MODULE_INFO(ASTERISK_GPL_KEY,
+AST_MODULE_INFO(		ASTERISK_GPL_KEY,
                                 AST_MODFLAG_DEFAULT,
                                 "Channel driver for LCR",
-                                .load = load_module,
-                                .unload = unload_module,
-                                .reload = reload_module,
+                                load_module,
+                                unload_module,
+                                reload_module
                            );
 
