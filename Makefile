@@ -163,11 +163,11 @@ trace.o: trace.c *.h Makefile
 chan_lcr.o: chan_lcr.c *.h Makefile
 	$(CC) -D_GNU_SOURCE  -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
 
-chan_lcr.so: chan_lcr.o *.h Makefile
-	gcc -shared -x $(LDFLAGS) -o chan_lcr.so chan_lcr.o
-
 bchannel.o: bchannel.c *.h Makefile
 	$(CC) -c $(CFLAGS) bchannel.c -o bchannel.o
+
+chan_lcr.so: chan_lcr.o bchannel.o *.h Makefile
+	gcc -shared -x $(LDFLAGS) -o chan_lcr.so chan_lcr.o bchannel.o
 
 
 #$(WIZZARD): wizzard.c Makefile
