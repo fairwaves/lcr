@@ -447,6 +447,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", ast->exten, ast->context);
 			cause = 1;
 			goto release;
+		}
 		if (!ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad))
 		{
 			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", ast->exten, ast->context);
@@ -748,12 +749,13 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
  */
 static void lcr_in_information(struct chan_call *call, int message_type, union parameter *param)
 {
+	struct ast_channel *ast = call->ast;
 	struct ast_frame fr;
 	char *p;
 
 	CDEBUG(call, call->ast, "Incomming information from LCR. (dialing=%d)\n", param->information.id);
 	
-	if (!call->ast) return;
+	if (!ast) return;
 
 	/* pbx not started */
 	if (!call->pbx_started)
@@ -1649,7 +1651,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	struct ast_frame	*f;
 	int			bridge_id;
 
-	CDEBUG(NULL, ast, "Received briding request from Asterisk.\n");
+	CDEBUG(NULL, NULL, "Received briding request from Asterisk.\n");
 	
 	/* join via dsp (if the channels are currently open) */
 	ast_mutex_lock(&chan_lock);
@@ -1676,7 +1678,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 		who = ast_waitfor_n(carr, 2, &to);
 
 		if (!who) {
-			CDEBUG(NULL, ast, "Empty read on bridge, breaking out.\n");
+			CDEBUG(NULL, NULL, "Empty read on bridge, breaking out.\n");
 			break;
 		}
 		f = ast_read(who);
@@ -1704,7 +1706,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
     
 	}
 	
-	CDEBUG(NULL, ast, "Releasing bride.\n");
+	CDEBUG(NULL, NULL, "Releasing bride.\n");
 
 	/* split channels */
 	ast_mutex_lock(&chan_lock);
@@ -1733,7 +1735,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	
 	return AST_BRIDGE_COMPLETE;
 }
-struct ast_channel_tech lcr_tech = {
+static struct ast_channel_tech lcr_tech = {
 	.type="LCR",
 	.description="Channel driver for connecting to Linux-Call-Router",
 #ifdef TODO
@@ -1794,49 +1796,49 @@ static int lcr_port_unload (int fd, int argc, char *argv[])
 	return 0;
 }
 
-struct ast_cli_entry cli_show_lcr =
+static struct ast_cli_entry cli_show_lcr =
 { {"lcr", "show", "lcr", NULL},
  lcr_show_lcr,
  "Shows current states of LCR core",
  "Usage: lcr show lcr\n",
 };
 
-struct ast_cli_entry cli_show_calls =
+static struct ast_cli_entry cli_show_calls =
 { {"lcr", "show", "calls", NULL},
  lcr_show_calls,
  "Shows current calls made by LCR and Asterisk",
  "Usage: lcr show calls\n",
 };
 
-struct ast_cli_entry cli_reload_routing =
+static struct ast_cli_entry cli_reload_routing =
 { {"lcr", "reload", "routing", NULL},
  lcr_reload_routing,
  "Reloads routing conf of LCR, current uncomplete calls will be disconnected",
  "Usage: lcr reload routing\n",
 };
 
-struct ast_cli_entry cli_reload_interfaces =
+static struct ast_cli_entry cli_reload_interfaces =
 { {"lcr", "reload", "interfaces", NULL},
  lcr_reload_interfaces,
  "Reloads interfaces conf of LCR",
  "Usage: lcr reload interfaces\n",
 };
 
-struct ast_cli_entry cli_port_block =
+static struct ast_cli_entry cli_port_block =
 { {"lcr", "port", "block", NULL},
  lcr_port_block,
  "Blocks LCR port for further calls",
  "Usage: lcr port block \"<port>\"\n",
 };
 
-struct ast_cli_entry cli_port_unblock =
+static struct ast_cli_entry cli_port_unblock =
 { {"lcr", "port", "unblock", NULL},
  lcr_port_unblock,
  "Unblocks or loads LCR port, port is opened my mISDN",
  "Usage: lcr port unblock \"<port>\"\n",
 };
 
-struct ast_cli_entry cli_port_unload =
+static struct ast_cli_entry cli_port_unload =
 { {"lcr", "port", "unload", NULL},
  lcr_port_unload,
  "Unloads LCR port, port is closes by mISDN",
@@ -1847,7 +1849,7 @@ struct ast_cli_entry cli_port_unload =
 /*
  * module loading and destruction
  */
-static int load_module(void)
+int load_module(void)
 {
 	int i;
 
@@ -1921,7 +1923,7 @@ static int load_module(void)
 	return 0;
 }
 
-static int unload_module(void)
+int unload_module(void)
 {
 	/* First, take us out of the channel loop */
 	CDEBUG(NULL, NULL, "-- Unregistering mISDN Channel Driver --\n");
@@ -1978,12 +1980,4 @@ char *key(void)
 	return ASTERISK_GPL_KEY;
 }
 
-#define AST_MODULE "chan_lcr"
-AST_MODULE_INFO(		ASTERISK_GPL_KEY,
-                                AST_MODFLAG_DEFAULT,
-                                "Channel driver for LCR",
-                                load_module,
-                                unload_module,
-                                reload_module
-                           );
 

@@ -25,11 +25,11 @@ enum {
 	DISPLAY_CID_ABBREV_NUMBER,		/* "05 5551212" */
 	DISPLAY_CID_ABBREV_NAME,		/* "05 Axel" */
 	DISPLAY_CID_ABBREV_NUMBER_NAME,		/* "05 5551212 Axel" */
-	DISPLAY_CID_ABBREV_NAME_NUMBER,		/* "05 Axel 5551212" */
+	DISPLAY_CID_ABBREV_NAME_NUMBER		/* "05 Axel 5551212" */
 };
 enum {
 	DISPLAY_CID_INTERNAL_OFF,		/* "20" */
-	DISPLAY_CID_INTERNAL_ON,		/* "Intern 20" */
+	DISPLAY_CID_INTERNAL_ON		/* "Intern 20" */
 };
 
 /* display of clear causes using display messages */
@@ -40,14 +40,14 @@ enum {
 	DISPLAY_CAUSE_GERMAN,		/* "34 - kein Kanal" */
 	DISPLAY_LOCATION_ENGLISH,	/* "34 - Network (Remote)" */
 	DISPLAY_LOCATION_GERMAN,	/* "34 - Vermittlung (Gegenstelle)" */
-	DISPLAY_CAUSE_NUMBER,		/* "Cause 34" */
+	DISPLAY_CAUSE_NUMBER		/* "Cause 34" */
 };
 
 /* clip */
 
 enum {
 	CLIP_ASIS,			/* use colp as presented by caller */
-	CLIP_HIDE,			/* use extension's caller id */
+	CLIP_HIDE			/* use extension's caller id */
 };
 
 /* colp */
@@ -55,7 +55,7 @@ enum {
 enum {
 	COLP_ASIS,			/* use colp as presented by called */
 	COLP_HIDE,			/* use extension's caller id */
-	COLP_FORCE,			/* use colp even if called dosn't provide or allow */
+	COLP_FORCE			/* use colp even if called dosn't provide or allow */
 };
 
 /* codec to use */
@@ -65,7 +65,7 @@ enum {
 	CODEC_MONO,			/* record wave mono */
 	CODEC_STEREO,			/* record wave stereo */
 	CODEC_8BIT,			/* record wave mono 8bit */
-	CODEC_LAW,			/* record LAW */
+	CODEC_LAW			/* record LAW */
 };
 
 /* VBOX mode */
@@ -73,7 +73,7 @@ enum {
 enum {
 	VBOX_MODE_NORMAL,		/* normal mode: send announcement, then record */
 	VBOX_MODE_PARALLEL,		/* parallel mode: send announcement and record during announcement */
-	VBOX_MODE_ANNOUNCEMENT,		/* announcement mode: send announcement and disconnect */
+	VBOX_MODE_ANNOUNCEMENT		/* announcement mode: send announcement and disconnect */
 };
 
 /* VBOX display */
@@ -81,14 +81,14 @@ enum {
 enum {
 	VBOX_DISPLAY_BRIEF,		/* parallel mode: send announcement and record during announcement */
 	VBOX_DISPLAY_DETAILED,		/* announcement mode: send announcement and disconnect */
-	VBOX_DISPLAY_OFF,		/* normal mode: send announcement, then record */
+	VBOX_DISPLAY_OFF		/* normal mode: send announcement, then record */
 };
 
 /* VBOX language */
 
 enum {
 	VBOX_LANGUAGE_ENGLISH,		/* display and announcements are in english */
-	VBOX_LANGUAGE_GERMAN,		/* display and announcements are in german */
+	VBOX_LANGUAGE_GERMAN		/* display and announcements are in german */
 };
 
 /* dsptones */
@@ -97,7 +97,7 @@ enum {
 	DSP_NONE,
 	DSP_AMERICAN,
 	DSP_GERMAN,
-	DSP_OLDGERMAN,
+	DSP_OLDGERMAN
 };
 
 

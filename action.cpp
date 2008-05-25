@@ -562,7 +562,7 @@ void EndpointAppPBX::action_init_partyline(void)
 		if (!(relation=joinpbx->add_relation()))
 			FATAL("No memory for join relation\n");
 		relation->type = RELATION_TYPE_SETUP;
-		relation->channel_state = CHANNEL_STATE_CONNECT;
+		relation->channel_state = 1;
 		relation->rx_state = NOTIFY_STATE_ACTIVE;
 		relation->tx_state = NOTIFY_STATE_ACTIVE;
 		relation->epoint_id = ea_endpoint->ep_serial;

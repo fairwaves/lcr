@@ -15,26 +15,26 @@ enum { /* interface types */
 	INFO_ITYPE_ISDN,
 	INFO_ITYPE_ISDN_EXTENSION, /* call from internal extension */
 	INFO_ITYPE_CHAN,
-	INFO_ITYPE_VBOX,
+	INFO_ITYPE_VBOX
 };
 
 enum { /* number types */
 	INFO_NTYPE_UNKNOWN = 0,
 	INFO_NTYPE_SUBSCRIBER,
 	INFO_NTYPE_NATIONAL,
-	INFO_NTYPE_INTERNATIONAL,
+	INFO_NTYPE_INTERNATIONAL
 };
 
 enum { /* number presentation */
 	INFO_PRESENT_NULL = 0,
 	INFO_PRESENT_ALLOWED,
 	INFO_PRESENT_RESTRICTED,
-	INFO_PRESENT_NOTAVAIL,
+	INFO_PRESENT_NOTAVAIL
 };
 
 enum { /* number presentation */
 	INFO_SCREEN_USER, /* user provided */
-	INFO_SCREEN_NETWORK, /* network provided */
+	INFO_SCREEN_NETWORK /* network provided */
 };
 
 enum { /* redirection reason */
@@ -43,7 +43,7 @@ enum { /* redirection reason */
 	INFO_REDIR_NORESPONSE,
 	INFO_REDIR_UNCONDITIONAL,
 	INFO_REDIR_OUTOFORDER,
-	INFO_REDIR_CALLDEFLECT,
+	INFO_REDIR_CALLDEFLECT
 };
 
 #define	INFO_NOTIFY_NONE			0x00

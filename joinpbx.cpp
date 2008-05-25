@@ -168,18 +168,10 @@ void joinpbx_debug(class JoinPBX *joinpbx, char *function)
 			UPRINT(strchr(buffer,0), " type=unknown");
 			break;
 		}
-		switch(relation->channel_state)
-		{
-			case CHANNEL_STATE_CONNECT:
+		if (relation->channel_state)
 			UPRINT(strchr(buffer,0), " channel=CONNECT");
-			break;
-			case CHANNEL_STATE_HOLD:
+		else
 			UPRINT(strchr(buffer,0), " channel=HOLD");
-			break;
-			default:
-			UPRINT(strchr(buffer,0), " channel=unknown");
-			break;
-		}
 		switch(relation->tx_state)
 		{
 			case NOTIFY_STATE_ACTIVE:
@@ -254,7 +246,7 @@ JoinPBX::JoinPBX(class Endpoint *epoint) : Join()
 	relation = j_relation = (struct join_relation *)MALLOC(sizeof(struct join_relation));
 	cmemuse++;
 	relation->type = RELATION_TYPE_CALLING;
-	relation->channel_state = CHANNEL_STATE_HOLD; /* audio is assumed on a new join */
+	relation->channel_state = 0; /* audio is assumed on a new join */
 	relation->tx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	relation->rx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	relation->epoint_id = epoint->ep_serial;
@@ -319,7 +311,7 @@ void JoinPBX::bridge(void)
 		{
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation without port object.\n", j_serial);
 //#warning testing: keep on hold until single audio stream available
-			relation->channel_state = CHANNEL_STATE_HOLD;
+			relation->channel_state = 0;
 			relation = relation->next;
 			continue;
 		}
@@ -327,7 +319,7 @@ void JoinPBX::bridge(void)
 		{
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation with ep%d due to port_list.\n", j_serial, epoint->ep_serial);
 //#warning testing: keep on hold until single audio stream available
-			relation->channel_state = CHANNEL_STATE_HOLD;
+			relation->channel_state = 0;
 			relation = relation->next;
 			continue;
 		}
@@ -359,13 +351,13 @@ void JoinPBX::bridge(void)
 	while(relation)
 	{
 		/* count connected relations */
-		if ((relation->channel_state == CHANNEL_STATE_CONNECT)
+		if ((relation->channel_state == 1)
 		 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
 		 && (relation->rx_state != NOTIFY_STATE_HOLD))
 			numconnect ++;
 
 		/* remove unconnected parties from conference, also remove remotely disconnected parties so conference will not be disturbed. */
-		if (relation->channel_state == CHANNEL_STATE_CONNECT
+		if (relation->channel_state == 1
 		 && relation->rx_state != NOTIFY_STATE_HOLD
 		 && relation->rx_state != NOTIFY_STATE_SUSPEND
 		 && relations>1 // no conf with one member
@@ -415,7 +407,7 @@ void JoinPBX::bridge(void)
 		relation = j_relation;
 		while(relation)
 		{
-			if ((relation->channel_state == CHANNEL_STATE_CONNECT)
+			if ((relation->channel_state == 1)
 			 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
 			 && (relation->rx_state != NOTIFY_STATE_HOLD))
 				relation->tx_state = notify_state_change(j_serial, relation->epoint_id, relation->tx_state, NOTIFY_STATE_HOLD);
@@ -428,7 +420,7 @@ void JoinPBX::bridge(void)
 		relation = j_relation;
 		while(relation)
 		{
-			if ((relation->channel_state == CHANNEL_STATE_CONNECT)
+			if ((relation->channel_state == 1)
 			 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
 			 && (relation->rx_state != NOTIFY_STATE_HOLD))
 				relation->tx_state = notify_state_change(j_serial, relation->epoint_id, relation->tx_state, NOTIFY_STATE_CONFERENCE);
@@ -453,7 +445,7 @@ void JoinPBX::bridge_data(unsigned long epoint_from, struct join_relation *relat
 		return;
 
 	/* skip if source endpoint has NOT audio mode CONNECT */
-	if (relation_from->channel_state != CHANNEL_STATE_CONNECT)
+	if (relation_from->channel_state != 1)
 		return;
 
 	/* get destination relation */
@@ -465,7 +457,7 @@ void JoinPBX::bridge_data(unsigned long epoint_from, struct join_relation *relat
 	}
 
 	/* skip if destination endpoint has NOT audio mode CONNECT */
-	if (relation_to->channel_state != CHANNEL_STATE_CONNECT)
+	if (relation_to->channel_state != 1)
 		return;
 
 	/* now we may send our data to the endpoint where it
@@ -489,9 +481,9 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	int destroy = 0;
 
 	/* remove from bridge */
-	if (relation->channel_state != CHANNEL_STATE_HOLD)
+	if (relation->channel_state != 0)
 	{
-		relation->channel_state = CHANNEL_STATE_HOLD;
+		relation->channel_state = 0;
 		j_updatebridge = 1; /* update bridge flag */
 		// note: if join is not released, bridge must be updated
 	}
@@ -1005,7 +997,7 @@ int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union paramete
 	if (!(relation=add_relation()))
 		FATAL("No memory for relation.\n");
 	relation->type = RELATION_TYPE_SETUP;
-	relation->channel_state = CHANNEL_STATE_HOLD; /* audio is assumed on a new join */
+	relation->channel_state = 0; /* audio is assumed on a new join */
 	relation->tx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	relation->rx_state = NOTIFY_STATE_ACTIVE; /* new joins always assumed to be active */
 	/* create a new endpoint */

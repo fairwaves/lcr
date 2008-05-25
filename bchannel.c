@@ -24,10 +24,14 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <mISDNif.h>
 #else
 #include <mISDNuser/isdn_net.h>
 #include <mISDNuser/net_l3.h>
 #endif
+
+#include <asterisk/frame.h>
+
 
 #include "extension.h"
 #include "message.h"
@@ -76,11 +80,11 @@ int bchannel_initialize(void)
 		ret = mISDN_open();
 		if (ret < 0)
 		{
-			CERROR("cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", ret, errno, strerror(errno));
+			CERROR(NULL, NULL, "cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", ret, errno, strerror(errno));
 			return(-1);
 		}
 		bchannel_device = ret;
-		CDEBUG("mISDN device opened.\n");
+		CDEBUG(NULL, NULL, "mISDN device opened.\n");
 
 		/* create entity for layer 3 TE-mode */
 		mISDN_write_frame(bchannel_device, buff, 0, MGR_NEWENTITY | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
@@ -88,7 +92,7 @@ int bchannel_initialize(void)
 		if (ret < (int)mISDN_HEADER_LEN)
 		{
 			noentity:
-			CERROR("Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
+			CERROR(NULL, NULL, "Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
 			return(-1);
 		}
 		bchannel_entity = frm->dinfo & 0xffff;
@@ -121,7 +125,7 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 #ifdef SOCKET_MISDN
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = buffer+MISDN_HEADER_LEN;
+	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	ctrl->prim = PH_CONTROL_REQ;
@@ -130,7 +134,7 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 	*d++ = c2;
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
 	if (!ret)
-		CERROR("Failed to send to socket %d\n", handle);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
 #else
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	iframe_t *ctrl = (iframe_t *)buffer; 
@@ -159,7 +163,7 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 #ifdef SOCKET_MISDN
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = buffer+MISDN_HEADER_LEN;
+	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	ctrl->prim = PH_CONTROL_REQ;
@@ -168,7 +172,7 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 	memcpy(d, c2, c2_len);
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
 	if (!ret)
-		CERROR("Failed to send to socket %d\n", handle);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
 #else
 	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+c2_len];
 	iframe_t *ctrl = (iframe_t *)buffer;
@@ -195,15 +199,14 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
  */
 int bchannel_create(struct bchannel *bchannel)
 {
-	unsigned char buff[1024];
 	int ret;
 #ifdef SOCKET_MISDN
 	unsigned long on = 1;
-	struct sockadd_mISDN addr;
+	struct sockaddr_mISDN addr;
 
 	if (bchannel->b_sock)
 	{
-		CERROR("Error: Socket already created for handle 0x%x\n", bchannel->handle);
+		CERROR(NULL, NULL, "Socket already created for handle 0x%x\n", bchannel->handle);
 		return(0);
 	}
 
@@ -211,10 +214,10 @@ int bchannel_create(struct bchannel *bchannel)
 	bchannel->b_tx_dejitter = 1;
 
 	/* open socket */
-	channel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
+	bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
 	if (bchannel->b_sock < 0)
 	{
-		CERROR("Error: Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
+		CERROR(NULL, NULL, "Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
 		return(0);
 	}
 	
@@ -222,9 +225,9 @@ int bchannel_create(struct bchannel *bchannel)
 	ret = ioctl(bchannel->b_sock, FIONBIO, &on);
 	if (ret < 0)
 	{
-		CERROR("Error: Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
+		CERROR(NULL, NULL, "Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
 		close(bchannel->b_sock);
-		channel->b_sock = -1;
+		bchannel->b_sock = -1;
 		return(0);
 	}
 
@@ -235,9 +238,9 @@ int bchannel_create(struct bchannel *bchannel)
 	ret = bind(bchannel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		CERROR("Error: Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
+		CERROR(NULL, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
 		close(bchannel->b_sock);
-		channel->b_sock = -1;
+		bchannel->b_sock = -1;
 		return(0);
 	}
 
@@ -247,24 +250,27 @@ int bchannel_create(struct bchannel *bchannel)
 	add_trace("socket", NULL, "%d", mISDNport->b_socket[i]);
 	end_trace();
 #endif
+	return(1);
+}
 #else
+	unsigned char buff[1024];
 	layer_info_t li;
 	mISDN_pid_t pid;
 
 	if (bchannel->b_stid)
 	{
-		CERROR("Error: stack already created for address 0x%lx\n", bchannel->b_stid);
+		CERROR(NULL, NULL, "Stack already created for address 0x%lx\n", bchannel->b_stid);
 		return(0);
 	}
 
 	if (bchannel->b_addr)
 	{
-		CERROR("Error: stack already created for address 0x%lx\n", bchannel->b_addr);
+		CERROR(NULL, NULL, "Stack already created for address 0x%lx\n", bchannel->b_addr);
 		return(0);
 	}
 
 	/* create new layer */
-	CDEBUG("creating new layer for stid 0x%lx.\n" , bchannel->handle);
+	CDEBUG(NULL, NULL, "creating new layer for stid 0x%lx.\n" , bchannel->handle);
 	memset(&li, 0, sizeof(li));
 	memset(&pid, 0, sizeof(pid));
 	li.object_id = -1;
@@ -277,7 +283,7 @@ int bchannel_create(struct bchannel *bchannel)
 	if (ret)
 	{
 		failed_new_layer:
-		CERROR("mISDN_new_layer() failed to add bchannel for stid 0x%lx.\n", bchannel->handle);
+		CERROR(NULL, NULL, "mISDN_new_layer() failed to add bchannel for stid 0x%lx.\n", bchannel->handle);
 		goto failed;
 	}
 	if (!li.id)
@@ -286,7 +292,7 @@ int bchannel_create(struct bchannel *bchannel)
 	}
 	bchannel->b_stid = bchannel->handle;
 	bchannel->b_addr = li.id;
-	CDEBUG("new layer (b_addr=0x%x)\n", bchannel->b_addr);
+	CDEBUG(NULL, NULL, "new layer (b_addr=0x%x)\n", bchannel->b_addr);
 
 	/* create new stack */
 	pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
@@ -298,7 +304,7 @@ int bchannel_create(struct bchannel *bchannel)
 	if (ret)
 	{
 		stack_error:
-		CERROR("mISDN_set_stack() failed (ret=%d) to add bchannel stid=0x%lx\n", ret, bchannel->b_stid);
+		CERROR(NULL, NULL, "mISDN_set_stack() failed (ret=%d) to add bchannel stid=0x%lx\n", ret, bchannel->b_stid);
 		mISDN_write_frame(bchannel_device, buff, bchannel->b_addr, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 		goto failed;
 	}
@@ -317,7 +323,6 @@ int bchannel_create(struct bchannel *bchannel)
 	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
 	end_trace();
 #endif
-#endif
 
 	return(1);
 
@@ -326,6 +331,7 @@ failed:
 	bchannel->b_addr = 0;
 	return(0);
 }
+#endif
 
 
 /*
@@ -341,7 +347,7 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
 	act.id = 0;
 	ret = sendto(bchannel->b_sock, &act, MISDN_HEADER_LEN, 0, NULL, 0);
 	if (!ret)
-		CERROR("Failed to send to socket %d\n", bchannel->b_sock);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
 #else
 	iframe_t act;
 
@@ -390,7 +396,11 @@ static void bchannel_activated(struct bchannel *bchannel)
 	if (bchannel->b_rx_gain)
 		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain);
 	if (bchannel->b_pipeline[0])
+#ifdef SOCKET_MISDN
+		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
+#else
 		ph_control_block(handle, PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
+#endif
 	if (bchannel->b_conf)
 		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 	if (bchannel->b_echo)
@@ -441,7 +451,7 @@ static void bchannel_destroy(struct bchannel *bchannel)
 	/* remove our stack only if set */
 	if (bchannel->b_addr)
 	{
-		CDEBUG("free stack (b_addr=0x%x)\n", bchannel->b_addr);
+		CDEBUG(NULL, NULL, "free stack (b_addr=0x%x)\n", bchannel->b_addr);
 		mISDN_clear_stack(bchannel_device, bchannel->b_stid);
 		mISDN_write_frame(bchannel_device, buff, bchannel->b_addr | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 		bchannel->b_stid = 0;
@@ -463,11 +473,15 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 //	unsigned char *p;
 //	int l;
 
+#ifdef SOCKET_MISDN
+	if (prim == PH_CONTROL_IND)
+#else
 	if (prim == (PH_CONTROL | INDICATION))
+#endif
 	{
 		if (len < 4)
 		{
-			CERROR("SHORT READ OF PH_CONTROL INDICATION\n");
+			CERROR(NULL, NULL, "SHORT READ OF PH_CONTROL INDICATION\n");
 			return;
 		}
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
@@ -483,7 +497,11 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		switch(cont)
 		{
+#ifdef SOCKET_MISDN
+			case DSP_BF_REJECT:
+#else
 			case BF_REJECT:
+#endif
 #if 0
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "error");
@@ -491,7 +509,11 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 #endif
 			break;
 
+#ifdef SOCKET_MISDN
+			case DSP_BF_ACCEPT:
+#else
 			case BF_ACCEPT:
+#endif
 #if 0
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "ok");
@@ -510,6 +532,18 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		return;
 	}
+#ifdef SOCKET_MISDN
+	if (prim == PH_DATA_REQ)
+	{
+		if (!bchannel->b_txdata)
+		{
+			/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
+			CDEBUG(NULL, NULL, "ignoring tx data, because 'txdata' is turned off\n");
+			return;
+		}
+		return;
+	}
+#else
 	if (prim == (PH_SIGNAL | INDICATION))
 	{
 		switch(dinfo)
@@ -518,7 +552,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 			if (!bchannel->b_txdata)
 			{
 				/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
-				CDEBUG("PmISDN(%s) ignoring tx data, because 'txdata' is turned off\n", p_name);
+				CDEBUG(NULL, NULL, "ignoring tx data, because 'txdata' is turned off\n");
 				return;
 			}
 			break;
@@ -534,9 +568,10 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		return;
 	}
+#endif
 	if (prim != PH_DATA_IND && prim != DL_DATA_IND)
 	{
-		CERROR("Bchannel received unknown primitve: 0x%lx\n", prim);
+		CERROR(NULL, NULL, "Bchannel received unknown primitve: 0x%lx\n", prim);
 		return;
 	}
 	/* calls will not process any audio data unless
@@ -546,13 +581,13 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 	/* if rx is off, it may happen that fifos send us pending informations, we just ignore them */
 	if (bchannel->b_rxoff)
 	{
-		CDEBUG("PmISDN(%s) ignoring data, because rx is turned off\n", p_name);
+		CDEBUG(NULL, NULL, "ignoring data, because rx is turned off\n");
 		return;
 	}
 
 	if (!bchannel->call)
 	{
-		CDEBUG("PmISDN(%s) ignoring data, because no call associated with bchannel\n", p_name);
+		CDEBUG(NULL, NULL, "ignoring data, because no call associated with bchannel\n");
 		return;
 	}
 	if (!bchannel->call->audiopath)
@@ -563,7 +598,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 	len = write(bchannel->call->pipe[1], data, len);
 	if (len < 0)
 	{
-		CDEBUG("PmISDN(%s) broken pipe on bchannel pipe\n", p_name);
+		CDEBUG(NULL, NULL, "broken pipe on bchannel pipe\n");
 		return;
 	}
 }
@@ -575,7 +610,12 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 {
 	unsigned char buff[1025];
+#ifdef SOCKET_MISDN
+	struct mISDNhead *frm = (struct mISDNhead *)buff;
+#else
 	iframe_t *frm = (iframe_t *)buff;
+#endif
+	int ret;
 
 	if (bchannel->b_state != BSTATE_ACTIVE)
 		return;
@@ -584,7 +624,7 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 	frm->id = 0;
 	ret = sendto(bchannel->b_sock, data, len, 0, NULL, 0);
 	if (!ret)
-		CERROR("Failed to send to socket %d\n", bchannel->b_sock);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
 #else
 	frm->prim = DL_DATA | REQUEST; 
 	frm->addr = bchannel->b_addr | FLG_MSG_DOWN;
@@ -619,7 +659,7 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 	}
 	if (bchannel->b_state == BSTATE_ACTIVE)
 	{
-		ph_control(handle, DSP_RX_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf);
+		ph_control(handle, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf);
 		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 	}
 }
@@ -633,7 +673,6 @@ int bchannel_handle(void)
 {
 	int ret, work = 0;
 	struct bchannel *bchannel;
-	int i;
 	char buffer[2048+MISDN_HEADER_LEN];
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
 
@@ -651,41 +690,40 @@ int bchannel_handle(void)
 				switch(hh->prim)
 				{
 					/* we don't care about confirms, we use rx data to sync tx */
-					case PH_DATA_CONF:
-					case DL_DATA_CONF:
+					case PH_DATA_CNF:
 					break;
 
 					/* we receive audio data, we respond to it AND we send tones */
 					case PH_DATA_IND:
+					case PH_DATA_REQ:
 					case DL_DATA_IND:
-					case PH_SIGNAL_IND:
-					case PH_CONTROL | INDICATION:
-					bchannel_receive(bchannel, hh->prim, hh->dinfo, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
+					case PH_CONTROL_IND:
+					bchannel_receive(bchannel, hh->prim, hh->id, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
 					break;
 
 					case PH_ACTIVATE_IND:
 					case DL_ESTABLISH_IND:
-					case PH_ACTIVATE_CONF:
-					case DL_ESTABLISH_CONF:
-					CDEBUG("DL_ESTABLISH confirm: bchannel is now activated (socket %d).\n", bchannel->b_sock);
+					case PH_ACTIVATE_CNF:
+					case DL_ESTABLISH_CNF:
+					CDEBUG(NULL, NULL, "DL_ESTABLISH confirm: bchannel is now activated (socket %d).\n", bchannel->b_sock);
 					bchannel_activated(bchannel);
 					break;
 
 					case PH_DEACTIVATE_IND:
 					case DL_RELEASE_IND:
-					case PH_DEACTIVATE_CONF:
-					case DL_RELEASE_CONF:
-					CDEBUG("DL_RELEASE confirm: bchannel is now de-activated (socket %d).\n", bchannel->b_sock);
+					case PH_DEACTIVATE_CNF:
+					case DL_RELEASE_CNF:
+					CDEBUG(NULL, NULL, "DL_RELEASE confirm: bchannel is now de-activated (socket %d).\n", bchannel->b_sock);
 //					bchannel_deactivated(bchannel);
 					break;
 
 					default:
-					CERROR("child message not handled: prim(0x%x) socket(%d) msg->len(%d)\n", hh->prim, bchannel->b_sock, msg->len);
+					CERROR(NULL, NULL, "child message not handled: prim(0x%x) socket(%d) data len(%d)\n", hh->prim, bchannel->b_sock, ret - MISDN_HEADER_LEN);
 				}
 			} else
 			{
 				if (ret < 0 && errno != EWOULDBLOCK)
-					CERROR("Read from socket %d failed with return code %d\n", bchannel->b_sock, ret);
+					CERROR(NULL, NULL, "Read from socket %d failed with return code %d\n", bchannel->b_sock, ret);
 			}
 		}
 		bchannel = bchannel->next;
@@ -712,7 +750,7 @@ int bchannel_handle(void)
 	{
 		if (errno == EAGAIN)
 			return(0);
-		CERROR("Failed to do mISDN_read()\n");
+		CERROR(NULL, NULL, "Failed to do mISDN_read()\n");
 		return(0);
 	}
 	if (!len)
@@ -743,7 +781,7 @@ int bchannel_handle(void)
 	} 
 	if (!bchannel)
 	{
-		CERROR("message belongs to no bchannel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
+		CERROR(NULL, NULL, "message belongs to no bchannel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
 		goto out;
 	}
 
@@ -767,7 +805,7 @@ int bchannel_handle(void)
 		case DL_ESTABLISH | INDICATION:
 		case PH_ACTIVATE | CONFIRM:
 		case DL_ESTABLISH | CONFIRM:
-		CDEBUG( "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
+		CDEBUG(NULL, NULL, "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
 		bchannel_activated(bchannel);
 		break;
 
@@ -775,12 +813,12 @@ int bchannel_handle(void)
 		case DL_RELEASE | INDICATION:
 		case PH_DEACTIVATE | CONFIRM:
 		case DL_RELEASE | CONFIRM:
-		CDEBUG("DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
+		CDEBUG(NULL, NULL, "DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
 //		bchannel_deactivated(bchannel);
 		break;
 
 		default:
-		CERROR("message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
+		CERROR(NULL, NULL, "message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
 	}
 
 	out:

@@ -2293,6 +2293,8 @@ int mISDN_handler(void)
 						/* we receive audio data, we respond to it AND we send tones */
 						case PH_DATA_IND:
 						case DL_DATA_IND:
+						case PH_DATA_REQ:
+						case DL_DATA_REQ:
 						case PH_CONTROL_IND:
 						if (mISDNport->b_port[i])
 							mISDNport->b_port[i]->bchannel_receive(hh, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);

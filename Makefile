@@ -10,7 +10,7 @@
 #*****************************************************************************/ 
 
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
-WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
+#WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
 WITH-SOCKET = 42 # compile for socket based mISDN (this options is far unfinished !!!)
 # note: check your location and the names of libraries.
 
@@ -161,13 +161,10 @@ trace.o: trace.c *.h Makefile
 	$(PP) -c $(CFLAGS) trace.c -o trace.o
 
 chan_lcr.o: chan_lcr.c *.h Makefile
-	$(CC) -D_GNU_SOURCE  -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
+	$(CC) -D_GNU_SOURCE -c $(CFLAGS) chan_lcr.c -o chan_lcr.o
 
 bchannel.o: bchannel.c *.h Makefile
-	$(CC) -c $(CFLAGS) bchannel.c -o bchannel.o
-
-chan_lcr.so: chan_lcr.o bchannel.o *.h Makefile
-	gcc -shared -x $(LDFLAGS) -o chan_lcr.so chan_lcr.o bchannel.o
+	$(CC) -D_GNU_SOURCE -c $(CFLAGS) bchannel.c -o bchannel.o
 
 
 #$(WIZZARD): wizzard.c Makefile
@@ -235,9 +232,9 @@ $(LCRADMIN): lcradmin.c cause.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS_LCRADMIN) $(CURSES) -lm lcradmin.c cause.c \
 	-o $(LCRADMIN) 
 
-$(CHAN_LCR): chan_lcr.o bchannel.o
-	$(CC) $(LIBDIR) chan_lcr.o bchannel.o \
-	$(CHANLIBS) -o $(CHAN_LCR) 
+$(CHAN_LCR): chan_lcr.o bchannel.o *.h Makefile
+	gcc -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o
+
 
 $(LCRWATCH): watch.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS) -lm watch.c \
@@ -267,9 +264,9 @@ install:
 	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)
-ifdef WITH-ASTERISK
-	cp $(CHAN_LCR) $(INSTALL_BIN)
-endif
+#ifdef WITH-ASTERISK
+#	cp $(CHAN_LCR) $(INSTALL_CHAN)
+#endif
 #	cp $(LCRWATCH) $(INSTALL_BIN)
 	cp $(GEN) $(INSTALL_BIN)
 	cp $(GENW) $(INSTALL_BIN)
