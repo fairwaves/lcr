@@ -210,9 +210,6 @@ int bchannel_create(struct bchannel *bchannel)
 		return(0);
 	}
 
-	/* default tx_dejitter */
-	bchannel->b_tx_dejitter = 1;
-
 	/* open socket */
 	bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
 	if (bchannel->b_sock < 0)
