@@ -19,16 +19,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef SOCKET_MISDN
 #include <netinet/udp.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <mISDNif.h>
-#else
-#include <mISDNuser/isdn_net.h>
-#include <mISDNuser/net_l3.h>
-#endif
 
 #include <asterisk/frame.h>
 
@@ -52,9 +47,9 @@ enum {
 	BSTATE_IDLE,
 	BSTATE_ACTIVATING,
 	BSTATE_ACTIVE,
+	BSTATE_DEACTIVATING,
 };
 
-#ifdef SOCKET_MISDN
 
 int bchannel_initialize(void)
 {
@@ -64,90 +59,25 @@ int bchannel_initialize(void)
 void bchannel_deinitialize(void)
 {
 }
-#else
-int bchannel_entity = 0; /* used for udevice */
-int bchannel_device = -1; /* the device handler and port list */
-
-int bchannel_initialize(void)
-{
-	unsigned char buff[1025];
-	iframe_t *frm = (iframe_t *)buff;
-	int ret;
-
-	/* open mISDNdevice if not already open */
-	if (bchannel_device < 0)
-	{
-		ret = mISDN_open();
-		if (ret < 0)
-		{
-			CERROR(NULL, NULL, "cannot open mISDN device ret=%d errno=%d (%s) Check for mISDN modules!\nAlso did you create \"/dev/mISDN\"? Do: \"mknod /dev/mISDN c 46 0\"\n", ret, errno, strerror(errno));
-			return(-1);
-		}
-		bchannel_device = ret;
-		CDEBUG(NULL, NULL, "mISDN device opened.\n");
-
-		/* create entity for layer 3 TE-mode */
-		mISDN_write_frame(bchannel_device, buff, 0, MGR_NEWENTITY | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-		ret = mISDN_read_frame(bchannel_device, frm, sizeof(iframe_t), 0, MGR_NEWENTITY | CONFIRM, TIMEOUT_1SEC);
-		if (ret < (int)mISDN_HEADER_LEN)
-		{
-			noentity:
-			CERROR(NULL, NULL, "Cannot request MGR_NEWENTITY from mISDN. Exitting due to software bug.");
-			return(-1);
-		}
-		bchannel_entity = frm->dinfo & 0xffff;
-		if (!bchannel_entity)
-			goto noentity;
-	}
-	return(0);
-}
-
-void bchannel_deinitialize(void)
-{
-	unsigned char buff[1025];
-
-	if (bchannel_device >= 0)
-	{
-		/* free entity */
-		mISDN_write_frame(bchannel_device, buff, 0, MGR_DELENTITY | REQUEST, bchannel_entity, 0, NULL, TIMEOUT_1SEC);
-		/* close device */
-		mISDN_close(bchannel_device);
-		bchannel_device = -1;
-	}
-}
-#endif
 
 /*
  * send control information to the channel (dsp-module)
  */
 static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
 {
-#ifdef SOCKET_MISDN
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
+	CDEBUG(NULL, NULL, "Sending PH_CONTROL %d,%d\n", c1, c2);
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
 	*d++ = c2;
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
-	if (!ret)
+	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
-#else
-	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
-	iframe_t *ctrl = (iframe_t *)buffer; 
-	unsigned long *d = (unsigned long *)&ctrl->data.p;
-
-	ctrl->prim = PH_CONTROL | REQUEST;
-	ctrl->addr = handle | FLG_MSG_DOWN;
-	ctrl->dinfo = 0;
-	ctrl->len = sizeof(int)*2;
-	*d++ = c1;
-	*d++ = c2;
-	mISDN_write(bchannel_device, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
-#endif
 #if 0
 	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
 	if (c1 == CMX_CONF_JOIN)
@@ -160,32 +90,19 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 
 static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
 {
-#ifdef SOCKET_MISDN
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
+	CDEBUG(NULL, NULL, "Sending PH_CONTROL (block) %d\n", c1);
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
-	if (!ret)
+	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
-#else
-	unsigned char buffer[mISDN_HEADER_LEN+sizeof(int)+c2_len];
-	iframe_t *ctrl = (iframe_t *)buffer;
-	unsigned long *d = (unsigned long *)&ctrl->data.p;
-
-	ctrl->prim = PH_CONTROL | REQUEST;
-	ctrl->addr = handle | FLG_MSG_DOWN;
-	ctrl->dinfo = 0;
-	ctrl->len = sizeof(int)+c2_len;
-	*d++ = c1;
-	memcpy(d, c2, c2_len);
-	mISDN_write(bchannel_device, ctrl, mISDN_HEADER_LEN+ctrl->len, TIMEOUT_1SEC);
-#endif
 #if 0
 	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
 	add_trace(trace_name, NULL, "%d", trace_value);
@@ -200,7 +117,6 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 int bchannel_create(struct bchannel *bchannel)
 {
 	int ret;
-#ifdef SOCKET_MISDN
 	unsigned long on = 1;
 	struct sockaddr_mISDN addr;
 
@@ -225,6 +141,7 @@ int bchannel_create(struct bchannel *bchannel)
 		CERROR(NULL, NULL, "Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
+		bchannel->handle = 0;
 		return(0);
 	}
 
@@ -249,86 +166,6 @@ int bchannel_create(struct bchannel *bchannel)
 #endif
 	return(1);
 }
-#else
-	unsigned char buff[1024];
-	layer_info_t li;
-	mISDN_pid_t pid;
-
-	if (bchannel->b_stid)
-	{
-		CERROR(NULL, NULL, "Stack already created for address 0x%lx\n", bchannel->b_stid);
-		return(0);
-	}
-
-	if (bchannel->b_addr)
-	{
-		CERROR(NULL, NULL, "Stack already created for address 0x%lx\n", bchannel->b_addr);
-		return(0);
-	}
-
-	/* create new layer */
-	CDEBUG(NULL, NULL, "creating new layer for stid 0x%lx.\n" , bchannel->handle);
-	memset(&li, 0, sizeof(li));
-	memset(&pid, 0, sizeof(pid));
-	li.object_id = -1;
-	li.extentions = 0;
-	li.st = bchannel->handle;
-	strcpy(li.name, "B L4");
-	li.pid.layermask = ISDN_LAYER((4));
-	li.pid.protocol[4] = ISDN_PID_L4_B_USER;
-	ret = mISDN_new_layer(bchannel_device, &li);
-	if (ret)
-	{
-		failed_new_layer:
-		CERROR(NULL, NULL, "mISDN_new_layer() failed to add bchannel for stid 0x%lx.\n", bchannel->handle);
-		goto failed;
-	}
-	if (!li.id)
-	{
-		goto failed_new_layer;
-	}
-	bchannel->b_stid = bchannel->handle;
-	bchannel->b_addr = li.id;
-	CDEBUG(NULL, NULL, "new layer (b_addr=0x%x)\n", bchannel->b_addr);
-
-	/* create new stack */
-	pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
-	pid.protocol[2] = ISDN_PID_L2_B_TRANS;
-	pid.protocol[3] = ISDN_PID_L3_B_DSP;
-	pid.protocol[4] = ISDN_PID_L4_B_USER;
-	pid.layermask = ISDN_LAYER((1)) | ISDN_LAYER((2)) | ISDN_LAYER((3)) | ISDN_LAYER((4));
-	ret = mISDN_set_stack(bchannel_device, bchannel->b_stid, &pid);
-	if (ret)
-	{
-		stack_error:
-		CERROR(NULL, NULL, "mISDN_set_stack() failed (ret=%d) to add bchannel stid=0x%lx\n", ret, bchannel->b_stid);
-		mISDN_write_frame(bchannel_device, buff, bchannel->b_addr, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-		goto failed;
-	}
-	ret = mISDN_get_setstack_ind(bchannel_device, bchannel->b_addr);
-	if (ret)
-		goto stack_error;
-
-	/* get layer id */
-	bchannel->b_addr = mISDN_get_layerid(bchannel_device, bchannel->b_stid, 4);
-	if (!bchannel->b_addr)
-		goto stack_error;
-#if 0
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL create stack", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "0x%08x", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
-	end_trace();
-#endif
-
-	return(1);
-
-failed:
-	bchannel->b_stid = 0;
-	bchannel->b_addr = 0;
-	return(0);
-}
-#endif
 
 
 /*
@@ -336,27 +173,18 @@ failed:
  */
 void bchannel_activate(struct bchannel *bchannel, int activate)
 {
-#ifdef SOCKET_MISDN
 	struct mISDNhead act;
 	int ret;
 
+	/* activate bchannel */
+	CDEBUG(NULL, NULL, "%sActivating B-channel.\n", activate?"":"De-");
 	act.prim = (activate)?DL_ESTABLISH_REQ:DL_RELEASE_REQ; 
 	act.id = 0;
 	ret = sendto(bchannel->b_sock, &act, MISDN_HEADER_LEN, 0, NULL, 0);
-	if (!ret)
+	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
-#else
-	iframe_t act;
 
-	/* activate bchannel */
-	act.prim = (activate?DL_ESTABLISH:DL_RELEASE) | REQUEST; 
-	act.addr = bchannel->b_addr | FLG_MSG_DOWN;
-	act.dinfo = 0;
-	act.len = 0;
-	mISDN_write(bchannel_device, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-#endif
-
-	bchannel->b_state = BSTATE_ACTIVATING;
+	bchannel->b_state = (activate)?BSTATE_ACTIVATING:BSTATE_DEACTIVATING;
 #if 0
 	/* trace */
 	chan_trace_header(mISDNport, mISDNport->b_port[i], activate?(char*)"BCHANNEL activate":(char*)"BCHANNEL deactivate", DIRECTION_OUT);
@@ -371,15 +199,9 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
  */
 static void bchannel_activated(struct bchannel *bchannel)
 {
-#ifdef SOCKET_MISDN
 	int handle;
 
 	handle = bchannel->b_sock;
-#else
-	unsigned long handle;
-
-	handle = bchannel->b_addr;
-#endif
 
 	/* set dsp features */
 	if (bchannel->b_txdata)
@@ -393,11 +215,7 @@ static void bchannel_activated(struct bchannel *bchannel)
 	if (bchannel->b_rx_gain)
 		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain);
 	if (bchannel->b_pipeline[0])
-#ifdef SOCKET_MISDN
 		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
-#else
-		ph_control_block(handle, PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
-#endif
 	if (bchannel->b_conf)
 		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 	if (bchannel->b_echo)
@@ -423,7 +241,6 @@ static void bchannel_activated(struct bchannel *bchannel)
  */
 static void bchannel_destroy(struct bchannel *bchannel)
 {
-#ifdef SOCKET_MISDN
 #if 0
 	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove socket", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
@@ -435,26 +252,6 @@ static void bchannel_destroy(struct bchannel *bchannel)
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
 	}
-#else
-	unsigned char buff[1024];
-
-#if 0
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove stack", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("stack", "id", "0x%08x", mISDNport->b_stid[i]);
-	add_trace("stack", "address", "0x%08x", mISDNport->b_addr[i]);
-	end_trace();
-#endif
-	/* remove our stack only if set */
-	if (bchannel->b_addr)
-	{
-		CDEBUG(NULL, NULL, "free stack (b_addr=0x%x)\n", bchannel->b_addr);
-		mISDN_clear_stack(bchannel_device, bchannel->b_stid);
-		mISDN_write_frame(bchannel_device, buff, bchannel->b_addr | FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-		bchannel->b_stid = 0;
-		bchannel->b_addr = 0;
-	}
-#endif
 	bchannel->b_state = BSTATE_IDLE;
 }
 
@@ -470,11 +267,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 //	unsigned char *p;
 //	int l;
 
-#ifdef SOCKET_MISDN
 	if (prim == PH_CONTROL_IND)
-#else
-	if (prim == (PH_CONTROL | INDICATION))
-#endif
 	{
 		if (len < 4)
 		{
@@ -494,11 +287,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		switch(cont)
 		{
-#ifdef SOCKET_MISDN
 			case DSP_BF_REJECT:
-#else
-			case BF_REJECT:
-#endif
 #if 0
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "error");
@@ -506,11 +295,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 #endif
 			break;
 
-#ifdef SOCKET_MISDN
 			case DSP_BF_ACCEPT:
-#else
-			case BF_ACCEPT:
-#endif
 #if 0
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DSP-CRYPT", NULL, "ok");
@@ -529,7 +314,6 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		return;
 	}
-#ifdef SOCKET_MISDN
 	if (prim == PH_DATA_REQ)
 	{
 		if (!bchannel->b_txdata)
@@ -540,32 +324,6 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		return;
 	}
-#else
-	if (prim == (PH_SIGNAL | INDICATION))
-	{
-		switch(dinfo)
-		{
-			case CMX_TX_DATA:
-			if (!bchannel->b_txdata)
-			{
-				/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
-				CDEBUG(NULL, NULL, "ignoring tx data, because 'txdata' is turned off\n");
-				return;
-			}
-			break;
-
-			default:
-#if 0
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL signal", DIRECTION_IN);
-			add_trace("unknown", NULL, "0x%x", frm->dinfo);
-			end_trace();
-#else
-			;
-#endif
-		}
-		return;
-	}
-#endif
 	if (prim != PH_DATA_IND && prim != DL_DATA_IND)
 	{
 		CERROR(NULL, NULL, "Bchannel received unknown primitve: 0x%lx\n", prim);
@@ -592,11 +350,16 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		/* return, because we have no audio from port */
 		return;
 	}
-	len = write(bchannel->call->pipe[1], data, len);
-	if (len < 0)
+	if (bchannel->call->pipe[1] > -1)
 	{
-		CDEBUG(NULL, NULL, "broken pipe on bchannel pipe\n");
-		return;
+		len = write(bchannel->call->pipe[1], data, len);
+		if (len < 0)
+		{
+			close(bchannel->call->pipe[1]);
+			bchannel->call->pipe[1] = -1;
+			CDEBUG(NULL, NULL, "broken pipe on bchannel pipe\n");
+			return;
+		}
 	}
 }
 
@@ -606,30 +369,22 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
  */
 void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 {
-	unsigned char buff[1025];
-#ifdef SOCKET_MISDN
+	unsigned char buff[1024 + MISDN_HEADER_LEN], *p = buff + MISDN_HEADER_LEN;
 	struct mISDNhead *frm = (struct mISDNhead *)buff;
-#else
-	iframe_t *frm = (iframe_t *)buff;
-#endif
 	int ret;
+	int i;
 
 	if (bchannel->b_state != BSTATE_ACTIVE)
 		return;
-#ifdef SOCKET_MISDN
+	if (len > 1024 || len < 1)
+		return;
+	for (i = 0; i < len; i++)
+		*p++ = flip_bits[*data++];
 	frm->prim = DL_DATA_REQ;
 	frm->id = 0;
-	ret = sendto(bchannel->b_sock, data, len, 0, NULL, 0);
-	if (!ret)
+	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
+	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
-#else
-	frm->prim = DL_DATA | REQUEST; 
-	frm->addr = bchannel->b_addr | FLG_MSG_DOWN;
-	frm->dinfo = 0;
-	frm->len = len;
-	if (frm->len)
-		mISDN_write(bchannel_device, frm, mISDN_HEADER_LEN+frm->len, TIMEOUT_1SEC);
-#endif
 }
 
 
@@ -638,15 +393,9 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
  */
 void bchannel_join(struct bchannel *bchannel, unsigned short id)
 {
-#ifdef SOCKET_MISDN
 	int handle;
 
 	handle = bchannel->b_sock;
-#else
-	unsigned long handle;
-
-	handle = bchannel->b_addr;
-#endif
 	if (id) {
 		bchannel->b_conf = (id<<16) + bchannel_pid;
 		bchannel->b_rxoff = 1;
@@ -665,7 +414,6 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 /*
  * main loop for processing messages from mISDN
  */
-#ifdef SOCKET_MISDN
 int bchannel_handle(void)
 {
 	int ret, work = 0;
@@ -681,7 +429,7 @@ int bchannel_handle(void)
 		if (bchannel->b_sock > -1)
 		{
 			ret = recv(bchannel->b_sock, buffer, sizeof(buffer), 0);
-			if (ret >= MISDN_HEADER_LEN)
+			if (ret >= (int)MISDN_HEADER_LEN)
 			{
 				work = 1;
 				switch(hh->prim)
@@ -729,99 +477,6 @@ int bchannel_handle(void)
 	/* if we received at least one b-frame, we will return 1 */
 	return(work);
 }
-#else
-int bchannel_handle(void)
-{
-	struct bchannel *bchannel;
-	iframe_t *frm;
-	unsigned char buffer[2048];
-	int len;
-
-	/* no device, no read */
-	if (bchannel_device < 0)
-		return(0);
-
-	/* get message from kernel */
-	len = mISDN_read(bchannel_device, buffer, sizeof(buffer), 0);
-	if (len < 0)
-	{
-		if (errno == EAGAIN)
-			return(0);
-		CERROR(NULL, NULL, "Failed to do mISDN_read()\n");
-		return(0);
-	}
-	if (!len)
-	{
-//		printf("%s: ERROR: mISDN_read() returns nothing\n");
-		return(0);
-	}
-	frm = (iframe_t *)buffer;
-
-	/* global prim */
-	switch(frm->prim)
-	{
-		case MGR_DELLAYER | CONFIRM:
-		case MGR_INITTIMER | CONFIRM:
-		case MGR_ADDTIMER | CONFIRM:
-		case MGR_DELTIMER | CONFIRM:
-		case MGR_REMOVETIMER | CONFIRM:
-		return(1);
-	}
-
-	/* find the mISDNport that belongs to the stack */
-	bchannel = bchannel_first;
-	while(bchannel)
-	{
-		if (frm->addr == bchannel->b_addr)
-			break;
-		bchannel = bchannel->next;
-	} 
-	if (!bchannel)
-	{
-		CERROR(NULL, NULL, "message belongs to no bchannel: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
-		goto out;
-	}
-
-	/* b-message */
-	switch(frm->prim)
-	{
-		/* we don't care about confirms, we use rx data to sync tx */
-		case PH_DATA | CONFIRM:
-		case DL_DATA | CONFIRM:
-		break;
-
-		/* we receive audio data, we respond to it AND we send tones */
-		case PH_DATA | INDICATION:
-		case DL_DATA | INDICATION:
-		case PH_CONTROL | INDICATION:
-		case PH_SIGNAL | INDICATION:
-		bchannel_receive(bchannel, frm->prim, frm->dinfo, (unsigned char *)frm->data.p, frm->len);
-		break;
-
-		case PH_ACTIVATE | INDICATION:
-		case DL_ESTABLISH | INDICATION:
-		case PH_ACTIVATE | CONFIRM:
-		case DL_ESTABLISH | CONFIRM:
-		CDEBUG(NULL, NULL, "DL_ESTABLISH confirm: bchannel is now activated (address 0x%x).\n", frm->addr);
-		bchannel_activated(bchannel);
-		break;
-
-		case PH_DEACTIVATE | INDICATION:
-		case DL_RELEASE | INDICATION:
-		case PH_DEACTIVATE | CONFIRM:
-		case DL_RELEASE | CONFIRM:
-		CDEBUG(NULL, NULL, "DL_RELEASE confirm: bchannel is now de-activated (address 0x%x).\n", frm->addr);
-//		bchannel_deactivated(bchannel);
-		break;
-
-		default:
-		CERROR(NULL, NULL, "message not handled: prim(0x%x) addr(0x%x) msg->len(%d)\n", frm->prim, frm->addr, len);
-	}
-
-	out:
-	return(1);
-}
-#endif
 
 
 /*
@@ -863,7 +518,7 @@ struct bchannel *alloc_bchannel(unsigned long handle)
 	while(*bchannelp)
 		bchannelp = &((*bchannelp)->next);
 
-	*bchannelp = (struct bchannel *)malloc(sizeof(struct bchannel));
+	*bchannelp = (struct bchannel *)calloc(1, sizeof(struct bchannel));
 	if (!*bchannelp)
 		return(NULL);
 	(*bchannelp)->handle = handle;
@@ -881,11 +536,7 @@ void free_bchannel(struct bchannel *bchannel)
 		if (*temp == bchannel)
 		{
 			*temp = (*temp)->next;
-#ifdef SOCKET_MISDN
 			if (bchannel->b_sock > -1)
-#else
-			if (bchannel->b_stid)
-#endif
 				bchannel_destroy(bchannel);
 			if (bchannel->call)
 			{

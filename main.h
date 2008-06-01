@@ -34,7 +34,7 @@
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
 
-#define VERSION_STRING	"0.5 (Spring 2007)"
+#define VERSION_STRING	"1.0 beta 1 (Summer 2008)"
 
 extern int memuse;
 extern int mmemuse;
@@ -49,11 +49,7 @@ extern int fhuse;
 
 //extern pthread_mutex_t mutex_lcr; // lcr process mutex
 
-#ifdef SOCKET_MISDN
 extern FILE *debug_fp;
-#else
-extern int global_debug;
-#endif
 
 #define PDEBUG(mask, fmt, arg...) _printdebug(__FUNCTION__, __LINE__, mask, fmt, ## arg)
 #define PERROR(fmt, arg...) _printerror(__FUNCTION__, __LINE__, fmt, ## arg)
@@ -133,12 +129,7 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 #ifdef __cplusplus
 extern "C" {
 #endif
-#ifndef SOCKET_MISDN
-#include <mISDNuser/isdn_net.h>
-#include <mISDNuser/net_l3.h>
-#else
 #include <mbuffer.h>
-#endif
 #ifdef __cplusplus
 }
 #endif

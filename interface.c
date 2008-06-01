@@ -187,7 +187,6 @@ static int inter_ptmp(struct interface *interface, char *filename, int line, cha
 #endif
 static int inter_nt(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-#ifdef SOCKET_MISDN
 	struct interface_port *ifport;
 
 	/* port in chain ? */
@@ -207,7 +206,6 @@ static int inter_nt(struct interface *interface, char *filename, int line, char 
 		return(-1);
 	}
 	ifport->nt = 1;
-#endif
 	return(0);
 }
 static int inter_tones(struct interface *interface, char *filename, int line, char *parameter, char *value)
@@ -875,11 +873,7 @@ struct interface_param interface_param[] = {
 
 	{"nt", &inter_nt, "",
 	"The given port above is opened in NT-mode.\n"
-#ifdef SOCKET_MISDN
 	"This is required on interfaces that support both NT-mode and TE-mode.\n"
-#else
-	"This parameter is only required for socket based mISDN driver.\n"
-#endif
 	"This parameter must follow a 'port' parameter."},
 
 	{"layer2hold", &inter_l2hold, "yes | no",

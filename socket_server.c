@@ -84,6 +84,16 @@ void free_connection(struct admin_list *admin)
 	/* free remote joins */
 	if (admin->remote_name[0])
 	{
+		start_trace(0,
+			NULL,
+			NULL,
+			NULL,
+			DIRECTION_NONE,
+	   		0,
+			0,
+			"REMOTE APP release");
+		add_trace("app", "name", "%s", admin->remote_name);
+		end_trace();
 		join = join_first;
 		while(join)
 		{
@@ -579,39 +589,49 @@ void admin_call_response(int adminid, int message, char *connected, int cause, i
 /*
  * send data to the remote socket join instance
  */
-int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
+int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 {
 	class Join			*join;
-	struct admin_list		*admin;
+	struct admin_list		*temp;
 
 	/* hello message */
 	if (msg->type == MESSAGE_HELLO)
 	{
-		if (remote_name[0])
+		if (admin->remote_name[0])
 		{
 			PERROR("Remote application repeats hello message.\n");
 			return(-1);
 		}
 		/* look for second application */
-		admin = admin_first;
-		while(admin)
+		temp = admin_first;
+		while(temp)
 		{
-			if (!strcmp(admin->remote_name, msg->param.hello.application))
+			if (!strcmp(temp->remote_name, msg->param.hello.application))
 				break;
-			admin = admin->next;
+			temp = temp->next;
 		}
-		if (admin)
+		if (temp)
 		{
 			PERROR("Remote application connects twice??? (ignoring)\n");
 			return(-1);
 		}
 		/* set remote socket instance */
-		SCPY(remote_name, msg->param.hello.application);
+		SCPY(admin->remote_name, msg->param.hello.application);
+		start_trace(0,
+			NULL,
+			NULL,
+			NULL,
+			DIRECTION_NONE,
+	   		0,
+			0,
+			"REMOTE APP registers");
+		add_trace("app", "name", "%s", admin->remote_name);
+		end_trace();
 		return(0);
 	}
 
 	/* check we have no application name */
-	if (remote_name[0])
+	if (!admin->remote_name[0])
 	{
 		PERROR("Remote application did not send us a hello message.\n");
 		return(-1);
@@ -621,9 +641,12 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 	if (msg->type == MESSAGE_NEWREF)
 	{
 		/* create new join instance */
-		join = new JoinRemote(0, remote_name, sock_id); // must have no serial, because no endpoint is connected
+		join = new JoinRemote(0, admin->remote_name, admin->sock); // must have no serial, because no endpoint is connected
 		if (!join)
+		{
 			FATAL("No memory for remote join instance\n");
+			return(-1);
+		}
 		return(0);
 	}
 
@@ -665,9 +688,9 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 		PERROR("Ref %d does not belong to a remote join instance.\n", msg->ref);
 		return(-1);
 	}
-	if (sock_id != ((class JoinRemote *)join)->j_remote_id)
+	if (admin->sock != ((class JoinRemote *)join)->j_remote_id)
 	{
-		PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, ((class JoinRemote *)join)->j_remote_name, remote_name);
+		PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, ((class JoinRemote *)join)->j_remote_name, admin->remote_name);
 		return(-1);
 	}
 
@@ -684,7 +707,7 @@ int admin_message_to_join(struct admin_msg *msg, char *remote_name, int sock_id)
 int admin_message_from_join(int remote_id, unsigned long ref, int message_type, union parameter *param)
 {
 	struct admin_list	*admin;
-	struct admin_queue	*response, **responsep;	/* response pointer */
+	struct admin_queue	**responsep;	/* response pointer */
 
 	/* searching for admin id
 	 * maybe there is no given remote application
@@ -701,27 +724,22 @@ int admin_message_from_join(int remote_id, unsigned long ref, int message_type, 
 		return(-1);
 
 	/* seek to end of response list */
-	response = admin->response;
 	responsep = &admin->response;
-	while(response)
+	while(*responsep)
 	{
-		responsep = &response->next;
-		response = response->next;
+		responsep = &(*responsep)->next;
 	}
 
 	/* create state response */
-	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
+	*responsep = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
 	memuse++;
-	response->num = 1;
+	(*responsep)->num = 1;
 
 	/* message */
-	response->am[0].u.msg.type = message_type;
-	response->am[0].u.msg.ref = ref;
-	memcpy(&response->am[0].u.msg.param, param, sizeof(union parameter));
-
-	/* attach to response chain */
-	*responsep = response;
-	responsep = &response->next;
+	(*responsep)->am[0].message = ADMIN_MESSAGE;
+	(*responsep)->am[0].u.msg.type = message_type;
+	(*responsep)->am[0].u.msg.ref = ref;
+	memcpy(&(*responsep)->am[0].u.msg.param, param, sizeof(union parameter));
 
 	return(0);
 }
@@ -813,8 +831,12 @@ int admin_state(struct admin_queue **responsep)
 	*responsep = response;
 	responsep = &response->next;
 
-	/* create response for all interfaces */
-	num = (response->am[0].u.s.interfaces)+(response->am[0].u.s.joins)+(response->am[0].u.s.epoints)+(response->am[0].u.s.ports);
+	/* create response for all instances */
+	num = (response->am[0].u.s.interfaces)
+	    + (response->am[0].u.s.remotes)
+	    + (response->am[0].u.s.joins)
+	    + (response->am[0].u.s.epoints)
+	    + (response->am[0].u.s.ports);
 	if (num == 0)
 		return(0);
 	response = (struct admin_queue *)MALLOC(sizeof(admin_queue)+(num*sizeof(admin_message)));
@@ -1169,7 +1191,7 @@ int admin_handle(void)
 			continue;
 		}
 		/* process socket command */
-		if (admin->response)
+		if (admin->response && msg.message != ADMIN_MESSAGE)
 		{
 			PERROR("Data from socket %d while sending response.\n", admin->sock);
 			*adminp = admin->next;
@@ -1236,7 +1258,7 @@ int admin_handle(void)
 			break;
 
 			case ADMIN_MESSAGE:
-			if (admin_message_to_join(&msg.u.msg, admin->remote_name, admin->sock) < 0)
+			if (admin_message_to_join(&msg.u.msg, admin) < 0)
 			{
 				PERROR("Failed to deliver message for socket %d.\n", admin->sock);
 				goto response_error;
@@ -1295,7 +1317,7 @@ int admin_handle(void)
 			work = 1;
 			if (len == 0)
 				goto end;
-			if (len < (int)(sizeof(struct admin_message)*(admin->response->num)-admin->response->offset))
+			if (len < (int)(sizeof(struct admin_message)*(admin->response->num) - admin->response->offset))
 			{
 				admin->response->offset+=len;
 				goto next;

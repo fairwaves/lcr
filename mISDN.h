@@ -15,18 +15,21 @@
 extern int entity;
 extern int mISDNdevice;
 
+enum {
+	B_EVENT_USE,		/* activate/export bchannel */
+	B_EVENT_EXPORTREQUEST,	/* remote app requests bchannel */
+	B_EVENT_IMPORTREQUEST,	/* remote app releases bchannel */
+	B_EVENT_ACTIVATED,	/* DL_ESTABLISH received */
+	B_EVENT_DROP,		/* deactivate/re-import bchannel */
+	B_EVENT_DEACTIVATED,	/* DL_RELEASE received */
+	B_EVENT_EXPORTED,	/* BCHANNEL_ASSIGN received */
+	B_EVENT_IMPORTED,	/* BCHANNEL_REMOVE received */
+	B_EVENT_TIMEOUT,	/* timeout for bchannel state */
+};
+
 /* mISDN port structure list */
 struct mISDNport {
-#ifdef SOCKET_MISDN
 	struct mlayer3 *ml3;
-#else
-	net_stack_t nst; /* MUST be the first entry, so &nst equals &mISDNlist */
-	manager_t mgr;
-	int upper_id; /* id to transfer data down */
-	int lower_id; /* id to transfer data up */
-	int d_stid;
-	msg_queue_t downqueue;		/* l4->l3 */
-#endif
 	struct mISDNport *next;
 	char name[64]; /* name of port, if available */
 	struct interface_port *ifport; /* link to interface_port */
@@ -46,14 +49,8 @@ struct mISDNport {
 	int b_num; /* number of bchannels */
 	int b_reserved; /* number of bchannels reserved or in use */
 	class PmISDN *b_port[128]; /* bchannel assigned to port object */
-#ifdef SOCKET_MISDN
 	struct mqueue upqueue;
 	int b_socket[128];
-#else
-	int procids[256]; /* keep track of free ids */
-	int b_stid[128];
-	unsigned long b_addr[128];
-#endif
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	double b_timer[128]; /* timer for state machine */
 	unsigned long b_remote_id[128]; /* the socket currently exported */
@@ -87,16 +84,8 @@ void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);
 int mISDN_handler(void);
-#ifdef SOCKET_MISDN
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
 int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
-#else
-void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause);
-int stack2manager_te(struct mISDNport *mISDNport, msg_t *msg);
-int stack2manager_nt(void *dat, void *arg);
-void setup_queue(struct mISDNport *mISDNport, int link);
-msg_t *create_l2msg(int prim, int dinfo, int size);
-#endif
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
 void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
@@ -111,11 +100,7 @@ class PmISDN : public Port
 	public:
 	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
 	~PmISDN();
-#ifdef SOCKET_MISDN
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
-#else
-	void bchannel_receive(iframe_t *frm);
-#endif
 	int handler(void);
 	void transmit(unsigned char *buffer, int length);
 	int message_epoint(unsigned long epoint_id, int message, union parameter *param);

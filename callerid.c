@@ -9,19 +9,23 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include "main.h"
+#include <string.h>
+#include <time.h>
+#include "extension.h"
+#include "message.h"
+#include "callerid.h"
 
 /* create caller id from digits by comparing with national and international
  * prefixes.
  */
 char *nationalize_callerinfo(char *string, int *ntype, char *national, char *international)
 {
-	if (!strncmp(options.international, string, strlen(options.international)))
+	if (!strncmp(international, string, strlen(international)))
 	{
 		*ntype = INFO_NTYPE_INTERNATIONAL;
 		return(string+strlen(international)); 
 	}
-	if (!strncmp(options.national, string, strlen(options.national)))
+	if (!strncmp(national, string, strlen(national)))
 	{
 		*ntype = INFO_NTYPE_NATIONAL;
 		return(string+strlen(national)); 
@@ -40,14 +44,16 @@ char *numberrize_callerinfo(char *string, int ntype, char *national, char *inter
 	switch(ntype)
 	{
 		case INFO_NTYPE_INTERNATIONAL:
-		UCPY(result, international);
-		SCAT(result, string);
+		strcpy(result, international);
+		strncat(result, string, sizeof(result));
+		result[sizeof(result)-1] = '\0';
 		return(result);
 		break;
 
 		case INFO_NTYPE_NATIONAL:
-		UCPY(result, national);
-		SCAT(result, string);
+		strcpy(result, national);
+		strncat(result, string, sizeof(result));
+		result[sizeof(result)-1] = '\0';
 		return(result);
 		break;
 

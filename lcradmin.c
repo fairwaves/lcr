@@ -359,7 +359,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 	}
 	/* loop all related ports */
 	ltee = 0;
-	j = msg->u.s.interfaces+msg->u.s.joins+msg->u.s.epoints;
+	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins+msg->u.s.epoints;
 	jj = j + msg->u.s.ports;
 	while(j < jj)
 	{
@@ -416,7 +416,7 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 		addstr(buffer);
 	}
 	/* find number of epoints */
-	j = msg->u.s.interfaces+msg->u.s.joins;
+	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
 	i = 0;
 	while(j < jj)
@@ -426,7 +426,7 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 		j++;
 	}
 	/* loop all related endpoints */
-	j = msg->u.s.interfaces+msg->u.s.joins;
+	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
 	while(j < jj)
 	{
@@ -778,7 +778,7 @@ char *admin_state(int sock, char *argv[])
 							if (m[i].u.i.port[j])
 							{
 								/* search for port */
-								l = msg.u.s.interfaces+msg.u.s.joins+msg.u.s.epoints;
+								l = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins+msg.u.s.epoints;
 								ll = l+msg.u.s.ports;
 								while(l < ll)
 								{
@@ -834,7 +834,7 @@ char *admin_state(int sock, char *argv[])
 			i++;
 			anything = 1;
 		}
-		i = 0;
+		i = msg.u.s.interfaces;
 		ii = i + msg.u.s.remotes;
 		while(i < ii)
 		{
@@ -853,7 +853,7 @@ char *admin_state(int sock, char *argv[])
 	if (show_calls == 1)
 	{
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.joins;
+		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
 		while(i < ii)
 		{
@@ -892,7 +892,7 @@ char *admin_state(int sock, char *argv[])
 			i++;
 			anything = 1;
 		}
-		j = msg.u.s.interfaces;
+		j = msg.u.s.interfaces+msg.u.s.remotes;
 		jj = j+msg.u.s.joins;
 		while(j < jj)
 		{
@@ -901,7 +901,7 @@ char *admin_state(int sock, char *argv[])
 			color(white);
 			SPRINT(buffer, "(%d):", m[j].u.j.serial);
 			addstr(buffer);
-			i = msg.u.s.interfaces+msg.u.s.joins;
+			i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 			ii = i+msg.u.s.epoints;
 			while(i < ii)
 			{
@@ -943,7 +943,7 @@ char *admin_state(int sock, char *argv[])
 	{
 		/* show all ports with no epoint */
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.joins+msg.u.s.epoints;
+		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins+msg.u.s.epoints;
 		ii = i+msg.u.s.ports;
 		while(i < ii)
 		{
@@ -963,7 +963,7 @@ char *admin_state(int sock, char *argv[])
 
 		/* show all epoints with no call */
 		anything = 0;
-		i = msg.u.s.interfaces+msg.u.s.joins;
+		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
 		while(i < ii)
 		{
@@ -983,7 +983,7 @@ char *admin_state(int sock, char *argv[])
 
 		/* show all joins */
 		anything = 0;
-		i = msg.u.s.interfaces;
+		i = msg.u.s.interfaces+msg.u.s.remotes;
 		ii = i+msg.u.s.joins;
 		while(i < ii)
 		{

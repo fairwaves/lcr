@@ -30,16 +30,16 @@ static struct cards {
 	int isac;
 	int ports;
 } cards[] = {
-	{ "AVM Fritz PCI (PNP)", "avmfritz", 0, 1, 1},
+//	{ "AVM Fritz PCI (PNP)", "avmfritz", 0, 1, 1},
 	{ "HFC PCI (Cologne Chip)", "hfcpci", 1, 0, 1},
 	{ "HFC-4S 4 S/T Ports (Cologne Chip)", "hfcmulti", 1, 0, 4},
 	{ "HFC-8S 8 S/T Ports (Cologne Chip)", "hfcmulti", 1, 0, 8},
 	{ "HFC-E1 1 E1 Port (Cologne Chip)", "hfcmulti", 1, 0, 1},
 	{ "HFC-S USB (Cologne Chip)", "hfcsusb", 1, 0, 1},
-	{ "HFC-S MINI (Cologne Chip)", "hfcsmini", 1, 0, 1},
-	{ "XHFC (Cologne Chip)", "xhfc", 1, 0, 1},
-	{ "Sedlbaur FAX", "sedlfax", 0, 1, 1},
-	{ "Winbond 6692 PCI", "w6692pci", 0, 0, 1},
+//	{ "HFC-S MINI (Cologne Chip)", "hfcsmini", 1, 0, 1},
+//	{ "XHFC (Cologne Chip)", "xhfc", 1, 0, 1},
+//	{ "Sedlbaur FAX", "sedlfax", 0, 1, 1},
+//	{ "Winbond 6692 PCI", "w6692pci", 0, 0, 1},
 	{ NULL, NULL, 0, 0},
 };
 
@@ -49,6 +49,9 @@ int main(void)
 	int i = 0, j, jj, n, anyte = 0, remove_isac;
 	char input[256];
 	char protocol[1024], layermask[1024], types[256];
+
+	printf("This program is outdated and requires update to mISDN V2 API\n");
+	return (0);
 
 	printf("\n\nThis program generates a script, which is used to start/stop/restart mISDN\n");
 	printf("driver. All configuration of cards is done for using with the LCR.\n");

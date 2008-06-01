@@ -26,16 +26,8 @@ static void strnncpy(unsigned char *dest, unsigned char *src, int len, int dst_l
 
 
 /* IE_COMPLETE */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_complete(struct l3_msg *l3m, int complete)
-#else
-void Pdss1::enc_ie_complete(unsigned char **ntmode, msg_t *msg, int complete)
-#endif
 {
-#ifndef SOCKET_MISDN
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 
 	if (complete<0 || complete>1)
 	{
@@ -46,37 +38,15 @@ void Pdss1::enc_ie_complete(unsigned char **ntmode, msg_t *msg, int complete)
 	if (complete)
 	{
 		add_trace("complete", NULL, NULL);
-#ifndef SOCKET_MISDN
-		p = msg_put(msg, 1);
-		if (p_m_d_ntmode)
-		{
-			*ntmode = p;
-		} else
-			qi->sending_complete.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-		p[0] = IE_COMPLETE;
-#else
 		l3m->sending_complete++;
-#endif
 	}
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_complete(struct l3_msg *l3m, int *complete)
-#else
-void Pdss1::dec_ie_complete(unsigned char *p, Q931_info_t *qi, int *complete)
-#endif
 {
 	*complete = 0;
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		if (qi->sending_complete.off)
-			*complete = 1;
-	} else
-#else
 	// special case: p is not a pointer, it's a value
 	unsigned char p = l3m->sending_complete;
-#endif
 	if (p)
 		*complete = 1;
 
@@ -86,18 +56,9 @@ void Pdss1::dec_ie_complete(unsigned char *p, Q931_info_t *qi, int *complete)
 
 
 /* IE_BEARER */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_bearer(struct l3_msg *l3m, int coding, int capability, int mode, int rate, int multi, int user)
-#else
-void Pdss1::enc_ie_bearer(unsigned char **ntmode, msg_t *msg, int coding, int capability, int mode, int rate, int multi, int user)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (coding<0 || coding>3)
@@ -144,13 +105,6 @@ void Pdss1::enc_ie_bearer(unsigned char **ntmode, msg_t *msg, int coding, int ca
 	add_trace("bearer", "user", "%d", user);
 
 	l = 2 + (multi>=0) + (user>=0);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->bearer_capability.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_BEARER;
 	p[1] = l;
 	p[2] = 0x80 + (coding<<5) + capability;
@@ -159,16 +113,10 @@ void Pdss1::enc_ie_bearer(unsigned char **ntmode, msg_t *msg, int coding, int ca
 		p[4] = 0x80 + multi;
 	if (user >= 0)
 		p[4+(multi>=0)] = 0xa0 + user;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_bearer(struct l3_msg *l3m, int *coding, int *capability, int *mode, int *rate, int *multi, int *user)
-#else
-void Pdss1::dec_ie_bearer(unsigned char *p, Q931_info_t *qi, int *coding, int *capability, int *mode, int *rate, int *multi, int *user)
-#endif
 {
 	*coding = -1;
 	*capability = -1;
@@ -177,16 +125,7 @@ void Pdss1::dec_ie_bearer(unsigned char *p, Q931_info_t *qi, int *coding, int *c
 	*multi = -1;
 	*user = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->bearer_capability.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->bearer_capability.off + 1;
-	}
-#else
 	unsigned char *p = l3m->bearer_capability;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 2)
@@ -223,18 +162,9 @@ void Pdss1::dec_ie_bearer(unsigned char *p, Q931_info_t *qi, int *coding, int *c
 
 
 /* IE_HLC */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_hlc(struct l3_msg *l3m, int coding, int interpretation, int presentation, int hlc, int exthlc)
-#else
-void Pdss1::enc_ie_hlc(unsigned char **ntmode, msg_t *msg, int coding, int interpretation, int presentation, int hlc, int exthlc)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (coding<0 || coding>3)
@@ -271,13 +201,6 @@ void Pdss1::enc_ie_hlc(unsigned char **ntmode, msg_t *msg, int coding, int inter
 		add_trace("hlc", "exthlc", "%d", exthlc);
 
 	l = 2 + (exthlc>=0);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->hlc.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_HLC;
 	p[1] = l;
 	p[2] = 0x80 + (coding<<5) + (interpretation<<2) + presentation;
@@ -287,16 +210,10 @@ void Pdss1::enc_ie_hlc(unsigned char **ntmode, msg_t *msg, int coding, int inter
 		p[4] = 0x80 + exthlc;
 	} else
 		p[3] = 0x80 + hlc;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_hlc(struct l3_msg *l3m, int *coding, int *interpretation, int *presentation, int *hlc, int *exthlc)
-#else
-void Pdss1::dec_ie_hlc(unsigned char *p, Q931_info_t *qi, int *coding, int *interpretation, int *presentation, int *hlc, int *exthlc)
-#endif
 {
 	*coding = -1;
 	*interpretation = -1;
@@ -304,16 +221,7 @@ void Pdss1::dec_ie_hlc(unsigned char *p, Q931_info_t *qi, int *coding, int *inte
 	*hlc = -1;
 	*exthlc = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->hlc.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->hlc.off + 1;
-	}
-#else
 	unsigned char *p = l3m->hlc;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 2)
@@ -341,18 +249,9 @@ void Pdss1::dec_ie_hlc(unsigned char *p, Q931_info_t *qi, int *coding, int *inte
 
 
 /* IE_CALL_ID */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int callid_len)
-#else
-void Pdss1::enc_ie_call_id(unsigned char **ntmode, msg_t *msg, unsigned char *callid, int callid_len)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	char buffer[25];
@@ -378,42 +277,20 @@ void Pdss1::enc_ie_call_id(unsigned char **ntmode, msg_t *msg, unsigned char *ca
 	add_trace("callid", NULL, "%s", buffer[0]?buffer+1:"<none>");
 
 	l = callid_len;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->call_id.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CALL_ID;
 	p[1] = l;
 	memcpy(p+2, callid, callid_len);
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *callid_len)
-#else
-void Pdss1::dec_ie_call_id(unsigned char *p, Q931_info_t *qi, unsigned char *callid, int *callid_len)
-#endif
 {
 	char buffer[25];
 	int i;
 
 	*callid_len = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->call_id.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->call_id.off + 1;
-	}
-#else
 	unsigned char *p = l3m->call_id;
-#endif
 	if (!p)
 		return;
 	if (p[0] > 8)
@@ -437,18 +314,9 @@ void Pdss1::dec_ie_call_id(unsigned char *p, Q931_info_t *qi, unsigned char *cal
 
 
 /* IE_CALLED_PN */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number)
-#else
-void Pdss1::enc_ie_called_pn(unsigned char **ntmode, msg_t *msg, int type, int plan, unsigned char *number)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (type<0 || type>7)
@@ -472,42 +340,20 @@ void Pdss1::enc_ie_called_pn(unsigned char **ntmode, msg_t *msg, int type, int p
 	add_trace("called_pn", "number", "%s", number);
 
 	l = 1+strlen((char *)number);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->called_nr.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CALLED_PN;
 	p[1] = l;
 	p[2] = 0x80 + (type<<4) + plan;
 	UNCPY((char *)p+3, (char *)number, strlen((char *)number));
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_called_pn(struct l3_msg *l3m, int *type, int *plan, unsigned char *number, int number_len)
-#else
-void Pdss1::dec_ie_called_pn(unsigned char *p, Q931_info_t *qi, int *type, int *plan, unsigned char *number, int number_len)
-#endif
 {
 	*type = -1;
 	*plan = -1;
 	*number = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->called_nr.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->called_nr.off + 1;
-	}
-#else
 	unsigned char *p = l3m->called_nr;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 2)
@@ -527,18 +373,9 @@ void Pdss1::dec_ie_called_pn(unsigned char *p, Q931_info_t *qi, int *type, int *
 
 
 /* IE_CALLING_PN */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number)
-#else
-void Pdss1::enc_ie_calling_pn(unsigned char **ntmode, msg_t *msg, int type, int plan, int present, int screen, unsigned char *number)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (type<0 || type>7)
@@ -573,13 +410,6 @@ void Pdss1::enc_ie_calling_pn(unsigned char **ntmode, msg_t *msg, int type, int 
 		l += strlen((char *)number);
 	if (present >= 0)
 		l += 1;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->calling_nr.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CALLING_PN;
 	p[1] = l;
 	if (present >= 0)
@@ -594,16 +424,10 @@ void Pdss1::enc_ie_calling_pn(unsigned char **ntmode, msg_t *msg, int type, int 
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
 	}
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len)
-#else
-void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len)
-#endif
 {
 	*type = -1;
 	*plan = -1;
@@ -611,16 +435,7 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 	*screen = -1;
 	*number = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->calling_nr.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->calling_nr.off + 1;
-	}
-#else
 	unsigned char *p = l3m->calling_nr;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -655,18 +470,9 @@ void Pdss1::dec_ie_calling_pn(unsigned char *p, Q931_info_t *qi, int *type, int 
 
 
 /* IE_CONNECTED_PN */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_connected_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number)
-#else
-void Pdss1::enc_ie_connected_pn(unsigned char **ntmode, msg_t *msg, int type, int plan, int present, int screen, unsigned char *number)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (type<0 || type>7)
@@ -701,13 +507,6 @@ void Pdss1::enc_ie_connected_pn(unsigned char **ntmode, msg_t *msg, int type, in
 		l += strlen((char *)number);
 	if (present >= 0)
 		l += 1;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->connected_nr.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CONNECT_PN;
 	p[1] = l;
 	if (present >= 0)
@@ -722,16 +521,10 @@ void Pdss1::enc_ie_connected_pn(unsigned char **ntmode, msg_t *msg, int type, in
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
 	}
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_connected_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len)
-#else
-void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len)
-#endif
 {
 	*type = -1;
 	*plan = -1;
@@ -739,16 +532,7 @@ void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, in
 	*screen = -1;
 	*number = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->connected_nr.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->connected_nr.off + 1;
-	}
-#else
 	unsigned char *p = l3m->connected_nr;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -783,18 +567,9 @@ void Pdss1::dec_ie_connected_pn(unsigned char *p, Q931_info_t *qi, int *type, in
 
 
 /* IE_CAUSE */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_cause(struct l3_msg *l3m, int location, int cause)
-#else
-void Pdss1::enc_ie_cause(unsigned char **ntmode, msg_t *msg, int location, int cause)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (location<0 || location>7)
@@ -812,66 +587,29 @@ void Pdss1::enc_ie_cause(unsigned char **ntmode, msg_t *msg, int location, int c
 	add_trace("cause", "value", "%d", cause);
 
 	l = 2;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->cause.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CAUSE;
 	p[1] = l;
 	p[2] = 0x80 + location;
 	p[3] = 0x80 + cause;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
-#ifdef SOCKET_MISDN
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause)
-#else
-void enc_ie_cause_standalone(unsigned char **ntmode, msg_t *msg, int location, int cause)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p = msg_put(msg, 4);
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-	if (ntmode)
-		*ntmode = p+1;
-	else
-		qi->cause.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_CAUSE;
 	p[1] = 2;
 	p[2] = 0x80 + location;
 	p[3] = 0x80 + cause;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_cause(struct l3_msg *l3m, int *location, int *cause)
-#else
-void Pdss1::dec_ie_cause(unsigned char *p, Q931_info_t *qi, int *location, int *cause)
-#endif
 {
 	*location = -1;
 	*cause = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->cause.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->cause.off + 1;
-	}
-#else
 	unsigned char *p = l3m->cause;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 2)
@@ -889,18 +627,9 @@ void Pdss1::dec_ie_cause(unsigned char *p, Q931_info_t *qi, int *location, int *
 
 
 /* IE_CHANNEL_ID */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_channel_id(struct l3_msg *l3m, int exclusive, int channel)
-#else
-void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive, int channel)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 	int pri = p_m_mISDNport->pri;
 
@@ -935,13 +664,6 @@ void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive,
 	{
 		/* BRI */
 		l = 1;
-#ifndef SOCKET_MISDN
-		p = msg_put(msg, l+2);
-		if (p_m_d_ntmode)
-			*ntmode = p+1;
-		else
-			qi->channel_id.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 		p[0] = IE_CHANNEL_ID;
 		p[1] = l;
 		if (channel == CHANNEL_NO)
@@ -949,9 +671,7 @@ void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive,
 		else if (channel == CHANNEL_ANY)
 			channel = 3;
 		p[2] = 0x80 + (exclusive<<3) + channel;
-#ifdef SOCKET_MISDN
 		add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 	} else
 	{
 		/* PRI */
@@ -960,61 +680,30 @@ void Pdss1::enc_ie_channel_id(unsigned char **ntmode, msg_t *msg, int exclusive,
 		if (channel == CHANNEL_ANY) /* any channel */
 		{
 			l = 1;
-#ifndef SOCKET_MISDN
-			p = msg_put(msg, l+2);
-			if (p_m_d_ntmode)
-				*ntmode = p+1;
-			else
-				qi->channel_id.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 			p[0] = IE_CHANNEL_ID;
 			p[1] = l;
 			p[2] = 0x80 + 0x20 + 0x03;
-#ifdef SOCKET_MISDN
 			add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 			return; /* end */
 		}
 		l = 3;
-#ifndef SOCKET_MISDN
-		p = msg_put(msg, l+2);
-		if (p_m_d_ntmode)
-			*ntmode = p+1;
-		else
-			qi->channel_id.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 		p[0] = IE_CHANNEL_ID;
 		p[1] = l;
 		p[2] = 0x80 + 0x20 + (exclusive<<3) + 0x01;
 		p[3] = 0x80 + 3; /* CCITT, Number, B-type */
 		p[4] = 0x80 + channel;
-#ifdef SOCKET_MISDN
 		add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 	}
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_channel_id(struct l3_msg *l3m, int *exclusive, int *channel)
-#else
-void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive, int *channel)
-#endif
 {
 	int pri = p_m_mISDNport->pri;
 
 	*exclusive = -1;
 	*channel = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->channel_id.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->channel_id.off + 1;
-	}
-#else
 	unsigned char *p = l3m->channel_id;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1108,18 +797,9 @@ void Pdss1::dec_ie_channel_id(unsigned char *p, Q931_info_t *qi, int *exclusive,
 
 
 /* IE_DATE */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_date(struct l3_msg *l3m, time_t ti, int no_seconds)
-#else
-void Pdss1::enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int no_seconds)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	struct tm *tm;
@@ -1135,13 +815,6 @@ void Pdss1::enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int no_se
 	add_trace("date", "time", "%d:%d:%d", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
 	l = 5 + (!no_seconds);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->date.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_DATE;
 	p[1] = l;
 	p[2] = tm->tm_year % 100;
@@ -1151,25 +824,14 @@ void Pdss1::enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int no_se
 	p[6] = tm->tm_min;
 	if (!no_seconds)
 		p[7] = tm->tm_sec;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
 
 /* IE_DISPLAY */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_display(struct l3_msg *l3m, unsigned char *display)
-#else
-void Pdss1::enc_ie_display(unsigned char **ntmode, msg_t *msg, unsigned char *display)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (!display[0])
@@ -1187,39 +849,17 @@ void Pdss1::enc_ie_display(unsigned char **ntmode, msg_t *msg, unsigned char *di
 	add_trace("display", NULL, "%s", display);
 
 	l = strlen((char *)display);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->display.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_DISPLAY;
 	p[1] = l;
 	UNCPY((char *)p+2, (char *)display, strlen((char *)display));
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_display(struct l3_msg *l3m, unsigned char *display, int display_len)
-#else
-void Pdss1::dec_ie_display(unsigned char *p, Q931_info_t *qi, unsigned char *display, int display_len)
-#endif
 {
 	*display = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->display.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->display.off + 1;
-	}
-#else
 	unsigned char *p = l3m->display;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1235,18 +875,9 @@ void Pdss1::dec_ie_display(unsigned char *p, Q931_info_t *qi, unsigned char *dis
 
 
 /* IE_KEYPAD */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_keypad(struct l3_msg *l3m, unsigned char *keypad)
-#else
-void Pdss1::enc_ie_keypad(unsigned char **ntmode, msg_t *msg, unsigned char *keypad)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (!keypad[0])
@@ -1258,39 +889,17 @@ void Pdss1::enc_ie_keypad(unsigned char **ntmode, msg_t *msg, unsigned char *key
 	add_trace("keypad", NULL, "%s", keypad);
 
 	l = strlen((char *)keypad);
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->keypad.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_KEYPAD;
 	p[1] = l;
 	UNCPY((char *)p+2, (char *)keypad, strlen((char *)keypad));
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_keypad(struct l3_msg *l3m, unsigned char *keypad, int keypad_len)
-#else
-void Pdss1::dec_ie_keypad(unsigned char *p, Q931_info_t *qi, unsigned char *keypad, int keypad_len)
-#endif
 {
 	*keypad = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->keypad.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->keypad.off + 1;
-	}
-#else
 	unsigned char *p = l3m->keypad;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1306,18 +915,9 @@ void Pdss1::dec_ie_keypad(unsigned char *p, Q931_info_t *qi, unsigned char *keyp
 
 
 /* IE_NOTIFY */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_notify(struct l3_msg *l3m, int notify)
-#else
-void Pdss1::enc_ie_notify(unsigned char **ntmode, msg_t *msg, int notify)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (notify<0 || notify>0x7f)
@@ -1329,39 +929,17 @@ void Pdss1::enc_ie_notify(unsigned char **ntmode, msg_t *msg, int notify)
 	add_trace("notify", NULL, "%d", notify);
 
 	l = 1;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->notify.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_NOTIFY;
 	p[1] = l;
 	p[2] = 0x80 + notify;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_notify(struct l3_msg *l3m, int *notify)
-#else
-void Pdss1::dec_ie_notify(unsigned char *p, Q931_info_t *qi, int *notify)
-#endif
 {
 	*notify = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->notify.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->notify.off + 1;
-	}
-#else
 	unsigned char *p = l3m->notify;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1377,18 +955,9 @@ void Pdss1::dec_ie_notify(unsigned char *p, Q931_info_t *qi, int *notify)
 
 
 /* IE_PROGRESS */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_progress(struct l3_msg *l3m, int coding, int location, int progress)
-#else
-void Pdss1::enc_ie_progress(unsigned char **ntmode, msg_t *msg, int coding, int location, int progress)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (coding<0 || coding>0x03)
@@ -1412,42 +981,20 @@ void Pdss1::enc_ie_progress(unsigned char **ntmode, msg_t *msg, int coding, int 
 	add_trace("progress", "indicator", "%d", progress);
 
 	l = 2;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->progress.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_PROGRESS;
 	p[1] = l;
 	p[2] = 0x80 + (coding<<5) + location;
 	p[3] = 0x80 + progress;
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_progress(struct l3_msg *l3m, int *coding, int *location, int *progress)
-#else
-void Pdss1::dec_ie_progress(unsigned char *p, Q931_info_t *qi, int *coding, int *location, int *progress)
-#endif
 {
 	*coding = -1;
 	*location = -1;
 	*progress = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->progress.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->progress.off + 1;
-	}
-#else
 	unsigned char *p = l3m->progress;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1467,18 +1014,9 @@ void Pdss1::dec_ie_progress(unsigned char *p, Q931_info_t *qi, int *coding, int 
 
 
 /* IE_REDIR_NR (redirecting = during MT_SETUP) */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_redir_nr(struct l3_msg *l3m, int type, int plan, int present, int screen, int reason, unsigned char *number)
-#else
-void Pdss1::enc_ie_redir_nr(unsigned char **ntmode, msg_t *msg, int type, int plan, int present, int screen, int reason, unsigned char *number)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (type<0 || type>7)
@@ -1523,13 +1061,6 @@ void Pdss1::enc_ie_redir_nr(unsigned char **ntmode, msg_t *msg, int type, int pl
 		if (reason >= 0)
 			l += 1;
 	}
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->redirect_nr.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_REDIR_NR;
 	p[1] = l;
 	if (present >= 0)
@@ -1554,16 +1085,10 @@ void Pdss1::enc_ie_redir_nr(unsigned char **ntmode, msg_t *msg, int type, int pl
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
 	}
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_redir_nr(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, int *reason, unsigned char *number, int number_len)
-#else
-void Pdss1::dec_ie_redir_nr(unsigned char *p, Q931_info_t *qi, int *type, int *plan, int *present, int *screen, int *reason, unsigned char *number, int number_len)
-#endif
 {
 	*type = -1;
 	*plan = -1;
@@ -1572,16 +1097,7 @@ void Pdss1::dec_ie_redir_nr(unsigned char *p, Q931_info_t *qi, int *type, int *p
 	*reason = -1;
 	*number = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->redirect_nr.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->redirect_nr.off + 1;
-	}
-#else
 	unsigned char *p = l3m->redirect_nr;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1619,18 +1135,9 @@ void Pdss1::dec_ie_redir_nr(unsigned char *p, Q931_info_t *qi, int *type, int *p
 
 
 /* IE_REDIR_DN (redirection = during MT_NOTIFY) */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_redir_dn(struct l3_msg *l3m, int type, int plan, int present, unsigned char *number)
-#else
-void Pdss1::enc_ie_redir_dn(unsigned char **ntmode, msg_t *msg, int type, int plan, int present, unsigned char *number)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	if (type<0 || type>7)
@@ -1659,13 +1166,6 @@ void Pdss1::enc_ie_redir_dn(unsigned char **ntmode, msg_t *msg, int type, int pl
 		l += strlen((char *)number);
 	if (present >= 0)
 		l += 1;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->redirect_dn.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_REDIR_DN;
 	p[1] = l;
 	if (present >= 0)
@@ -1680,32 +1180,17 @@ void Pdss1::enc_ie_redir_dn(unsigned char **ntmode, msg_t *msg, int type, int pl
 		if (number)
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
 	}
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_redir_dn(struct l3_msg *l3m, int *type, int *plan, int *present, unsigned char *number, int number_len)
-#else
-void Pdss1::dec_ie_redir_dn(unsigned char *p, Q931_info_t *qi, int *type, int *plan, int *present, unsigned char *number, int number_len)
-#endif
 {
 	*type = -1;
 	*plan = -1;
 	*present = -1;
 	*number = '\0';
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->redirect_dn.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->redirect_dn.off + 1;
-	}
-#else
 	unsigned char *p = l3m->redirect_dn;
-#endif
 	if (!p)
 		return;
 	if (p[0] < 1)
@@ -1733,18 +1218,9 @@ void Pdss1::dec_ie_redir_dn(unsigned char *p, Q931_info_t *qi, int *type, int *p
 
 
 /* IE_FACILITY */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_facility(struct l3_msg *l3m, unsigned char *facility, int facility_len)
-#else
-void Pdss1::enc_ie_facility(unsigned char **ntmode, msg_t *msg, unsigned char *facility, int facility_len)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	char buffer[768];
@@ -1765,42 +1241,20 @@ void Pdss1::enc_ie_facility(unsigned char **ntmode, msg_t *msg, unsigned char *f
 	add_trace("facility", NULL, "%s", buffer+1);
 
 	l = facility_len;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+2);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->facility.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_FACILITY;
 	p[1] = l;
 	memcpy(p+2, facility, facility_len);
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_facility(struct l3_msg *l3m, unsigned char *facility, int *facility_len)
-#else
-void Pdss1::dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *facility, int *facility_len)
-#endif
 {
 	char debug[768];
 	int i;
 
 	*facility_len = 0;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->facility.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->facility.off + 1;
-	}
-#else
 	unsigned char *p = l3m->facility;
-#endif
 	if (!p)
 		return;
 
@@ -1819,11 +1273,7 @@ void Pdss1::dec_ie_facility(unsigned char *p, Q931_info_t *qi, unsigned char *fa
 }
 
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_facility_centrex(struct l3_msg *l3m, unsigned char *cnip, int cnip_len)
-#else
-void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned char *cnip, int cnip_len)
-#endif
 {
 	unsigned char centrex[256];
 	char debug[768];
@@ -1831,11 +1281,7 @@ void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned cha
 	int i = 0, j;
 	*cnip = '\0';
 
-#ifdef SOCKET_MISDN
 	dec_ie_facility(l3m, centrex, &facility_len);
-#else
-	dec_ie_facility(p, qi, centrex, &facility_len);
-#endif
 	if (facility_len >= 2)
 	{
 		if (centrex[i++] != CENTREX_FAC)
@@ -1874,18 +1320,9 @@ void Pdss1::dec_facility_centrex(unsigned char *p, Q931_info_t *qi, unsigned cha
 
 
 /* IE_USERUSER */
-#ifdef SOCKET_MISDN
 void Pdss1::enc_ie_useruser(struct l3_msg *l3m, int protocol, unsigned char *user, int user_len)
-#else
-void Pdss1::enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, unsigned char *user, int user_len)
-#endif
 {
-#ifdef SOCKET_MISDN
 	unsigned char p[256];
-#else
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-#endif
 	int l;
 
 	char buffer[768];
@@ -1912,27 +1349,14 @@ void Pdss1::enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, un
 	add_trace("useruser", "value", "%s", buffer);
 
 	l = user_len;
-#ifndef SOCKET_MISDN
-	p = msg_put(msg, l+3);
-	if (p_m_d_ntmode)
-		*ntmode = p+1;
-	else
-		qi->useruser.off = p - (unsigned char *)qi - sizeof(Q931_info_t);
-#endif
 	p[0] = IE_USER_USER;
 	p[1] = l;
 	p[2] = 0x80 + protocol;
 	memcpy(p+3, user, user_len);
-#ifdef SOCKET_MISDN
 	add_layer3_ie(l3m, p[0], p[1], p+2);
-#endif
 }
 
-#ifdef SOCKET_MISDN
 void Pdss1::dec_ie_useruser(struct l3_msg *l3m, int *protocol, unsigned char *user, int *user_len)
-#else
-void Pdss1::dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, unsigned char *user, int *user_len)
-#endif
 {
 	char buffer[768];
 	int i;
@@ -1940,16 +1364,7 @@ void Pdss1::dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, un
 	*user_len = 0;
 	*protocol = -1;
 
-#ifndef SOCKET_MISDN
-	if (!p_m_d_ntmode)
-	{
-		p = NULL;
-		if (qi->useruser.off)
-			p = (unsigned char *)qi + sizeof(Q931_info_t) + qi->useruser.off + 1;
-	}
-#else
 	unsigned char *p = l3m->useruser;
-#endif
 	if (!p)
 		return;
 

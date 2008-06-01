@@ -1,3 +1,5 @@
+OUTDATED, please update
+
 ##   -*- autoconf -*-
 
 dnl    This file is part of linux-call-router

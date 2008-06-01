@@ -421,3 +421,13 @@ Changes in Version 0.5
 - Errors in information elements are now reported inside log/trace.
 - Recover bchannel (de-)activation if message from mISDN got lost
 
+Changes in Version 1.0
+- Bugfixes
+- Complete port to new mISDN V2 API (socket based).
+  -> Old mISDN will not work anymore.
+- Interfaces mode (NT/TE PTP/PTMP) can now be changed at runtime.
+  -> No more module parameters must be given for cards.
+- First Alpha release of chan_lcr - the Asterisk PBX channel link driver.
+  -> Use LCR in conjunction with Asterisk, or simply as ISDN frontend.
+
+

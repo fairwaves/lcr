@@ -10,19 +10,15 @@
 #*****************************************************************************/ 
 
 WITH-CRYPTO = 42 # comment this out, if no libcrypto should be used
-#WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
-WITH-SOCKET = 42 # compile for socket based mISDN (this options is far unfinished !!!)
+WITH-ASTERISK = 42 # comment this out, if you don't require built-in Asterisk channel driver.
 # note: check your location and the names of libraries.
 
 # select location to install
 INSTALL_BIN = /usr/local/bin
+INSTALL_CHAN = /usr/lib/asterisk/modules
 INSTALL_DATA = /usr/local/lcr
 
-ifdef WITH-SOCKET
 LIBS += -lmisdn -lpthread
-else
-LIBS += -lisdnnet -lmISDN -lpthread
-endif
 CHANLIBS += -lmISDN
 
 # give location of the curses or ncurses library
@@ -43,12 +39,10 @@ GENW = ./genwave
 GENRC = ./genrc
 GENEXT = ./genextension
 CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
+CFLAGS += -I/usr/include/mISDNuser
 #CFLAGS = -Wall -g -DINSTALL_DATA=\"$(INSTALL_DATA)\"
 ifdef WITH-CRYPTO
 CFLAGS += -DCRYPTO
-endif
-ifdef WITH-SOCKET
-CFLAGS += -DSOCKET_MISDN -I/usr/include/mISDNuser
 endif
 ifdef WITH-CRYPTO
 LIBDIR += -L/usr/local/ssl/lib
@@ -63,12 +57,12 @@ endif
 #	@exit
 
 all: $(CHAN_LCR) $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
-	@sh -c 'grep -n strcpy *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncpy *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strcat *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strcpy *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strncpy *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strcat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
+	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
 	@echo "All LCR binaries done"
 	@sync
 	@exit
@@ -128,7 +122,9 @@ apppbx.o: apppbx.cpp *.h Makefile
 	$(PP) -c $(CFLAGS) apppbx.cpp -o apppbx.o
 
 callerid.o: callerid.c *.h Makefile
-	$(PP) -c $(CFLAGS) callerid.c -o callerid.o
+	$(CC) -c $(CFLAGS) callerid.c -o callerid.o
+callerid.ooo: callerid.c *.h Makefile
+	$(PP) -c $(CFLAGS) callerid.c -o callerid.ooo
 
 join.o: join.cpp *.h Makefile
 	$(PP) -c $(CFLAGS) join.cpp -o join.o
@@ -187,7 +183,7 @@ $(LCR): main.o \
 	endpoint.o \
 	endpointapp.o \
 	apppbx.o \
-	callerid.o \
+	callerid.ooo \
 	crypt.o \
 	action.o \
 	action_vbox.o \
@@ -215,7 +211,7 @@ $(LCR): main.o \
 	endpoint.o \
 	endpointapp.o \
 	apppbx.o \
-	callerid.o \
+	callerid.ooo \
 	crypt.o \
 	action.o \
 	action_vbox.o \
@@ -232,8 +228,8 @@ $(LCRADMIN): lcradmin.c cause.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS_LCRADMIN) $(CURSES) -lm lcradmin.c cause.c \
 	-o $(LCRADMIN) 
 
-$(CHAN_LCR): chan_lcr.o bchannel.o *.h Makefile
-	gcc -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o
+$(CHAN_LCR): chan_lcr.o bchannel.o callerid.o *.h Makefile
+	$(CC) -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o callerid.o
 
 
 $(LCRWATCH): watch.c *.h Makefile
@@ -264,9 +260,9 @@ install:
 	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)
-#ifdef WITH-ASTERISK
-#	cp $(CHAN_LCR) $(INSTALL_CHAN)
-#endif
+ifdef WITH-ASTERISK
+	cp $(CHAN_LCR) $(INSTALL_CHAN)
+endif
 #	cp $(LCRWATCH) $(INSTALL_BIN)
 	cp $(GEN) $(INSTALL_BIN)
 	cp $(GENW) $(INSTALL_BIN)

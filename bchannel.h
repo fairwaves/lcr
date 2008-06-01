@@ -14,12 +14,7 @@ struct bchannel {
 	struct bchannel *next;
 	struct chan_call *call;		/* link to call process */
 	unsigned long handle;		/* handle for stack id */
-#ifdef SOCKET_MISDN
 	int b_sock;			/* socket for b-channel */
-#else
-	unsigned long b_stid;		/* stack id */
-	unsigned long b_addr;		/* channel address */
-#endif
 	int b_state;
 	int b_txdata;
 	int b_delay;

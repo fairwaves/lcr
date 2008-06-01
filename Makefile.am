@@ -1,3 +1,5 @@
+OUTDATED!!!! must be rewritten! see Makefile
+
 ## Makefile.am -- Process this file with automake to produce Makefile.in
 
 

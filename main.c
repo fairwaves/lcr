@@ -26,11 +26,7 @@ struct timezone now_tz;
 		now_tm = localtime(&now); \
 	}
 
-#ifdef SOCKET_MISDN
 FILE *debug_fp = NULL;
-#else
-int global_debug = 0;
-#endif
 int quit=0;
 
 #if 0
@@ -72,13 +68,8 @@ void debug(const char *function, int line, char *prefix, char *buffer)
 		last_debug = debug_count;
 		if (!nooutput)
 			printf("\033[34m--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\033[36m\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
-#ifdef SOCKET_MISDN
 		if (debug_fp)
 			fprintf(debug_fp, "--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
-#else
-		if (options.deb&DEBUG_LOG && global_debug)
-			dprint(DBGM_MAN, 0, "--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
-#endif
 	}
 
 	if (!nooutput)
@@ -91,26 +82,14 @@ void debug(const char *function, int line, char *prefix, char *buffer)
 			printf("%s", buffer);
 	}
 
-#ifdef SOCKET_MISDN
 	if (debug_fp)
-#else
-	if (options.deb&DEBUG_LOG && global_debug)
-#endif
 	{
 		if (debug_newline)
 		{
 			if (function)
-#ifdef SOCKET_MISDN
 				fprintf(debug_fp, "%s%s(in %s() line %d): %s", prefix?prefix:"", prefix?" ":"", function, line, buffer);
-#else
-				dprint(DBGM_MAN, 0, "%s%s(in %s() line %d): %s", prefix?prefix:"", prefix?" ":"", function, line, buffer);
-#endif
 			else
-#ifdef SOCKET_MISDN
 				fprintf(debug_fp, "%s%s: %s", prefix?prefix:"", prefix?" ":"", buffer);
-#else
-				dprint(DBGM_MAN, 0, "%s%s: %s", prefix?prefix:"", prefix?" ":"", buffer);
-#endif
 		}
 	}
 

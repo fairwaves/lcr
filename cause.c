@@ -9,7 +9,13 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include "main.h"
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
+#include "macro.h"
+#include "cause.h"
+#include "extension.h"
 
 struct isdn_cause isdn_cause[128] = {
 			/********************************* - **/ /*38*/

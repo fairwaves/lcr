@@ -621,7 +621,7 @@ foundif:
 	if (!interface->ifport)
 	{
 		/* no ports */
-		trace_header("CHANNEL SELECTION (interface has no active ports, skipping)", DIRECTION_NONE);
+		trace_header("CHANNEL SELECTION (active ports, skipping)", DIRECTION_NONE);
 		add_trace("interface", NULL, "%s", interface->name);
 		end_trace();
 		interface = interface->next;
@@ -672,7 +672,7 @@ foundif:
 	/* see if link is up on PTP*/
 	if (mISDNport->l2hold && !mISDNport->l2link)
 	{
-		trace_header("CHANNEL SELECTION (port holds layer 2, but layer 2 is down, skipping)", DIRECTION_NONE);
+		trace_header("CHANNEL SELECTION (port's layer 2 is down, skipping)", DIRECTION_NONE);
 		add_trace("port", NULL, "%d", ifport->portnum);
 		add_trace("position", NULL, "%d", index);
 		end_trace();
@@ -808,6 +808,11 @@ foundif:
 	}
 	if (ifport != ifport_start)
 		goto nextport;
+
+	if (!ifname) {
+		interface = interface->next;
+		goto checknext;
+	}
 
 	return(NULL); /* no port found */
 }

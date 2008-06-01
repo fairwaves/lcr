@@ -129,6 +129,7 @@ enum { /* isdnsignal */
 
 enum { /* bchannel assignment */
 	BCHANNEL_REQUEST,		/* application requests bchannel */
+	BCHANNEL_RELEASE,		/* application releases bchannel */
 	BCHANNEL_ASSIGN,		/* bchannel assigned by LCR */
 	BCHANNEL_ASSIGN_ACK,		/* application acknowledges */
 	BCHANNEL_REMOVE,		/* bchannel removed by LCR */
@@ -142,16 +143,6 @@ enum {
 	B_STATE_EXPORTING,	/* BCHANNEL_ASSIGN sent */
 	B_STATE_REMOTE,		/* bchannel assigned to remote application */
 	B_STATE_IMPORTING,	/* BCHANNEL_REMOVE sent */
-};
-enum {
-	B_EVENT_USE,		/* activate/export bchannel */
-	B_EVENT_EXPORTREQUEST,	/* remote app requests bchannel */
-	B_EVENT_ACTIVATED,	/* DL_ESTABLISH received */
-	B_EVENT_DROP,		/* deactivate/re-import bchannel */
-	B_EVENT_DEACTIVATED,	/* DL_RELEASE received */
-	B_EVENT_EXPORTED,	/* BCHANNEL_ASSIGN received */
-	B_EVENT_IMPORTED,	/* BCHANNEL_REMOVE received */
-	B_EVENT_TIMEOUT,	/* timeout for bchannel state */
 };
 
 /* call-info structure CALLER */
