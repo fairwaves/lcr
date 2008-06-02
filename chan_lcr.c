@@ -166,7 +166,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	buffer[sizeof(buffer)-1]=0;
 	va_end(args);
 
-	if (call)
+	if ((unsigned long)call > 1)
 		sprintf(call_text, "%ld", call->ref);
 	if (ast)
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
@@ -1332,9 +1332,7 @@ static void *chan_thread(void *arg)
 static
 struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 {
-	union parameter newparam;
 	struct ast_channel *ast;
-        struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
 
@@ -1346,28 +1344,17 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		CERROR(NULL, NULL, "Rejecting call from Asterisk, because LCR not running.\n");
 		return NULL;
 	}
-	
-	/* create call instance */
-	call = alloc_call();
-	if (!call)
-	{
-		/* failed to create instance */
-		return NULL;
-	}
+
 	/* create asterisk channel instrance */
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
 	if (!ast)
 	{
 		CERROR(NULL, NULL, "Failed to create Asterisk channel.\n");
-		free_call(call);
 		/* failed to create instance */
 		return NULL;
 	}
-	/* link together */
-	call->ast = ast;
-	ast->tech_pvt = call;
 	ast->tech = &lcr_tech;
-	ast->fds[0] = call->pipe[0];
+	ast->tech_pvt = (void *)1L; // or asterisk will not call
 	/* configure channel */
 #ifdef TODO
 	snprintf(ast->name, sizeof(ast->name), "%s/%d", lcr_type, ++glob_channel);
@@ -1384,12 +1371,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 #endif
 	ast->priority = 1;
 	ast->hangupcause = 0;
-	/* send MESSAGE_NEWREF */
-	memset(&newparam, 0, sizeof(union parameter));
-	newparam.direction = 0; /* request from app */
-	send_message(MESSAGE_NEWREF, 0, &newparam);
-	/* set state */
-	call->state = CHAN_LCR_STATE_OUT_PREPARE;
 
 	ast_mutex_unlock(&chan_lock);
 
@@ -1402,23 +1383,37 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
         struct chan_call *call;
+	union parameter newparam;
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
-		CERROR(NULL, ast, "Received call from Asterisk, but no call instance exists.\n");
+	if ((unsigned long)call > 1) {
+		CERROR(NULL, ast, "Received call from Asterisk, but call instance already exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 
-	CDEBUG(call, ast, "Received call from Asterisk.\n");
+	CDEBUG(NULL, ast, "Received call from Asterisk.\n");
 
-#warning was passiert zwischen lcr_request und lcr_call ?
+	/* create call instance */
+	call = alloc_call();
+	if (!call)
+	{
+		/* failed to create instance */
+		return -1;
+	}
+	/* link together */
+	call->ast = ast;
+	ast->tech_pvt = call;
+	ast->fds[0] = call->pipe[0];
+	/* pbx process is started */
 	call->pbx_started = 1;
-
-	/* send setup message, if we already have a callref */
-	if (call->ref)
-		send_setup_to_lcr(call);
+	/* send MESSAGE_NEWREF */
+	memset(&newparam, 0, sizeof(union parameter));
+	newparam.direction = 0; /* request from app */
+	send_message(MESSAGE_NEWREF, 0, &newparam);
+	/* set state */
+	call->state = CHAN_LCR_STATE_OUT_PREPARE;
 
 	ast_mutex_unlock(&chan_lock);
 	return 0; 
@@ -1436,7 +1431,7 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, ast, "Received digit from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
@@ -1473,7 +1468,7 @@ static int lcr_answer(struct ast_channel *ast)
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, ast, "Received answer from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
@@ -1510,7 +1505,7 @@ static int lcr_hangup(struct ast_channel *ast)
 	if (!pthread_equal(tid, chan_tid))
 		ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, ast, "Received hangup from Asterisk, but no call instance exists.\n");
 		if (!pthread_equal(tid, chan_tid))
 			ast_mutex_unlock(&chan_lock);
@@ -1573,7 +1568,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 	
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
@@ -1592,7 +1587,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		ast_mutex_unlock(&chan_lock);
 		return NULL;
 	}
@@ -1634,7 +1629,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, ast, "Received indicate from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
@@ -1734,7 +1729,7 @@ static int lcr_fixup(struct ast_channel *oldast, struct ast_channel *newast)
 
 	ast_mutex_lock(&chan_lock);
 	call = oldast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, oldast, "Received fixup from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
@@ -1756,7 +1751,7 @@ static int lcr_send_text(struct ast_channel *ast, const char *text)
 
 	ast_mutex_lock(&chan_lock);
 	call = ast->tech_pvt;
-        if (!call) {
+	if ((unsigned long)call <= 1) {
 		CERROR(NULL, ast, "Received send_text from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
