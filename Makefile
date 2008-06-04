@@ -257,6 +257,7 @@ $(GENEXT): options.o extension.o genext.o
 #	@exit
 
 install:
+	make
 	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)

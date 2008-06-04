@@ -141,18 +141,17 @@ int bchannel_create(struct bchannel *bchannel)
 		CERROR(NULL, NULL, "Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
-		bchannel->handle = 0;
 		return(0);
 	}
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
 	addr.dev = (bchannel->handle>>8)-1;
-	addr.channel = bchannel->handle && 0xff;
+	addr.channel = bchannel->handle & 0xff;
 	ret = bind(bchannel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		CERROR(NULL, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
+		CERROR(NULL, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. (port %d, channel %d) Did you load mISDNdsp.ko?\n", bchannel->handle, addr.dev + 1, addr.channel);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
 		return(0);
