@@ -74,7 +74,9 @@ message.o: message.c *.h Makefile
 	$(PP) -c $(CFLAGS) message.c -o message.o
 
 options.o: options.c *.h Makefile
-	$(PP) -c $(CFLAGS) options.c -o options.o
+	$(CC) -c $(CFLAGS) options.c -o options.o
+options.ooo: options.c *.h Makefile
+	$(PP) -c $(CFLAGS) options.c -o options.ooo
 
 interface.o: interface.c *.h Makefile
 	$(PP) -c $(CFLAGS) interface.c -o interface.o
@@ -168,7 +170,7 @@ bchannel.o: bchannel.c *.h Makefile
 #	-o $(WIZZARD) 
 
 $(LCR): main.o \
-	options.o \
+	options.ooo \
 	interface.o \
 	extension.o \
 	cause.o \
@@ -196,7 +198,7 @@ $(LCR): main.o \
 	trace.o
 	$(PP) $(LIBDIR) \
        	main.o \
-	options.o \
+	options.ooo \
 	interface.o \
 	extension.o \
 	cause.o \
@@ -228,8 +230,8 @@ $(LCRADMIN): lcradmin.c cause.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS_LCRADMIN) $(CURSES) -lm lcradmin.c cause.c \
 	-o $(LCRADMIN) 
 
-$(CHAN_LCR): chan_lcr.o bchannel.o callerid.o *.h Makefile
-	$(CC) -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o callerid.o
+$(CHAN_LCR): chan_lcr.o bchannel.o callerid.o options.o *.h Makefile
+	$(CC) -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o callerid.o options.o
 
 
 $(LCRWATCH): watch.c *.h Makefile
@@ -248,8 +250,8 @@ $(GENRC): genrc.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS) -lm genrc.c \
 	-o $(GENRC) 
 
-$(GENEXT): options.o extension.o genext.o
-	$(PP) $(CFLAGS) options.o extension.o genext.o -o $(GENEXT) 
+$(GENEXT): options.ooo extension.o genext.o
+	$(PP) $(CFLAGS) options.ooo extension.o genext.o -o $(GENEXT) 
 
 #install:
 #	@echo Remember, this is a beta release. To overwrite your current installed

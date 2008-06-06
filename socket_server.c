@@ -654,10 +654,11 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 	 * no ref given for *_ack */
 	if (msg->type == MESSAGE_BCHANNEL)
 	if (msg->param.bchannel.type == BCHANNEL_ASSIGN_ACK
-	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK)
+	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK
+	 || msg->param.bchannel.type == BCHANNEL_RELEASE)
 	{
 		/* no ref, but address */
-		message_bchannel_from_join(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
+		message_bchannel_from_remote(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
 		return(0);
 	}
 	

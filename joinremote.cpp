@@ -100,7 +100,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	 * also ref is given, so we send message with ref */
 	if (message_type == MESSAGE_BCHANNEL)
 	{
-		message_bchannel_from_join(this, param->bchannel.type, param->bchannel.handle);
+		message_bchannel_from_remote(this, param->bchannel.type, param->bchannel.handle);
 		return;
 	}
 	
@@ -116,7 +116,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	}
 }
 
-void message_bchannel_to_join(unsigned long remote_id, unsigned long ref, int type, unsigned long handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
+void message_bchannel_to_remote(unsigned long remote_id, unsigned long ref, int type, unsigned long handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
 {
 	union parameter param;
 

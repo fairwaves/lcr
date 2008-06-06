@@ -127,6 +127,7 @@ class EndpointAppPBX : public EndpointApp
 	/* read doc/keypad.txt for more information */
 	int e_dtmf_time;			/* time when the last key was received. */
 	int e_dtmf_last;			/* last dtmf key */
+	int e_enablekeypad;			/* remote app requests dtmf */
 
 	/* transmit and receive state */
 	int e_tx_state;				/* current endpoint's state */

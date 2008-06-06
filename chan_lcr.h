@@ -39,6 +39,12 @@ struct chan_call {
 					/* read buffer for frame */
 	struct ast_frame	read_fr;
 					/* frame for read */
+	char			interface[32];
+					/* LCR interface name for setup */
+	char			dialstring[64];
+					/* cached dial string for setup */
+	int			dtmf;
+					/* shall dtmf be enabled */
 };
 
 enum {
@@ -97,3 +103,4 @@ enum {
 #define CDEBUG(call, ast, arg...) chan_lcr_log(__LOG_NOTICE, __FILE__, __LINE__,  __FUNCTION__, call, ast, ##arg)
 void chan_lcr_log(int type, const char *file, int line, const char *function,  struct chan_call *call, struct ast_channel *ast, const char *fmt, ...);
 extern unsigned char flip_bits[256];
+void lcr_in_dtmf(struct chan_call *call, int val);

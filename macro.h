@@ -11,28 +11,28 @@
 \*****************************************************************************/ 
 
 
-/* save strcpy/strncpy */
+/* safe strcpy/strncpy */
 
 #define SCPY(dst, src) scpy(dst, src, sizeof(dst))
-extern __inline__ void scpy(char *dst, char *src, unsigned int siz)
+static inline void scpy(char *dst, char *src, unsigned int siz)
 {
 	strncpy(dst, src, siz);
 	dst[siz-1] = '\0';
 }
 
-/* save strcat/strncat */
+/* safe strcat/strncat */
 
 #define SCAT(dst, src) scat(dst, src, sizeof(dst))
-extern __inline__ void scat(char *dst, char *src, unsigned int siz)
+static inline void scat(char *dst, char *src, unsigned int siz)
 {
 	strncat(dst, src, siz);
 	dst[siz-1] = '\0';
 }
 
-/* save concat of a byte */
+/* safe concat of a byte */
 
 #define SCCAT(dst, src) sccat(dst, src, sizeof(dst))
-extern __inline__ void sccat(char *dst, char chr, unsigned int siz)
+static inline void sccat(char *dst, char chr, unsigned int siz)
 {
 	if (strlen(dst) < siz-1)
 	{
@@ -41,10 +41,10 @@ extern __inline__ void sccat(char *dst, char chr, unsigned int siz)
 	}
 }
 
-/* save sprintf/snprintf */
+/* safe sprintf/snprintf */
 
 #define SPRINT(dst, fmt, arg...) sprint(dst, sizeof(dst), fmt, ## arg)
-extern __inline__ void sprint(char *dst, unsigned int siz, char *fmt, ...)
+static inline void sprint(char *dst, unsigned int siz, char *fmt, ...)
 {
 	va_list args;
 
@@ -54,7 +54,7 @@ extern __inline__ void sprint(char *dst, unsigned int siz, char *fmt, ...)
 	va_end(args);
 }
 
-/* unsave */
+/* unsafe */
 #define UCPY strcpy
 #define UNCPY strncpy
 #define UCAT strcat
@@ -65,7 +65,7 @@ extern __inline__ void sprint(char *dst, unsigned int siz, char *fmt, ...)
 
 /* fatal error with error message and exit */
 #define FATAL(fmt, arg...) fatal(__FUNCTION__, __LINE__, fmt, ##arg)
-extern __inline__ void fatal(const char *function, int line, char *fmt, ...)
+static inline void fatal(const char *function, int line, char *fmt, ...)
 {
 	va_list args;
 	char buffer[256];
@@ -85,7 +85,7 @@ extern __inline__ void fatal(const char *function, int line, char *fmt, ...)
 
 /* memory allocation with setting to zero */
 #define MALLOC(size) _malloc(size, __FUNCTION__, __LINE__)
-extern __inline__ void *_malloc(unsigned long size, const char *function, int line)
+static inline void *_malloc(unsigned long size, const char *function, int line)
 {
 	void *addr;
 	addr = malloc(size);
@@ -97,7 +97,7 @@ extern __inline__ void *_malloc(unsigned long size, const char *function, int li
 
 /* memory freeing with clearing memory to prevent using freed memory */
 #define FREE(addr, size) _free(addr, size)
-extern __inline void _free(void *addr, int size)
+static inline void _free(void *addr, int size)
 {
 	if (size)
 		memset(addr, 0, size);

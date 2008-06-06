@@ -28,6 +28,8 @@ struct options {
 
 extern struct options options;
 
+extern char options_error[256];
+
 int read_options(void);
 
 

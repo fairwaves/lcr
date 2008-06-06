@@ -9,7 +9,14 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#include "main.h"
+#include "stdio.h"
+#include "string.h"
+#include "stdarg.h"
+#include "unistd.h"
+#include "stdlib.h"
+#include "macro.h"
+#include "extension.h"
+#include "options.h"
 
 struct options options = {
 	"/usr/local/lcr/log",		/* log file */
@@ -25,6 +32,8 @@ struct options options = {
 	0,				/* by default use priority 0 */
 	"lcr@your.machine"		/* source mail adress */
 };
+
+char options_error[256];
 
 /* read options
  *
@@ -44,8 +53,8 @@ int read_options(void)
 
 	if (!(fp=fopen(filename,"r")))
 	{
-		PERROR("Cannot open %s\n",filename);
-		return(-1);
+		SPRINT(options_error, "Cannot open %s\n",filename);
+		return(0);
 	}
 
 	line=0;
@@ -71,7 +80,7 @@ int read_options(void)
 		{
 			if (i+1 >= sizeof(option))
 			{
-				PERROR_RUNTIME("Error in %s (line %d): option too long.\n",filename,line);
+				SPRINT(options_error, "Error in %s (line %d): option too long.\n",filename,line);
 				goto error;
 			}
 			option[i+1] = '\0';
@@ -93,7 +102,7 @@ int read_options(void)
 			{
 				if (i+1 >= sizeof(param))
 				{
-					PERROR_RUNTIME("Error in %s (line %d): param too long.\n",filename,line);
+					SPRINT(options_error, "Error in %s (line %d): param too long.\n",filename,line);
 					goto error;
 				}
 				param[i+1] = '\0';
@@ -106,99 +115,89 @@ int read_options(void)
 		/* check option */
 		if (!strcmp(option,"nt_if") || !strcmp(option,"te_if"))
 		{
-			PERROR_RUNTIME("Error in %s (line %d): obsolete option %s. Use multiple 'port' options to define ports to use.\n",filename,line,option);
+			SPRINT(options_error, "Error in %s (line %d): obsolete option %s. Use multiple 'port' options to define ports to use.\n",filename,line,option);
 			goto error;
 		} else
 		if (!strcmp(option,"debug"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			options.deb = strtol(param, NULL, 0);
 
-			PDEBUG(DEBUG_CONFIG, "debugging: 0x%x\n", options.deb);
 		} else
 		if (!strcmp(option,"log"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(options.log, param);
 
-			PDEBUG(DEBUG_CONFIG, "log file: %s\n", options.log);
 		} else
 		if (!strcmp(option,"alaw"))
 		{
 			options.law = 'a';
 
-			PDEBUG(DEBUG_CONFIG, "isdn audio type: alaw\n");
 		} else
 		if (!strcmp(option,"ulaw"))
 		{
 			options.law = 'u';
 
-			PDEBUG(DEBUG_CONFIG, "isdn audio type: ulaw\n");
 		} else
 		if (!strcmp(option,"tones_dir"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
 				param[strlen(param)-1]=0;
 			SCPY(options.tones_dir, param);
 
-			PDEBUG(DEBUG_CONFIG, "directory of tones: %s\n",param);
 		} else
 		if (!strcmp(option,"fetch_tones"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
 				param[strlen(param)-1]=0;
 			SCPY(options.fetch_tones, param);
 
-			PDEBUG(DEBUG_CONFIG, "directories of tones to fetch: %s\n",param);
 		} else
 		if (!strcmp(option,"extensions_dir"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
 				param[strlen(param)-1]=0;
 			SCPY(options.extensions_dir, param);
 
-			PDEBUG(DEBUG_CONFIG, "directory of extensions: %s\n",param);
 		} else
 		if (!strcmp(option,"national"))
 		{
 			SCPY(options.national, param);
 
-			PDEBUG(DEBUG_CONFIG, "national dial prefix: %s\n", param);
 		} else
 		if (!strcmp(option,"international"))
 		{
 			SCPY(options.international, param);
 
-			PDEBUG(DEBUG_CONFIG, "inernational dial prefix: %s\n", param);
 		} else
 		if (!strcmp(option,"dummyid"))
 		{
 			SCPY(options.dummyid, param);
 
-			PDEBUG(DEBUG_CONFIG, "dummy caller id\n", param);
 		} else
 		if (!strcmp(option,"dsptones"))
 		{
@@ -211,44 +210,38 @@ int read_options(void)
 			else if (!strcasecmp(param, "none"))
 				options.dsptones = DSP_NONE;
 			else {
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 
-			PDEBUG(DEBUG_CONFIG, "dsp tones = %d\n", options.dsptones);
 		} else
 		if (!strcmp(option,"schedule"))
 		{
 			options.schedule = atoi(param);
 			if (options.schedule < 0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be at least '0'.\n", filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s must be at least '0'.\n", filename,line,option);
 				goto error;
 			}
 			if (options.schedule > 99)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s must be '99' or less.\n", filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s must be '99' or less.\n", filename,line,option);
 				goto error;
 			}
 
-			if (atoi(param))
-				PDEBUG(DEBUG_CONFIG, "use real time scheduler priority: %d\n", atoi(param));
-			else
-				PDEBUG(DEBUG_CONFIG, "don't use real time scheduler\n");
 		} else
 		if (!strcmp(option,"email"))
 		{
 			if (param[0]==0)
 			{
-				PERROR_RUNTIME("Error in %s (line %d): parameter for option %s missing.\n", filename,line,option);
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n", filename,line,option);
 				goto error;
 			}
 			SCPY(options.email, param);
 
-			PDEBUG(DEBUG_CONFIG, "source mail address of pbx: %s\n", param);
 		} else
 		{
-			PERROR_RUNTIME("Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
+			SPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
 			goto error;
 		}
 	}
@@ -256,13 +249,13 @@ int read_options(void)
 #if 0
 	if (!options.dsptones)
 	{
-		PERROR_RUNTIME("Error in %s (line %d): option 'dsptones' missing.\n", filename);
+		SPRINT(options_error, "Error in %s (line %d): option 'dsptones' missing.\n", filename);
 		goto error;
 	}
 #endif
 	if (!options.tones_dir[0])
 	{
-		PERROR_RUNTIME("Error in %s (line %d): option 'tones_dir' with parameter missing.\n", filename);
+		SPRINT(options_error, "Error in %s (line %d): option 'tones_dir' with parameter missing.\n", filename);
 		goto error;
 	}
 	if (fp) fclose(fp);

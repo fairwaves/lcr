@@ -30,9 +30,6 @@ struct bchannel {
 	int b_crypt_len;
 	int b_crypt_type;
 	unsigned char b_crypt_key[128];
-
-	void (*rx_data)(struct bchannel *bchannel, unsigned char *data, int len);
-	void (*rx_dtmf)(struct bchannel *bchannel, char tone);
 };
 
 
@@ -45,6 +42,7 @@ int bchannel_create(struct bchannel *channel);
 void bchannel_activate(struct bchannel *channel, int activate);
 void bchannel_transmit(struct bchannel *channel, unsigned char *data, int len);
 void bchannel_join(struct bchannel *channel, unsigned short id);
+void bchannel_dtmf(struct bchannel *channel, int on);
 int bchannel_handle(void);
 struct bchannel *find_bchannel_handle(unsigned long handle);
 //struct bchannel *find_bchannel_ref(unsigned long ref);

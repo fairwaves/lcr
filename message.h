@@ -240,7 +240,6 @@ struct useruser_info {
 struct message_setup {
 	int isdn_port; /* card number 1...n (only on calls from isdn port) */
 	int port_type; /* type of port (only required if message is port -> epoint) */
-	int dtmf; /* used to enabled dtmf dialing at setup state */
 	int partyline; /* if set, call will be a conference room */
 	int partyline_jingle; /* if set, the jingle will be played on conference join */
 	struct caller_info callerinfo;		/* information about the caller */
@@ -358,6 +357,7 @@ enum { /* messages between entities */
 	MESSAGE_NONE,		/* no message */
 	MESSAGE_TONE,		/* set information tone (to isdn port) */
 	MESSAGE_DTMF,		/* dtmf digit (from isdn port) */
+	MESSAGE_ENABLEKEYPAD,	/* remote application requests keypad/dtmf */
 	MESSAGE_mISDNSIGNAL,	/* special mixer command (down to isdn port) */
 	MESSAGE_SETUP,		/* setup message */
 	MESSAGE_INFORMATION,	/* additional digit information */
@@ -392,6 +392,7 @@ enum { /* messages between entities */
 	"MESSAGE_NONE", \
 	"MESSAGE_TONE", \
 	"MESSAGE_DTMF", \
+	"MESSAGE_ENABLEKEYPAD", \
 	"MESSAGE_mISDNSIGNAL", \
 	"MESSAGE_SETUP", \
 	"MESSAGE_INFORMATION", \

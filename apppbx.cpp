@@ -73,6 +73,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         e_dtmf = 0;
         e_dtmf_time = 0;
         e_dtmf_last = 0;
+	e_enablekeypad = 0;
 	e_cfnr_release = 0;
 	e_cfnr_call = 0;
 	e_password_timeout = 0;
@@ -238,6 +239,7 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 			e_dtmf = 0;
 			e_dtmf_time = 0;
 			e_dtmf_last = 0;
+			e_enablekeypad = 0;
 			e_cfnr_release = 0;
 			e_cfnr_call = 0;
 			e_multipoint_cause = 0;
@@ -1476,7 +1478,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
-	e_dtmf = param->setup.dtmf;
+//	e_dtmf = param->setup.dtmf;
 	/* screen incoming caller id */
 	interface = interface_first;
 	while(interface)
@@ -1666,7 +1668,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	/* keypad when connected */
 	if (e_state == EPOINT_STATE_CONNECT)
 	{
-		if (e_ext.keypad)
+		if (e_ext.keypad || e_enablekeypad)
 		{
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
 			/* processing keypad function */
@@ -1947,6 +1949,9 @@ void EndpointAppPBX::port_alerting(struct port_list *portlist, int message_type,
 
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_ALERTING, "", 0, 0, 0);
+//#warning hack!!
+//	if (e_adminid)
+//		set_tone(portlist, "hold");
 
 	new_state(EPOINT_STATE_OUT_ALERTING);
 	/* check if pattern is available */
@@ -2957,8 +2962,10 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 
 	new_state(EPOINT_STATE_CONNECT);
 //			UCPY(e_join_tone, "");
+//			
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
+
 	e_powerdialing = 0;
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_callerinfo));
 	if(portlist)
@@ -3503,6 +3510,15 @@ void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, un
 		join_notify(portlist, message_type, param);
 		break;
 
+		/* JOIN wants keypad / dtml */
+		case MESSAGE_ENABLEKEYPAD:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received keypad enable request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		e_enablekeypad = 1;
+		e_dtmf = 1;
+		trace_header("ENABLE KEYPAD", DIRECTION_NONE);
+		end_trace();
+		break;
+
 		default:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: #%d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
 	}
@@ -3682,7 +3698,8 @@ reject:
 
 	/* connnecting our endpoint */
 	new_state(EPOINT_STATE_CONNECT);
-	e_dtmf = 1;
+	if (e_ext.number[0])
+		e_dtmf = 1;
 	set_tone(ea_endpoint->ep_portlist, NULL);
 
 	/* now we send a release to the ringing endpoint */

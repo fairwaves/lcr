@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
 	if (!read_options())
 	{
-		PERROR("Failed to read options.conf\n");
+		PERROR("%s", options_error);
 		return(-1);
 	}
 

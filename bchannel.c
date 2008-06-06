@@ -70,7 +70,7 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
-	CDEBUG(NULL, NULL, "Sending PH_CONTROL %d,%d\n", c1, c2);
+	CDEBUG(NULL, NULL, "Sending PH_CONTROL %s %x,%x\n", trace_name, c1, c2);
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
@@ -78,14 +78,6 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
 	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
-#if 0
-	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
-	if (c1 == CMX_CONF_JOIN)
-		add_trace(trace_name, NULL, "0x%08x", trace_value);
-	else
-		add_trace(trace_name, NULL, "%d", trace_value);
-	end_trace();
-#endif
 }
 
 static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
@@ -95,7 +87,7 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
-	CDEBUG(NULL, NULL, "Sending PH_CONTROL (block) %d\n", c1);
+	CDEBUG(NULL, NULL, "Sending PH_CONTROL (block) %s %x\n", trace_name, c1);
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
@@ -103,11 +95,6 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
 	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
-#if 0
-	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
-	add_trace(trace_name, NULL, "%d", trace_value);
-	end_trace();
-#endif
 }
 
 
@@ -280,8 +267,8 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 			add_trace("DTMF", NULL, "%c", cont & DTMF_TONE_MASK);
 			end_trace();
 #endif
-			if (bchannel->rx_dtmf)
-				bchannel->rx_dtmf(bchannel, cont & DTMF_TONE_MASK);
+			if (bchannel->call)
+				lcr_in_dtmf(bchannel->call, cont & DTMF_TONE_MASK);
 			return;
 		}
 		switch(cont)
@@ -407,6 +394,20 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 		ph_control(handle, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf);
 		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
 	}
+}
+
+
+/*
+ * dtmf bchannel
+ */
+void bchannel_dtmf(struct bchannel *bchannel, int on)
+{
+	int handle;
+
+	handle = bchannel->b_sock;
+	bchannel->b_dtmf = 1;
+	if (bchannel->b_state == BSTATE_ACTIVE)
+		ph_control(handle, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1);
 }
 
 

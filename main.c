@@ -282,7 +282,10 @@ int main(int argc, char *argv[])
 
 	/* read options */
 	if (read_options() == 0)
+	{
+		PERROR("%s", options_error);
 		goto free;
+	}
 
 	/* init mISDN */
 	if (mISDN_initialize() < 0)

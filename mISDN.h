@@ -91,7 +91,7 @@ void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigne
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
-void message_bchannel_from_join(class JoinRemote *joinremote, int type, unsigned long handle);
+void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned long handle);
 
 
 /* mISDN port classes */

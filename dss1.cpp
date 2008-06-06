@@ -692,7 +692,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
 	message->param.setup.isdn_port = p_m_portnum;
 	message->param.setup.port_type = p_type;
-	message->param.setup.dtmf = !p_m_mISDNport->ifport->nodtmf;
+//	message->param.setup.dtmf = !p_m_mISDNport->ifport->nodtmf;
 	memcpy(&message->param.setup.dialinginfo, &p_dialinginfo, sizeof(struct dialing_info));
 	memcpy(&message->param.setup.callerinfo, &p_callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.redirinfo, &p_redirinfo, sizeof(struct redir_info));
