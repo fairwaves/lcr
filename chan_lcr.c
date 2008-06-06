@@ -1739,6 +1739,9 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			memset(&newparam, 0, sizeof(union parameter));
 			newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_HOLD;
 			send_message(MESSAGE_NOTIFY, call->ref, &newparam);
+			
+			/*start music onhold*/
+			ast_moh_start(ast,data,ast->musicclass);
                         break;
                 case AST_CONTROL_UNHOLD:
 			CDEBUG(call, ast, "Received indicate AST_CONTROL_UNHOLD from Asterisk.\n");
@@ -1746,7 +1749,10 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			memset(&newparam, 0, sizeof(union parameter));
 			newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_RETRIEVAL;
 			send_message(MESSAGE_NOTIFY, call->ref, &newparam);
-                        break;
+
+			/*stop moh*/
+                	ast_moh_stop(ast);
+		        break;
 
                 default:
 			CERROR(call, ast, "Received indicate from Asterisk with unknown condition %d.\n", cond);
@@ -2020,6 +2026,15 @@ static struct ast_cli_entry cli_port_unload =
 #endif
 
 
+
+static int lcr_config_exec(struct ast_channel *chan, void *data)
+{
+	//FIXME: add your aplication code here	
+	// SEPERATOR ':'
+	
+	return 0;
+}
+
 /*
  * module loading and destruction
  */
@@ -2058,6 +2073,23 @@ int load_module(void)
 		close_socket();
 		return AST_MODULE_LOAD_DECLINE;
 	}
+
+	ast_register_application("lcr_config", lcr_config_exec, "lcr_config",
+				 "lcr_config(:<opt><optarg>:<opt><optarg>..):\n"
+				 "Sets LCR opts. and optargs\n"
+				 "\n"
+				 "The available options are:\n"
+				 "    d - Send display text on called phone, text is the optparam\n"
+				 "    n - don't detect dtmf tones on called channel\n"
+				 "    h - make digital outgoing call\n" 
+				 "    c - make crypted outgoing call, param is keyindex\n"
+				 "    e - perform echo cancelation on this channel,\n"
+				 "        takes taps as arguments (32,64,128,256)\n"
+				 "    s - send Non Inband DTMF as inband\n"
+				 "   vr - rxgain control\n"
+				 "   vt - txgain control\n"
+		);
+
  
 #if 0	
 	ast_cli_register(&cli_show_lcr);
@@ -2113,6 +2145,9 @@ int unload_module(void)
 	pthread_join(chan_tid, NULL);	
 	
 	ast_channel_unregister(&lcr_tech);
+
+        ast_unregister_application("lcr_config");
+
 
 	if (mISDN_created) {
 		bchannel_deinitialize();
