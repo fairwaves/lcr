@@ -302,6 +302,12 @@ unsigned short new_bridge_id(void)
 	return(id);
 }
 
+/*
+ * apply options (in locked state)
+ */
+void apply_opt(struct chan_call *call, char *opt)
+{
+}
 
 /*
  * enque message to LCR
@@ -1359,8 +1365,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
         struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
-
-	CDEBUG(NULL, NULL, "Received request from Asterisk. data=%s\n", (char *)data);
+	CDEBUG(NULL, NULL, "Received request from Asterisk. (data=%s)\n", (char *)data);
 
 	/* if socket is closed */
 	if (lcr_sock < 0)
@@ -1399,7 +1404,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	call->ast = ast;
 	ast->tech_pvt = call;
 	ast->fds[0] = call->pipe[0];
-	ast_mutex_unlock(&chan_lock);
 	call->pbx_started = 0;
 	/* set state */
 	call->state = CHAN_LCR_STATE_OUT_PREPARE;
@@ -1427,9 +1431,9 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	}
 	strncpy(call->interface, interface, sizeof(call->interface)-1);
 	strncpy(call->dialstring, dial, sizeof(call->dialstring)-1);
+	apply_opt(call, (char *)opt);
 
-#warning todo: parse options
-
+	ast_mutex_unlock(&chan_lock);
 	return ast;
 }
 
@@ -1500,7 +1504,6 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	}
 
 	ast_mutex_unlock(&chan_lock);
-	
 	return(0);
 }
 
@@ -1913,9 +1916,8 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 			call2->bridge_call->bridge_call = NULL;
 		call2->bridge_call = NULL;
 	}
+
 	ast_mutex_unlock(&chan_lock);
-	
-	
 	return AST_BRIDGE_COMPLETE;
 }
 static struct ast_channel_tech lcr_tech = {
@@ -2027,11 +2029,25 @@ static struct ast_cli_entry cli_port_unload =
 
 
 
-static int lcr_config_exec(struct ast_channel *chan, void *data)
+static int lcr_config_exec(struct ast_channel *ast, void *data)
 {
-	//FIXME: add your aplication code here	
-	// SEPERATOR ':'
-	
+	struct chan_call *call;
+
+	ast_mutex_lock(&chan_lock);
+	CDEBUG(NULL, ast, "Received lcr_config (data=%s)\n", (char *)data);
+	/* find channel */
+	call = call_first;
+	while(call) {
+		if (call->ast == ast)
+			break;
+		call = call->next;
+	}
+	if (call)
+		apply_opt(call, (char *)data);
+	else
+		CERROR(NULL, ast, "lcr_config app not called by chan_lcr channel.\n");
+
+	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
 
@@ -2075,53 +2091,32 @@ int load_module(void)
 	}
 
 	ast_register_application("lcr_config", lcr_config_exec, "lcr_config",
-				 "lcr_config(:<opt><optarg>:<opt><optarg>..):\n"
+				 "lcr_config(:<opt>=<optarg>:<opt>:...):\n"
 				 "Sets LCR opts. and optargs\n"
 				 "\n"
 				 "The available options are:\n"
 				 "    d - Send display text on called phone, text is the optparam\n"
-				 "    n - don't detect dtmf tones on called channel\n"
-				 "    h - make digital outgoing call\n" 
-				 "    c - make crypted outgoing call, param is keyindex\n"
-				 "    e - perform echo cancelation on this channel,\n"
-				 "        takes taps as arguments (32,64,128,256)\n"
-				 "    s - send Non Inband DTMF as inband\n"
+				 "    n - Don't detect dtmf tones on called channel\n"
+				 "    h - Make digital outgoing call\n" 
+				 "    c - Make crypted outgoing call, optarg is keyindex\n"
+				 "    e - Perform echo cancelation on this channel,\n"
+				 "        Takes taps as arguments (32,64,128,256)\n"
+				 "    s - Send Non Inband DTMF as inband\n"
 				 "   vr - rxgain control\n"
 				 "   vt - txgain control\n"
+				 "        Volume changes at factor 2 ^ optarg\n"
+				 "   pt - Disable all audio features (required for fax application)\n"
 		);
 
  
 #if 0	
 	ast_cli_register(&cli_show_lcr);
 	ast_cli_register(&cli_show_calls);
-
 	ast_cli_register(&cli_reload_routing);
 	ast_cli_register(&cli_reload_interfaces);
 	ast_cli_register(&cli_port_block);
 	ast_cli_register(&cli_port_unblock);
 	ast_cli_register(&cli_port_unload);
-  
-	ast_register_application("misdn_set_opt", misdn_set_opt_exec, "misdn_set_opt",
-				 "misdn_set_opt(:<opt><optarg>:<opt><optarg>..):\n"
-				 "Sets mISDN opts. and optargs\n"
-				 "\n"
-				 "The available options are:\n"
-				 "    d - Send display text on called phone, text is the optparam\n"
-				 "    n - don't detect dtmf tones on called channel\n"
-				 "    h - make digital outgoing call\n" 
-				 "    c - make crypted outgoing call, param is keyindex\n"
-				 "    e - perform echo cancelation on this channel,\n"
-				 "        takes taps as arguments (32,64,128,256)\n"
-				 "    s - send Non Inband DTMF as inband\n"
-				 "   vr - rxgain control\n"
-				 "   vt - txgain control\n"
-		);
-
-	
-	lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
-
-=======
-	//lcr_cfg_get( 0, LCR_GEN_TRACEFILE, global_tracefile, BUFFERSIZE);
 #endif
 
 	quit = 0;	

@@ -53,7 +53,7 @@ struct mISDNport {
 	int b_socket[128];
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	double b_timer[128]; /* timer for state machine */
-	unsigned long b_remote_id[128]; /* the socket currently exported */
+	int b_remote_id[128]; /* the socket currently exported (0=none) */
 	unsigned long b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
 	int los, ais, rdi, slip_rx, slip_tx;

@@ -80,6 +80,8 @@ void free_connection(struct admin_list *admin)
 	void *temp;
 	union parameter param;
 	class Join *join, *joinnext;
+	struct mISDNport *mISDNport;
+	int i, ii;
 
 	/* free remote joins */
 	if (admin->remote_name[0])
@@ -94,6 +96,26 @@ void free_connection(struct admin_list *admin)
 			"REMOTE APP release");
 		add_trace("app", "name", "%s", admin->remote_name);
 		end_trace();
+		/* release all exported channels */
+		mISDNport = mISDNport_first;
+		while(mISDNport)
+		{
+			i = 0;
+			ii = mISDNport->b_num;
+			while(i < ii)
+			{
+				if (mISDNport->b_remote_id[i] == admin->sock)
+				{
+					mISDNport->b_state[i] = B_STATE_IDLE;
+					mISDNport->b_timer[i] = 0;
+					mISDNport->b_remote_id[i] = 0;
+					mISDNport->b_remote_ref[i] = 0;
+				}
+				i++;
+			}
+			mISDNport = mISDNport->next;
+		}
+		/* release join */
 		join = join_first;
 		while(join)
 		{
