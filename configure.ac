@@ -1,5 +1,3 @@
-OUTDATED, please update
-
 ##   -*- autoconf -*-
 
 dnl    This file is part of linux-call-router
@@ -52,17 +50,6 @@ dnl AM_PROG_CC_C_O
 dnl enable this to have all special options on one place
 dnl AC_PRESERVE_HELP_ORDER
 
-# enable socket access to misdn kernel module on demand
-dnl SOCKET_MISDN=
-AC_ARG_ENABLE([socket_misdn],
-              [AS_HELP_STRING([--enable-socket-misdn],
-                              [use socket connection to misdn kernel code (default=disable)])
-              ],
-              [use_misdn_socket="yes"],
-              [use_misdn_socket="no"]
-             )
-AM_CONDITIONAL(ENABLE_SOCKET_MISDN, test "x$use_misdn_socket" == "xyes" )
-
 # check for asterisk
 AC_ARG_WITH([asterisk],
 	[AS_HELP_STRING([--with-asterisk],
@@ -97,10 +84,6 @@ AS_IF([test "x$with_ssl" != xno],
       ]
      )
 AM_CONDITIONAL(WITH_CRYPTO, test "x$LIBCRYPTO" == "x-lcrypto" )
-
-# check for isdn_net.h
-# check for mISDNlib.h
-# --with-isdn_net-include=<include>, default: env MISDNUSER= , $include/mISDNuser
 
 # self written test for mISDNuser lib
 AC_PATH_MISDNUSER

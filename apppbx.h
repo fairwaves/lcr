@@ -250,7 +250,7 @@ class EndpointAppPBX : public EndpointApp
 	struct route_param *routeparam(struct route_action *action, unsigned long long id);
 
 	/* init / dialing / hangup */
-	void _action_init_call(char *remote);
+	int _action_init_call(char *remote);
 	void action_init_call(void);
 	void action_init_remote(void);
 	void action_dialing_internal(void);

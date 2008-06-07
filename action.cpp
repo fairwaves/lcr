@@ -17,7 +17,7 @@ extern char **environ;
 /*
  * process init 'internal' / 'external' / 'remote' / 'vbox-record' / 'partyline'...
  */
-void EndpointAppPBX::_action_init_call(char *remote)
+int EndpointAppPBX::_action_init_call(char *remote)
 {
 	class Join		*join;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
@@ -28,7 +28,7 @@ void EndpointAppPBX::_action_init_call(char *remote)
 	{
 		if (options.deb & DEBUG_EPOINT)
 			PERROR("EPOINT(%d): We already have a call instance, this should never happen!\n", ea_endpoint->ep_serial);
-		return;
+		return(0);
 	}
 
 	/* create join */
@@ -51,7 +51,7 @@ void EndpointAppPBX::_action_init_call(char *remote)
 			message_disconnect_port(portlist, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, "");
 			new_state(EPOINT_STATE_OUT_DISCONNECT);
 			set_tone(portlist,"cause_1b");
-			return;
+			return(0);
 		}
 		join = new JoinRemote(ea_endpoint->ep_serial, remote, admin->sock);
 	}
@@ -60,6 +60,7 @@ void EndpointAppPBX::_action_init_call(char *remote)
 	if (!join)
 		FATAL("No memoy for Join instance.\n");
 	ea_endpoint->ep_join_id = join->j_serial;
+	return(1);
 }
 void EndpointAppPBX::action_init_call(void)
 {
@@ -358,7 +359,7 @@ void EndpointAppPBX::action_dialing_remote(void)
 	char			context[128] = "";
 	char 			remote[32];
 
-	if (e_state == EPOINT_STATE_IN_SETUP && !ea_endpoint->ep_join_id)
+	if (!ea_endpoint->ep_join_id)
 	{
 		/* no join yet, sending setup */
 		if (!(rparam = routeparam(e_action, PARAM_APPLICATION)))
@@ -371,7 +372,8 @@ void EndpointAppPBX::action_dialing_remote(void)
 			return;
 		}
 		SCPY(remote, rparam->string_value);
-		_action_init_call(remote);
+		if (!_action_init_call(remote))
+			return;
 
 		/* create bearer/caller/dialinginfo */
 		memcpy(&capainfo, &e_capainfo, sizeof(capainfo));
