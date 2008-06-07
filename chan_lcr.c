@@ -303,13 +303,6 @@ unsigned short new_bridge_id(void)
 }
 
 /*
- * apply options (in locked state)
- */
-void apply_opt(struct chan_call *call, char *opt)
-{
-}
-
-/*
  * enque message to LCR
  */
 int send_message(int message_type, unsigned long ref, union parameter *param)
@@ -341,6 +334,169 @@ int send_message(int message_type, unsigned long ref, union parameter *param)
 }
 
 /*
+ * apply options (in locked state)
+ */
+void apply_opt(struct chan_call *call, char *data)
+{
+	union parameter newparam;
+	char string[1024], *p = string, *opt, *key;
+	int gain, i, newmode = 0;
+
+	strncpy(string, data, sizeof(string)-1);
+	string[sizeof(string)-1] = '\0';
+
+	/* parse options */
+	while((opt = strsep(&p, ":")))
+	{
+		switch(opt[0]) {
+		case 'd':
+			if (opt[1] == '\0') {
+				CERROR(call, call->ast, "Option 'd' (display) expects parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'd' (display) with text '%s'.\n", opt+1);
+			if (call->state == CHAN_LCR_STATE_OUT_PREPARE)
+				strncpy(call->display, opt+1, sizeof(call->display)-1);
+			else {
+				memset(&newparam, 0, sizeof(union parameter));
+				strncpy(newparam.notifyinfo.display, opt+1, sizeof(newparam.notifyinfo.display)-1);
+				send_message(MESSAGE_NOTIFY, call->ref, &newparam);
+			}
+			break;
+		case 'n':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 'n' (no DTMF) expects no parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'n' (no DTMF).\n");
+			call->no_dtmf = 1;
+			break;
+		case 'c':
+			if (opt[1] == '\0') {
+				CERROR(call, call->ast, "Option 'c' (encrypt) expects key parameter.\n", opt);
+				break;
+			}
+			key = opt+1;
+			/* check for 0xXXXX... type of key */
+			if (!!strncmp((char *)key, "0x", 2)) {
+				CERROR(call, call->ast, "Option 'c' (encrypt) expects key parameter starting with '0x'.\n", opt);
+				break;
+			}
+			key+=2;
+			if (strlen(key) > 56*2 || (strlen(key) % 1)) {
+				CERROR(call, call->ast, "Option 'c' (encrypt) expects key parameter with max 56 bytes ('0x' + 112 characters)\n", opt);
+				break;
+			}
+			i = 0;
+			while(*key)
+			{
+				if (*key>='0' && *key<='9')
+					call->bf_key[i] = (*key-'0') << 8;
+				else if (*key>='a' && *key<='f')
+					call->bf_key[i] = (*key-'a'+10) << 8;
+				else if (*key>='A' && *key<='F')
+					call->bf_key[i] = (*key-'A'+10) << 8;
+				else
+					break;
+				key++;
+				if (*key>='0' && *key<='9')
+					call->bf_key[i] += (*key - '0');
+				else if (*key>='a' && *key<='f')
+					call->bf_key[i] += (*key - 'a' + 10);
+				else if (*key>='A' && *key<='F')
+					call->bf_key[i] += (*key - 'A' + 10);
+				else
+					break;
+				key++;
+				i++;
+			}
+			if (*key) {
+				CERROR(call, call->ast, "Option 'c' (encrypt) expects key parameter with hex values 0-9,a-f.\n");
+				break;
+			}
+			call->bf_len = i;
+			CDEBUG(call, call->ast, "Option 'c' (encrypt) blowfish key '%s' (len=%d).\n", opt+1, i);
+			if (call->bchannel)
+				bchannel_blowfish(call->bchannel, call->bf_key, call->bf_len);
+			break;
+		case 'h':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 'h' (HDLC) expects no parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'h' (HDLC).\n");
+			if (!call->hdlc) {
+				call->hdlc = 1;
+				newmode = 1;
+			}
+			break;
+		case 't':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 't' (transparent) expects no parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 't' (transparent).\n");
+			if (!call->transparent) {
+				call->transparent = 1;
+				newmode = 1;
+			}
+			break;
+		case 'e':
+			if (opt[1] == '\0') {
+				CERROR(call, call->ast, "Option 'e' (echo cancel) expects parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'e' (echo cancel) with config '%s'.\n", opt+1);
+			strncpy(call->pipeline, opt+1, sizeof(call->pipeline)-1);
+			if (call->bchannel)
+				bchannel_pipeline(call->bchannel, call->pipeline);
+			break;
+#if 0
+		case 's':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 's' (inband DTMF) expects no parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 's' (inband DTMF).\n");
+			call->inband_dtmf = 1;
+todo
+			break;
+#endif
+		case 'v':
+			if (opt[1] != 'r' && opt[1] != 't') {
+				CERROR(call, call->ast, "Option 'v' (volume) expects parameter.\n", opt);
+				break;
+			}
+			gain = atoi(opt+2);
+			if (gain < -8 || gain >8) {
+				CERROR(call, call->ast, "Option 'v' (volume) expects parameter in range of -8 through 8.\n");
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'v' (volume) with gain 2^%d.\n", gain);
+			if (opt[1] == 'r') {
+				call->rx_gain = gain;
+				if (call->bchannel)
+					bchannel_gain(call->bchannel, call->rx_gain, 0);
+			} else {
+				call->tx_gain = gain;
+				if (call->bchannel)
+					bchannel_gain(call->bchannel, call->tx_gain, 1);
+			}
+			break;
+		default:
+			CERROR(call, call->ast, "Option '%s' unknown.\n", opt);
+		}
+	}		
+	
+	/* re-open, if bchannel is created */
+	if (call->bchannel && call->bchannel->b_sock > -1) {
+		bchannel_destroy(call->bchannel);
+		if (bchannel_create(call->bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
+			bchannel_activate(call->bchannel, 1);
+	}
+}
+
+/*
  * send setup info to LCR
  * this function is called, when asterisk call is received and ref is received
  */
@@ -362,6 +518,8 @@ static void send_setup_to_lcr(struct chan_call *call)
 	strncpy(newparam.setup.dialinginfo.interfaces, call->interface, sizeof(newparam.setup.dialinginfo.interfaces)-1);
        	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;	
        	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
+	strncpy(newparam.setup.callerinfo.display, call->display, sizeof(newparam.setup.callerinfo.display)-1);
+	call->display[0] = '\0';
 	if (ast->cid.cid_num) if (ast->cid.cid_num[0])
 		strncpy(newparam.setup.callerinfo.id, ast->cid.cid_num, sizeof(newparam.setup.callerinfo.id)-1);
 	if (ast->cid.cid_name) if (ast->cid.cid_name[0])
@@ -618,6 +776,11 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 			ast->cid.cid_ton = 0;
 	}
 	ast->transfercapability = param->setup.capainfo.bearer_capa;
+	/* enable hdlc if transcap is data */
+	if (ast->transfercapability == INFO_BC_DATAUNRESTRICTED
+	 || ast->transfercapability == INFO_BC_DATARESTRICTED
+	 || ast->transfercapability == INFO_BC_VIDEO)
+		call->hdlc = 1;
 	strncpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international), sizeof(call->oad)-1);
 
 	/* configure channel */
@@ -828,7 +991,17 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
  */
 static void lcr_in_notify(struct chan_call *call, int message_type, union parameter *param)
 {
+	union parameter newparam;
+
 	CDEBUG(call, call->ast, "Incomming notify from LCR. (notify=%d)\n", param->notifyinfo.notify);
+
+	/* request bchannel, if call is resumed and we don't have it */
+	if (param->notifyinfo.notify == INFO_NOTIFY_USER_RESUMED && !call->bchannel && call->ref) {
+		CDEBUG(call, call->ast, "Reqesting bchannel at resume.\n");
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.bchannel.type = BCHANNEL_REQUEST;
+		send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
+	}
 
 	if (!call->ast) return;
 
@@ -907,11 +1080,10 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 			bchannel->b_tx_gain = param->bchannel.tx_gain;
 			bchannel->b_rx_gain = param->bchannel.rx_gain;
 			strncpy(bchannel->b_pipeline, param->bchannel.pipeline, sizeof(bchannel->b_pipeline)-1);
-			if (param->bchannel.crypt_len)
+			if (param->bchannel.crypt_len && param->bchannel.crypt_len <= sizeof(bchannel->b_bf_key))
 			{
-				bchannel->b_crypt_len = param->bchannel.crypt_len;
-				bchannel->b_crypt_type = param->bchannel.crypt_type;
-				memcpy(bchannel->b_crypt_key, param->bchannel.crypt, param->bchannel.crypt_len);
+				bchannel->b_bf_len = param->bchannel.crypt_len;
+				memcpy(bchannel->b_bf_key, param->bchannel.crypt, param->bchannel.crypt_len);
 			}
 			bchannel->b_txdata = 0;
 			bchannel->b_dtmf = 1;
@@ -927,15 +1099,20 @@ int receive_message(int message_type, unsigned long ref, union parameter *param)
 				call->bchannel = bchannel;
 				if (call->dtmf)
 					bchannel_dtmf(bchannel, 1);
-#ifdef TODO
-hier muesen alle bchannel-features gesetzt werden (pipeline...) falls sie vor dem b-kanal verfügbar waren
-#endif
+				if (call->bf_len)
+					bchannel_blowfish(bchannel, call->bf_key, call->bf_len);
+				if (call->pipeline[0])
+					bchannel_pipeline(bchannel, call->pipeline);
+				if (call->rx_gain)
+					bchannel_gain(bchannel, call->rx_gain, 0);
+				if (call->tx_gain)
+					bchannel_gain(bchannel, call->tx_gain, 1);
 				if (call->bridge_id) {
 					CDEBUG(call, call->ast, "Join bchannel, because call is already bridged.\n");
 					bchannel_join(bchannel, call->bridge_id);
 				}
 			}
-			if (bchannel_create(bchannel))
+			if (bchannel_create(bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
 				bchannel_activate(bchannel, 1);
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_ASSIGN_ACK;
@@ -1433,6 +1610,13 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	strncpy(call->dialstring, dial, sizeof(call->dialstring)-1);
 	apply_opt(call, (char *)opt);
 
+	/* if hdlc is forced by option, we change transcap to data */
+	if (call->hdlc
+	 && ast->transfercapability != INFO_BC_DATAUNRESTRICTED
+	 && ast->transfercapability != INFO_BC_DATARESTRICTED
+	 && ast->transfercapability != INFO_BC_VIDEO)
+		ast->transfercapability = INFO_BC_DATAUNRESTRICTED;
+
 	ast_mutex_unlock(&chan_lock);
 	return ast;
 }
@@ -1462,6 +1646,12 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	newparam.direction = 0; /* request from app */
 	send_message(MESSAGE_NEWREF, 0, &newparam);
 
+	/* set hdlc if capability requires hdlc */
+	if (ast->transfercapability == INFO_BC_DATAUNRESTRICTED
+	 || ast->transfercapability == INFO_BC_DATARESTRICTED
+	 || ast->transfercapability == INFO_BC_VIDEO)
+		call->hdlc = 1;
+		
 	ast_mutex_unlock(&chan_lock);
 	return 0; 
 }
@@ -1541,7 +1731,11 @@ static int lcr_answer(struct ast_channel *ast)
 	/* enable keypad */
 //	memset(&newparam, 0, sizeof(union parameter));
 //	send_message(MESSAGE_ENABLEKEYPAD, call->ref, &newparam);
-	call->dtmf = 1;
+	/* enable dtmf */
+	if (call->no_dtmf)
+		CDEBUG(call, ast, "DTMF is disabled by option.\n");
+	else
+		call->dtmf = 1;
 	
    	ast_mutex_unlock(&chan_lock);
         return 0;
@@ -2091,21 +2285,21 @@ int load_module(void)
 	}
 
 	ast_register_application("lcr_config", lcr_config_exec, "lcr_config",
-				 "lcr_config(:<opt>=<optarg>:<opt>:...):\n"
+				 "lcr_config(<opt><optarg>:<opt>:...)\n"
 				 "Sets LCR opts. and optargs\n"
 				 "\n"
 				 "The available options are:\n"
-				 "    d - Send display text on called phone, text is the optparam\n"
-				 "    n - Don't detect dtmf tones on called channel\n"
-				 "    h - Make digital outgoing call\n" 
-				 "    c - Make crypted outgoing call, optarg is keyindex\n"
-				 "    e - Perform echo cancelation on this channel,\n"
-				 "        Takes taps as arguments (32,64,128,256)\n"
-				 "    s - Send Non Inband DTMF as inband\n"
+				 "    d - Send display text on called phone, text is the optarg.\n"
+				 "    n - Don't detect dtmf tones on called channel.\n"
+				 "    h - Force data call (HDLC).\n" 
+				 "    t - Disable all audio features (required for fax application).\n"
+				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
+				 "    e - Perform echo cancelation on this channel.\n"
+				 "        Takes mISDN pipeline option as optarg.\n"
+//				 "    s - Send Non Inband DTMF as inband.\n"
 				 "   vr - rxgain control\n"
 				 "   vt - txgain control\n"
-				 "        Volume changes at factor 2 ^ optarg\n"
-				 "   pt - Disable all audio features (required for fax application)\n"
+				 "        Volume changes at factor 2 ^ optarg.\n"
 		);
 
  

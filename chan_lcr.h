@@ -43,8 +43,21 @@ struct chan_call {
 					/* LCR interface name for setup */
 	char			dialstring[64];
 					/* cached dial string for setup */
+	char			display[128];
+					/* display for setup */
 	int			dtmf;
 					/* shall dtmf be enabled */
+	int			no_dtmf;
+					/* dtmf disabled by option */
+	char			pipeline[256];
+					/* echo cancel pipeline by option */
+	int			tx_gain, rx_gain;
+					/* gain by option */
+	unsigned char		bf_key[56];
+	int			bf_len;	/* blowfish crypt key */
+	int			transparent, hdlc;
+					/* flags for bchannel mode */
+		
 };
 
 enum {

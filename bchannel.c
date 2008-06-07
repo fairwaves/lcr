@@ -63,12 +63,15 @@ void bchannel_deinitialize(void)
 /*
  * send control information to the channel (dsp-module)
  */
-static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
+static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
+
+	if (b_mode != 0 && b_mode != 2)
+		return;
 
 	CDEBUG(NULL, NULL, "Sending PH_CONTROL %s %x,%x\n", trace_name, c1, c2);
 	ctrl->prim = PH_CONTROL_REQ;
@@ -80,12 +83,15 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
 }
 
-static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
+static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
 	int ret;
+
+	if (b_mode != 0 && b_mode != 2)
+		return;
 
 	CDEBUG(NULL, NULL, "Sending PH_CONTROL (block) %s %x\n", trace_name, c1);
 	ctrl->prim = PH_CONTROL_REQ;
@@ -101,7 +107,7 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 /*
  * create stack
  */
-int bchannel_create(struct bchannel *bchannel)
+int bchannel_create(struct bchannel *bchannel, int mode)
 {
 	int ret;
 	unsigned long on = 1;
@@ -114,7 +120,22 @@ int bchannel_create(struct bchannel *bchannel)
 	}
 
 	/* open socket */
-	bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
+	bchannel->b_mode = mode;
+	switch(bchannel->b_mode)
+	{
+		case 0:
+		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
+		break;
+		case 1:
+		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_RAW);
+		break;
+		case 2:
+		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSPHDLC);
+		break;
+		case 3:
+		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_HDLC);
+		break;
+	}
 	if (bchannel->b_sock < 0)
 	{
 		CERROR(NULL, NULL, "Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", bchannel->handle);
@@ -143,13 +164,6 @@ int bchannel_create(struct bchannel *bchannel)
 		bchannel->b_sock = -1;
 		return(0);
 	}
-
-#if 0
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL create socket", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("socket", NULL, "%d", mISDNport->b_socket[i]);
-	end_trace();
-#endif
 	return(1);
 }
 
@@ -164,19 +178,23 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
 
 	/* activate bchannel */
 	CDEBUG(NULL, NULL, "%sActivating B-channel.\n", activate?"":"De-");
-	act.prim = (activate)?DL_ESTABLISH_REQ:DL_RELEASE_REQ; 
+	switch(bchannel->b_mode)
+	{
+		case 0:
+		case 2:
+		act.prim = (activate)?DL_ESTABLISH_REQ:DL_RELEASE_REQ; 
+		break;
+		case 1:
+		case 3:
+		act.prim = (activate)?PH_ACTIVATE_REQ:PH_DEACTIVATE_REQ; 
+		break;
+	}
 	act.id = 0;
 	ret = sendto(bchannel->b_sock, &act, MISDN_HEADER_LEN, 0, NULL, 0);
 	if (ret < 0)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
 
 	bchannel->b_state = (activate)?BSTATE_ACTIVATING:BSTATE_DEACTIVATING;
-#if 0
-	/* trace */
-	chan_trace_header(mISDNport, mISDNport->b_port[i], activate?(char*)"BCHANNEL activate":(char*)"BCHANNEL deactivate", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	end_trace();
-#endif
 }
 
 
@@ -191,33 +209,33 @@ static void bchannel_activated(struct bchannel *bchannel)
 
 	/* set dsp features */
 	if (bchannel->b_txdata)
-		ph_control(handle, (bchannel->b_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata);
+		ph_control(handle, (bchannel->b_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata, bchannel->b_mode);
 	if (bchannel->b_delay)
-		ph_control(handle, DSP_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay);
+		ph_control(handle, DSP_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay, bchannel->b_mode);
 	if (bchannel->b_tx_dejitter)
-		ph_control(handle, (bchannel->b_tx_dejitter)?DSP_TX_DEJITTER:DSP_TX_DEJ_OFF, 0, "DSP-TX_DEJITTER", bchannel->b_tx_dejitter);
+		ph_control(handle, (bchannel->b_tx_dejitter)?DSP_TX_DEJITTER:DSP_TX_DEJ_OFF, 0, "DSP-TX_DEJITTER", bchannel->b_tx_dejitter, bchannel->b_mode);
 	if (bchannel->b_tx_gain)
-		ph_control(handle, DSP_VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain);
+		ph_control(handle, DSP_VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain, bchannel->b_mode);
 	if (bchannel->b_rx_gain)
-		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain);
+		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain, bchannel->b_mode);
 	if (bchannel->b_pipeline[0])
-		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0);
+		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
 	if (bchannel->b_conf)
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 	if (bchannel->b_echo)
-		ph_control(handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1);
+		ph_control(handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1, bchannel->b_mode);
 	if (bchannel->b_tone)
-		ph_control(handle, DSP_TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone);
+		ph_control(handle, DSP_TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone, bchannel->b_mode);
 	if (bchannel->b_rxoff)
-		ph_control(handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+		ph_control(handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1, bchannel->b_mode);
 //	if (bchannel->b_txmix)
-//		ph_control(handle, DSP_MIX_ON, 0, "DSP-MIX", 1);
+//		ph_control(handle, DSP_MIX_ON, 0, "DSP-MIX", 1, bchannel->b_mode);
 	if (bchannel->b_dtmf)
-		ph_control(handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
-	if (bchannel->b_crypt_len)
-		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_crypt_key, bchannel->b_crypt_len, "DSP-CRYPT", bchannel->b_crypt_len);
+		ph_control(handle, DTMF_TONE_START, 0, "DSP-DTMF", 1, bchannel->b_mode);
+	if (bchannel->b_bf_len)
+		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
 	if (bchannel->b_conf)
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 
 	bchannel->b_state = BSTATE_ACTIVE;
 }
@@ -225,14 +243,8 @@ static void bchannel_activated(struct bchannel *bchannel)
 /*
  * destroy stack
  */
-static void bchannel_destroy(struct bchannel *bchannel)
+void bchannel_destroy(struct bchannel *bchannel)
 {
-#if 0
-	chan_trace_header(mISDNport, mISDNport->b_port[i], "BCHANNEL remove socket", DIRECTION_OUT);
-	add_trace("channel", NULL, "%d", i+1+(i>=15));
-	add_trace("socket", NULL, "%d", mISDNport->b_socket[i]);
-	end_trace();
-#endif
 	if (bchannel->b_sock > -1)
 	{
 		close(bchannel->b_sock);
@@ -245,15 +257,15 @@ static void bchannel_destroy(struct bchannel *bchannel)
 /*
  * whenever we get audio data from bchannel, we process it here
  */
-static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsigned long dinfo, unsigned char *data, int len)
+static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, int len)
 {
+	struct mISDNhead *hh = (struct mISDNhead *)buffer;
+	unsigned char *data = buffer + MISDN_HEADER_LEN;
 	unsigned long cont = *((unsigned long *)data);
-//	unsigned char *data_temp;
-//	unsigned long length_temp;
-//	unsigned char *p;
-//	int l;
+	struct bchannel *remote_bchannel;
+	int ret;
 
-	if (prim == PH_CONTROL_IND)
+	if (hh->prim == PH_CONTROL_IND)
 	{
 		if (len < 4)
 		{
@@ -262,11 +274,6 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
 		{
-#if 0
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
-			add_trace("DTMF", NULL, "%c", cont & DTMF_TONE_MASK);
-			end_trace();
-#endif
 			if (bchannel->call)
 				lcr_in_dtmf(bchannel->call, cont & DTMF_TONE_MASK);
 			return;
@@ -274,33 +281,19 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		switch(cont)
 		{
 			case DSP_BF_REJECT:
-#if 0
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
-			add_trace("DSP-CRYPT", NULL, "error");
-			end_trace();
-#endif
+			CERROR(NULL, NULL, "Blowfish crypt rejected.\n");
 			break;
 
 			case DSP_BF_ACCEPT:
-#if 0
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
-			add_trace("DSP-CRYPT", NULL, "ok");
-			end_trace();
-#endif
+			CDEBUG(NULL, NULL, "Blowfish crypt enabled.\n");
 			break;
 
 			default:
-#if 0
-			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
-			add_trace("unknown", NULL, "0x%x", cont);
-			end_trace();
-#else
-			;
-#endif
+			CDEBUG(NULL, NULL, "Unhandled bchannel control 0x%x.\n", cont);
 		}
 		return;
 	}
-	if (prim == PH_DATA_REQ)
+	if (hh->prim == PH_DATA_REQ)
 	{
 		if (!bchannel->b_txdata)
 		{
@@ -310,10 +303,27 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned long prim, unsi
 		}
 		return;
 	}
-	if (prim != PH_DATA_IND && prim != DL_DATA_IND)
+	if (hh->prim != PH_DATA_IND && hh->prim != DL_DATA_IND)
 	{
-		CERROR(NULL, NULL, "Bchannel received unknown primitve: 0x%lx\n", prim);
+		CERROR(NULL, NULL, "Bchannel received unknown primitve: 0x%lx\n", hh->prim);
 		return;
+	}
+	/* if call is bridged and in non-dsp mode */
+	if (bchannel->b_conf
+	 && (bchannel->b_mode == 1 || bchannel->b_mode == 3)
+	 && bchannel->call
+	 && bchannel->call->bridge_call
+	 && bchannel->call->bridge_call->bchannel)
+	{
+		remote_bchannel = bchannel->call->bridge_call->bchannel;
+		if (remote_bchannel->b_mode == 1 || remote_bchannel->b_mode == 3)
+		{
+			hh->prim = PH_DATA_REQ;
+			ret = sendto(remote_bchannel->b_sock, buffer, MISDN_HEADER_LEN+len, 0, NULL, 0);
+			if (ret < 0)
+				CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
+			return;
+		}
 	}
 	/* calls will not process any audio data unless
 	 * the call is connected OR interface features audio during call setup.
@@ -366,7 +376,17 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 		return;
 	for (i = 0; i < len; i++)
 		*p++ = flip_bits[*data++];
-	frm->prim = DL_DATA_REQ;
+	switch(bchannel->b_mode)
+	{
+		case 0:
+		case 2:
+		frm->prim = DL_DATA_REQ;
+		break;
+		case 1:
+		case 3:
+		frm->prim = PH_DATA_REQ;
+		break;
+	}
 	frm->id = 0;
 	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
 	if (ret < 0)
@@ -391,8 +411,8 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 	}
 	if (bchannel->b_state == BSTATE_ACTIVE)
 	{
-		ph_control(handle, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf);
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf);
+		ph_control(handle, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf, bchannel->b_mode);
+		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 	}
 }
 
@@ -407,7 +427,53 @@ void bchannel_dtmf(struct bchannel *bchannel, int on)
 	handle = bchannel->b_sock;
 	bchannel->b_dtmf = 1;
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control(handle, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1);
+		ph_control(handle, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1, bchannel->b_mode);
+}
+
+
+/*
+ * blowfish bchannel
+ */
+void bchannel_blowfish(struct bchannel *bchannel, unsigned char *key, int len)
+{
+	int handle;
+
+	handle = bchannel->b_sock;
+	memcpy(bchannel->b_bf_key, key, len);
+	bchannel->b_bf_len = len;
+	if (bchannel->b_state == BSTATE_ACTIVE)
+		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
+}
+
+
+/*
+ * pipeline bchannel
+ */
+void bchannel_pipeline(struct bchannel *bchannel, char *pipeline)
+{
+	int handle;
+
+	handle = bchannel->b_sock;
+	strncpy(bchannel->b_pipeline, pipeline, sizeof(bchannel->b_pipeline)-1);
+	if (bchannel->b_state == BSTATE_ACTIVE)
+		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
+}
+
+
+/*
+ * gain bchannel
+ */
+void bchannel_gain(struct bchannel *bchannel, int gain, int tx)
+{
+	int handle;
+
+	handle = bchannel->b_sock;
+	if (tx)
+		bchannel->b_tx_gain = gain;
+	else
+		bchannel->b_rx_gain = gain;
+	if (bchannel->b_state == BSTATE_ACTIVE)
+		ph_control(handle, (tx)?DSP_VOL_CHANGE_TX:DSP_VOL_CHANGE_RX, gain, (tx)?"DSP-TX_GAIN":"DSP-RX_GAIN", gain, bchannel->b_mode);
 }
 
 
@@ -443,7 +509,7 @@ int bchannel_handle(void)
 					case PH_DATA_REQ:
 					case DL_DATA_IND:
 					case PH_CONTROL_IND:
-					bchannel_receive(bchannel, hh->prim, hh->id, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
+					bchannel_receive(bchannel, buffer, ret-MISDN_HEADER_LEN);
 					break;
 
 					case PH_ACTIVATE_IND:

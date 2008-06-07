@@ -114,7 +114,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_timeout = 0;
 	p_m_timer = 0;
 	p_m_remote_ref = 0; /* channel shall be exported to given remote */
-	p_m_remote_id = 0; /* channel shall be exported to given remote */
+	p_m_remote_id = 0; /* remote admin socket */
 	SCPY(p_m_pipeline, mISDNport->ifport->interface->pipeline);
 	
 	/* audio */
