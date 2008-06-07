@@ -1023,7 +1023,7 @@ static void lcr_in_facility(struct chan_call *call, int message_type, union para
 }
 
 /*
- * got dtmf from bchannel
+ * got dtmf from bchannel (locked state)
  */
 void lcr_in_dtmf(struct chan_call *call, int val)
 {
@@ -1035,7 +1035,7 @@ void lcr_in_dtmf(struct chan_call *call, int val)
 	if (!call->pbx_started)
 		return;
 
-	CDEBUG(call, call->ast, "Frowarding DTMF digit '%c' to Asterisk.\n", val);
+	CDEBUG(call, call->ast, "Forwarding DTMF digit '%c' to Asterisk.\n", val);
 
 	/* send digit to asterisk */
 	memset(&fr, 0, sizeof(fr));
@@ -1610,13 +1610,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	strncpy(call->dialstring, dial, sizeof(call->dialstring)-1);
 	apply_opt(call, (char *)opt);
 
-	/* if hdlc is forced by option, we change transcap to data */
-	if (call->hdlc
-	 && ast->transfercapability != INFO_BC_DATAUNRESTRICTED
-	 && ast->transfercapability != INFO_BC_DATARESTRICTED
-	 && ast->transfercapability != INFO_BC_VIDEO)
-		ast->transfercapability = INFO_BC_DATAUNRESTRICTED;
-
 	ast_mutex_unlock(&chan_lock);
 	return ast;
 }
@@ -1651,7 +1644,13 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	 || ast->transfercapability == INFO_BC_DATARESTRICTED
 	 || ast->transfercapability == INFO_BC_VIDEO)
 		call->hdlc = 1;
-		
+	/* if hdlc is forced by option, we change transcap to data */
+	if (call->hdlc
+	 && ast->transfercapability != INFO_BC_DATAUNRESTRICTED
+	 && ast->transfercapability != INFO_BC_DATARESTRICTED
+	 && ast->transfercapability != INFO_BC_VIDEO)
+		ast->transfercapability = INFO_BC_DATAUNRESTRICTED;
+
 	ast_mutex_unlock(&chan_lock);
 	return 0; 
 }
