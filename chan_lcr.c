@@ -169,7 +169,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	va_end(args);
 
 	if (call)
-		sprintf(call_text, "%ld", call->ref);
+		sprintf(call_text, "%d", call->ref);
 	if (ast)
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
 	ast_text[sizeof(ast_text)-1] = '\0';
@@ -184,7 +184,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
  */
 struct chan_call *call_first;
 
-struct chan_call *find_call_ref(unsigned long ref)
+struct chan_call *find_call_ref(unsigned int ref)
 {
 	struct chan_call *call = call_first;
 
@@ -211,7 +211,7 @@ struct chan_call *find_call_ast(struct ast_channel *ast)
 	return(call);
 }
 
-struct chan_call *find_call_handle(unsigned long handle)
+struct chan_call *find_call_handle(unsigned int handle)
 {
 	struct chan_call *call = call_first;
 
@@ -305,7 +305,7 @@ unsigned short new_bridge_id(void)
 /*
  * enque message to LCR
  */
-int send_message(int message_type, unsigned long ref, union parameter *param)
+int send_message(int message_type, unsigned int ref, union parameter *param)
 {
 	struct admin_list *admin, **adminp;
 
@@ -1048,7 +1048,7 @@ void lcr_in_dtmf(struct chan_call *call, int val)
 /*
  * message received from LCR
  */
-int receive_message(int message_type, unsigned long ref, union parameter *param)
+int receive_message(int message_type, unsigned int ref, union parameter *param)
 {
 	struct bchannel *bchannel;
 	struct chan_call *call;
@@ -1400,7 +1400,7 @@ int open_socket(void)
 	char *socket_name = SOCKET_NAME;
 	int conn;
 	struct sockaddr_un sock_address;
-	unsigned long on = 1;
+	unsigned int on = 1;
 	union parameter param;
 
 	/* open socket */

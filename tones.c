@@ -29,12 +29,12 @@ the read_tone() will return law or 16bit mono. the read_tone will convert all ot
 struct fmt {
 	unsigned short  stereo; /* 1 = pcm, 2 = adpcm */
 	unsigned short  channels; /* number of channels */
-	unsigned long   sample_rate; /* sample rate */
-	unsigned long   data_rate; /* data rate */
+	unsigned int   sample_rate; /* sample rate */
+	unsigned int   data_rate; /* data rate */
 	unsigned short  bytes_sample; /* bytes per sample (all channels) */
 	unsigned short  bits_sample; /* bits per sample (one channel) */
 };
-int open_tone(char *file, int *codec, signed long *length, signed long *left)
+int open_tone(char *file, int *codec, signed int *length, signed int *left)
 {
 	int fh;
 	char filename[256];        
@@ -42,7 +42,7 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 	unsigned char buffer[256];
 	struct fmt *fmt;
 	int channels, bytes;
-	unsigned long size, chunk;
+	unsigned int size, chunk;
 	int gotfmt = 0;
 	struct stat _stat;
 	int linksize;
@@ -205,9 +205,9 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 					if (codec)
 						*codec = CODEC_MONO;
 					if (length)
-						*length = ((signed long)chunk)>>1;
+						*length = ((signed int)chunk)>>1;
 					if (left)
-						*left = ((signed long)chunk)>>1;
+						*left = ((signed int)chunk)>>1;
 //					printf("left=%d\n",*left);
 				} else
 				if (bytes==2 && channels==2)
@@ -215,18 +215,18 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
 					if (codec)
 						*codec = CODEC_STEREO;
 					if (length)
-						*length = ((signed long)chunk)>>2;
+						*length = ((signed int)chunk)>>2;
 					if (left)
-						*left = ((signed long)chunk)>>2;
+						*left = ((signed int)chunk)>>2;
 				} else
 				if (bytes==1 && channels==1)
 				{
 					if (codec)
 						*codec = CODEC_8BIT;
 					if (length)
-						*length = (signed long)chunk;
+						*length = (signed int)chunk;
 					if (left)
-						*left = (signed long)chunk;
+						*left = (signed int)chunk;
 				} else
 				{
 					close(fh);
@@ -270,14 +270,14 @@ int open_tone(char *file, int *codec, signed long *length, signed long *left)
  * the len must be the number of samples, NOT for the bytes to read!!
  * the data returned is law-code
  */
-int read_tone(int fh, unsigned char *buffer, int codec, int len, signed long size, signed long *left, int speed)
+int read_tone(int fh, unsigned char *buffer, int codec, int len, signed int size, signed int *left, int speed)
 {
 	int l;
 	int offset;
 	signed short buffer16[len], *buf16 = buffer16;
 	signed short buffer32[len<<1], *buf32 = buffer32;
 	unsigned char buffer8[len], *buf8 = buffer8;
-	signed long sample;
+	signed int sample;
 	int i = 0;
 //printf("left=%ld\n",*left);
 
@@ -422,8 +422,8 @@ int fetch_tones(void)
 	char filename[256], name[256];
 	int fh;
 	int tone_codec;
-	signed long tone_size, tone_left;
-	unsigned long memory = 0;
+	signed int tone_size, tone_left;
+	unsigned int memory = 0;
 	int samples = 0;
 
 	/* if disabled */
@@ -544,7 +544,7 @@ int fetch_tones(void)
 /*
  * opens the fetched tone (if available)
  */
-void *open_tone_fetched(char *dir, char *file, int *codec, signed long *length, signed long *left)
+void *open_tone_fetched(char *dir, char *file, int *codec, signed int *length, signed int *left)
 {
 	struct toneset *toneset;
 	struct tonesettone *tonesettone;
@@ -593,7 +593,7 @@ void *open_tone_fetched(char *dir, char *file, int *codec, signed long *length, 
  * read from fetched tone, check size
  * the len must be the number of samples, NOT for the bytes to read!!
  */
-int read_tone_fetched(void **fetched, void *buffer, int len, signed long size, signed long *left, int speed)
+int read_tone_fetched(void **fetched, void *buffer, int len, signed int size, signed int *left, int speed)
 {
 	int l;
 //printf("left=%ld\n",*left);

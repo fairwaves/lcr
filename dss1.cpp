@@ -16,7 +16,7 @@
 extern "C" {
 }
 #include <q931.h>
-extern unsigned long mt_assign_pid;
+extern unsigned int mt_assign_pid;
 
 #include "ie.cpp"
 
@@ -73,7 +73,7 @@ static struct l3_msg *create_l3msg(void)
  * return: <0: error, call is released, -cause is given
  *	    0: ok, nothing to do
  */
-int Pdss1::received_first_reply_to_setup(unsigned long cmd, int channel, int exclusive)
+int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int exclusive)
 {
 	int ret;
 	l3_msg *l3m;
@@ -1150,6 +1150,15 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	p_m_delete = 1;
 }
 
+/* CC_RESTART INDICATION */
+void Pdss1::restart_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_RESTART_IND, DIRECTION_IN);
+	end_trace();
+
+	// L3 process is not toucht. (not even by network stack)
+}
+
 /* CC_RELEASE_COMPLETE INDICATION (a reject) */
 void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
@@ -1691,6 +1700,10 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		release_complete_ind(cmd, pid, l3m);
 		break;
 
+		case MT_RESTART:
+		restart_ind(cmd, pid, l3m);
+		break;
+
 		case MT_NOTIFY:
 		notify_ind(cmd, pid, l3m);
 		break;
@@ -1827,7 +1840,7 @@ int Pdss1::handler(void)
  * handles all messages from endpoint
  */
 /* MESSAGE_INFORMATION */
-void Pdss1::message_information(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_information(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 
@@ -1846,7 +1859,7 @@ void Pdss1::message_information(unsigned long epoint_id, int message_id, union p
 int newteid = 0;
 
 /* MESSAGE_SETUP */
-void Pdss1::message_setup(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_setup(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 	int ret;
@@ -2118,7 +2131,7 @@ void Pdss1::message_setup(unsigned long epoint_id, int message_id, union paramet
 }
 
 /* MESSAGE_FACILITY */
-void Pdss1::message_facility(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_facility(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 
@@ -2135,7 +2148,7 @@ void Pdss1::message_facility(unsigned long epoint_id, int message_id, union para
 }
 
 /* MESSAGE_NOTIFY */
-void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_notify(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 	int notify;
@@ -2228,7 +2241,7 @@ void Pdss1::message_notify(unsigned long epoint_id, int message_id, union parame
 }
 
 /* MESSAGE_OVERLAP */
-void Pdss1::message_overlap(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_overlap(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 
@@ -2251,7 +2264,7 @@ void Pdss1::message_overlap(unsigned long epoint_id, int message_id, union param
 }
 
 /* MESSAGE_PROCEEDING */
-void Pdss1::message_proceeding(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_proceeding(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 
@@ -2274,7 +2287,7 @@ void Pdss1::message_proceeding(unsigned long epoint_id, int message_id, union pa
 }
 
 /* MESSAGE_ALERTING */
-void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_alerting(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 
@@ -2290,7 +2303,8 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 		if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		if (p_m_mISDNport->tones)
+			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_IN_PROCEEDING);
@@ -2315,7 +2329,7 @@ void Pdss1::message_alerting(unsigned long epoint_id, int message_id, union para
 }
 
 /* MESSAGE_CONNECT */
-void Pdss1::message_connect(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 	int type, plan, present, screen;
@@ -2329,11 +2343,6 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
 		/* channel information */
 		enc_ie_channel_id(l3m, 1, p_m_b_channel);
-//		/* progress information */
-//		if (p_capainfo.bearer_capa==INFO_BC_SPEECH
-//		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
-//		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
-//		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_IN_PROCEEDING);
@@ -2437,7 +2446,7 @@ void Pdss1::message_connect(unsigned long epoint_id, int message_id, union param
 }
 
 /* MESSAGE_DISCONNECT */
-void Pdss1::message_disconnect(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_disconnect(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 	struct lcr_msg *message;
@@ -2480,6 +2489,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
+		if (p_m_mISDNport->tones)
 			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
@@ -2508,7 +2518,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 }
 
 /* MESSAGE_RELEASE */
-void Pdss1::message_release(unsigned long epoint_id, int message_id, union parameter *param)
+void Pdss1::message_release(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
 	class Endpoint *epoint;
@@ -2541,8 +2551,6 @@ void Pdss1::message_release(unsigned long epoint_id, int message_id, union param
 	 */
 	if (p_state==PORT_STATE_IN_SETUP
 	 || p_state==PORT_STATE_OUT_SETUP)
-// // NOTE: a bug in mISDNuser (see disconnect_req_out !!!)
-//	 || p_state==PORT_STATE_OUT_DISCO)
 	{
 //#warning remove me
 //PDEBUG(DEBUG_LOG, "JOLLY sending release complete %d\n", p_serial);
@@ -2576,6 +2584,7 @@ wirklich erst proceeding?:
 		if (p_capainfo.bearer_capa==INFO_BC_SPEECH
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
+		if (p_m_mISDNport->tones)
 			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
@@ -2613,7 +2622,7 @@ wirklich erst proceeding?:
 /*
  * endpoint sends messages to the port
  */
-int Pdss1::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
+int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	struct lcr_msg *message;
 

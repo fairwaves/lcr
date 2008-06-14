@@ -301,7 +301,7 @@ struct param_hello {
 
 struct param_bchannel {
 	int type; /* BCHANNEL_* */
-	unsigned long handle; /* bchannel stack/portid */
+	unsigned int handle; /* bchannel stack/portid */
 	int tx_gain, rx_gain;
 	char pipeline[256];
 	unsigned char crypt[128];
@@ -347,8 +347,8 @@ struct lcr_msg {
 	struct lcr_msg *next;
 	int type; /* type of message */
 	int flow; /* from where to where */
-	unsigned long id_from; /* in case of flow==PORT_TO_EPOINT: id_from is the port's serial, id_to is the epoint's serial */
-	unsigned long id_to;
+	unsigned int id_from; /* in case of flow==PORT_TO_EPOINT: id_from is the port's serial, id_to is the epoint's serial */
+	unsigned int id_to;
 	int keep;
 	union parameter param;
 };

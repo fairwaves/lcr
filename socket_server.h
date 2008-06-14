@@ -13,8 +13,8 @@
 
 struct admin_queue {
 	struct admin_queue	*next;
-	ulong			offset; /* current offset writing */
-	ulong			num; /* number of admin messages */
+	unsigned int		offset; /* current offset writing */
+	unsigned int		num; /* number of admin messages */
 	struct admin_message	am[0];
 };
 
@@ -24,7 +24,7 @@ struct admin_list {
 	int sockserial;
 	char remote_name[32]; /* socket is connected remote application */
 	struct admin_trace_req trace; /* stores trace, if detail != 0 */
-	unsigned long epointid;
+	unsigned int epointid;
 	struct admin_queue *response;
 };
 
@@ -34,7 +34,7 @@ void admin_cleanup(void);
 int admin_handle(void);
 void admin_call_response(int adminid, int message, char *connected, int cause, int location, int notify);
 int admin_message_to_join(struct admin_message *msg, int remote_id);
-int admin_message_from_join(int remote_id, unsigned long ref, int message_type, union parameter *param);
+int admin_message_from_join(int remote_id, unsigned int ref, int message_type, union parameter *param);
 
 
 

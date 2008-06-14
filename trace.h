@@ -114,11 +114,11 @@ struct trace {
 	char caller[64];
 	char dialing[64];
 	int direction;
-	unsigned long sec, usec;
+	unsigned int sec, usec;
 	
 	/* type */
 	int category;
-	unsigned long serial;
+	unsigned int serial;
 	char name[64];
 
 	/* elements */

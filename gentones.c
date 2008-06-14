@@ -137,8 +137,8 @@ void write_tone(FILE *fp,double t1,double t2,int length,int fade_in,int fade_out
 struct fmt {
 	unsigned short	stereo; /* 1 = pcm, 2 = adpcm */
 	unsigned short	channels; /* number of channels */
-	unsigned long	sample_rate; /* sample rate */
-	unsigned long	data_rate; /* data rate */
+	unsigned int	sample_rate; /* sample rate */
+	unsigned int	data_rate; /* data rate */
 	unsigned short	bytes_sample; /* bytes per sample (all channels) */
 	unsigned short	bits_sample; /* bits per sample (one channel) */
 };
@@ -148,10 +148,10 @@ void write_wav(FILE *fp, char *wav, char law)
 	unsigned char buffer[256];
 	struct fmt *fmt;
 	FILE *wfp;
-	signed long i;
+	signed int i;
 	int channels, bytes;
 	short sample, sample2;
-	signed long size, chunk;
+	signed int size, chunk;
 	int gotfmt = 0, gotdata = 0;
 
 	if ((wfp=fopen(wav,"r")))
@@ -283,7 +283,7 @@ void write_wav(FILE *fp, char *wav, char law)
 			} else
 			{
 				printf("Ignoring chunk '%c%c%c%c' (length=%ld)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
-				while(chunk > (signed long)sizeof(buffer))
+				while(chunk > (signed int)sizeof(buffer))
 				{
 					fread(buffer, sizeof(buffer), 1, wfp);
 					chunk -=  sizeof(buffer);

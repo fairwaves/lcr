@@ -12,9 +12,9 @@
 #include "main.h"
 //#define __u8 unsigned char
 //#define __u16 unsigned short
-//#define __u32 unsigned long
+//#define __u32 unsigned int
 
-unsigned long join_serial = 1; /* must be 1, because 0== no join */
+unsigned int join_serial = 1; /* must be 1, because 0== no join */
 
 //JOIN_STATES
 
@@ -23,7 +23,7 @@ class Join *join_first = NULL;
 /*
  * find the join with join_id
  */ 
-class Join *find_join_id(unsigned long join_id)
+class Join *find_join_id(unsigned int join_id)
 {
 	class Join *join = join_first;
 
@@ -88,7 +88,7 @@ Join::~Join()
 /* epoint sends a message to a join
  *
  */
-void Join::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void Join::message_epoint(unsigned int epoint_id, int message_type, union parameter *param)
 {
 }
 

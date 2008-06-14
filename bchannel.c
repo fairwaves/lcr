@@ -63,11 +63,11 @@ void bchannel_deinitialize(void)
 /*
  * send control information to the channel (dsp-module)
  */
-static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value, int b_mode)
+static void ph_control(unsigned int handle, unsigned int c1, unsigned int c2, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
+	unsigned int *d = (unsigned int *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	if (b_mode != 0 && b_mode != 2)
@@ -83,11 +83,11 @@ static void ph_control(unsigned long handle, unsigned long c1, unsigned long c2,
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
 }
 
-static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value, int b_mode)
+static void ph_control_block(unsigned int handle, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
+	unsigned int *d = (unsigned int *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	if (b_mode != 0 && b_mode != 2)
@@ -110,7 +110,7 @@ static void ph_control_block(unsigned long handle, unsigned long c1, void *c2, i
 int bchannel_create(struct bchannel *bchannel, int mode)
 {
 	int ret;
-	unsigned long on = 1;
+	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 
 	if (bchannel->b_sock)
@@ -261,7 +261,7 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, i
 {
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
 	unsigned char *data = buffer + MISDN_HEADER_LEN;
-	unsigned long cont = *((unsigned long *)data);
+	unsigned int cont = *((unsigned int *)data);
 	struct bchannel *remote_bchannel;
 	int ret;
 
@@ -549,7 +549,7 @@ int bchannel_handle(void)
  * bchannel channel handling
  */
 struct bchannel *bchannel_first = NULL;
-struct bchannel *find_bchannel_handle(unsigned long handle)
+struct bchannel *find_bchannel_handle(unsigned int handle)
 {
 	struct bchannel *bchannel = bchannel_first;
 
@@ -563,7 +563,7 @@ struct bchannel *find_bchannel_handle(unsigned long handle)
 }
 
 #if 0
-struct bchannel *find_bchannel_ref(unsigned long ref)
+struct bchannel *find_bchannel_ref(unsigned int ref)
 {
 	struct bchannel *bchannel = bchannel_first;
 
@@ -577,7 +577,7 @@ struct bchannel *find_bchannel_ref(unsigned long ref)
 }
 #endif
 
-struct bchannel *alloc_bchannel(unsigned long handle)
+struct bchannel *alloc_bchannel(unsigned int handle)
 {
 	struct bchannel **bchannelp = &bchannel_first;
 

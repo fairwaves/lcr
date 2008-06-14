@@ -9,10 +9,10 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-signed long *audio_law_to_s32;
+signed int *audio_law_to_s32;
 
 /* ulaw -> signed 16-bit */
-static signed long audio_ulaw_to_s32[] =
+static signed int audio_ulaw_to_s32[] =
 {
 	0xffff8284, 0xffff8684, 0xffff8a84, 0xffff8e84,
 	0xffff9284, 0xffff9684, 0xffff9a84, 0xffff9e84,
@@ -81,7 +81,7 @@ static signed long audio_ulaw_to_s32[] =
 };
 
 /* alaw -> signed 16-bit */
-static signed long audio_alaw_to_s32[] =
+static signed int audio_alaw_to_s32[] =
 {
 	0x000013fc, 0xffffec04, 0x00000144, 0xfffffebc,
 	0x0000517c, 0xffffae84, 0x0000051c, 0xfffffae4,

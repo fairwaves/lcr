@@ -86,8 +86,8 @@ static short isdn_audio_alaw_to_s16[] =
 struct fmt {
 	unsigned short	stereo; /* 1 = pcm, 2 = adpcm */
 	unsigned short	channels; /* number of channels */
-	unsigned long	sample_rate; /* sample rate */
-	unsigned long	data_rate; /* data rate */
+	unsigned int	sample_rate; /* sample rate */
+	unsigned int	data_rate; /* data rate */
 	unsigned short	bytes_sample; /* bytes per sample (all channels) */
 	unsigned short	bits_sample; /* bits per sample (one channel) */
 };
@@ -97,9 +97,9 @@ void write_law(FILE *fp, char *name, char law)
 	unsigned char buffer[256];
 	struct fmt fmt;
 	FILE *lfp;
-	unsigned long i;
+	unsigned int i;
 	short sample;
-	unsigned long size, wsize;
+	unsigned int size, wsize;
 
 	if ((lfp=fopen(name,"r")))
 	{

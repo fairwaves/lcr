@@ -86,11 +86,11 @@ enum { /* event list from listening to tty */
 /* structure of epoint_list */
 struct epoint_list {
 	struct epoint_list	*next;
-	unsigned long		epoint_id;
+	unsigned int		epoint_id;
 	int			active;
 };
 
-inline unsigned long ACTIVE_EPOINT(struct epoint_list *epointlist)
+inline unsigned int ACTIVE_EPOINT(struct epoint_list *epointlist)
 {
 	while(epointlist)
 	{
@@ -101,7 +101,7 @@ inline unsigned long ACTIVE_EPOINT(struct epoint_list *epointlist)
 	return(0);
 }
 
-inline unsigned long INACTIVE_EPOINT(struct epoint_list *epointlist)
+inline unsigned int INACTIVE_EPOINT(struct epoint_list *epointlist)
 {
 	while(epointlist)
 	{
@@ -129,7 +129,7 @@ class Port
 	class Port *next;			/* next port in list */
 	int p_type;				/* type of port */
 	virtual int handler(void);
-	virtual int message_epoint(unsigned long epoint_id, int message, union parameter *param);
+	virtual int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	virtual void set_echotest(int echotest);
 	virtual void set_tone(char *dir, char *name);
 	virtual int read_audio(unsigned char *buffer, int length);
@@ -142,20 +142,20 @@ class Port
 	char p_tone_fh;				/* file descriptor of current tone or -1 if not open */
 	void *p_tone_fetched;			/* pointer to fetched data */
 	int p_tone_codec;			/* codec that the tone is made of */
-	long p_tone_size, p_tone_left;		/* size of tone in bytes (not samples), bytes left */
-	long p_tone_eof;			/* flag that makes the use of eof message */
-	long p_tone_counter;			/* flag that makes the use of counter message */
-	long p_tone_speed;			/* speed of current tone, 1=normal, may also be negative */
+	signed int p_tone_size, p_tone_left;	/* size of tone in bytes (not samples), bytes left */
+	signed int p_tone_eof;			/* flag that makes the use of eof message */
+	signed int p_tone_counter;		/* flag that makes the use of counter message */
+	signed int p_tone_speed;		/* speed of current tone, 1=normal, may also be negative */
 //	char p_knock_fh;			/* file descriptor of knocking tone or -1 if not open */
 //	void *p_knock_fetched;			/* pointer to fetched data */
 //	int p_knock_codec;
-//	long p_knock_size, p_knock_left;
+//	signed int p_knock_size, p_knock_left;
 	void set_vbox_tone(char *dir, char *name);/* tone of answering machine */
 	void set_vbox_play(char *name, int offset); /* sample of answ. */
 	void set_vbox_speed(int speed);	/* speed of answ. */
 
 	/* identification */
-	unsigned long p_serial;			/* serial unique id of port */
+	unsigned int p_serial;			/* serial unique id of port */
 	char p_name[128];			/* name of port or token (h323) */
 
 	/* endpoint relation */
@@ -178,11 +178,11 @@ class Port
 	FILE *p_record;				/* recording fp: if not NULL, recording is enabled */
 	int p_record_type;			/* codec to use: RECORD_MONO, RECORD_STEREO, ... */
 	int p_record_skip;			/* skip bytes before writing the sample */
-	unsigned long p_record_length;		/* size of what's written so far */
+	unsigned int p_record_length;		/* size of what's written so far */
 
 	signed short p_record_buffer[RECORD_BUFFER_LENGTH];
-	unsigned long p_record_buffer_readp;
-	unsigned long p_record_buffer_writep;
+	unsigned int p_record_buffer_readp;
+	unsigned int p_record_buffer_writep;
 	int p_record_buffer_dir;		/* current direction in buffer */
 
 	char p_record_filename[256];		/* record filename */
@@ -198,16 +198,16 @@ class Port
 	int p_record_vbox_email_file;
 
 	void free_epointlist(struct epoint_list *epointlist);
-	void free_epointid(unsigned long epoint_id);
-	struct epoint_list *epointlist_new(unsigned long epoint_id);
+	void free_epointid(unsigned int epoint_id);
+	struct epoint_list *epointlist_new(unsigned int epoint_id);
 };
 
 
 extern Port *port_first;
-extern unsigned long port_serial;
+extern unsigned int port_serial;
 
 class Port *find_port_with_token(char *name);
-class Port *find_port_id(unsigned long port_id);
+class Port *find_port_id(unsigned int port_id);
 
 
 #endif // PORT_HEADER

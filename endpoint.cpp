@@ -11,7 +11,7 @@
 
 #include "main.h"
 
-unsigned long epoint_serial = 1; /* initial value must be 1, because 0== no epoint */
+unsigned int epoint_serial = 1; /* initial value must be 1, because 0== no epoint */
 
 class Endpoint *epoint_first = NULL;
 
@@ -19,7 +19,7 @@ class Endpoint *epoint_first = NULL;
 /*
  * find the epoint with epoint_id
  */ 
-class Endpoint *find_epoint_id(unsigned long epoint_id)
+class Endpoint *find_epoint_id(unsigned int epoint_id)
 {
 	class Endpoint *epoint = epoint_first;
 
@@ -38,7 +38,7 @@ class Endpoint *find_epoint_id(unsigned long epoint_id)
 /*
  * endpoint constructor (link with either port or join id)
  */
-Endpoint::Endpoint(unsigned long port_id, unsigned long join_id)
+Endpoint::Endpoint(unsigned int port_id, unsigned int join_id)
 {
 	class Port *port;
 	class Endpoint **epointpointer;
@@ -138,7 +138,7 @@ Endpoint::~Endpoint(void)
 
 /* create new portlist relation
  */
-struct port_list *Endpoint::portlist_new(unsigned long port_id, int port_type, int earlyb)
+struct port_list *Endpoint::portlist_new(unsigned int port_id, int port_type, int earlyb)
 {
 	struct port_list *portlist, **portlistpointer;
 

@@ -52,7 +52,7 @@ Functions:
 
 class Port *port_first = NULL;
 
-unsigned long port_serial = 1; /* must be 1, because 0== no port */
+unsigned int port_serial = 1; /* must be 1, because 0== no port */
 
 
 /* free epointlist relation
@@ -86,7 +86,7 @@ void Port::free_epointlist(struct epoint_list *epointlist)
 }
 
 
-void Port::free_epointid(unsigned long epoint_id)
+void Port::free_epointid(unsigned int epoint_id)
 {
 	struct epoint_list *temp, **tempp;
 
@@ -117,7 +117,7 @@ void Port::free_epointid(unsigned long epoint_id)
 
 /* create new epointlist relation
  */
-struct epoint_list *Port::epointlist_new(unsigned long epoint_id)
+struct epoint_list *Port::epointlist_new(unsigned int epoint_id)
 {
 	struct epoint_list *epointlist, **epointlistpointer;
 
@@ -267,7 +267,7 @@ void Port::new_state(int state)
 /*
  * find the port with port_id
  */ 
-class Port *find_port_id(unsigned long port_id)
+class Port *find_port_id(unsigned int port_id)
 {
 	class Port *port = port_first;
 
@@ -450,7 +450,7 @@ void Port::set_vbox_tone(char *dir, char *name)
  */
 void Port::set_vbox_play(char *name, int offset)
 {
-	signed long size;
+	signed int size;
 	struct lcr_msg *message;
 
 	/* use ser_box_tone() */
@@ -655,7 +655,7 @@ int Port::handler(void)
  * therefor a return=1 means: stop, no more processing
  */
 //extern struct lcr_msg *dddebug;
-int Port::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
+int Port::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	/* check if we got audio data from one remote port */
 	switch(message_id)
@@ -690,8 +690,8 @@ int Port::message_epoint(unsigned long epoint_id, int message_id, union paramete
 struct fmt {
 	unsigned short	stereo; /* 1 = mono, 2 = stereo */
 	unsigned short	channels; /* number of channels */
-	unsigned long	sample_rate; /* sample rate */
-	unsigned long	data_rate; /* data rate */
+	unsigned int	sample_rate; /* sample rate */
+	unsigned int	data_rate; /* data rate */
 	unsigned short	bytes_sample; /* bytes per sample (all channels) */
 	unsigned short	bits_sample; /* bits per sample (one channel) */
 };
@@ -794,7 +794,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 void Port::close_record(int beep, int mute)
 {
 	static signed short beep_mono[256];
-	unsigned long size, wsize;
+	unsigned int size, wsize;
 	struct fmt fmt;
 	char filename[512], indexname[512];
 	FILE *fp;
@@ -1015,7 +1015,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	unsigned char write_buffer[1024], *d;
 	signed short *s;
 	int free, i, ii;
-	signed long sample;
+	signed int sample;
 
 	/* no recording */
 	if (!p_record || !length)

@@ -12,7 +12,7 @@
 #include "main.h"
 //#define __u8 unsigned char
 //#define __u16 unsigned short
-//#define __u32 unsigned long
+//#define __u32 unsigned int
 
 
 /* notify endpoint about state change (if any) */
@@ -432,7 +432,7 @@ void JoinPBX::bridge(void)
 /*
  * bridging is only possible with two connected endpoints
  */
-void JoinPBX::bridge_data(unsigned long epoint_from, struct join_relation *relation_from, union parameter *param)
+void JoinPBX::bridge_data(unsigned int epoint_from, struct join_relation *relation_from, union parameter *param)
 {
 	struct join_relation *relation_to;
 
@@ -549,7 +549,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 
 /* count number of relations in a join
  */
-int joinpbx_countrelations(unsigned long join_id)
+int joinpbx_countrelations(unsigned int join_id)
 {
 	struct join_relation *relation;
 	int i;
@@ -633,7 +633,7 @@ struct join_relation *JoinPBX::add_relation(void)
 /* epoint sends a message to a join
  *
  */
-void JoinPBX::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union parameter *param)
 {
 	class Join *cl;
 	struct join_relation *relation, *reltemp;
@@ -986,7 +986,7 @@ int track_notify(int oldstate, int notify)
  * if other outgoing endpoints already exists, they are release as well.
  * note: if this functions fails, it will destroy its own join object!
  */
-int JoinPBX::out_setup(unsigned long epoint_id, int message_type, union parameter *param, char *newnumber)
+int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter *param, char *newnumber)
 {
 	struct join_relation *relation;
 	struct lcr_msg *message;

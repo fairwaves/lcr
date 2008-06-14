@@ -85,7 +85,7 @@ static inline void fatal(const char *function, int line, char *fmt, ...)
 
 /* memory allocation with setting to zero */
 #define MALLOC(size) _malloc(size, __FUNCTION__, __LINE__)
-static inline void *_malloc(unsigned long size, const char *function, int line)
+static inline void *_malloc(unsigned int size, const char *function, int line)
 {
 	void *addr;
 	addr = malloc(size);

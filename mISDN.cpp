@@ -38,7 +38,7 @@ struct mISDNport *mISDNport_first;
 unsigned char mISDN_rand[256];
 int mISDN_rand_count = 0;
 
-unsigned long mt_assign_pid = ~0;
+unsigned int mt_assign_pid = ~0;
 
 int mISDNsocket = -1;
 
@@ -210,7 +210,7 @@ void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *ms
  */
 static struct isdn_message {
 	char *name;
-	unsigned long value;
+	unsigned int value;
 } isdn_message[] = {
 	{"PH_ACTIVATE", L1_ACTIVATE_REQ},
 	{"PH_DEACTIVATE", L1_DEACTIVATE_REQ},
@@ -255,7 +255,7 @@ static char *isdn_prim[4] = {
 	" INDICATION",
 	" RESPONSE",
 };
-void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long msg, int direction)
+void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg, int direction)
 {
 	int i;
 	char msgtext[64] = "<<UNKNOWN MESSAGE>>";
@@ -309,11 +309,11 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 /*
  * send control information to the channel (dsp-module)
  */
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long sock, unsigned long c1, unsigned long c2, char *trace_name, int trace_value)
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, unsigned int c2, char *trace_name, int trace_value)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
+	unsigned int *d = (unsigned int *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	if (sock < 0)
@@ -334,11 +334,11 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned lo
 	end_trace();
 }
 
-void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value)
+void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
-	unsigned long *d = (unsigned long *)(buffer+MISDN_HEADER_LEN);
+	unsigned int *d = (unsigned int *)(buffer+MISDN_HEADER_LEN);
 	int ret;
 
 	if (sock < 0)
@@ -364,7 +364,7 @@ void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int s
 static int _bchannel_create(struct mISDNport *mISDNport, int i)
 {
 	int ret;
-	unsigned long on = 1;
+	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 
 	if (mISDNport->b_socket[i] > -1)
@@ -601,15 +601,15 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 	class PmISDN *b_port = mISDNport->b_port[i];
 	int state = mISDNport->b_state[i];
 	double timer = mISDNport->b_timer[i];
-	unsigned long p_m_remote_ref = 0;
-	unsigned long p_m_remote_id = 0;
+	unsigned int p_m_remote_ref = 0;
+	unsigned int p_m_remote_id = 0;
 	int p_m_tx_gain = 0;
 	int p_m_rx_gain = 0;
 	char *p_m_pipeline = NULL;
 	unsigned char *p_m_crypt_key = NULL;
 	int p_m_crypt_key_len = 0;
 	int p_m_crypt_key_type = 0;
-	unsigned long portid = (mISDNport->portnum<<8) + i+1+(i>=15);
+	unsigned int portid = (mISDNport->portnum<<8) + i+1+(i>=15);
 
 	if (b_port)
 	{
@@ -1074,7 +1074,7 @@ void PmISDN::drop_bchannel(void)
 }
 
 /* process bchannel export/import message from join */
-void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned long handle)
+void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned int handle)
 {
 	class Endpoint *epoint;
 	class Port *port;
@@ -1141,7 +1141,7 @@ void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsign
 			ii = mISDNport->b_num;
 			while(i < ii)
 			{
-				if ((unsigned long)(mISDNport->portnum<<8)+i+1+(i>=15) == handle)
+				if ((unsigned int)(mISDNport->portnum<<8)+i+1+(i>=15) == handle)
 					break;
 				i++;
 			}
@@ -1353,9 +1353,9 @@ int PmISDN::handler(void)
  */
 void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len)
 {
-	unsigned long cont = *((unsigned long *)data);
+	unsigned int cont = *((unsigned int *)data);
 	unsigned char *data_temp;
-	unsigned long length_temp;
+	unsigned int length_temp;
 	struct lcr_msg *message;
 	unsigned char *p;
 	int l;
@@ -1634,7 +1634,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 
 /* MESSAGE_mISDNSIGNAL */
 //extern struct lcr_msg *dddebug;
-void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union parameter *param)
+void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	switch(param->mISDNsignal.message)
 	{
@@ -1703,7 +1703,7 @@ void PmISDN::message_mISDNsignal(unsigned long epoint_id, int message_id, union 
 }
 
 /* MESSAGE_CRYPT */
-void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parameter *param)
+void PmISDN::message_crypt(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	struct lcr_msg *message;
 
@@ -1770,7 +1770,7 @@ void PmISDN::message_crypt(unsigned long epoint_id, int message_id, union parame
 /*
  * endpoint sends messages to the port
  */
-int PmISDN::message_epoint(unsigned long epoint_id, int message_id, union parameter *param)
+int PmISDN::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	if (Port::message_epoint(epoint_id, message_id, param))
 		return(1);

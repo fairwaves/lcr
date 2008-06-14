@@ -19,7 +19,7 @@ class Pdss1 : public PmISDN
 	void message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	int p_m_d_ces;				/* ntmode: tei&sapi */
 	int handler(void);
-	int message_epoint(unsigned long epoint_id, int message, union parameter *param);
+	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 
 	int p_m_d_ntmode;			/* flags the nt-mode */
 	struct lcr_msg *p_m_d_queue;		/* queue for SETUP if link is down */
@@ -29,9 +29,9 @@ class Pdss1 : public PmISDN
 	int p_m_d_collect_location;
 
 	void new_state(int state);		/* set new state */
-//	void isdn_show_send_message(unsigned long prim, msg_t *msg);
+//	void isdn_show_send_message(unsigned int prim, msg_t *msg);
 	int hunt_bchannel(int exclusive, int channel);
-	int received_first_reply_to_setup(unsigned long cmd, int channel, int exclusive);
+	int received_first_reply_to_setup(unsigned int cmd, int channel, int exclusive);
 	void information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
@@ -40,6 +40,7 @@ class Pdss1 : public PmISDN
 	void connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void restart_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void disconnect_ind_i(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
@@ -49,16 +50,16 @@ class Pdss1 : public PmISDN
 	void retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
-	void message_information(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_setup(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_notify(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_facility(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_overlap(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_proceeding(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_alerting(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_connect(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_disconnect(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_release(unsigned long epoint_id, int message_id, union parameter *param);
+	void message_information(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_setup(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_notify(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_facility(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_overlap(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_proceeding(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_alerting(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_connect(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_disconnect(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_release(unsigned int epoint_id, int message_id, union parameter *param);
 
 	/* IE conversion */
 	void enc_ie_complete(struct l3_msg *l3m, int complete);

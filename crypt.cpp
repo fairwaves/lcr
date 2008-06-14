@@ -206,7 +206,7 @@ unsigned char *crypt_key(unsigned char *key, int *binary_len)
 /*
  * support routine to get cpu speed
  */
-static unsigned long get_bogomips(void)
+static unsigned int get_bogomips(void)
 {
 	FILE *fp;
 	char buffer[64], *p;
@@ -244,9 +244,9 @@ static unsigned long get_bogomips(void)
 /*
  * crc 32 stuff
  */
-static unsigned long crc_reflect(unsigned long ref, char ch)
+static unsigned int crc_reflect(unsigned int ref, char ch)
 {
-	unsigned long value = 0;
+	unsigned int value = 0;
 	int i;
 
 	i = 1;
@@ -260,12 +260,12 @@ static unsigned long crc_reflect(unsigned long ref, char ch)
 	return(value);
 }
 
-static unsigned long crc32_table[256];
+static unsigned int crc32_table[256];
 static int crc_initialized = 0;
 
 void crc_init(void)
 {
-	unsigned long ulPolynomial = 0x04c11db7;
+	unsigned int ulPolynomial = 0x04c11db7;
 	int i, j;
 
 	i = 0;
@@ -284,9 +284,9 @@ void crc_init(void)
 	crc_initialized = 1;
 }
 
-unsigned long crc32(unsigned char *data, int len)
+unsigned int crc32(unsigned char *data, int len)
 {
-	unsigned long crc = 0xffffffff;
+	unsigned int crc = 0xffffffff;
 
 	if (!crc_initialized)
 		FATAL("crc not initialized, exitting...");
@@ -656,7 +656,7 @@ void EndpointAppPBX::cryptman_handler(void)
 void EndpointAppPBX::cr_ident(int message, unsigned char *param, int len)
 {
 	unsigned char buf[4], *p;
-	unsigned long bogomips = 0, ran;
+	unsigned int bogomips = 0, ran;
 	int l;
 
 	l = CM_SIZEOFINF(CM_INFO_RANDOM);
@@ -1572,7 +1572,7 @@ void EndpointAppPBX::cryptman_timeout(int secs)
  */
 int cryptman_encode_bch(unsigned char *data, int len, unsigned char *buf, int buf_len)
 {
-	unsigned long crc;
+	unsigned int crc;
 	int overhead = 18;
 
 	len--; /* without null-termination */

@@ -55,7 +55,7 @@ extern FILE *debug_fp;
 #define PERROR(fmt, arg...) _printerror(__FUNCTION__, __LINE__, fmt, ## arg)
 #define PDEBUG_RUNTIME(mask, fmt, arg...) _printdebug(NULL, 0, mask, fmt, ## arg)
 #define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, 0, fmt, ## arg)
-void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...);
+void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...);
 void _printerror(const char *function, int line, const char *fmt, ...);
 #define DEBUG_FUNC
 void debug(const char *function, int line, char *prefix, char *buffer);

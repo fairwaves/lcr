@@ -309,7 +309,7 @@ endif
 clean:
 	touch *
 	rm -f $(LCR) $(LCRADMIN) $(CHAN_LCR) $(LCRWATCH) $(GEN) $(GENW) $(GENRC) $(GENEXT)
-	rm -f *.o
+	rm -f *.o *.ooo
 	rm -f .*.c.sw* .*.cpp.sw* .*.h.sw*
 	rm -f bla nohup.out a.out
 	rm -f debug*.log

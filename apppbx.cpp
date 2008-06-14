@@ -1990,7 +1990,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 {
 	struct lcr_msg *message;
 	char buffer[256];
-	unsigned long port_id = portlist->port_id;
+	unsigned int port_id = portlist->port_id;
 	struct port_list *tportlist;
 	class Port *port;
 	struct interface	*interface;
@@ -2200,7 +2200,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 {
 	struct lcr_msg	*message;
 	char		buffer[256];
-	unsigned long	port_id = portlist->port_id;
+	unsigned int	port_id = portlist->port_id;
 	int		cause,
 			location;
 
@@ -2595,7 +2595,7 @@ void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, u
 
 /* port sends message to the endpoint
  */
-void EndpointAppPBX::ea_message_port(unsigned long port_id, int message_type, union parameter *param)
+void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
 	struct lcr_msg *message;
@@ -3318,7 +3318,7 @@ void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, u
 
 /* JOIN sends messages to the endpoint
  */
-void EndpointAppPBX::ea_message_join(unsigned long join_id, int message_type, union parameter *param)
+void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
 	struct lcr_msg *message;
@@ -4052,7 +4052,7 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 	return(0);
 }
 
-void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsigned long port_id, int dir)
+void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsigned int port_id, int dir)
 {
 	char *logtext = "unknown";
 	char buffer[64];

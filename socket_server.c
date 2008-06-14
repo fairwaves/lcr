@@ -26,7 +26,7 @@ struct admin_list *admin_first = NULL;
  */
 int admin_init(void)
 {
-	unsigned long on = 1;
+	unsigned int on = 1;
 
 	/* open and bind socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -484,7 +484,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
  */
 int admin_release(struct admin_queue **responsep, char *message)
 {
-	unsigned long		id;
+	unsigned int		id;
 	struct admin_queue	*response;	/* response pointer */
 	class EndpointAppPBX	*apppbx;
 
@@ -727,7 +727,7 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 /*
  * this function is called for every message to remote socket
  */
-int admin_message_from_join(int remote_id, unsigned long ref, int message_type, union parameter *param)
+int admin_message_from_join(int remote_id, unsigned int ref, int message_type, union parameter *param)
 {
 	struct admin_list	*admin;
 	struct admin_queue	**responsep;	/* response pointer */
@@ -1120,7 +1120,7 @@ int admin_handle(void)
 	int			len;
 	int			new_sock;
 	socklen_t		sock_len = sizeof(sock_address);
-	unsigned long		on = 1;
+	unsigned int		on = 1;
 	int			work = 0; /* if work was done */
 	struct Endpoint		*epoint;
 

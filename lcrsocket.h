@@ -76,7 +76,7 @@ struct admin_response_interface {
 	int		los, ais, rdi, slip_tx, slip_rx;
 	int		channels;
 	char		busy[256]; /* if port is idle(0) busy(1) */
-	unsigned long	port[256]; /* current port */
+	unsigned int	port[256]; /* current port */
 };
 
 struct admin_response_remote {
@@ -84,14 +84,14 @@ struct admin_response_remote {
 };
 
 struct admin_response_join {
-	unsigned long	serial; /* join serial number */
+	unsigned int	serial; /* join serial number */
 	char		remote[32]; /* remote application name */
-	unsigned long	partyline;
+	unsigned int	partyline;
 };
 
 struct admin_response_epoint {
-	unsigned long	serial;
-	unsigned long	join; /* link to join */
+	unsigned int	serial;
+	unsigned int	join; /* link to join */
 //	int		join_notify; /* if relation notified on hold */
 //	int		join_hold; /* if relation on hold */
 	int		rx_state;
@@ -108,9 +108,9 @@ struct admin_response_epoint {
 };
 
 struct admin_response_port {
-	unsigned long	serial; /* port serial number */
+	unsigned int	serial; /* port serial number */
 	char		name[64]; /* name of port */
-	unsigned long	epoint; /* link to epoint */
+	unsigned int	epoint; /* link to epoint */
 	int		state;
 	int		isdn; /* if port is isdn */
 	int		isdn_chan; /* bchannel number */
@@ -148,7 +148,7 @@ struct admin_trace_rsp {
 
 struct admin_msg {
 	int		type; /* type of message */
-	unsigned long	ref; /* reference to individual endpoints */
+	unsigned int	ref; /* reference to individual endpoints */
 	union parameter	param; /* parameter union */
 };
 

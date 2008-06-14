@@ -100,7 +100,7 @@ void debug(const char *function, int line, char *prefix, char *buffer)
 }
 
 
-void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...)
+void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...)
 {
 	char buffer[4096];
 	va_list args;

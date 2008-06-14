@@ -54,7 +54,7 @@ struct mISDNport {
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	double b_timer[128]; /* timer for state machine */
 	int b_remote_id[128]; /* the socket currently exported (0=none) */
-	unsigned long b_remote_ref[128]; /* the ref currently exported */
+	unsigned int b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
 	int los, ais, rdi, slip_rx, slip_tx;
 };
@@ -86,12 +86,12 @@ void mISDN_port_reorder(void);
 int mISDN_handler(void);
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
 int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned long handle, unsigned long c1, unsigned long c2, char *trace_name, int trace_value);
-void ph_control_block(struct mISDNport *mISDNport, unsigned long handle, unsigned long c1, void *c2, int c2_len, char *trace_name, int trace_value);
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned int handle, unsigned int c1, unsigned int c2, char *trace_name, int trace_value);
+void ph_control_block(struct mISDNport *mISDNport, unsigned int handle, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value);
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
-void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned long prim, int direction);
+void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
-void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned long handle);
+void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned int handle);
 
 
 /* mISDN port classes */
@@ -103,9 +103,9 @@ class PmISDN : public Port
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
 	int handler(void);
 	void transmit(unsigned char *buffer, int length);
-	int message_epoint(unsigned long epoint_id, int message, union parameter *param);
-	void message_mISDNsignal(unsigned long epoint_id, int message_id, union parameter *param);
-	void message_crypt(unsigned long epoint_id, int message_id, union parameter *param);
+	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
+	void message_mISDNsignal(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_crypt(unsigned int epoint_id, int message_id, union parameter *param);
 	struct mISDNport *p_m_mISDNport;	/* pointer to port */
 	int p_m_delay;				/* use delay instead of dejitter */
 	int p_m_tx_gain, p_m_rx_gain;		/* volume shift (0 = no change) */
@@ -119,8 +119,8 @@ class PmISDN : public Port
 	int p_m_joindata;			/* the call requires data due to no briging capability */
 
 	int p_m_load;				/* current data in dsp tx buffer */
-	unsigned long p_m_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
-	unsigned long p_m_last_tv_msec;
+	unsigned int p_m_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
+	unsigned int p_m_last_tv_msec;
 //	int p_m_fromup_buffer_readp;		/* buffer for audio from remote endpoint */
 //	int p_m_fromup_buffer_writep;
 //	unsigned char p_m_fromup_buffer[FROMUP_BUFFER_SIZE];
@@ -137,7 +137,7 @@ class PmISDN : public Port
 	int p_m_crypt_listen_state;
 	int p_m_crypt_listen_len;
 	unsigned char p_m_crypt_listen_msg[1100];
-	unsigned long p_m_crypt_listen_crc;
+	unsigned int p_m_crypt_listen_crc;
 	void cryptman_listen_bch(unsigned char *p, int l);
 
 	void set_tone(char *dir, char *name);
@@ -152,7 +152,7 @@ class PmISDN : public Port
 //	long long p_m_jitterdropped;		/* number of bytes dropped */
 	int p_m_delete;				/* true if obj. must del. */
 	int p_m_hold;				/* if port is on hold */
-	unsigned long p_m_timeout;		/* timeout of timers */
+	unsigned int p_m_timeout;		/* timeout of timers */
 	time_t p_m_timer;			/* start of timer */
 	unsigned char p_m_remote_ref;		/* join to export bchannel to */
 	unsigned char p_m_remote_id;		/* sock to export bchannel to */

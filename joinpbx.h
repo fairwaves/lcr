@@ -38,7 +38,7 @@ enum { /* states that results from last notification */
 struct join_relation { /* relation to an interface */
 	struct join_relation *next;	/* next node */
 	int type;			/* type of relation */
-	unsigned long epoint_id;	/* interface to link join to */
+	unsigned int epoint_id;	/* interface to link join to */
 	int channel_state;		/* if audio is available */
 	int rx_state;			/* current state of what we received from endpoint */
 	int tx_state;			/* current state of what we sent to endpoint */
@@ -49,7 +49,7 @@ class JoinPBX : public Join
 	public:
 	JoinPBX(class Endpoint *epoint);
 	~JoinPBX();
-	void message_epoint(unsigned long epoint_id, int message, union parameter *param);
+	void message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	int handler(void);
 	int release(struct join_relation *relation, int location, int cause);
 
@@ -67,14 +67,14 @@ class JoinPBX : public Join
 	int j_partyline_jingle;		/* also play jingle on join/leave */
 
 	void bridge(void);
-	void bridge_data(unsigned long epoint_from, struct join_relation *relation_from, union parameter *param);
+	void bridge_data(unsigned int epoint_from, struct join_relation *relation_from, union parameter *param);
 	void remove_relation(struct join_relation *relation);
 	struct join_relation *add_relation(void);
-	int out_setup(unsigned long epoint_id, int message, union parameter *param, char *newnumber);
+	int out_setup(unsigned int epoint_id, int message, union parameter *param, char *newnumber);
 	void play_jingle(int in);
 }; 
 
 void joinpbx_debug(class JoinPBX *joinpbx, char *function);
-int joinpbx_countrelations(unsigned long join_id);
+int joinpbx_countrelations(unsigned int join_id);
 int track_notify(int oldstate, int notify);
 

@@ -168,6 +168,6 @@ int cm_msg_num = sizeof(cm_msg_name) / sizeof(char *);
 	cryptman_getinf(param, a, b);
 
 void crc_init(void);
-unsigned long crc32(unsigned char *data, int len);
+unsigned int crc32(unsigned char *data, int len);
 int cryptman_encode_bch(unsigned char *data, int len, unsigned char *buf, int buf_len);
 

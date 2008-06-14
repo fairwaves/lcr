@@ -30,7 +30,7 @@ int fhuse = 0;
 struct isdn_cause isdn_cause[128];
 struct isdn_location isdn_location[16];
 
-void _printdebug(const char *function, int line, unsigned long mask, const char *fmt, ...)
+void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...)
 {
 }
 
@@ -63,7 +63,8 @@ int main(int argc, char *argv[])
 	{
 		printf("Usage: %s <extension> <interfaces> <callerid>\n\n", argv[0]);
 		printf("extension: any number for the extension (e.g 200)\n");
-		printf("interfaces: internal interface(s) to reach extension (seperated by commas. e.g Int1,Int2)\n");
+		printf("interfaces: internal interface(s) to reach extension, NOT port numbers\n");
+		printf(" -> seperate multiple interfaces with commas. e.g Int1,Int2\n");
 		printf("callerid: normal undefined called is (use what your telco assigned you)\n");
 		return(0);
 	}

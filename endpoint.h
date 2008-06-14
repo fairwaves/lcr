@@ -13,7 +13,7 @@
 /* structure of port_list */
 struct port_list {
 	struct port_list	*next;
-	unsigned long		port_id;
+	unsigned int		port_id;
 	int			port_type;
 	int			early_b; /* if patterns are available */
 };
@@ -22,10 +22,10 @@ struct port_list {
 class Endpoint
 {
 	public:
-	Endpoint(unsigned long port_id, unsigned long join_id);
+	Endpoint(unsigned int port_id, unsigned int join_id);
 	~Endpoint();
 	class Endpoint		*next;		/* next in list */
-	unsigned long		ep_serial;	/* a unique serial to identify */
+	unsigned int		ep_serial;	/* a unique serial to identify */
 	int			handler(void);
 
 	/* applocaton relation */
@@ -33,11 +33,11 @@ class Endpoint
 
 	/* port relation */
 	struct port_list 	*ep_portlist;	/* link to list of ports */
-	struct port_list *portlist_new(unsigned long port_id, int port_type, int earlyb);
+	struct port_list *portlist_new(unsigned int port_id, int port_type, int earlyb);
 	void free_portlist(struct port_list *portlist);
 
 	/* join relation */
-	unsigned long 		ep_join_id;	/* link to join */
+	unsigned int 		ep_join_id;	/* link to join */
 
 	/* if still used by threads */
 	int			ep_use;
@@ -50,5 +50,5 @@ class Endpoint
 
 extern class Endpoint *epoint_first;
 
-class Endpoint *find_epoint_id(unsigned long epoint_id);
+class Endpoint *find_epoint_id(unsigned int epoint_id);
 

@@ -64,7 +64,7 @@ class EndpointAppPBX : public EndpointApp
 	int			e_hold;			/* is this endpoint on hold ? */
 	char			e_tone[256];		/* save tone for resuming ports */
 
-	unsigned long		e_adminid;
+	unsigned int		e_adminid;
 
 	/* states */
 	int			e_state;		/* state of endpoint */
@@ -103,9 +103,9 @@ class EndpointAppPBX : public EndpointApp
 	int e_powercount;			/* power count */
 	int e_powerlimit;			/* power limit */
 	double e_callback;			/* time when callback (when idle reached) 0=off */
-	signed long e_cfnr_release;		/* time stamp when to do the release for call forward on no response */
-	signed long e_cfnr_call;		/* time stamp when to do the call for call forward on no response */
-	signed long e_password_timeout;		/* time stamp when to do the release for password timeout */
+	signed int e_cfnr_release;		/* time stamp when to do the release for call forward on no response */
+	signed int e_cfnr_call;		/* time stamp when to do the call for call forward on no response */
+	signed int e_password_timeout;		/* time stamp when to do the release for password timeout */
 
 	/* port relation */
 	int e_multipoint_cause;			/* cause value of disconnected multiport calls (highest priority) */
@@ -164,8 +164,8 @@ class EndpointAppPBX : public EndpointApp
 	char e_crypt_info[33];			/* last information text */
 	int e_crypt_timeout_sec;		/* timer */
 	int e_crypt_timeout_usec;		/* timer */
-	unsigned long e_crypt_random;		/* current random number for ident */
-	unsigned long e_crypt_bogomips;		/* bogomips for ident */
+	unsigned int e_crypt_random;		/* current random number for ident */
+	unsigned int e_crypt_bogomips;		/* bogomips for ident */
 	unsigned char e_crypt_key[256];		/* the session key */
 	int e_crypt_key_len;
 	unsigned char e_crypt_ckey[256];	/* the encrypted session key */
@@ -191,7 +191,7 @@ class EndpointAppPBX : public EndpointApp
 
 	/* messages */
 	void hookflash(void);
-	void ea_message_port(unsigned long port_id, int message, union parameter *param);
+	void ea_message_port(unsigned int port_id, int message, union parameter *param);
 	void port_setup(struct port_list *portlist, int message_type, union parameter *param);
 	void port_information(struct port_list *portlist, int message_type, union parameter *param);
 	void port_dtmf(struct port_list *portlist, int message_type, union parameter *param);
@@ -206,7 +206,7 @@ class EndpointAppPBX : public EndpointApp
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);
-	void ea_message_join(unsigned long join_id, int message, union parameter *param);
+	void ea_message_join(unsigned int join_id, int message, union parameter *param);
 	void join_crypt(struct port_list *portlist, int message_type, union parameter *param);
 	void join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param);
 	void join_setup(struct port_list *portlist, int message_type, union parameter *param);
@@ -346,7 +346,7 @@ class EndpointAppPBX : public EndpointApp
 	void cryptman_timeout(int secs);
 
 	void message_disconnect_port(struct port_list *portlist, int cause, int location, char *display);
-	void logmessage(int message_type, union parameter *param, unsigned long port_id, int dir);
+	void logmessage(int message_type, union parameter *param, unsigned int port_id, int dir);
 	void trace_header(char *name, int direction);
 };
 

@@ -12,14 +12,14 @@
 #include "main.h"
 //#define __u8 unsigned char
 //#define __u16 unsigned short
-//#define __u32 unsigned long
+//#define __u32 unsigned int
 
 
 /*
  * constructor for a new join 
  * the join will have a relation to the calling endpoint
  */
-JoinRemote::JoinRemote(unsigned long serial, char *remote_name, int remote_id) : Join()
+JoinRemote::JoinRemote(unsigned int serial, char *remote_name, int remote_id) : Join()
 {
 	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
 	union parameter param;
@@ -60,7 +60,7 @@ int JoinRemote::handler(void)
 }
 
 
-void JoinRemote::message_epoint(unsigned long epoint_id, int message_type, union parameter *param)
+void JoinRemote::message_epoint(unsigned int epoint_id, int message_type, union parameter *param)
 {
 	/* if endpoint has just been removed, but still a message in the que */
 	if (epoint_id != j_epoint_id)
@@ -116,7 +116,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	}
 }
 
-void message_bchannel_to_remote(unsigned long remote_id, unsigned long ref, int type, unsigned long handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
+void message_bchannel_to_remote(unsigned int remote_id, unsigned int ref, int type, unsigned int handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
 {
 	union parameter param;
 

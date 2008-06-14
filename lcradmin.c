@@ -76,7 +76,7 @@ char	red = 1,
 
 #define LOGLINES 128
 char logline[LOGLINES][512];
-unsigned long logcur = 0;
+unsigned int logcur = 0;
 int logfh = -1;
 char logfile[128];
 
@@ -209,7 +209,7 @@ int debug_port(struct admin_message *msg, struct admin_message *m, int line, int
 }
 int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, int i, int vline)
 {
-	unsigned long epoint = m[i].u.e.serial;
+	unsigned int epoint = m[i].u.e.serial;
 	char buffer[256];
 	unsigned char c;
 	int j, jj;
@@ -392,7 +392,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 }
 int debug_join(struct admin_message *msg, struct admin_message *m, int line, int i)
 {
-	unsigned long	join = m[i].u.j.serial;
+	unsigned int	join = m[i].u.j.serial;
 	char		buffer[256];
 	int		j, jj;
 
@@ -457,7 +457,7 @@ char *admin_state(int sock, char *argv[])
 				*p;
 	int			line, offset = 0, hoffset = 0;
 	int			i, ii, j, jj, k;
-	unsigned long		l, ll;
+	unsigned int		l, ll;
 	int			num;
 	int			len;
 	int			off;
@@ -1346,7 +1346,7 @@ char *admin_testcall(int sock, int argc, char *argv[])
 	int stimeout = 0, ptimeout = 0, atimeout = 0, ctimeout = 0;
 	int l;
 	double timer = 0, now_d;
-	unsigned long on = 1;
+	unsigned int on = 1;
 	struct timeval now_tv;
 	struct timezone now_tz;
 

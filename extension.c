@@ -1348,7 +1348,7 @@ int write_log(char *number, char *callerid, char *calledid, time_t start, time_t
 	tm = localtime(&start);
 	fprintf(fp,"%s %2d %04d %02d:%02d:%02d %s", mon[tm->tm_mon], tm->tm_mday, tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec, number);
 	if (stop)
-		fprintf(fp," %2ld:%02ld:%02ld", (stop-start)/3600, (((unsigned long)(stop-start))/60)%60, ((unsigned long)(stop-start))%60);
+		fprintf(fp," %2ld:%02ld:%02ld", (stop-start)/3600, (((unsigned int)(stop-start))/60)%60, ((unsigned int)(stop-start))%60);
 	else
 		fprintf(fp," --:--:--");
 	fprintf(fp," %s -> %s", callerid, calledid);
