@@ -27,6 +27,7 @@ struct chan_call {
 	unsigned char		dialque[64];
 					/* queue dialing prior setup ack */
 	char			oad[64];/* caller id in number format */
+
 	struct connect_info	connectinfo;
 					/* store connectinfo form lcr */
 	int			bridge_id;
@@ -43,6 +44,9 @@ struct chan_call {
 					/* LCR interface name for setup */
 	char			dialstring[64];
 					/* cached dial string for setup */
+        char                    cid_num[64]; /* cached cid for setup */
+	char                    cid_name[64]; /* cached cid for setup */
+	char                    cid_rdnis[64]; /* cached cid for setup */
 	char			display[128];
 					/* display for setup */
 	int			dtmf;

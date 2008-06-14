@@ -508,7 +508,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 	if (!call->ast || !call->ref)
 		return;
 
-	CDEBUG(call, call->ast, "Sending setup to LCR. (interface=%s dialstring=%s)\n", call->interface, call->dialstring);
+	CDEBUG(call, call->ast, "Sending setup to LCR. (interface=%s dialstring=%s, cid=%s)\n", call->interface, call->dialstring, call->cid_num);
 
 	/* send setup message to LCR */
 	memset(&newparam, 0, sizeof(union parameter));
@@ -520,13 +520,13 @@ static void send_setup_to_lcr(struct chan_call *call)
        	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	strncpy(newparam.setup.callerinfo.display, call->display, sizeof(newparam.setup.callerinfo.display)-1);
 	call->display[0] = '\0';
-	if (ast->cid.cid_num) if (ast->cid.cid_num[0])
-		strncpy(newparam.setup.callerinfo.id, ast->cid.cid_num, sizeof(newparam.setup.callerinfo.id)-1);
-	if (ast->cid.cid_name) if (ast->cid.cid_name[0])
-		strncpy(newparam.setup.callerinfo.name, ast->cid.cid_name, sizeof(newparam.setup.callerinfo.name)-1);
-	if (ast->cid.cid_rdnis) if (ast->cid.cid_rdnis[0])
+	if (call->cid_num[0])
+		strncpy(newparam.setup.callerinfo.id, call->cid_num, sizeof(newparam.setup.callerinfo.id)-1);
+	if (call->cid_name[0])
+		strncpy(newparam.setup.callerinfo.name, call->cid_name, sizeof(newparam.setup.callerinfo.name)-1);
+	if (call->cid_rdnis[0])
 	{
-		strncpy(newparam.setup.redirinfo.id, ast->cid.cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
+		strncpy(newparam.setup.redirinfo.id, call->cid_rdnis, sizeof(newparam.setup.redirinfo.id)-1);
        		newparam.setup.redirinfo.itype = INFO_ITYPE_CHAN;	
  	      	newparam.setup.redirinfo.ntype = INFO_NTYPE_UNKNOWN;	
 	}
@@ -1650,6 +1650,21 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	 && ast->transfercapability != INFO_BC_DATARESTRICTED
 	 && ast->transfercapability != INFO_BC_VIDEO)
 		ast->transfercapability = INFO_BC_DATAUNRESTRICTED;
+
+	call->cid_num[0] = 0;
+	call->cid_name[0] = 0;
+	call->cid_rdnis[0] = 0;
+
+	if (ast->cid.cid_num) if (ast->cid.cid_num[0])
+		strncpy(call->cid_num, ast->cid.cid_num,
+			sizeof(call->cid_num)-1);
+
+	if (ast->cid.cid_name) if (ast->cid.cid_name[0])
+		strncpy(call->cid_name, ast->cid.cid_name, 
+			sizeof(call->cid_name)-1);
+	if (ast->cid.cid_rdnis) if (ast->cid.cid_rdnis[0])
+		strncpy(call->cid_rdnis, ast->cid.cid_rdnis, 
+			sizeof(call->cid_rdnis)-1);
 
 	ast_mutex_unlock(&chan_lock);
 	return 0; 

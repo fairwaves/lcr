@@ -197,7 +197,7 @@ $(LCR): main.o \
 	socket_server.o \
 	trace.o
 	$(PP) $(LIBDIR) \
-       	main.o \
+	main.o \
 	options.ooo \
 	interface.o \
 	extension.o \
