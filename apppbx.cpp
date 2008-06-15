@@ -1705,7 +1705,8 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	}
 	if (e_action)
 	if (e_action->index==ACTION_OUTDIAL
-	 || e_action->index==ACTION_EXTERNAL)
+	 || e_action->index==ACTION_EXTERNAL
+	 || e_action->index==ACTION_REMOTE)
 	{
 		if (!e_extdialing)
 			set_tone(portlist, "dialing");
@@ -2886,10 +2887,16 @@ void EndpointAppPBX::join_overlap(struct port_list *portlist, int message_type, 
 				set_tone(portlist, "dialtone");
 			return;
 	}
-	if (e_ext.number[0])
-		set_tone(portlist, "dialpbx");
-	else
-		set_tone(portlist, "dialtone");
+	if (e_dialinginfo.id[0])
+	{
+		set_tone(portlist, "dialing");
+	} else
+	{
+		if (e_ext.number[0])
+			set_tone(portlist, "dialpbx");
+		else
+			set_tone(portlist, "dialtone");
+	}
 }
 
 /* join MESSAGE_PROCEEDING */
@@ -3377,7 +3384,7 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 
 		/* JOIN sends OVERLAP message */
 		case MESSAGE_OVERLAP:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received 'more info available'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received 'more info required'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		if (e_state!=EPOINT_STATE_IN_SETUP
 		 && e_state!=EPOINT_STATE_IN_OVERLAP)
 		{

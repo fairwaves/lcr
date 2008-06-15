@@ -2041,9 +2041,12 @@ int mISDN_handler(void)
 
 					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 					mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+#if 0
+no L2 establish trace on every timeout
 					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 					add_trace("tei", NULL, "%d", 0);
 					end_trace();
+#endif
 					time(&mISDNport->l2establish);
 					return(1);
 				}

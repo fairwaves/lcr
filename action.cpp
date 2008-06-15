@@ -393,6 +393,7 @@ void EndpointAppPBX::action_dialing_remote(void)
 		{
 			SCPY(dialinginfo.id, e_extdialing);
 		}
+		e_extdialing = e_dialinginfo.id + strlen(e_dialinginfo.id);
 		/* send setup to remote */
 		trace_header("ACTION remote (setup)", DIRECTION_NONE);
 		add_trace("number", NULL, dialinginfo.id);

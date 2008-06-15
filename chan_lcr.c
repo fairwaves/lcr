@@ -958,7 +958,7 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	if (!call->pbx_started)
 	{
 		CDEBUG(call, call->ast, "Asterisk not started, adding digits to number.\n");
-		strncpy(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
+		strncat(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
 		lcr_start_pbx(call, ast, param->information.sending_complete);
 		return;
 	}
