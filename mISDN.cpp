@@ -2002,15 +2002,19 @@ int mISDN_handler(void)
 
 				case MT_L2RELEASE:
 				l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
-				add_trace("tei", NULL, "%d", l3m->pid);
-				end_trace();
+				if (!mISDNport->l2establish)
+				{
+					add_trace("tei", NULL, "%d", l3m->pid);
+					end_trace();
+				}
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
 					mISDNport->l2link = 0;
-					if (mISDNport->l2hold)
+					if (!mISDNport->l2establish && mISDNport->l2hold)
 					{
+						PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
 						time(&mISDNport->l2establish);
-						PDEBUG(DEBUG_ISDN, "because we are ptp, we set a l2establish timer.\n");
+						mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 					}
 				}
 				break;
@@ -2041,12 +2045,6 @@ int mISDN_handler(void)
 
 					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 					mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
-#if 0
-no L2 establish trace on every timeout
-					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
-					add_trace("tei", NULL, "%d", 0);
-					end_trace();
-#endif
 					time(&mISDNport->l2establish);
 					return(1);
 				}
