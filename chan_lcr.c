@@ -342,6 +342,9 @@ void apply_opt(struct chan_call *call, char *data)
 	char string[1024], *p = string, *opt, *key;
 	int gain, i, newmode = 0;
 
+	if (!data[0])
+		return; // no opts
+
 	strncpy(string, data, sizeof(string)-1);
 	string[sizeof(string)-1] = '\0';
 
@@ -1670,7 +1673,13 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	return 0; 
 }
 
-static int lcr_digit(struct ast_channel *ast, char digit)
+static int lcr_digit_begin(struct ast_channel *ast, char digit)
+{
+	printf("DIGT BEGIN %c\n", digit);
+	return (0);
+}
+
+static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int duration)
 {
         struct chan_call *call;
 	union parameter newparam;
@@ -2132,7 +2141,8 @@ static struct ast_channel_tech lcr_tech = {
 	.type="LCR",
 	.description="Channel driver for connecting to Linux-Call-Router",
 	.requester=lcr_request,
-	.send_digit_begin=lcr_digit,
+	.send_digit_begin=lcr_digit_begin,
+	.send_digit_end=lcr_digit_end,
 	.call=lcr_call,
 	.bridge=lcr_bridge, 
 	.hangup=lcr_hangup,
