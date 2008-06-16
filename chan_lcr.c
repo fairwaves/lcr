@@ -1114,9 +1114,10 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 					CDEBUG(call, call->ast, "Join bchannel, because call is already bridged.\n");
 					bchannel_join(bchannel, call->bridge_id);
 				}
+				/* create only, if call exists, othewhise it bchannel is freed below... */
+				if (bchannel_create(bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
+					bchannel_activate(bchannel, 1);
 			}
-			if (bchannel_create(bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
-				bchannel_activate(bchannel, 1);
 			/* acknowledge */
 			newparam.bchannel.type = BCHANNEL_ASSIGN_ACK;
 			newparam.bchannel.handle = param->bchannel.handle;
