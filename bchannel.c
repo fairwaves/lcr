@@ -63,7 +63,7 @@ void bchannel_deinitialize(void)
 /*
  * send control information to the channel (dsp-module)
  */
-static void ph_control(unsigned int handle, unsigned int c1, unsigned int c2, char *trace_name, int trace_value, int b_mode)
+static void ph_control(int sock, unsigned int c1, unsigned int c2, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
@@ -78,12 +78,12 @@ static void ph_control(unsigned int handle, unsigned int c1, unsigned int c2, ch
 	ctrl->id = 0;
 	*d++ = c1;
 	*d++ = c2;
-	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
+	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
 	if (ret < 0)
-		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", sock);
 }
 
-static void ph_control_block(unsigned int handle, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value, int b_mode)
+static void ph_control_block(int sock, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value, int b_mode)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
@@ -98,9 +98,9 @@ static void ph_control_block(unsigned int handle, unsigned int c1, void *c2, int
 	ctrl->id = 0;
 	*d++ = c1;
 	memcpy(d, c2, c2_len);
-	ret = sendto(handle, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
+	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)+c2_len, 0, NULL, 0);
 	if (ret < 0)
-		CERROR(NULL, NULL, "Failed to send to socket %d\n", handle);
+		CERROR(NULL, NULL, "Failed to send to socket %d\n", sock);
 }
 
 
@@ -203,39 +203,39 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
  */
 static void bchannel_activated(struct bchannel *bchannel)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 
 	/* set dsp features */
 	if (bchannel->b_txdata)
-		ph_control(handle, (bchannel->b_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata, bchannel->b_mode);
+		ph_control(sock, (bchannel->b_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", bchannel->b_txdata, bchannel->b_mode);
 	if (bchannel->b_delay)
-		ph_control(handle, DSP_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay, bchannel->b_mode);
+		ph_control(sock, DSP_DELAY, bchannel->b_delay, "DSP-DELAY", bchannel->b_delay, bchannel->b_mode);
 	if (bchannel->b_tx_dejitter)
-		ph_control(handle, (bchannel->b_tx_dejitter)?DSP_TX_DEJITTER:DSP_TX_DEJ_OFF, 0, "DSP-TX_DEJITTER", bchannel->b_tx_dejitter, bchannel->b_mode);
+		ph_control(sock, (bchannel->b_tx_dejitter)?DSP_TX_DEJITTER:DSP_TX_DEJ_OFF, 0, "DSP-TX_DEJITTER", bchannel->b_tx_dejitter, bchannel->b_mode);
 	if (bchannel->b_tx_gain)
-		ph_control(handle, DSP_VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain, bchannel->b_mode);
+		ph_control(sock, DSP_VOL_CHANGE_TX, bchannel->b_tx_gain, "DSP-TX_GAIN", bchannel->b_tx_gain, bchannel->b_mode);
 	if (bchannel->b_rx_gain)
-		ph_control(handle, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain, bchannel->b_mode);
+		ph_control(sock, DSP_VOL_CHANGE_RX, bchannel->b_rx_gain, "DSP-RX_GAIN", bchannel->b_rx_gain, bchannel->b_mode);
 	if (bchannel->b_pipeline[0])
-		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
+		ph_control_block(sock, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
 	if (bchannel->b_conf)
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
+		ph_control(sock, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 	if (bchannel->b_echo)
-		ph_control(handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1, bchannel->b_mode);
+		ph_control(sock, DSP_ECHO_ON, 0, "DSP-ECHO", 1, bchannel->b_mode);
 	if (bchannel->b_tone)
-		ph_control(handle, DSP_TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone, bchannel->b_mode);
+		ph_control(sock, DSP_TONE_PATT_ON, bchannel->b_tone, "DSP-TONE", bchannel->b_tone, bchannel->b_mode);
 	if (bchannel->b_rxoff)
-		ph_control(handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1, bchannel->b_mode);
+		ph_control(sock, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1, bchannel->b_mode);
 //	if (bchannel->b_txmix)
-//		ph_control(handle, DSP_MIX_ON, 0, "DSP-MIX", 1, bchannel->b_mode);
+//		ph_control(sock, DSP_MIX_ON, 0, "DSP-MIX", 1, bchannel->b_mode);
 	if (bchannel->b_dtmf)
-		ph_control(handle, DTMF_TONE_START, 0, "DSP-DTMF", 1, bchannel->b_mode);
+		ph_control(sock, DTMF_TONE_START, 0, "DSP-DTMF", 1, bchannel->b_mode);
 	if (bchannel->b_bf_len)
-		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
+		ph_control_block(sock, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
 	if (bchannel->b_conf)
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
+		ph_control(sock, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 
 	bchannel->b_state = BSTATE_ACTIVE;
 }
@@ -399,9 +399,9 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
  */
 void bchannel_join(struct bchannel *bchannel, unsigned short id)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 	if (id) {
 		bchannel->b_conf = (id<<16) + bchannel_pid;
 		bchannel->b_rxoff = 1;
@@ -411,8 +411,8 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 	}
 	if (bchannel->b_state == BSTATE_ACTIVE)
 	{
-		ph_control(handle, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf, bchannel->b_mode);
-		ph_control(handle, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
+		ph_control(sock, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf, bchannel->b_mode);
+		ph_control(sock, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 	}
 }
 
@@ -422,12 +422,12 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
  */
 void bchannel_dtmf(struct bchannel *bchannel, int on)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 	bchannel->b_dtmf = 1;
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control(handle, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1, bchannel->b_mode);
+		ph_control(sock, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1, bchannel->b_mode);
 }
 
 
@@ -436,13 +436,13 @@ void bchannel_dtmf(struct bchannel *bchannel, int on)
  */
 void bchannel_blowfish(struct bchannel *bchannel, unsigned char *key, int len)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 	memcpy(bchannel->b_bf_key, key, len);
 	bchannel->b_bf_len = len;
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control_block(handle, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
+		ph_control_block(sock, DSP_BF_ENABLE_KEY, bchannel->b_bf_key, bchannel->b_bf_len, "DSP-CRYPT", bchannel->b_bf_len, bchannel->b_mode);
 }
 
 
@@ -451,12 +451,12 @@ void bchannel_blowfish(struct bchannel *bchannel, unsigned char *key, int len)
  */
 void bchannel_pipeline(struct bchannel *bchannel, char *pipeline)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 	strncpy(bchannel->b_pipeline, pipeline, sizeof(bchannel->b_pipeline)-1);
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control_block(handle, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
+		ph_control_block(sock, DSP_PIPELINE_CFG, bchannel->b_pipeline, strlen(bchannel->b_pipeline)+1, "DSP-PIPELINE", 0, bchannel->b_mode);
 }
 
 
@@ -465,15 +465,15 @@ void bchannel_pipeline(struct bchannel *bchannel, char *pipeline)
  */
 void bchannel_gain(struct bchannel *bchannel, int gain, int tx)
 {
-	int handle;
+	int sock;
 
-	handle = bchannel->b_sock;
+	sock = bchannel->b_sock;
 	if (tx)
 		bchannel->b_tx_gain = gain;
 	else
 		bchannel->b_rx_gain = gain;
 	if (bchannel->b_state == BSTATE_ACTIVE)
-		ph_control(handle, (tx)?DSP_VOL_CHANGE_TX:DSP_VOL_CHANGE_RX, gain, (tx)?"DSP-TX_GAIN":"DSP-RX_GAIN", gain, bchannel->b_mode);
+		ph_control(sock, (tx)?DSP_VOL_CHANGE_TX:DSP_VOL_CHANGE_RX, gain, (tx)?"DSP-TX_GAIN":"DSP-RX_GAIN", gain, bchannel->b_mode);
 }
 
 

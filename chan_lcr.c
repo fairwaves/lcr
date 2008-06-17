@@ -1065,7 +1065,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 		switch(param->bchannel.type)
 		{
 			case BCHANNEL_ASSIGN:
-			CDEBUG(NULL, NULL, "Received BCHANNEL_ASSIGN message. (handle=%08lx)\n", param->bchannel.handle);
+			CDEBUG(NULL, NULL, "Received BCHANNEL_ASSIGN message. (handle=%08lx) for ref %d\n", param->bchannel.handle, ref);
 			if ((bchannel = find_bchannel_handle(param->bchannel.handle)))
 			{
 				CERROR(NULL, NULL, "bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
