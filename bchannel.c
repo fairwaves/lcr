@@ -113,7 +113,7 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 
-	if (bchannel->b_sock)
+	if (bchannel->b_sock > -1)
 	{
 		CERROR(NULL, NULL, "Socket already created for handle 0x%x\n", bchannel->handle);
 		return(0);
@@ -589,6 +589,7 @@ struct bchannel *alloc_bchannel(unsigned int handle)
 		return(NULL);
 	(*bchannelp)->handle = handle;
 	(*bchannelp)->b_state = BSTATE_IDLE;
+	(*bchannelp)->b_sock = -1;
 		
 	return(*bchannelp);
 }
