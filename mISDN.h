@@ -155,7 +155,7 @@ class PmISDN : public Port
 	unsigned int p_m_timeout;		/* timeout of timers */
 	time_t p_m_timer;			/* start of timer */
 	unsigned int p_m_remote_ref;		/* join to export bchannel to */
-	unsigned int p_m_remote_id;		/* sock to export bchannel to */
+	int p_m_remote_id;			/* sock to export bchannel to */
 
 	int seize_bchannel(int channel, int exclusive); /* requests / reserves / links bchannels, but does not open it! */
 	void drop_bchannel(void);

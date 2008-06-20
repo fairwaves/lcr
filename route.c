@@ -90,7 +90,7 @@ struct cond_defs cond_defs[] = {
 	  "notbusy=<extension>[,...]","Matches if any of the given extension is not busy."},
 	{ "remote",	MATCH_REMOTE,	COND_TYPE_STRING,
 	  "remote=<application name>","Matches if remote application is running."},
-	{ "notremote",	MATCH_NOTREMOTE,COND_TYPE_NULL,
+	{ "notremote",	MATCH_NOTREMOTE,COND_TYPE_STRING,
 	  "notremote=<application name>","Matches if remote application is not running."},
 	{ NULL, 0, 0, NULL}
 };
