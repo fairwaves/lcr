@@ -701,8 +701,8 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 	}
 	if (!join)
 	{
-		PERROR("No join found with serial %d.\n", msg->ref);
-		return(-1);
+		PDEBUG(DEBUG_LOG, "No join found with serial %d. (May have been already released.)\n", msg->ref);
+		return(0);
 	}
 
 	/* check application */
