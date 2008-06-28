@@ -970,6 +970,8 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	p = param->information.id;
 	if (call->state == CHAN_LCR_STATE_IN_DIALING && *p)
 	{
+CERROR(call, call->ast, "DTMF DIALING IS DISABLED DUE TO CURRENT IMPLEMENTATION BUG.\n");
+return;
 		CDEBUG(call, call->ast, "Asterisk is started, sending DTMF frame.\n");
 		while (*p)
 		{
@@ -1039,6 +1041,8 @@ void lcr_in_dtmf(struct chan_call *call, int val)
 		return;
 
 	CDEBUG(call, call->ast, "Forwarding DTMF digit '%c' to Asterisk.\n", val);
+CERROR(call, call->ast, "DTMF DIALING IS DISABLED DUE TO CURRENT IMPLEMENTATION BUG.\n");
+return;
 
 	/* send digit to asterisk */
 	memset(&fr, 0, sizeof(fr));
