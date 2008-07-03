@@ -166,6 +166,7 @@ struct dialing_info {
 	int itype;			/* type of interface */
 	int ntype;			/* type of number */
 	int sending_complete;		/* end of dialing */
+	char display[84];		/* display information */
 };
 
 /* call-info structure CONNECT */

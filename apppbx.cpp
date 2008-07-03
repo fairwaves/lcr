@@ -1633,6 +1633,10 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 {
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
+	/* ignore information message without digit information */
+	if (!param->information.id[0])
+		return;
+
 	e_overlap = 1;
 
 	/* turn off dtmf detection, in case dtmf is sent with keypad information */
@@ -4103,6 +4107,10 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		}
 		if (param->setup.dialinginfo.id[0])
 			add_trace("dialing", NULL, "%s", param->setup.dialinginfo.id);
+		if (param->setup.dialinginfo.display[0])
+			add_trace("display", NULL, "%s", param->setup.dialinginfo.display);
+		if (param->setup.dialinginfo.sending_complete)
+			add_trace("complete", NULL, "true", param->setup.dialinginfo.sending_complete);
 		end_trace();
 		break;
 
@@ -4153,6 +4161,8 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		      	default:
 			add_trace("connect id", "present", "not available");
 		}
+		if (param->connectinfo.display[0])
+			add_trace("display", NULL, "%s", param->connectinfo.display);
 		end_trace();
 		break;
 
@@ -4196,6 +4206,8 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			default:
 			add_trace("cause", "location", "%d", param->disconnectinfo.location);
 		}
+		if (param->disconnectinfo.display[0])
+			add_trace("display", NULL, "%s", param->disconnectinfo.display);
 		end_trace();
 		break;
 
@@ -4312,7 +4324,12 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("to", NULL, "CH(%lu)", port_id);
 		if (dir == DIRECTION_IN)
 			add_trace("from", NULL, "CH(%lu)", port_id);
-		add_trace("dialing", NULL, "%s", param->information.id);
+		if (param->information.id[0])
+			add_trace("dialing", NULL, "%s", param->information.id);
+		if (param->information.display[0])
+			add_trace("display", NULL, "%s", param->information.display);
+		if (param->information.sending_complete)
+			add_trace("complete", NULL, "true", param->information.sending_complete);
 		end_trace();
 		break;
 

@@ -430,4 +430,7 @@ Changes in Version 1.0
 - First Alpha release of chan_lcr - the Asterisk PBX channel link driver.
   -> Use LCR in conjunction with Asterisk, or simply as ISDN frontend.
 
+Changes for next Version
+- Fixed dtmf bug.
+- Added more display infos
 

@@ -460,6 +460,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_channel_id(l3m, &exclusive, &channel);
 	dec_ie_hlc(l3m, &hlc_coding, &hlc_interpretation, &hlc_presentation, &hlc_hlc, &hlc_exthlc);
 	dec_ie_bearer(l3m, &bearer_coding, &bearer_capability, &bearer_mode, &bearer_rate, &bearer_multi, &bearer_user);
+	dec_ie_display(l3m, (unsigned char *)p_dialinginfo.display, sizeof(p_dialinginfo.display));
 	end_trace();
 
 	/* if blocked, release call with MT_RELEASE_COMPLETE */
@@ -709,12 +710,13 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
 	int type, plan;
-	unsigned char keypad[32] = "";
+	unsigned char keypad[32] = "", display[128] = "";
 	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_IND, DIRECTION_IN);
 	dec_ie_called_pn(l3m, &type, &plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(l3m, (unsigned char *)keypad, sizeof(keypad));
+	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	dec_ie_complete(l3m, &p_dialinginfo.sending_complete);
 	end_trace();
 
@@ -734,6 +736,7 @@ void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l
 		p_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 		break;
 	}
+	SCAT(p_dialinginfo.display, (char *)display);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
 	memcpy(&message->param.information, &p_dialinginfo, sizeof(struct dialing_info));
 	message_put(message);
@@ -947,6 +950,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_IND, DIRECTION_IN);
 	dec_ie_channel_id(l3m, &exclusive, &channel);
 	dec_ie_connected_pn(l3m, &type, &plan, &present, &screen, (unsigned char *)p_connectinfo.id, sizeof(p_connectinfo.id));
+	dec_ie_display(l3m, (unsigned char *)p_connectinfo.display, sizeof(p_connectinfo.display));
 	/* te-mode: CONP (connected name identification presentation) */
 	if (!p_m_d_ntmode)
 		dec_facility_centrex(l3m, (unsigned char *)p_connectinfo.name, sizeof(p_connectinfo.name));
@@ -1036,10 +1040,12 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	int location, cause;
 	int coding, proglocation, progress;
 	struct lcr_msg *message;
+	unsigned char display[128] = "";
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_IND, DIRECTION_IN);
 	dec_ie_progress(l3m, &coding, &proglocation, &progress);
 	dec_ie_cause(l3m, &location, &cause);
+	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	end_trace();
 
 	if (cause < 0)
@@ -1065,6 +1071,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = cause;
 			message->param.disconnectinfo.location = location;
+			SCAT(message->param.disconnectinfo.display, (char *)display);
 			message_put(message);
 			/* remove epoint */
 			free_epointlist(p_epointlist);
@@ -1082,6 +1089,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DISCONNECT);
 		message->param.disconnectinfo.location = location;
 		message->param.disconnectinfo.cause = cause;
+		SCAT(message->param.disconnectinfo.display, (char *)display);
 		message_put(message);
 	}
 	while(INACTIVE_EPOINT(p_epointlist))
@@ -1089,6 +1097,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		message = message_create(p_serial, INACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.location = location;
 		message->param.disconnectinfo.cause = cause;
+		SCAT(message->param.disconnectinfo.display, (char *)display);
 		message_put(message);
 		/* remove epoint */
 		free_epointid(INACTIVE_EPOINT(p_epointlist));
@@ -1125,9 +1134,11 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
 	int location, cause;
 	struct lcr_msg *message;
+	unsigned char display[128] = "";
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_IND, DIRECTION_IN);
 	dec_ie_cause(l3m, &location, &cause);
+	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	end_trace();
 
 	if (cause < 0)
@@ -1141,6 +1152,7 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = cause;
 		message->param.disconnectinfo.location = location;
+		SCAT(message->param.disconnectinfo.display, (char *)display);
 		message_put(message);
 		/* remove epoint */
 		free_epointlist(p_epointlist);
@@ -1210,10 +1222,12 @@ void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	struct lcr_msg *message;
 	int notify, type, plan, present;
 	unsigned char notifyid[sizeof(message->param.notifyinfo.id)];
+	unsigned char display[128] = "";
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_IND, DIRECTION_IN);
 	dec_ie_notify(l3m, &notify);
 	dec_ie_redir_dn(l3m, &type, &plan, &present, notifyid, sizeof(notifyid));
+	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	end_trace();
 
 	if (!ACTIVE_EPOINT(p_epointlist))
@@ -1257,6 +1271,7 @@ void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		message->param.notifyinfo.ntype = INFO_NTYPE_UNKNOWN;
 		break;
 	}
+	SCAT(message->param.notifyinfo.display, (char *)display);
 	message->param.notifyinfo.isdn_port = p_m_portnum;
 	message_put(message);
 }
@@ -1849,6 +1864,8 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)param->information.id);
+ 	 	if (p_m_d_ntmode)
+			enc_ie_display(l3m, (unsigned char *)param->information.display);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
 	}
