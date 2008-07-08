@@ -433,4 +433,6 @@ Changes in Version 1.0
 Changes for next Version
 - Fixed dtmf bug.
 - Added more display infos
+- Fixed b-channel check bug. (channel seemed busy, even if it was free)
+- Forced proceeding, if "sending complete".
 

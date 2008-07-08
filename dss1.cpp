@@ -326,13 +326,22 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 		/* exclusive channel requests must be in the list */
 		if (exclusive)
 		{
+			/* no exclusive channel */
 			if (!channel)
 			{
 				add_trace("conclusion", NULL, "exclusively requested channel not in list");
 				end_trace();
 				return(-6); // channel unacceptable
 			}
-			i = selchannel->channel-1-(selchannel->channel>=17);
+			/* get index for channel */
+			i = channel-1-(channel>=17);
+			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16)
+			{
+				add_trace("conclusion", NULL, "exclusively requested channel outside interface range");
+				end_trace();
+				return(-6); // channel unacceptable
+			}
+			/* check if busy */
 			if (p_m_mISDNport->b_port[i] == NULL)
 				goto use_channel;
 			add_trace("conclusion", NULL, "exclusively requested channel is busy");
@@ -343,7 +352,12 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 		/* requested channels in list will be used */
 		if (channel)
 		{
-			i = selchannel->channel-1-(selchannel->channel>=17);
+			/* get index for channel */
+			i = channel-1-(channel>=17);
+			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16)
+			{
+				add_trace("info", NULL, "requested channel %d outside interface range", channel);
+			} else /* if inside range (else) check if available */
 			if (p_m_mISDNport->b_port[i] == NULL)
 				goto use_channel;
 		}
@@ -2261,6 +2275,14 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 void Pdss1::message_overlap(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
+
+	/* in case of sending complete, we proceed */
+	if (p_dialinginfo.sending_complete)
+	{
+		PDEBUG(DEBUG_ISDN, "sending proceeding instead of setup_acknowledge, because address is complete.\n");
+		message_proceeding(epoint_id, message_id, param);
+		return;
+	}
 
 	/* sending setup_acknowledge */
 	l3m = create_l3msg();
