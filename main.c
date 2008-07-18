@@ -275,7 +275,8 @@ int main(int argc, char *argv[])
 	/* query available isdn ports */
 	if (!(strcasecmp(argv[1],"query")))
 	{
-		mISDN_port_info();
+		fprintf(stderr, "-> Using 'isdninfo'\n");
+		system("isdninfo");
 		ret = 0;
 		goto free;
 	}

@@ -61,6 +61,8 @@ struct chan_call {
 	int			bf_len;	/* blowfish crypt key */
 	int			transparent, hdlc;
 					/* flags for bchannel mode */
+	char			queue_string[64];
+					/* queue for asterisk */
 		
 };
 

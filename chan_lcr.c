@@ -78,6 +78,27 @@ LCR and the chan_call instance is destroyed.
 If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
 "Call is released by LCR".
 
+
+Locking issues:
+
+The deadlocking problem:
+
+- chan_lcr locks chan_lock and waits inside ast_queue_xxxx() for ast_channel
+to be unlocked.
+- ast_channel thread locks ast_channel and calls a tech function and waits
+there for chan_lock to be unlocked.
+
+The solution:
+
+Never call ast_queue_xxxx() if ast_channel is not locked and don't wait until
+ast_channel can be locked. All messages to asterisk are queued inside call
+instance and will be handled using a try-lock to get ast_channel lock.
+If it succeeds to lock ast_channel, the ast_queue_xxxx can safely called even
+if the lock is incremented and decremented there.
+
+Exception: Calling ast_queue_frame inside ast->tech->read is safe, because
+it is called from ast_channel process which has already locked ast_channel.
+
 */
 
 #include <stdio.h>
@@ -796,7 +817,8 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	/* change state */
 	call->state = CHAN_LCR_STATE_IN_SETUP;
 
-	lcr_start_pbx(call, ast, param->setup.dialinginfo.sending_complete);
+	if (!call->pbx_started)
+		lcr_start_pbx(call, ast, param->setup.dialinginfo.sending_complete);
 }
 
 /*
@@ -824,9 +846,9 @@ static void lcr_in_proceeding(struct chan_call *call, int message_type, union pa
 
 	/* change state */
 	call->state = CHAN_LCR_STATE_OUT_PROCEEDING;
-	/* send event to asterisk */
+	/* queue event for asterisk */
 	if (call->ast && call->pbx_started)
-		ast_queue_control(call->ast, AST_CONTROL_PROCEEDING);
+		strncat(call->queue_string, "P", sizeof(call->queue_string)-1);
 }
 
 /*
@@ -838,9 +860,9 @@ static void lcr_in_alerting(struct chan_call *call, int message_type, union para
 
 	/* change state */
 	call->state = CHAN_LCR_STATE_OUT_ALERTING;
-	/* send event to asterisk */
+	/* queue event to asterisk */
 	if (call->ast && call->pbx_started)
-		ast_queue_control(call->ast, AST_CONTROL_RINGING);
+		strncat(call->queue_string, "R", sizeof(call->queue_string)-1);
 }
 
 /*
@@ -863,9 +885,9 @@ static void lcr_in_connect(struct chan_call *call, int message_type, union param
 	}
 	/* copy connectinfo */
 	memcpy(&call->connectinfo, &param->connectinfo, sizeof(struct connect_info));
-	/* send event to asterisk */
+	/* queue event to asterisk */
 	if (call->ast && call->pbx_started)
-		ast_queue_control(call->ast, AST_CONTROL_ANSWER);
+		strncat(call->queue_string, "A", sizeof(call->queue_string)-1);
 }
 
 /*
@@ -897,12 +919,12 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	call->ref = 0;
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
-	/* release asterisk */
+	/* queue release asterisk */
 	if (ast)
 	{
 		ast->hangupcause = call->cause;
 		if (call->pbx_started)
-			ast_queue_hangup(ast);
+			strcpy(call->queue_string, "H"); // overwrite other indications
 		else {
 			ast_hangup(ast); // call will be destroyed here
 		}
@@ -928,12 +950,12 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
 	       call->cause = param->disconnectinfo.cause;
 	       call->location = param->disconnectinfo.location;
 	}
-	/* if we have an asterisk instance, send hangup, else we are done */
+	/* if we have an asterisk instance, queue hangup, else we are done */
 	if (ast)
 	{
 		ast->hangupcause = call->cause;
 		if (call->pbx_started)
-			ast_queue_hangup(ast);
+			strcpy(call->queue_string, "H");
 		else {
 			ast_hangup(ast); // call will be destroyed here
 		}
@@ -950,8 +972,6 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
 static void lcr_in_information(struct chan_call *call, int message_type, union parameter *param)
 {
 	struct ast_channel *ast = call->ast;
-	struct ast_frame fr;
-	char *p;
 
 	CDEBUG(call, call->ast, "Incoming information from LCR. (dialing=%s)\n", param->information.id);
 	
@@ -966,24 +986,10 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 		return;
 	}
 	
-	/* copy digits */
-	p = param->information.id;
-	if (call->state == CHAN_LCR_STATE_IN_DIALING && *p)
-	{
-CERROR(call, call->ast, "DTMF DIALING IS DISABLED DUE TO CURRENT IMPLEMENTATION BUG.\n");
-return;
-		CDEBUG(call, call->ast, "Asterisk is started, sending DTMF frame.\n");
-		while (*p)
-		{
-			/* send digit to asterisk */
-			memset(&fr, 0, sizeof(fr));
-			fr.frametype = AST_FRAME_DTMF;
-			fr.subclass = *p;
-			fr.delivery = ast_tv(0, 0);
-			ast_queue_frame(call->ast, &fr);
-			p++;
-		}
-	}
+	/* queue digits */
+	if (call->state == CHAN_LCR_STATE_IN_DIALING && param->information.id[0])
+		strncat(call->queue_string, param->information.id, sizeof(call->queue_string)-1);
+
 	/* use bridge to forware message not supported by asterisk */
 	if (call->state == CHAN_LCR_STATE_CONNECT) {
 		CDEBUG(call, call->ast, "Call is connected, briding.\n");
@@ -1033,23 +1039,17 @@ static void lcr_in_facility(struct chan_call *call, int message_type, union para
 void lcr_in_dtmf(struct chan_call *call, int val)
 {
 	struct ast_channel *ast = call->ast;
-	struct ast_frame fr;
+	char digit[2];
 
 	if (!ast)
 		return;
 	if (!call->pbx_started)
 		return;
 
-	CDEBUG(call, call->ast, "Forwarding DTMF digit '%c' to Asterisk.\n", val);
-CERROR(call, call->ast, "DTMF DIALING IS DISABLED DUE TO CURRENT IMPLEMENTATION BUG.\n");
-return;
-
-	/* send digit to asterisk */
-	memset(&fr, 0, sizeof(fr));
-	fr.frametype = AST_FRAME_DTMF;
-	fr.subclass = val;
-	fr.delivery = ast_tv(0, 0);
-	ast_queue_frame(call->ast, &fr);
+	CDEBUG(call, call->ast, "Recognised DTMF digit '%c'.\n", val);
+	digit[0] = val;
+	digit[1] = '\0';
+	strncat(call->queue_string, digit, sizeof(call->queue_string)-1);
 }
 
 /*
@@ -1314,7 +1314,7 @@ again:
 			goto again;
 		}
 		CDEBUG(call, call->ast, "Queue call release, because Asterisk channel is running.\n");
-		ast_queue_hangup(call->ast);
+		strcpy(call->queue_string, "H");
 		call = call->next;
 	}
 
@@ -1468,10 +1468,76 @@ void close_socket(void)
 	lcr_sock = -1;
 }
 
+
+/* sending queue to asterisk */
+static int queue_send(void)
+{
+	int work = 0;
+	struct chan_call *call;
+	struct ast_channel *ast;
+	struct ast_frame fr;
+	char *p;
+
+	call = call_first;
+	while(call) {
+		p = call->queue_string;
+		ast = call->ast;
+		if (*p && ast) {
+			/* there is something to queue */
+			if (!ast_channel_trylock(ast)) { /* succeed */
+				while(*p) {
+					switch (*p) {
+					case 'P':
+						CDEBUG(call, ast, "Sending queued PROCEEDING to Asterisk.\n");
+						ast_queue_control(ast, AST_CONTROL_PROCEEDING);
+						break;
+					case 'R':
+						CDEBUG(call, ast, "Sending queued RINGING to Asterisk.\n");
+						ast_queue_control(ast, AST_CONTROL_RINGING);
+						break;
+					case 'A':
+						CDEBUG(call, ast, "Sending queued ANSWER to Asterisk.\n");
+						ast_queue_control(ast, AST_CONTROL_ANSWER);
+						break;
+					case 'H':
+						CDEBUG(call, ast, "Sending queued HANGUP to Asterisk.\n");
+						ast_queue_hangup(ast);
+						break;
+					case '1': case '2': case '3': case 'a':
+					case '4': case '5': case '6': case 'b':
+					case '7': case '8': case '9': case 'c':
+					case '*': case '0': case '#': case 'd':
+						CDEBUG(call, ast, "Sending queued digit '%c' to Asterisk.\n", *p);
+						/* send digit to asterisk */
+						memset(&fr, 0, sizeof(fr));
+						fr.frametype = AST_FRAME_DTMF;
+						fr.subclass = *p;
+						fr.delivery = ast_tv(0, 0);
+						fr.len = 100;
+						ast_queue_frame(ast, &fr);
+						break;
+					default:
+						CDEBUG(call, ast, "Ignoring queued digit 0x%02d.\n", *p);
+					}
+					p++;
+				}
+				call->queue_string[0] = '\0';
+				ast_channel_unlock(ast);
+				work = 1;
+			}
+		}
+		call = call->next;
+	}
+
+	return work;
+}
+
+/* signal handler */
 void sighandler(int sigset)
 {
 }
 
+/* chan_lcr thread */
 static void *chan_thread(void *arg)
 {
 	int work;
@@ -1520,7 +1586,13 @@ static void *chan_thread(void *arg)
 		ret = bchannel_handle();
 		if (ret)
 			work = 1;
-		
+
+		/* handle messages to asterisk */
+		ret = queue_send();
+		if (ret)
+			work = 1;
+
+		/* delay if no work done */
 		if (!work) {
 			ast_mutex_unlock(&chan_lock);
 			usleep(30000);
@@ -1556,6 +1628,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	if (lcr_sock < 0)
 	{
 		CERROR(NULL, NULL, "Rejecting call from Asterisk, because LCR not running.\n");
+		ast_mutex_unlock(&chan_lock);
 		return NULL;
 	}
 
@@ -1564,6 +1637,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	if (!call)
 	{
 		/* failed to create instance */
+		ast_mutex_unlock(&chan_lock);
 		return NULL;
 	}
 
@@ -1574,6 +1648,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		CERROR(NULL, NULL, "Failed to create Asterisk channel.\n");
 		free_call(call);
 		/* failed to create instance */
+		ast_mutex_unlock(&chan_lock);
 		return NULL;
 	}
 	ast->tech = &lcr_tech;
@@ -1680,12 +1755,6 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 
 static int lcr_digit_begin(struct ast_channel *ast, char digit)
 {
-	printf("DIGT BEGIN %c\n", digit);
-	return (0);
-}
-
-static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int duration)
-{
         struct chan_call *call;
 	union parameter newparam;
 	char buf[]="x";
@@ -1723,6 +1792,12 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 
 	ast_mutex_unlock(&chan_lock);
 	return(0);
+}
+
+static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int duration)
+{
+	printf("DIGIT END %c\n", digit);
+	return (0);
 }
 
 static int lcr_answer(struct ast_channel *ast)
