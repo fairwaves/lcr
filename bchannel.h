@@ -30,6 +30,8 @@ struct bchannel {
 	int b_dtmf;
 	int b_bf_len;
 	unsigned char b_bf_key[128];
+	int rebuffer_usage;
+	unsigned char rebuffer[160];
 };
 
 

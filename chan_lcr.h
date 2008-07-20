@@ -53,6 +53,8 @@ struct chan_call {
 					/* shall dtmf be enabled */
 	int			no_dtmf;
 					/* dtmf disabled by option */
+        int                     rebuffer; /* send only 160 bytes frames
+					     to asterisk */
 	char			pipeline[256];
 					/* echo cancel pipeline by option */
 	int			tx_gain, rx_gain;

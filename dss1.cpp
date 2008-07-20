@@ -1193,14 +1193,17 @@ void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_m
 	
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_IND, DIRECTION_IN);
 	/* in case layer 2 is down during setup, we send cause 27 loc 5 */
-	if (p_state == PORT_STATE_OUT_SETUP && !p_m_mISDNport->l1link)
+	if (p_state == PORT_STATE_OUT_SETUP && p_m_mISDNport->l1link == 0)
 	{
 		cause = 27;
 		location = 5;
 	} else
 	{
 		dec_ie_cause(l3m, &location, &cause);
-		add_trace("layer 1", NULL, (p_m_mISDNport->l1link)?"up":"down");
+		if (p_m_mISDNport->l1link < 0)
+			add_trace("layer 1", NULL, "unknown");
+		else
+			add_trace("layer 1", NULL, (p_m_mISDNport->l1link)?"up":"down");
 	}
 	end_trace();
 	if (location == LOCATION_PRIVATE_LOCAL)

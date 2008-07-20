@@ -679,8 +679,11 @@ char *admin_state(int sock, char *argv[])
 					color((m[i].u.i.l2link)?green:red);
 					addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
 				}
-				color((m[i].u.i.l1link)?green:blue);
-				addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
+				color((m[i].u.i.l1link > 0)?green:blue);
+				if (m[i].u.i.l1link < 0)
+					addstr("  L1 unknown");
+				else
+					addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
 				if (m[i].u.i.los)
 				{
 					color(red);

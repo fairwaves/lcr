@@ -2215,6 +2215,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	while(*mISDNportp)
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
+	mISDNport->l1link = -1;
 	pmemuse++;
 	*mISDNportp = mISDNport;
 

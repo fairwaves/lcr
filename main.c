@@ -226,13 +226,6 @@ int main(int argc, char *argv[])
 	/* init crc */
 	crc_init();
 
-	/* check for root (real or effective) */
-	if (getuid() && geteuid())
-	{
-		fprintf(stderr, "Please run %s as super-user.\n", NAME);
-		goto free;
-	}
-
 	/* the mutex init */
 	if (pthread_mutex_init(&mutexd, NULL))
 	{

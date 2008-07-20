@@ -195,6 +195,7 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
 
 	bchannel->b_state = (activate)?BSTATE_ACTIVATING:BSTATE_DEACTIVATING;
+	bchannel->rebuffer_usage = 0;
 }
 
 
@@ -249,6 +250,7 @@ void bchannel_destroy(struct bchannel *bchannel)
 	{
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
+		bchannel->rebuffer_usage = 0;
 	}
 	bchannel->b_state = BSTATE_IDLE;
 }
@@ -346,17 +348,63 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, i
 		/* return, because we have no audio from port */
 		return;
 	}
-	if (bchannel->call->pipe[1] > -1)
+
+	if (bchannel->call->pipe[1] < 0)
 	{
+		/* nobody there */
+		return;
+	}
+
+
+	if (bchannel->call->rebuffer) {
+		int u = bchannel->rebuffer_usage;
+		unsigned char * b = bchannel->rebuffer;
+		unsigned char * d = data;
+		int l = len;
+		int fd = bchannel->call->pipe[1];
+
+		if (u > 0) {
+			if (u + l >= 160) {
+				memcpy(b + u, d, 160 - u);
+				d += 160 - u;
+				l -= 160 - u;
+				u = 0;
+				if (write(fd, b, 160) < 0) {
+					goto errout;
+				}
+			} else {
+				memcpy(b + u, d, l);
+				u += l;
+				l = 0;
+			}
+		}
+
+		while (l >= 160) {
+			if (write(fd, d, 160) < 0) {
+				goto errout;
+			}
+			d += 160;
+			l -= 160;
+		}
+
+		if (l > 0) {
+			memcpy(b, d, l);
+		} 
+		bchannel->rebuffer_usage = u + l;
+	} else {
 		len = write(bchannel->call->pipe[1], data, len);
 		if (len < 0)
 		{
-			close(bchannel->call->pipe[1]);
-			bchannel->call->pipe[1] = -1;
-			CDEBUG(NULL, NULL, "broken pipe on bchannel pipe\n");
-			return;
+			goto errout;
 		}
 	}
+
+	return;
+ errout:
+	close(bchannel->call->pipe[1]);
+	bchannel->call->pipe[1] = -1;
+	bchannel->rebuffer_usage = 0;
+	CDEBUG(NULL, NULL, "broken pipe on bchannel pipe\n");
 }
 
 
