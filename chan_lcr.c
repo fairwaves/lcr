@@ -1943,7 +1943,11 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 		return NULL;
 	}
 	if (call->pipe[0] > -1) {
-		len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
+		if (call->rebuffer) {
+			len = read(call->pipe[0], call->read_buff, 160);
+		} else {
+			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
+		}
 		if (len <= 0) {
 			close(call->pipe[0]);
 			call->pipe[0] = -1;
