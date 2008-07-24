@@ -690,7 +690,6 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 
 		/* change state */
 		call->state = CHAN_LCR_STATE_IN_PROCEEDING;
-		ast_setstate(ast, AST_STATE_OFFHOOK);
 
 		goto start;
 	}
@@ -705,7 +704,6 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 
 		/* change state */
 		call->state = CHAN_LCR_STATE_IN_DIALING;
-		ast_setstate(ast, AST_STATE_OFFHOOK);
 
 		/* if match, start pbx */
 		if (ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad)) {
@@ -742,6 +740,10 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		goto release;
 	}
 	call->pbx_started = 1;
+//	if (call->state == CHAN_LCR_STATE_IN_DIALING)
+//		ast_setstate(ast, AST_STATE_DIALING);
+//	else
+//		ast_setstate(ast, AST_STATE_OFFHOOK);
 	return;
 }
 
@@ -994,6 +996,13 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 		strncat(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
 		lcr_start_pbx(call, ast, param->information.sending_complete);
 		return;
+	}
+	
+	/* change dailing state after setup */
+	if (call->state == CHAN_LCR_STATE_IN_SETUP) {
+		CDEBUG(call, call->ast, "Changing from SETUP to DIALING state.\n");
+		call->state = CHAN_LCR_STATE_IN_DIALING;
+//		ast_setstate(ast, AST_STATE_DIALING);
 	}
 	
 	/* queue digits */
@@ -1520,10 +1529,11 @@ static int queue_send(void)
 						CDEBUG(call, ast, "Sending queued digit '%c' to Asterisk.\n", *p);
 						/* send digit to asterisk */
 						memset(&fr, 0, sizeof(fr));
-						fr.frametype = AST_FRAME_DTMF;
+						fr.frametype = AST_FRAME_DTMF_BEGIN;
 						fr.subclass = *p;
 						fr.delivery = ast_tv(0, 0);
-						fr.len = 100;
+						ast_queue_frame(ast, &fr);
+						fr.frametype = AST_FRAME_DTMF_END;
 						ast_queue_frame(ast, &fr);
 						break;
 					default:
@@ -1823,17 +1833,19 @@ static int lcr_answer(struct ast_channel *ast)
 		return -1;
 	}
 	
-	CDEBUG(call, ast, "Received answer from Asterisk.\n");
+	CDEBUG(call, ast, "Received answer from Asterisk (maybe during lcr_bridge).\n");
 		
 	/* copy connectinfo, if bridged */
 	if (call->bridge_call)
 		memcpy(&call->connectinfo, &call->bridge_call->connectinfo, sizeof(struct connect_info));
 	/* send connect message to lcr */
-	memset(&newparam, 0, sizeof(union parameter));
-	memcpy(&newparam.connectinfo, &call->connectinfo, sizeof(struct connect_info));
-	send_message(MESSAGE_CONNECT, call->ref, &newparam);
+	if (call->state != CHAN_LCR_STATE_CONNECT) {
+		memset(&newparam, 0, sizeof(union parameter));
+		memcpy(&newparam.connectinfo, &call->connectinfo, sizeof(struct connect_info));
+		send_message(MESSAGE_CONNECT, call->ref, &newparam);
+		call->state = CHAN_LCR_STATE_CONNECT;
+	}
 	/* change state */
-	call->state = CHAN_LCR_STATE_CONNECT;
 	/* request bchannel */
 	if (!call->bchannel) {
 		CDEBUG(call, ast, "Requesting B-channel.\n");
@@ -2143,7 +2155,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 
 	carr[0] = ast1;
 	carr[1] = ast2;
-	
+
 	/* join via dsp (if the channels are currently open) */
 	ast_mutex_lock(&chan_lock);
 	bridge_id = new_bridge_id();
@@ -2163,6 +2175,22 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 			bchannel_join(call2->bchannel, bridge_id);
 		call2->bridge_call = call1;
 	}
+
+	if (call1->state == CHAN_LCR_STATE_IN_SETUP
+	 || call1->state == CHAN_LCR_STATE_IN_DIALING
+	 || call1->state == CHAN_LCR_STATE_IN_PROCEEDING
+	 || call1->state == CHAN_LCR_STATE_IN_ALERTING) {
+		CDEBUG(call1, ast1, "Bridge established before lcr_answer, so we call it ourself: Calling lcr_answer...\n");
+		lcr_answer(ast1);
+	}
+	if (call2->state == CHAN_LCR_STATE_IN_SETUP
+	 || call2->state == CHAN_LCR_STATE_IN_DIALING
+	 || call2->state == CHAN_LCR_STATE_IN_PROCEEDING
+	 || call2->state == CHAN_LCR_STATE_IN_ALERTING) {
+		CDEBUG(call2, ast2, "Bridge established before lcr_answer, so we call it ourself: Calling lcr_answer...\n");
+		lcr_answer(ast2);
+	}
+	
 	ast_mutex_unlock(&chan_lock);
 	
 	while(1) {
