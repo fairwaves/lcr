@@ -2001,9 +2001,9 @@ int mISDN_handler(void)
 				break;
 
 				case MT_L2RELEASE:
-				l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 				if (!mISDNport->l2establish)
 				{
+					l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 					add_trace("tei", NULL, "%d", l3m->pid);
 					end_trace();
 				}

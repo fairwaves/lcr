@@ -133,9 +133,9 @@ struct trace {
 //#define CATEGORY_BC	0x04 check lcradmin help
 
 
-#define start_trace(port, interface, caller, dialing, direction, category, serial, name) _start_trace(__FUNCTION__, __LINE__, port, interface, caller, dialing, direction, category, serial, name)
-#define add_trace(name, sub, fmt, arg...) _add_trace(__FUNCTION__, __LINE__, name, sub, fmt, ## arg)
-#define end_trace() _end_trace(__FUNCTION__, __LINE__)
+#define start_trace(port, interface, caller, dialing, direction, category, serial, name) _start_trace(__FILE__, __LINE__, port, interface, caller, dialing, direction, category, serial, name)
+#define add_trace(name, sub, fmt, arg...) _add_trace(__FILE__, __LINE__, name, sub, fmt, ## arg)
+#define end_trace() _end_trace(__FILE__, __LINE__)
 void _start_trace(const char *__file, int line, int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
 void _add_trace(const char *__file, int line, char *name, char *sub, const char *fmt, ...);
 void _end_trace(const char *__file, int line);

@@ -690,6 +690,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 
 		/* change state */
 		call->state = CHAN_LCR_STATE_IN_PROCEEDING;
+		ast_setstate(ast, AST_STATE_OFFHOOK);
 
 		goto start;
 	}
@@ -704,6 +705,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 
 		/* change state */
 		call->state = CHAN_LCR_STATE_IN_DIALING;
+		ast_setstate(ast, AST_STATE_OFFHOOK);
 
 		/* if match, start pbx */
 		if (ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad)) {
