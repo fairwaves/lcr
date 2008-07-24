@@ -591,8 +591,12 @@ static void send_setup_to_lcr(struct chan_call *call)
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
-	newparam.setup.capainfo.bearer_info1 = (options.law=='a')?3:2;
-	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
+	if (call->hdlc)
+		newparam.setup.capainfo.bearer_mode = INFO_BMODE_PACKET;
+	else {
+		newparam.setup.capainfo.bearer_info1 = (options.law=='a')?3:2;
+		newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
+	}
 	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
 	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
 	send_message(MESSAGE_SETUP, call->ref, &newparam);
@@ -2438,7 +2442,7 @@ int load_module(void)
 				 "    d - Send display text on called phone, text is the optarg.\n"
 				 "    n - Don't detect dtmf tones on called channel.\n"
 				 "    h - Force data call (HDLC).\n" 
-				 "    t - Disable all audio features (required for fax application).\n"
+				 "    t - Disable mISDN_dsp features (required for fax application).\n"
 				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
 				 "    e - Perform echo cancelation on this channel.\n"
 				 "        Takes mISDN pipeline option as optarg.\n"
