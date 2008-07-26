@@ -739,6 +739,8 @@ char *admin_state(int sock, char *argv[])
 								SPRINT(buffer,"S%2d: ", j+1+(j>=15));
 							else
 								SPRINT(buffer,"B%2d: ", j+1);
+							if (m[i].u.i.mode[j] == B_MODE_HDLC)
+								SCAT(buffer,"HDLC ");
 							addstr(buffer);
 							switch(m[i].u.i.busy[j])
 							{

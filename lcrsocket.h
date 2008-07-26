@@ -77,6 +77,7 @@ struct admin_response_interface {
 	int		channels;
 	char		busy[256]; /* if port is idle(0) busy(1) */
 	unsigned int	port[256]; /* current port */
+	int		mode[256];
 };
 
 struct admin_response_remote {

@@ -23,7 +23,7 @@ extern unsigned int mt_assign_pid;
 /*
  * constructor
  */
-Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive) : PmISDN(type, mISDNport, portname, settings, channel, exclusive)
+Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, channel, exclusive, mode)
 {
 	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_m_d_ntmode = mISDNport->ntmode;
@@ -668,6 +668,15 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_capainfo.exthlc = hlc_exthlc + 0x80;
 		break;
 	}
+
+	/* set bchannel mode */
+	if (p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED
+	 || p_capainfo.bearer_capa==INFO_BC_DATARESTRICTED
+	 || p_capainfo.bearer_capa==INFO_BC_VIDEO)
+		p_capainfo.source_mode = B_MODE_HDLC;
+	else
+		p_capainfo.source_mode = B_MODE_TRANSPARENT;
+	p_m_b_mode = p_capainfo.source_mode;
 
 	/* hunt channel */
 	ret = channel = hunt_bchannel(channel, exclusive);
@@ -1535,6 +1544,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	if (ret < 0)
 		goto no_channel;
 
+// mode (if hdlc parked) to be done. never mind, this is almost never requested
 	/* open channel */
 	ret = seize_bchannel(channel, 1);
 	if (ret < 0)
@@ -2892,18 +2902,18 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	switch(cmd)
 	{
 		case MT_SETUP:
-		/* creating port object */
+		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT)))
 
 			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(cmd, pid, l3m);
 		break;
 
 		case MT_RESUME:
-		/* creating port object */
+		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0)))
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT)))
 			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(cmd, pid, l3m);
 		break;

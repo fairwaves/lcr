@@ -919,6 +919,7 @@ int admin_state(struct admin_queue **responsep)
 					response->am[num].u.i.busy[i] = mISDNport->b_state[i];
 					if (mISDNport->b_port[i])
 						response->am[num].u.i.port[i] = mISDNport->b_port[i]->p_serial;
+					response->am[num].u.i.mode[i] = mISDNport->b_mode[i];
 					i++;
 				}
 			}

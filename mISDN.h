@@ -51,6 +51,7 @@ struct mISDNport {
 	class PmISDN *b_port[128]; /* bchannel assigned to port object */
 	struct mqueue upqueue;
 	int b_socket[128];
+	int b_mode[128]; /* B_MODE_* */
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	double b_timer[128]; /* timer for state machine */
 	int b_remote_id[128]; /* the socket currently exported (0=none) */
@@ -97,7 +98,7 @@ void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsign
 class PmISDN : public Port
 {
 	public:
-	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive);
+	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~PmISDN();
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
 	int handler(void);
@@ -149,6 +150,7 @@ class PmISDN : public Port
 	int p_m_b_reserve;			/* set if channel is reserved */
 //	long long p_m_jittercheck;		/* time of audio data */
 //	long long p_m_jitterdropped;		/* number of bytes dropped */
+	int p_m_b_mode;				/* bchannel mode */
 	int p_m_delete;				/* true if obj. must del. */
 	int p_m_hold;				/* if port is on hold */
 	unsigned int p_m_timeout;		/* timeout of timers */

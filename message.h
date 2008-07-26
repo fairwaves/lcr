@@ -144,6 +144,10 @@ enum {
 	B_STATE_REMOTE,		/* bchannel assigned to remote application */
 	B_STATE_IMPORTING,	/* BCHANNEL_REMOVE sent */
 };
+enum {
+	B_MODE_TRANSPARENT,	/* normal transparent audio */
+	B_MODE_HDLC,		/* hdlc data mode */
+};
 
 /* call-info structure CALLER */
 struct caller_info {
@@ -204,6 +208,7 @@ struct redir_info {
 
 /* call-info structure capability */
 struct capa_info {
+	int source_mode;		/* forward mode */
 	int bearer_capa;		/* capability */
 	int bearer_mode;		/* circuit/packet */
 	int bearer_info1;		/* alaw,ulaw,... */

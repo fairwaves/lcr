@@ -91,7 +91,7 @@ void mISDN_deinitialize(void)
 /*
  * constructor
  */
-PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive) : Port(type, portname, settings)
+PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Port(type, portname, settings)
 {
 	p_m_mISDNport = mISDNport;
 	p_m_portnum = mISDNport->portnum;
@@ -99,6 +99,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
 	p_m_b_reserve = 0;
+	p_m_b_mode = mode;
 	p_m_delete = 0;
 	p_m_hold = 0;
 	p_m_tx_gain = mISDNport->ifport->interface->tx_gain;
@@ -375,8 +376,8 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 
 	/* open socket */
 //#warning testing without DSP
-//	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_RAW);
-	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
+//	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, (mISDNport->b_mode[i]==B_MODE_HDLC)?ISDN_P_B_HDLC:ISDN_P_B_RAW);
+	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, (mISDNport->b_mode[i]==B_MODE_HDLC)?ISDN_P_B_L2DSPHDLC:ISDN_P_B_L2DSP);
 	if (mISDNport->b_socket[i] < 0)
 	{
 		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
@@ -448,12 +449,13 @@ static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 {
 	struct PmISDN *port;
-	int handle;
+	int handle, mode;
 
 	if (mISDNport->b_socket[i] < 0)
 		return;
 	handle = mISDNport->b_socket[i];
 	port = mISDNport->b_port[i];
+	mode = mISDNport->b_mode[i];
 	if (!port)
 	{
 		PERROR("bchannel index i=%d not associated with a port object\n", i);
@@ -463,27 +465,27 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 	/* set dsp features */
 	if (port->p_m_txdata)
 		ph_control(mISDNport, port, handle, (port->p_m_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
-	if (port->p_m_delay)
+	if (port->p_m_delay && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
-	if (port->p_m_tx_gain)
+	if (port->p_m_tx_gain && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_TX, port->p_m_tx_gain, "DSP-TX_GAIN", port->p_m_tx_gain);
-	if (port->p_m_rx_gain)
+	if (port->p_m_rx_gain && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_RX, port->p_m_rx_gain, "DSP-RX_GAIN", port->p_m_rx_gain);
-	if (port->p_m_pipeline[0])
+	if (port->p_m_pipeline[0] && mode == B_MODE_TRANSPARENT)
 		ph_control_block(mISDNport, port, handle, DSP_PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
 	if (port->p_m_conf)
 		ph_control(mISDNport, port, handle, DSP_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
 	if (port->p_m_echo)
 		ph_control(mISDNport, port, handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1);
-	if (port->p_m_tone)
+	if (port->p_m_tone && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_TONE_PATT_ON, port->p_m_tone, "DSP-TONE", port->p_m_tone);
 	if (port->p_m_rxoff)
 		ph_control(mISDNport, port, handle, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
-//	if (port->p_m_txmix)
+//	if (port->p_m_txmix && mode == B_MODE_TRANSPARENT)
 //		ph_control(mISDNport, port, handle, DSP_MIX_ON, 0, "DSP-MIX", 1);
-	if (port->p_m_dtmf)
+	if (port->p_m_dtmf && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
-	if (port->p_m_crypt)
+	if (port->p_m_crypt && mode == B_MODE_TRANSPARENT)
 		ph_control_block(mISDNport, port, handle, DSP_BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
 }
 
@@ -1030,11 +1032,12 @@ int PmISDN::seize_bchannel(int channel, int exclusive)
 seize:
 	PDEBUG(DEBUG_BCHANNEL, "PmISDN(%s) seizing bchannel %d (index %d)\n", p_name, channel, i);
 
-	/* link Port */
+	/* link Port, set parameters */
 	p_m_mISDNport->b_port[i] = this;
 	p_m_b_index = i;
 	p_m_b_channel = channel;
 	p_m_b_exclusive = exclusive;
+	p_m_mISDNport->b_mode[i] = p_m_b_mode;
 
 	/* reserve channel */
 	if (!p_m_b_reserve)
@@ -1068,6 +1071,7 @@ void PmISDN::drop_bchannel(void)
 	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_IDLE)
 		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_DROP);
 	p_m_mISDNport->b_port[p_m_b_index] = NULL;
+	p_m_mISDNport->b_mode[p_m_b_index] = 0;
 	p_m_b_index = -1;
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
@@ -1540,7 +1544,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		nodsp:
 		if (p_m_tone)
 		if (p_m_b_index > -1)
-		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 		{
 			PDEBUG(DEBUG_ISDN, "we reset tone from id=%d to OFF.\n", p_m_tone);
 			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_TONE_PATT_OFF, 0, "DSP-TONE", 0);
@@ -1624,7 +1628,7 @@ void PmISDN::set_tone(char *dir, char *tone)
 		p_m_tone = id;
 		PDEBUG(DEBUG_ISDN, "we set tone to id=%d.\n", p_m_tone);
 		if (p_m_b_index > -1)
-		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 			ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_tone?DSP_TONE_PATT_ON:DSP_TONE_PATT_OFF, p_m_tone, "DSP-TONE", p_m_tone);
 	}
 	/* turn user-space tones off in cases of no tone OR dsp tone */
@@ -1644,7 +1648,7 @@ void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union p
 			p_m_tx_gain = param->mISDNsignal.tx_gain;
 			PDEBUG(DEBUG_BCHANNEL, "we change tx-volume to shift=%d.\n", p_m_tx_gain);
 			if (p_m_b_index > -1)
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_VOL_CHANGE_TX, p_m_tx_gain, "DSP-TX_GAIN", p_m_tx_gain);
 		} else
 			PDEBUG(DEBUG_BCHANNEL, "we already have tx-volume shift=%d.\n", p_m_rx_gain);
@@ -1653,7 +1657,7 @@ void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union p
 			p_m_rx_gain = param->mISDNsignal.rx_gain;
 			PDEBUG(DEBUG_BCHANNEL, "we change rx-volume to shift=%d.\n", p_m_rx_gain);
 			if (p_m_b_index > -1)
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], DSP_VOL_CHANGE_RX, p_m_rx_gain, "DSP-RX_GAIN", p_m_rx_gain);
 		} else
 			PDEBUG(DEBUG_BCHANNEL, "we already have rx-volume shift=%d.\n", p_m_rx_gain);
@@ -1691,7 +1695,7 @@ void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union p
 			p_m_delay = param->mISDNsignal.delay;
 			PDEBUG(DEBUG_BCHANNEL, "we change delay mode to delay=%d.\n", p_m_delay);
 			if (p_m_b_index > -1)
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_delay?DSP_DELAY:DSP_JITTER, p_m_delay, "DSP-DELAY", p_m_delay);
 		} else
 			PDEBUG(DEBUG_BCHANNEL, "we already have delay=%d.\n", p_m_delay);
@@ -1724,7 +1728,7 @@ void PmISDN::message_crypt(unsigned int epoint_id, int message_id, union paramet
 		crypt_off:
 		PDEBUG(DEBUG_BCHANNEL, "we set encryption to crypt=%d. (0 means OFF)\n", p_m_crypt);
 		if (p_m_b_index > -1)
-		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+		if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 			ph_control_block(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], p_m_crypt?DSP_BF_ENABLE_KEY:DSP_BF_DISABLE, p_m_crypt_key, p_m_crypt_key_len, "DSP-CRYPT", p_m_crypt_key_len);
 		break;
 
@@ -1753,7 +1757,7 @@ void PmISDN::message_crypt(unsigned int epoint_id, int message_id, union paramet
 		p_m_crypt_msg_loops = 6; /* enable */
 #if 0
 		/* disable txmix, or we get corrupt data due to audio process */
-		if (p_m_txmix && p_m_b_index>=0)
+		if (p_m_txmix && p_m_b_index>=0 && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 		{
 			PDEBUG(DEBUG_BCHANNEL, "for sending CR_MESSAGE_REQ, we reset txmix from txmix=%d.\n", p_m_txmix);
 			ph_control(p_m_mISDNport, this, p_mISDNport->b_socket[p_m_b_index], DSP_MIX_OFF, 0, "DSP-TXMIX", 0);
@@ -1838,7 +1842,7 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is required, so we turn them on\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_ON, 0, "DSP-RXOFF", 0);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[i], DSP_RECEIVE_ON, 0, "DSP-RXOFF", 0);
 						return(1);
 					}
 				} else
@@ -1850,7 +1854,7 @@ int mISDN_handler(void)
 						isdnport->p_m_rxoff = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: receive data is not required, so we turn them off\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[i], DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 						return(1);
 					}
 				}
@@ -1864,7 +1868,7 @@ int mISDN_handler(void)
 						isdnport->p_m_txdata = 1;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is required, so we turn them on\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_ON, 0, "DSP-TXDATA", 1);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[i], DSP_TXDATA_ON, 0, "DSP-TXDATA", 1);
 						return(1);
 					}
 				} else
@@ -1876,7 +1880,7 @@ int mISDN_handler(void)
 						isdnport->p_m_txdata = 0;
 						PDEBUG(DEBUG_BCHANNEL, "%s: transmit data is not required, so we turn them off\n", __FUNCTION__);
 						if (mISDNport->b_port[i] && mISDNport->b_state[i] == B_STATE_ACTIVE)
-							ph_control(mISDNport, isdnport, mISDNport->b_socket[isdnport->p_m_b_index], DSP_TXDATA_OFF, 0, "DSP-TXDATA", 0);
+							ph_control(mISDNport, isdnport, mISDNport->b_socket[i], DSP_TXDATA_OFF, 0, "DSP-TXDATA", 0);
 						return(1);
 					}
 				}

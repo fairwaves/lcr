@@ -592,8 +592,12 @@ static void send_setup_to_lcr(struct chan_call *call)
 	}
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
-	if (!call->hdlc)
+	if (call->hdlc)
+		newparam.setup.capainfo.source_mode = B_MODE_HDLC;
+	else {
+		newparam.setup.capainfo.source_mode = B_MODE_TRANSPARENT;
 		newparam.setup.capainfo.bearer_info1 = (options.law=='a')?3:2;
+	}
 	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
 	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
 	send_message(MESSAGE_SETUP, call->ref, &newparam);
@@ -814,9 +818,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	}
 	ast->transfercapability = param->setup.capainfo.bearer_capa;
 	/* enable hdlc if transcap is data */
-	if (ast->transfercapability == INFO_BC_DATAUNRESTRICTED
-	 || ast->transfercapability == INFO_BC_DATARESTRICTED
-	 || ast->transfercapability == INFO_BC_VIDEO)
+	if (param->setup.capainfo.source_mode == B_MODE_HDLC)
 		call->hdlc = 1;
 	strncpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international), sizeof(call->oad)-1);
 

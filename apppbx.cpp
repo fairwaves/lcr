@@ -845,6 +845,10 @@ void EndpointAppPBX::out_setup(void)
 	struct port_settings	port_settings;
 	int			channel = 0;
 	int			earlyb;
+	int			mode = B_MODE_TRANSPARENT;
+
+	/* set bchannel mode */
+	mode = e_capainfo.source_mode;
 
 	/* create settings for creating port */
 	memset(&port_settings, 0, sizeof(port_settings));
@@ -983,7 +987,7 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating INTERNAL port */
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force);
+			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			if (!port)
 				FATAL("No memory for DSS1 Port instance\n");
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
@@ -1091,7 +1095,7 @@ void EndpointAppPBX::out_setup(void)
 				{
 					/* creating EXTERNAL port*/
 					SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-					if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force)))
+					if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode)))
 						FATAL("No memory for DSS1 Port instance\n");
 					earlyb = mISDNport->earlyb;
 				} else
@@ -1185,7 +1189,7 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating EXTERNAL port*/
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-			if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force)))
+			if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode)))
 				FATAL("No memory for DSS1 Port instance\n");
 			earlyb = mISDNport->earlyb;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
