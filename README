@@ -437,4 +437,7 @@ Fixes in current Version
 - Forced proceeding, if "sending complete".
 - Removed 'lcr query'. It is obsolete, because 'isdninfo' does it.
 - Fixed lockinproblem with chan_lcr (hopefully).
+- HDLC now works and is used for B-channels, if required.
+- Briding for chan_lcr fixed, many other fixed for chan_lcr. Overlap dialing!
+
 
