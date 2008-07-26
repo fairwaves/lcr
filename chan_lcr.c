@@ -456,12 +456,12 @@ void apply_opt(struct chan_call *call, char *data)
 			break;
 		case 't':
 			if (opt[1] != '\0') {
-				CERROR(call, call->ast, "Option 't' (transparent) expects no parameter.\n", opt);
+				CERROR(call, call->ast, "Option 't' (no_dsp) expects no parameter.\n", opt);
 				break;
 			}
-			CDEBUG(call, call->ast, "Option 't' (transparent).\n");
-			if (!call->transparent) {
-				call->transparent = 1;
+			CDEBUG(call, call->ast, "Option 't' (no dsp).\n");
+			if (!call->nodsp) {
+				call->nodsp = 1;
 				newmode = 1;
 			}
 			break;
@@ -523,7 +523,7 @@ todo
 	/* re-open, if bchannel is created */
 	if (call->bchannel && call->bchannel->b_sock > -1) {
 		bchannel_destroy(call->bchannel);
-		if (bchannel_create(call->bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
+		if (bchannel_create(call->bchannel, ((call->nodsp)?1:0) + ((call->hdlc)?2:0)))
 			bchannel_activate(call->bchannel, 1);
 	}
 }
@@ -591,12 +591,9 @@ static void send_setup_to_lcr(struct chan_call *call)
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
-	if (call->hdlc)
-		newparam.setup.capainfo.bearer_mode = INFO_BMODE_PACKET;
-	else {
+	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
+	if (!call->hdlc)
 		newparam.setup.capainfo.bearer_info1 = (options.law=='a')?3:2;
-		newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
-	}
 	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
 	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
 	send_message(MESSAGE_SETUP, call->ref, &newparam);
@@ -1142,7 +1139,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 					bchannel_join(bchannel, call->bridge_id);
 				}
 				/* create only, if call exists, othewhise it bchannel is freed below... */
-				if (bchannel_create(bchannel, ((call->transparent)?1:0) + ((call->hdlc)?2:0)))
+				if (bchannel_create(bchannel, ((call->nodsp)?1:0) + ((call->hdlc)?2:0)))
 					bchannel_activate(bchannel, 1);
 			}
 			/* acknowledge */
@@ -1900,7 +1897,7 @@ static int lcr_hangup(struct ast_channel *ast)
 		if (ast->hangupcause > 0)
 			send_release_and_import(call, ast->hangupcause, LOCATION_PRIVATE_LOCAL);
 		else
-			send_release_and_import(call, CAUSE_RESSOURCEUNAVAIL, LOCATION_PRIVATE_LOCAL);
+			send_release_and_import(call, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL);
 		/* remove call */
 		free_call(call);
 		if (!pthread_equal(tid, chan_tid))
@@ -1951,8 +1948,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
         struct chan_call *call;
-	int i, len;
-	unsigned char *p;
+	int len;
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
@@ -1961,7 +1957,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 		return NULL;
 	}
 	if (call->pipe[0] > -1) {
-		if (call->rebuffer) {
+		if (call->rebuffer && !call->hdlc) {
 			len = read(call->pipe[0], call->read_buff, 160);
 		} else {
 			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
@@ -1971,12 +1967,6 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 			call->pipe[0] = -1;
 			return NULL;
 		}
-	}
-
-	p = call->read_buff;
-	for (i = 0; i < len; i++) {
-		*p = flip_bits[*p];
-		p++;
 	}
 
 	call->read_fr.frametype = AST_FRAME_VOICE;
@@ -2162,23 +2152,35 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 
 	/* join via dsp (if the channels are currently open) */
 	ast_mutex_lock(&chan_lock);
-	bridge_id = new_bridge_id();
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
-	if (call1 && call2)
-	{
+	if (!call1 || !call2) {
+		CDEBUG(NULL, NULL, "Bridge, but we don't have two call instances, exitting.\n");
+		ast_mutex_unlock(&chan_lock);
+		return AST_BRIDGE_COMPLETE;
+	}
+
+	/* join, if both call instances uses dsp */
+	if (!call1->nodsp && !call2->nodsp) {
+		CDEBUG(NULL, NULL, "Both calls use DSP, briding via DSP.\n");
+
+		/* get bridge id and join */
+		bridge_id = new_bridge_id();
+		
 		call1->bridge_id = bridge_id;
 		if (call1->bchannel)
 			bchannel_join(call1->bchannel, bridge_id);
-		call1->bridge_call = call2;
-	}
-	if (call2)
-	{
+
 		call2->bridge_id = bridge_id;
 		if (call2->bchannel)
 			bchannel_join(call2->bchannel, bridge_id);
-		call2->bridge_call = call1;
-	}
+	} else
+	if (call1->nodsp && call2->nodsp)
+		CDEBUG(NULL, NULL, "Both calls use no DSP, briding in channel driver.\n");
+	else
+		CDEBUG(NULL, NULL, "One call uses no DSP, briding in channel driver.\n");
+	call1->bridge_call = call2;
+	call2->bridge_call = call1;
 
 	if (call1->state == CHAN_LCR_STATE_IN_SETUP
 	 || call1->state == CHAN_LCR_STATE_IN_DIALING
@@ -2241,24 +2243,24 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	ast_mutex_lock(&chan_lock);
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
-	if (call1)
+	if (call1 && call1->bridge_id)
 	{
 		call1->bridge_id = 0;
 		if (call1->bchannel)
 			bchannel_join(call1->bchannel, 0);
 		if (call1->bridge_call)
 			call1->bridge_call->bridge_call = NULL;
-		call1->bridge_call = NULL;
 	}
-	if (call2)
+	if (call2 && call1->bridge_id)
 	{
 		call2->bridge_id = 0;
 		if (call2->bchannel)
 			bchannel_join(call2->bchannel, 0);
 		if (call2->bridge_call)
 			call2->bridge_call->bridge_call = NULL;
-		call2->bridge_call = NULL;
 	}
+	call1->bridge_call = NULL;
+	call2->bridge_call = NULL;
 
 	ast_mutex_unlock(&chan_lock);
 	return AST_BRIDGE_COMPLETE;
