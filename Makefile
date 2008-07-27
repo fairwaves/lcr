@@ -64,7 +64,6 @@ all: $(CHAN_LCR) $(LCR) $(LCRADMIN) $(GEN) $(GENW) $(GENRC) $(GENEXT)
 	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
 	@echo "All LCR binaries done"
-	@sync
 	@exit
 
 main.o: main.c *.h Makefile
@@ -260,7 +259,6 @@ $(GENEXT): options.ooo extension.o genext.o
 
 install:
 	make
-	-killall -9 -w -q lcr # the following error must be ignored
 	cp $(LCR) $(INSTALL_BIN)
 	cp $(LCRADMIN) $(INSTALL_BIN)
 ifdef WITH-ASTERISK
@@ -304,7 +302,6 @@ endif
 	@if test -a $(INSTALL_DATA)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
 		cp -a tones_efi $(INSTALL_DATA) ; fi
-	sync
 
 clean:
 	touch *
@@ -319,18 +316,9 @@ tar:
 	cd .. &&  tar --exclude=.git -cvzf lcr_`date +%Y%m%d`.tar.gz lcr
 
 start: $(LCR)
-	sync
-	-killall -9 -w -q lcr # the following error must be ignored
-	$(LCR) start
-
-s: $(LCR)
-	sync
-	-killall -9 -w -q lcr # the following error must be ignored
 	$(LCR) start
 
 fork: $(LCR)
-	sync
-	-killall -9 -w -q lcr # the following error must be ignored
 	$(LCR) fork
 
 snapshot: clean

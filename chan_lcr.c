@@ -746,10 +746,10 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 	}
 	call->pbx_started = 1;
 //	if (call->state == CHAN_LCR_STATE_IN_DIALING)
-//		ast_setstate(ast, AST_STATE_DIALING);
+		ast_setstate(ast, AST_STATE_RINGING);
 //	else
-//		ast_setstate(ast, AST_STATE_OFFHOOK);
-	return;
+//		ast_setstate(ast, AST_STATE_RINGING);
+//	return;
 }
 
 /*
