@@ -134,12 +134,12 @@ void joinpbx_debug(class JoinPBX *joinpbx, char *function)
 		epoint = find_epoint_id(relation->epoint_id);
 		if (!epoint)
 		{
-			PDEBUG(DEBUG_JOIN, "warning: relations epoint id=%ld doesn't exists!\n", relation->epoint_id);
+			PDEBUG(DEBUG_JOIN, "warning: relations epoint id=%d doesn't exists!\n", relation->epoint_id);
 			relation = relation->next;
 			continue;
 		}
 		buffer[0] = '\0';
-		UPRINT(strchr(buffer,0), "*** ep%ld", relation->epoint_id);
+		UPRINT(strchr(buffer,0), "*** ep%d", relation->epoint_id);
 		UPRINT(strchr(buffer,0), " ifs=");
 		portlist = epoint->ep_portlist;
 		while(portlist)
@@ -148,7 +148,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, char *function)
 			if (port)
 				UPRINT(strchr(buffer,0), "%s,", port->p_name);
 			else
-				UPRINT(strchr(buffer,0), "<port %ld doesn't exist>,", portlist->port_id);
+				UPRINT(strchr(buffer,0), "<port %d doesn't exist>,", portlist->port_id);
 			portlist = portlist->next;
 		}
 //		UPRINT(strchr(buffer,0), " endpoint=%d on=%s hold=%s", epoint->ep_serial, (epoint->ep_join_id==joinpbx->j_serial)?"yes":"no", (epoint->get_hold_id()==joinpbx->j_serial)?"yes":"no");

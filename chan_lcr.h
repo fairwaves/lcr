@@ -24,7 +24,7 @@ struct chan_call {
 					/* audio is available */
 	int			cause, location;
 					/* store cause from lcr */
-	unsigned char		dialque[64];
+	char			dialque[64];
 					/* queue dialing prior setup ack */
 	char			oad[64];/* caller id in number format */
 

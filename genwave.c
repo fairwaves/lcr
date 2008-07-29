@@ -106,7 +106,7 @@ void write_law(FILE *fp, char *name, char law)
 		/* get size */
 		fseek(lfp, 0, SEEK_END);
 		size = ftell(lfp);
-		printf("samples: %ld\n", size);
+		printf("samples: %d\n", size);
 		size += size;
 		fseek(lfp, 0, SEEK_SET);
 

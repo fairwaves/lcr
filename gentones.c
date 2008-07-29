@@ -164,7 +164,7 @@ void write_wav(FILE *fp, char *wav, char law)
 			fprintf(stderr, "Error: %s is no riff file!\n", wav);
 			return;
 		}
-		printf("%c%c%c%c size=%ld\n",buffer[0],buffer[1],buffer[2],buffer[3],size);
+		printf("%c%c%c%c size=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],size);
 		fread(buffer,4,1,wfp);
 		size -= 4;
 		if (!!strncmp((char *)buffer, "WAVE", 4))
@@ -178,17 +178,17 @@ void write_wav(FILE *fp, char *wav, char law)
 			if (size>0 && size<8)
 			{
 				fclose(wfp);
-				fprintf(stderr, "Error: Remaining file size %ld not large enough for next chunk.\n",size);
+				fprintf(stderr, "Error: Remaining file size %d not large enough for next chunk.\n",size);
 				return;
 			}
 			fread(buffer,8,1,wfp);
 			chunk=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
-//printf("DEBUG: size(%ld) - (8+chunk(%ld) = size(%ld)\n", size, chunk, size-chunk-8);
+//printf("DEBUG: size(%d) - (8+chunk(%d) = size(%d)\n", size, chunk, size-chunk-8);
 			size -= (8+chunk);
 			if (size < 0)
 			{
 				fclose(wfp);
-				fprintf(stderr, "Error: Chunk '%c%c%c%c' is larger than remainig file size (length=%ld)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
+				fprintf(stderr, "Error: Chunk '%c%c%c%c' is larger than remainig file size (length=%d)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
 				return;
 			}
 //			printf("%c%c%c%c lenght=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],chunk);
@@ -212,9 +212,9 @@ void write_wav(FILE *fp, char *wav, char law)
 				printf("Channels: %d\n", channels);
 				if (fmt->sample_rate != 8000)
 				{
-					fprintf(stderr, "Warning: File has sample rate of %ld.\n", fmt->sample_rate);
+					fprintf(stderr, "Warning: File has sample rate of %d.\n", fmt->sample_rate);
 				}
-				printf("Sample Rate: %ld\n", fmt->sample_rate);
+				printf("Sample Rate: %d\n", fmt->sample_rate);
 				if (fmt->bits_sample!=8 && fmt->bits_sample!=16)
 				{
 					fclose(wfp);
@@ -233,7 +233,7 @@ void write_wav(FILE *fp, char *wav, char law)
 					fprintf(stderr, "Error: No fmt chunk fount in file.\n");
 					return;
 				}
-				printf("Length: %ld samples (%ld.%03ld seconds)\n", chunk/bytes/channels, chunk/bytes/channels/8000, ((chunk/bytes/channels)%8000)*1000/8000);
+				printf("Length: %d samples (%d.%03d seconds)\n", chunk/bytes/channels, chunk/bytes/channels/8000, ((chunk/bytes/channels)%8000)*1000/8000);
 				i=0;
 				if (bytes==2 && channels==1)
 				{
@@ -282,7 +282,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				gotdata = 1;
 			} else
 			{
-				printf("Ignoring chunk '%c%c%c%c' (length=%ld)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
+				printf("Ignoring chunk '%c%c%c%c' (length=%d)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
 				while(chunk > (signed int)sizeof(buffer))
 				{
 					fread(buffer, sizeof(buffer), 1, wfp);

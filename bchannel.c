@@ -559,7 +559,7 @@ int bchannel_handle(void)
 {
 	int ret, work = 0;
 	struct bchannel *bchannel;
-	char buffer[2048+MISDN_HEADER_LEN];
+	unsigned char buffer[2048+MISDN_HEADER_LEN];
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
 
 	/* process all bchannels */

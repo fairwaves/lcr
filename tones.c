@@ -342,7 +342,8 @@ int read_tone(int fh, unsigned char *buffer, int codec, int len, signed int size
 				l = l>>2;
 				while(i < l)
 				{
-					sample = (*buf32++) + (*buf32++);
+					sample = (*buf32++);
+					sample += (*buf32++);
 					if (sample < -32767)
 						sample = -32767;
 					if (sample > 32767)
@@ -534,7 +535,7 @@ int fetch_tones(void)
 		p = p_next;
 	}
 
-	printf("PBX: Memory used for tones: %ld bytes (%d samples)\n", memory, samples);
+	printf("PBX: Memory used for tones: %d bytes (%d samples)\n", memory, samples);
 	PDEBUG(DEBUG_PORT, "Memory used for tones: %ld bytes (%d samples)\n", memory, samples);
 
 	return(1);

@@ -47,8 +47,8 @@ endif
 ifdef WITH-CRYPTO
 LIBDIR += -L/usr/local/ssl/lib
 CFLAGS += -I/usr/local/ssl/include
-#LIBS += -lcrypto
-LIBS += /usr/local/ssl/lib/libcrypto.a
+LIBS += -lcrypto
+#LIBS += /usr/local/ssl/lib/libcrypto.a
 endif
 
 #all:
