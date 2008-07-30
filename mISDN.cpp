@@ -774,6 +774,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				/* bchannel is active and used by Port class, so we configure bchannel */
 				_bchannel_configure(mISDNport, i);
 				state = B_STATE_ACTIVE;
+				b_port->p_m_load = 0;
 			} else
 			{
 				/* bchannel is active, but exported OR not used anymore (or has wrong stack config), so we deactivate */
@@ -1263,7 +1264,8 @@ int PmISDN::handler(void)
 		p_m_last_tv_msec = now_tv.tv_usec/1000;
 	}
 	/* process only if we have a minimum of samples, to make packets not too small */
-	if (elapsed >= ISDN_TRANSMIT)
+	if (elapsed >= ISDN_TRANSMIT
+	 && p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 	{
 		/* set clock of last process! */
 		p_m_last_tv_sec = now_tv.tv_sec;
@@ -1319,15 +1321,15 @@ int PmISDN::handler(void)
 			}
 
 			/* send data */
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && ISDN_LOAD-p_m_load-tosend > 0)
+			if (ISDN_LOAD - p_m_load - tosend > 0)
 			{
 				frm->prim = PH_DATA_REQ;
 				frm->id = 0;
 				ret = sendto(p_m_mISDNport->b_socket[p_m_b_index], buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
 				if (ret <= 0)
 					PERROR("Failed to send to socket %d (samples = %d)\n", p_m_mISDNport->b_socket[p_m_b_index], ISDN_LOAD-p_m_load-tosend);
+				p_m_load += ISDN_LOAD - p_m_load - tosend;
 			}
-			p_m_load += ISDN_LOAD - p_m_load - tosend;
 		}
 	}
 
