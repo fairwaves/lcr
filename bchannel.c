@@ -25,6 +25,10 @@
 #include <sys/socket.h>
 #include <mISDNif.h>
 
+#define AF_COMPATIBILITY_FUNC 1
+#define MISDN_OLD_AF_COMPATIBILITY 1
+#include <compat_af_isdn.h>
+
 #include <asterisk/frame.h>
 
 
@@ -53,6 +57,8 @@ enum {
 
 int bchannel_initialize(void)
 {
+  	init_af_isdn();
+
 	return(0);
 }
 

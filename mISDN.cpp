@@ -13,6 +13,8 @@
 #include "myisdn.h"
 
 extern "C" {
+#define MISDN_OLD_AF_COMPATIBILITY 1
+#include <compat_af_isdn.h>
 }
 #include <q931.h>
 
@@ -45,6 +47,8 @@ int mISDNsocket = -1;
 int mISDN_initialize(void)
 {
 	char filename[256];
+
+	init_af_isdn();
 
 	/* try to open raw socket to check kernel */
 	mISDNsocket = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
