@@ -451,20 +451,25 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 		return;
 	switch(bchannel->b_mode)
 	{
-		case 0:
+	case 0:
 		for (i = 0; i < len; i++)
 			*p++ = flip_bits[*data++];
 		frm->prim = DL_DATA_REQ;
 		break;
-		case 1:
+	case 1:
 		for (i = 0; i < len; i++)
 			*p++ = flip_bits[*data++];
 		frm->prim = PH_DATA_REQ;
 		break;
-		case 2:
+	case 2:
+		memcpy(p, data, len);
 		frm->prim = DL_DATA_REQ;
+		p[len] = 0;
+		CDEBUG(bchannel->call, NULL, "HDLC DSP transmit: '%s'\n",
+		       p);
 		break;
-		case 3:
+	case 3:
+		memcpy(p, data, len);
 		frm->prim = PH_DATA_REQ;
 		break;
 	}
