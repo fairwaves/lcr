@@ -464,9 +464,6 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 	case 2:
 		memcpy(p, data, len);
 		frm->prim = DL_DATA_REQ;
-		p[len] = 0;
-		CDEBUG(bchannel->call, NULL, "HDLC DSP transmit: '%s'\n",
-		       p);
 		break;
 	case 3:
 		memcpy(p, data, len);
