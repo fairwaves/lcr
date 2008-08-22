@@ -295,6 +295,7 @@ struct chan_call *alloc_call(void)
 		free_call(*callp);
 		return(NULL);
 	}
+	fcntl((*callp)->pipe[0], F_SETFL, O_NONBLOCK);
 	CDEBUG(*callp, NULL, "Call instance allocated.\n");
 	return(*callp);
 }
@@ -1964,9 +1965,14 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 		} else {
 			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
 		}
+		if (len < 0 && errno == EAGAIN) {
+			ast_mutex_unlock(&chan_lock);
+			return &ast_null_frame;
+		}
 		if (len <= 0) {
 			close(call->pipe[0]);
 			call->pipe[0] = -1;
+			ast_mutex_unlock(&chan_lock);
 			return NULL;
 		}
 	}
