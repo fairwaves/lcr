@@ -477,7 +477,7 @@ void apply_opt(struct chan_call *call, char *data)
 				bchannel_pipeline(call->bchannel, call->pipeline);
 			break;
 		case 'r':
-			if (opt[1] == '\0') {
+			if (opt[1] != '\0') {
 				CERROR(call, call->ast, "Option 'r' (re-buffer 160 bytes) expects no parameter.\n", opt);
 				break;
 			}
