@@ -2096,21 +2096,25 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 /*
  * fixup asterisk
  */
-static int lcr_fixup(struct ast_channel *oldast, struct ast_channel *newast)
+static int lcr_fixup(struct ast_channel *oldast, struct ast_channel *ast)
 {
         struct chan_call *call;
 
+	if (!ast) {
+		return -1;
+	}
+
 	ast_mutex_lock(&chan_lock);
-	call = oldast->tech_pvt;
+	call = ast->tech_pvt;
 	if (!call) {
-		CERROR(NULL, oldast, "Received fixup from Asterisk, but no call instance exists.\n");
+		CERROR(NULL, ast, "Received fixup from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
 		return -1;
 	}
 
-	CDEBUG(call, oldast, "Received fixup from Asterisk.\n");
-	call->ast = newast;
-	ast_mutex_lock(&chan_lock);
+	CDEBUG(call, ast, "Received fixup from Asterisk.\n");
+	call->ast = ast;
+	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
 
