@@ -38,13 +38,13 @@
 #define CAUSE_UNIMPLEMENTED	79
 
 struct isdn_cause {
-	char *english;
-	char *german;
+	const char *english;
+	const char *german;
 };
 
 struct isdn_location {
-	char *english;
-	char *german;
+	const char *english;
+	const char *german;
 };
 
 extern struct isdn_cause isdn_cause[128];
