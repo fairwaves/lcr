@@ -230,7 +230,8 @@ $(LCRADMIN): lcradmin.c cause.c options.c *.h Makefile
 	options.c -o $(LCRADMIN) 
 
 $(CHAN_LCR): chan_lcr.o bchannel.o callerid.o options.o *.h Makefile
-	$(CC) -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o callerid.o options.o
+	$(CC) -shared -fPIC -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o \
+       	bchannel.o callerid.o options.o
 
 
 $(LCRWATCH): watch.c *.h Makefile
