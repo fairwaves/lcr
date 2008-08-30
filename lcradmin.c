@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <curses.h>
 #include "macro.h"
+#include "options.h"
 #include "join.h"
 #include "joinpbx.h"
 #include "extension.h"
@@ -1630,7 +1631,6 @@ next:
 int main(int argc, char *argv[])
 {
 	int mode;
-	char *socket_name = SOCKET_NAME;
 	int sock, conn;
 	struct sockaddr_un sock_address;
 	char *ret;
@@ -1717,6 +1717,10 @@ int main(int argc, char *argv[])
 		goto usage;
 	}
 
+	if (read_options() == 0) {
+		exit(EXIT_FAILURE);
+	}
+
 //pipeagain:
 	/* open socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -1725,8 +1729,8 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	memset(&sock_address, 0, sizeof(sock_address));
+	SPRINT(sock_address.sun_path, SOCKET_NAME, options.lock);
 	sock_address.sun_family = PF_UNIX;
-	UCPY(sock_address.sun_path, socket_name);
 	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
 	{
 		close(sock);

@@ -24,6 +24,8 @@ struct options {
 	int	dsptones;		/* tones will be generated via dsp.o 1=american 2=ger */
 	int	schedule;		/* run process in realtime @ given priority */
 	char	email[128];		/* source email address */
+	char	lock[128];		/* path of lock files */
+	int	socketrights;		/* rights of lcr admin socket */
 };	
 
 extern struct options options;

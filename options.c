@@ -30,7 +30,9 @@ struct options options = {
 	"",				/* dummy caller id */
 	0,				/* use tones by dsp.o */
 	0,				/* by default use priority 0 */
-	"lcr@your.machine"		/* source mail adress */
+	"lcr@your.machine",		/* source mail adress */
+	"/var/tmp",			/* path of lock files */
+	0700				/* rights of lcr admin socket */
 };
 
 char options_error[256];
@@ -239,6 +241,22 @@ int read_options(void)
 			}
 			SCPY(options.email, param);
 
+		} else
+		if (!strcmp(option,"lock"))
+		{
+			if (param[0]==0)
+			{
+				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				goto error;
+			}
+			if (param[strlen(param)-1] == '/')
+				param[strlen(param)-1]=0;
+			SCPY(options.lock, param);
+
+		} else
+		if (!strcmp(option,"socketrights"))
+		{
+			options.socketrights = strtol(param, NULL, 0);
 		} else
 		{
 			SPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);

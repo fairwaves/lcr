@@ -1428,7 +1428,6 @@ int handle_socket(void)
 int open_socket(void)
 {
 	int ret;
-	char *socket_name = SOCKET_NAME;
 	int conn;
 	struct sockaddr_un sock_address;
 	unsigned int on = 1;
@@ -1444,7 +1443,7 @@ int open_socket(void)
 	/* set socket address and name */
 	memset(&sock_address, 0, sizeof(sock_address));
 	sock_address.sun_family = PF_UNIX;
-	strcpy(sock_address.sun_path, socket_name);
+	sprintf(sock_address.sun_path, SOCKET_NAME, options.lock);
 
 	/* connect socket */
 	if ((conn = connect(lcr_sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)

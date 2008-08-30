@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
         			created_lock = 0, created_signal = 0, created_debug = 0,
 				created_misdn = 0;
 	int			idletime = 0, idlecheck = 0;
-	char			tracetext[256];
+	char			tracetext[256], lock[128];
 
 #if 0
 	/* init fdset */
@@ -352,9 +352,11 @@ int main(int argc, char *argv[])
 	}
 
 	/* create lock and lock! */
-	if ((lockfd = open("/var/run/lcr.lock", O_CREAT, 0)) < 0)
+	SPRINT(lock, "%s/lcr.lock", options.lock);
+	if ((lockfd = open(lock, O_CREAT | O_WRONLY)) < 0)
 	{
-		fprintf(stderr, "Cannot create lock file: /var/run/lcr.lock\n");
+		fprintf(stderr, "Cannot create lock file: %s\n", lock);
+		fprintf(stderr, "Check options.conf to change to path with permissions for you.\n");
 		goto free;
 	}
 	if (flock(lockfd, LOCK_EX|LOCK_NB) < 0)
@@ -408,18 +410,17 @@ int main(int argc, char *argv[])
 		switch(errno)
 		{
 			case ENOMEM:
-			fprintf(stderr, "Not enough memory to lock paging, exitting...\n");
+			fprintf(stderr, "Warning: Not enough memory to lock paging, exitting...\n");
 			break;
 			case EPERM:
-			fprintf(stderr, "No permission to lock paging, exitting...\n");
+			fprintf(stderr, "Warning: No permission to lock paging, exitting...\n");
 			break;
 			case EFAULT:
-			fprintf(stderr, "'Bad address' while locking paging, exitting...\n");
+			fprintf(stderr, "Warning: 'Bad address' while locking paging, exitting...\n");
 			break;
 			default:
-			fprintf(stderr, "Unknown error %d while locking paging, exitting...\n", errno);
+			fprintf(stderr, "Warning: Unknown error %d while locking paging, exitting...\n", errno);
 		}
-		goto free;
 	}
 
 	/* set real time scheduler & priority */
@@ -710,7 +711,11 @@ free:
 	if (created_lock)
 		flock(lockfd, LOCK_UN);
 	if (lockfd >= 0)
+	{
+		chmod(lock, 0700);
+		unlink(lock);
 		close(lockfd);
+	}
 
 	/* free rulesets */
 	if (ruleset_first)

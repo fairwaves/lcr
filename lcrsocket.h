@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/
 
-#define SOCKET_NAME "/var/run/LCR.socket"
+#define SOCKET_NAME "%s/LCR.socket"
 
 /* structures that define message between admin-tool and pbx */
 

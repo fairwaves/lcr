@@ -225,9 +225,9 @@ $(LCR): main.o \
 	trace.o \
 	$(LIBS) -o $(LCR) 
 
-$(LCRADMIN): lcradmin.c cause.c *.h Makefile
+$(LCRADMIN): lcradmin.c cause.c options.c *.h Makefile
 	$(PP) $(LIBDIR) $(CFLAGS_LCRADMIN) $(CURSES) -lm lcradmin.c cause.c \
-	-o $(LCRADMIN) 
+	options.c -o $(LCRADMIN) 
 
 $(CHAN_LCR): chan_lcr.o bchannel.o callerid.o options.o *.h Makefile
 	$(CC) -shared -Xlinker -x $(LDFLAGS) -o $(CHAN_LCR) chan_lcr.o bchannel.o callerid.o options.o

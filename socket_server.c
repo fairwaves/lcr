@@ -15,7 +15,7 @@
 #include <curses.h>
 
 
-char *socket_name = SOCKET_NAME;
+char socket_name[128];
 int sock = -1;
 struct sockaddr_un sock_address;
 
@@ -36,6 +36,7 @@ int admin_init(void)
 	}
 	fhuse++;
 	memset(&sock_address, 0, sizeof(sock_address));
+	SPRINT(socket_name, SOCKET_NAME, options.lock);
 	sock_address.sun_family = AF_UNIX;
 	UCPY(sock_address.sun_path, socket_name);
 	unlink(socket_name);
@@ -65,6 +66,10 @@ int admin_init(void)
 		sock = -1;
 		PERROR("Failed to set socket \"%s\" into non-blocking mode. (errno=%d)\n", sock_address.sun_path, errno);
 		return(-1);
+	}
+	if (chmod(socket_name, options.socketrights) < 0)
+	{
+		PERROR("Failed to change socket rigts to %d. (errno=%d)\n", options.socketrights, errno);
 	}
 	return(0);
 }
@@ -176,6 +181,8 @@ void admin_cleanup(void)
 		close(sock);
 		fhuse--;
 	}
+
+	unlink(socket_name);
 }
 
 
