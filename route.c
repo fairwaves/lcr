@@ -2137,9 +2137,9 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_FREE:
 				case MATCH_NOTFREE:
-				if (!(comp_len = (unsigned int)strchr(cond->string_value, ':')))
+				if (!(comp_len = (unsigned long)strchr(cond->string_value, ':')))
 					break;
-				comp_len = comp_len-(unsigned int)cond->string_value;
+				comp_len = comp_len-(unsigned long)cond->string_value;
 				avail = 0;
 				mISDNport = mISDNport_first;
 				while(mISDNport)
