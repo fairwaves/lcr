@@ -14,7 +14,7 @@
 struct trace trace;
 char trace_string[MAX_TRACE_ELEMENTS * 100 + 400];
 
-static char *spaces[11] = {
+static const char *spaces[11] = {
 	"          ",
 	"         ",
 	"        ",
@@ -32,7 +32,7 @@ static char *spaces[11] = {
  * initializes a new trace
  * all values will be reset
  */
-void _start_trace(const char *__file, int __line, int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name)
+void _start_trace(const char *__file, int __line, int port, struct interface *interface, const char *caller, const char *dialing, int direction, int category, int serial, const char *name)
 {
 	if (trace.name[0])
 		PERROR("trace already started (name=%s) in file %s line %d\n", trace.name, __file, __line);
@@ -61,7 +61,7 @@ void _start_trace(const char *__file, int __line, int port, struct interface *in
  * if subelement is given, element will also contain a subelement
  * if multiple subelements belong to same element, name must be equal for all subelements
  */
-void _add_trace(const char *__file, int __line, char *name, char *sub, const char *fmt, ...)
+void _add_trace(const char *__file, int __line, const char *name, const char *sub, const char *fmt, ...)
 {
 	va_list args;
 

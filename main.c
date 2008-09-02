@@ -49,18 +49,18 @@ int classuse = 0;
 int fduse = 0;
 int fhuse = 0;
 
-char *debug_prefix = 0;
+const char *debug_prefix = NULL;
 int debug_count = 0;
 int last_debug = 0;
 int debug_newline = 1;
 int nooutput = 0;
 
-void debug_usleep(int msec, char *file, int line, int hour, int min, int sec)
+void debug_usleep(int msec, const char *file, int line, int hour, int min, int sec)
 {
 	usleep(msec);
 }
 
-void debug(const char *function, int line, char *prefix, char *buffer)
+void debug(const char *function, int line, const char *prefix, char *buffer)
 {
 	/* if we have a new debug count, we add a mark */
 	if (last_debug != debug_count)
@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 	int			all_idle;
 	char			prefix_string[64];
 	struct sched_param	schedp;
-	char 			*debug_prefix = "alloc";
+	const char		*debug_prefix = "alloc";
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
         			created_lock = 0, created_signal = 0, created_debug = 0,
 				created_misdn = 0;
@@ -637,7 +637,7 @@ BUDETECT
 	printf("%s\n", tracetext);
 	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
 	if (quit)
-		add_trace("signal", NULL, "%d", quit);
+		add_trace((char *)"signal", NULL, "%d", quit);
 	end_trace();
 	ret=0;
 
@@ -773,7 +773,7 @@ free:
 /* special debug function to detect buffer overflow
  */
 int budetect_stop = 0;
-void budetect(const char *file, int line, char *function)
+void budetect(const char *file, int line, const char *function)
 {
 	if (budetect_stop)
 		return;

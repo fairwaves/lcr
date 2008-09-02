@@ -128,7 +128,7 @@ EndpointAppPBX::~EndpointAppPBX(void)
 /*
  * trace header for application
  */
-void EndpointAppPBX::trace_header(char *name, int direction)
+void EndpointAppPBX::trace_header(const char *name, int direction)
 {
 	struct trace _trace;
 
@@ -327,12 +327,12 @@ void apply_callerid_restriction(struct extension *ext, char *id, int *ntype, int
 }
 
 /* used display message to display callerid as available */
-char *EndpointAppPBX::apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *extension, char *name)
+char *EndpointAppPBX::apply_callerid_display(const char *id, int itype, int ntype, int present, int screen, const char *extension, const char *name)
 {
 	static char display[81];
 
 	display[0] = '\0';
-	char *cid = numberrize_callerinfo(id, ntype, options.national, options.international);
+	const char *cid = numberrize_callerinfo(id, ntype, options.national, options.international);
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) id='%s' itype=%d ntype=%d present=%d screen=%d extension='%s' name='%s'\n", ea_endpoint->ep_serial, (id)?id:"NULL", itype, ntype, present, screen, (extension)?extension:"NULL", (name)?name:"NULL");
 
@@ -528,7 +528,7 @@ void EndpointAppPBX::keypad_function(char digit)
 
 
 /* set tone pattern for port */
-void EndpointAppPBX::set_tone(struct port_list *portlist, char *tone)
+void EndpointAppPBX::set_tone(struct port_list *portlist, const char *tone)
 {
 	struct lcr_msg *message;
 
@@ -832,7 +832,7 @@ void EndpointAppPBX::out_setup(void)
 	struct lcr_msg		*message;
 	int			anycall = 0;
 	int			cause = CAUSE_RESSOURCEUNAVAIL;
-	char			*p;
+	const char		*p;
 	char			cfp[64];
 	struct mISDNport	*mISDNport;
 	char			portname[32];
@@ -2422,7 +2422,7 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
 	struct lcr_msg *message;
-	char *logtext = "";
+	const char *logtext = "";
 	char buffer[64];
 
 	/* signal to call tool */
@@ -3965,7 +3965,7 @@ void EndpointAppPBX::join_join(void)
 /* check if we have an external call
  * this is used to check for encryption ability
  */
-int EndpointAppPBX::check_external(char **errstr, class Port **port)
+int EndpointAppPBX::check_external(const char **errstr, class Port **port)
 {
 	struct join_relation *relation;
 	class Join *join;
@@ -4069,7 +4069,7 @@ int EndpointAppPBX::check_external(char **errstr, class Port **port)
 
 void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsigned int port_id, int dir)
 {
-	char *logtext = "unknown";
+	const char *logtext = "unknown";
 	char buffer[64];
 
 	switch(message_type)
@@ -4408,7 +4408,7 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 	}
 }
 
-void EndpointAppPBX::message_disconnect_port(struct port_list *portlist, int cause, int location, char *display)
+void EndpointAppPBX::message_disconnect_port(struct port_list *portlist, int cause, int location, const char *display)
 {
 	struct lcr_msg *message;
 

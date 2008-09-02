@@ -192,7 +192,7 @@ void admin_cleanup(void)
 int admin_interface(struct admin_queue **responsep)
 {
 	struct admin_queue	*response;	/* response pointer */
-	char			*err_txt = "";
+	const char		*err_txt = "";
 	int			err = 0;
 
         if (read_interfaces())
@@ -569,7 +569,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 /*
  * this function is called for response whenever a call state changes.
  */
-void admin_call_response(int adminid, int message, char *connected, int cause, int location, int notify)
+void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify)
 {
 	struct admin_list	*admin;
 	struct admin_queue	*response, **responsep;	/* response pointer */

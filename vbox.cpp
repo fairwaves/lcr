@@ -45,7 +45,7 @@ VBoxPort::~VBoxPort()
 }
 
 
-static void vbox_trace_header(class VBoxPort *vbox, char *message, int direction)
+static void vbox_trace_header(class VBoxPort *vbox, const char *message, int direction)
 {
 	/* init trace with given values */
 	start_trace(0,

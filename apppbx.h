@@ -33,7 +33,7 @@ enum { /* states as viewed from io port (state of calls are always connected) */
 };
 
 #define EPOINT_STATE_NAMES \
-static char *state_name[] = { \
+static const char *state_name[] = { \
 	"EPOINT_STATE_IDLE", \
 	"EPOINT_STATE_IN_SETUP", \
 	"EPOINT_STATE_OUT_SETUP", \
@@ -224,10 +224,10 @@ class EndpointAppPBX : public EndpointApp
 	void release(int release, int joinlocation, int joincause, int portlocation, int portcause);
 	void notify_active(void);
 	void keypad_function(char digit);
-	void set_tone(struct port_list *portlist, char *tone);
+	void set_tone(struct port_list *portlist, const char *tone);
 	void out_setup(void);
 	struct mISDNport *hunt_port(char *ifname, int *channel);
-	char *apply_callerid_display(char *id, int itype, int ntype, int present, int screen, char *extension, char *name);
+	char *apply_callerid_display(const char *id, int itype, int ntype, int present, int screen, const char *extension, const char *name);
 	void auth(int job, int bit_num);
 
 	/* vbox playback stuff */
@@ -237,12 +237,12 @@ class EndpointAppPBX : public EndpointApp
 	void vbox_handler(void);
 	void efi_message_eof(void);
 	void vbox_message_eof(void);
-	void set_tone_vbox(char *tone);
-	void set_play_vbox(char *file, int offset);
+	void set_tone_vbox(const char *tone);
+	void set_play_vbox(const char *file, int offset);
 	void set_play_speed(int speed);
 
 	/* efi */
-	void set_tone_efi(char *tone);
+	void set_tone_efi(const char *tone);
 	
 	/* routing */
 	struct route_ruleset *rulesetbyname(char *name);
@@ -304,7 +304,7 @@ class EndpointAppPBX : public EndpointApp
 	void encrypt_keyex(void);
 	void encrypt_off(void);
 	void encrypt_result(int message, char *text);
-	int check_external(char **errstr, class Port **port);
+	int check_external(const char **errstr, class Port **port);
 
 	/* crypt */
 	void cryptman_keyengine(int job);
@@ -340,14 +340,13 @@ class EndpointAppPBX : public EndpointApp
 	int cryptman_sizeofinf(unsigned char *buf, int element);
 	unsigned char *cryptman_getinf(unsigned char *buf, int element, unsigned char *to);
 	void cryptman_msg2peer(unsigned char *buf);
-	void cryptman_msg2user(int msg, char *text);
+	void cryptman_msg2user(int msg, const char *text);
 	void cryptman_msg2crengine(int msg, unsigned char *buf, int len);
 	void cryptman_state(int state);
 	void cryptman_timeout(int secs);
-
-	void message_disconnect_port(struct port_list *portlist, int cause, int location, char *display);
+	void message_disconnect_port(struct port_list *portlist, int cause, int location, const char *display);
 	void logmessage(int message_type, union parameter *param, unsigned int port_id, int dir);
-	void trace_header(char *name, int direction);
+	void trace_header(const char *name, int direction);
 };
 
 

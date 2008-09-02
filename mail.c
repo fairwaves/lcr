@@ -11,7 +11,7 @@
 
 #include "main.h"
 
-static char *months[] = {
+static const char *months[] = {
 	"January", "February", "March", "April", "Mai", "June", "July",
 	"August", "September", "October", "November", "December"
 };
@@ -102,8 +102,7 @@ static void *mail_child(void *arg)
  	fprintf(ph, "\n * date: %s %d %d %d:%02d\n\n", months[mon], mday, year+1900, hour, min);
 
 	/* attach audio file */
-	if (filename[0])
-	if ((fh = open(filename, O_RDONLY)))
+	if ((filename[0]) && ((fh = open(filename, O_RDONLY))))
 	{
 		while(strchr(filename, '/'))
 			filename = strchr(filename, '/')+1;

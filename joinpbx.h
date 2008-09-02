@@ -74,7 +74,7 @@ class JoinPBX : public Join
 	void play_jingle(int in);
 }; 
 
-void joinpbx_debug(class JoinPBX *joinpbx, char *function);
+void joinpbx_debug(class JoinPBX *joinpbx, const char *function);
 int joinpbx_countrelations(unsigned int join_id);
 int track_notify(int oldstate, int notify);
 

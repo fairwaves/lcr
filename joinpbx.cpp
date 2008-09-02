@@ -112,7 +112,7 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 
 
 /* debug function for join */
-void joinpbx_debug(class JoinPBX *joinpbx, char *function)
+void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 {
 	struct join_relation *relation;
 	struct port_list *portlist;

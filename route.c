@@ -751,7 +751,7 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 /*
  * parse ruleset
  */
-static char *read_string(char *p, char *key, int key_size, char *special)
+static char *read_string(char *p, char *key, int key_size, const char *special)
 {
 	key[0] = 0;
 
@@ -1922,7 +1922,7 @@ struct route_ruleset *ruleset_parse(void)
 /*
  * return ruleset by name
  */
-struct route_ruleset *getrulesetbyname(char *name)
+struct route_ruleset *getrulesetbyname(const char *name)
 {
 	struct route_ruleset *ruleset = ruleset_first;
 

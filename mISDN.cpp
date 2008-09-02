@@ -196,7 +196,7 @@ PmISDN::~PmISDN()
 /*
  * trace
  */
-void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction)
+void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, const char *msgtext, int direction)
 {
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:0,
@@ -214,7 +214,7 @@ void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *ms
  * layer trace header
  */
 static struct isdn_message {
-	char *name;
+	const char *name;
 	unsigned int value;
 } isdn_message[] = {
 	{"PH_ACTIVATE", L1_ACTIVATE_REQ},
@@ -254,7 +254,7 @@ static struct isdn_message {
 	{"MT_RELEASE_L3ID", L3_RELEASE_L3ID_REQ},
 	{NULL, 0},
 };
-static char *isdn_prim[4] = {
+static const char *isdn_prim[4] = {
 	" REQUEST",
 	" CONFIRM",
 	" INDICATION",
@@ -263,8 +263,9 @@ static char *isdn_prim[4] = {
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg, int direction)
 {
 	int i;
-	char msgtext[64] = "<<UNKNOWN MESSAGE>>";
+	char msgtext[64];
 
+	SCPY(msgtext, "<<UNKNOWN MESSAGE>>");
 	/* select message and primitive text */
 	i = 0;
 	while(isdn_message[i].name)
@@ -314,7 +315,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 /*
  * send control information to the channel (dsp-module)
  */
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, unsigned int c2, char *trace_name, int trace_value)
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, unsigned int c2, const char *trace_name, int trace_value)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+sizeof(int)];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
@@ -339,7 +340,7 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, u
 	end_trace();
 }
 
-void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value)
+void ph_control_block(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, unsigned int c1, void *c2, int c2_len, const char *trace_name, int trace_value)
 {
 	unsigned char buffer[MISDN_HEADER_LEN+sizeof(int)+c2_len];
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
@@ -438,7 +439,7 @@ static void _bchannel_activate(struct mISDNport *mISDNport, int i, int activate)
 		PERROR("Failed to send to socket %d\n", mISDNport->b_socket[i]);
 
 	/* trace */
-	chan_trace_header(mISDNport, mISDNport->b_port[i], activate?(char*)"BCHANNEL activate":(char*)"BCHANNEL deactivate", DIRECTION_OUT);
+	chan_trace_header(mISDNport, mISDNport->b_port[i], activate ? "BCHANNEL activate" : "BCHANNEL deactivate", DIRECTION_OUT);
 	add_trace("channel", NULL, "%d", i+1+(i>=15));
 	if (mISDNport->b_timer[i])
 		add_trace("event", NULL, "timeout recovery");
@@ -1531,7 +1532,7 @@ void PmISDN::set_echotest(int echo)
 /*
  * set tone
  */
-void PmISDN::set_tone(char *dir, char *tone)
+void PmISDN::set_tone(const char *dir, const char *tone)
 {
 	int id;
 

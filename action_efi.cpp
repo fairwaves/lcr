@@ -139,7 +139,7 @@ void EndpointAppPBX::efi_message_eof(void)
  * set the given vbox-tone with full path (without appending)
  * the tone is played and after eof, a message is received
  */
-void EndpointAppPBX::set_tone_efi(char *tone)
+void EndpointAppPBX::set_tone_efi(const char *tone)
 {
 	struct lcr_msg *message;
 

@@ -300,7 +300,7 @@ unsigned int crc32(unsigned char *data, int len)
 CM_ST_NAMES
 
 /* give name of state */
-static char *statename(int state)
+static const char *statename(int state)
 {
 	if (state>=0 && state<cm_st_num)
 		return(cm_st_name[state]);
@@ -1141,7 +1141,7 @@ CM_MSG_NAMES
 
 void EndpointAppPBX::cryptman_message(int message, unsigned char *param, int len)
 {
-	char *msgtext = "<<UNKNOWN MESSAGE>>";
+	const char *msgtext = "<<UNKNOWN MESSAGE>>";
 
 	if (message>=0 && message<cm_msg_num)
 		msgtext = cm_msg_name[message];
@@ -1506,7 +1506,7 @@ void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
 
 	if (options.deb & DEBUG_CRYPT)
 	{
-		char *msgtext = "<<UNKNOWN MESSAGE>>";
+		const char *msgtext = "<<UNKNOWN MESSAGE>>";
 
 		if (msg>=0 && msg<cm_msg_num)
 			msgtext = cm_msg_name[msg];
@@ -1516,7 +1516,7 @@ void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
 
 /* send message to user
  */
-void EndpointAppPBX::cryptman_msg2user(int msg, char *text)
+void EndpointAppPBX::cryptman_msg2user(int msg, const char *text)
 {
 	struct lcr_msg *message;
 	/* send message */
@@ -1534,7 +1534,7 @@ void EndpointAppPBX::cryptman_msg2user(int msg, char *text)
 
 	if (options.deb & DEBUG_CRYPT)
 	{
-		char *msgtext = "<<UNKNOWN MESSAGE>>";
+		const char *msgtext = "<<UNKNOWN MESSAGE>>";
 
 		if (msg>=0 && msg<cm_msg_num)
 			msgtext = cm_msg_name[msg];
@@ -1788,7 +1788,7 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 void EndpointAppPBX::encrypt_shared(void)
 {
 	struct lcr_msg *message;
-	char *errstr = "";
+	const char *errstr = "";
 	class Port *port;
 	int type, key_len;
 	unsigned char *key;
@@ -1894,7 +1894,7 @@ void EndpointAppPBX::encrypt_shared(void)
 void EndpointAppPBX::encrypt_keyex(void)
 {
 	struct lcr_msg *message;
-	char *errstr = "";
+	const char *errstr = "";
 	class Port *port;
 
 	/* redisplay current crypt display */

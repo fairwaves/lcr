@@ -40,7 +40,7 @@ enum { /* crypt manager states */
 };
 
 #define CM_ST_NAMES \
-static char *cm_st_name[] = { \
+static const char *cm_st_name[] = { \
 	"NULL", \
 	"IDENT", \
 	"KEYGEN", \
@@ -103,7 +103,7 @@ enum { /* messages */
 };
 
 #define CM_MSG_NAMES \
-static char *cm_msg_name[] = { \
+static const char *cm_msg_name[] = { \
 	"CP_IDENT", \
 	"CP_SLAVE", \
 	"CP_MASTER", \

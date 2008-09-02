@@ -146,7 +146,7 @@ struct epoint_list *Port::epointlist_new(unsigned int epoint_id)
 /*
  * port constructor
  */
-Port::Port(int type, char *portname, struct port_settings *settings)
+Port::Port(int type, const char *portname, struct port_settings *settings)
 {
 	class Port *temp, **tempp;
 
@@ -295,7 +295,7 @@ void Port::set_echotest(int echotest)
 /*
  * set the file in the tone directory with the given name
  */
-void Port::set_tone(char *dir, char *name)
+void Port::set_tone(const char *dir, const char *name)
 {
 	int fh;
 	char filename[128];
@@ -395,7 +395,7 @@ void Port::set_tone(char *dir, char *name)
  * set the file in the tone directory for vbox playback
  * also set the play_eof-flag
  */
-void Port::set_vbox_tone(char *dir, char *name)
+void Port::set_vbox_tone(const char *dir, const char *name)
 {
 	char filename[256];
 
@@ -448,7 +448,7 @@ void Port::set_vbox_tone(char *dir, char *name)
  * also set the eof-flag
  * also set the counter-flag
  */
-void Port::set_vbox_play(char *name, int offset)
+void Port::set_vbox_play(const char *name, int offset)
 {
 	signed int size;
 	struct lcr_msg *message;
@@ -702,7 +702,7 @@ struct fmt {
  * written before close, because we do not know the size yet)
  * type=1 record annoucement,  type=0 record audio stream, type=2 record vbox
  */
-int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ignore, char *vbox_email, int vbox_email_file)
+int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ignore, const char *vbox_email, int vbox_email_file)
 {
 	/* RIFFxxxxWAVEfmt xxxx(fmt-size)dataxxxx... */
 	char dummyheader[8+4+8+sizeof(fmt)+8];
@@ -802,7 +802,7 @@ void Port::close_record(int beep, int mute)
 	char number[256], callerid[256];
 	char *p;
 	struct caller_info callerinfo;
-	char *valid_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_.-!$%&/()=+*;~";
+	const char *valid_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_.-!$%&/()=+*;~";
 
 	if (!p_record)
 		return;
@@ -904,7 +904,7 @@ void Port::close_record(int beep, int mute)
 		fprintf(p_record, "WAVE");
 
 		/* fmt */
-		fprintf(p_record, "fmt %c%c%c%c", sizeof(fmt), 0, 0, 0);
+		fprintf(p_record, "fmt %c%c%c%c", (unsigned int)sizeof(fmt), 0, 0, 0);
 		switch(p_record_type)
 		{
 			case CODEC_MONO:

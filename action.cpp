@@ -988,12 +988,12 @@ void EndpointAppPBX::_action_redial_reply(int in)
 	{
 		/* find next entry */
 		e_select++;
-		if (e_select >= MAX_REMEMBER)
+		if (e_select >= MAX_REMEMBER) {
 			e_select--;
-		else if (in)
+		} else if (in) {
 			if (e_ext.last_in[e_select][0] == '\0')
 				e_select--;
-		else
+		} else
 			if (e_ext.last_out[e_select][0] == '\0')
 				e_select--;
 
@@ -2009,7 +2009,8 @@ void EndpointAppPBX::action_hangup_execute(void)
 {
 	struct route_param *rparam;
 	pid_t pid;
-	char *command = "", isdn_port[10];
+	char *command = (char *)"";
+	char isdn_port[10];
 	char *argv[11]; /* check also number of args below */
 	int i = 0;
 
@@ -2022,8 +2023,8 @@ void EndpointAppPBX::action_hangup_execute(void)
 		end_trace();
 		return;
 	}
-	argv[i++] = "/bin/sh";
-	argv[i++] = "-c";
+	argv[i++] = (char *)"/bin/sh";
+	argv[i++] = (char *)"-c";
 	argv[i++] = command;
 	argv[i++] = command;
 	if ((rparam = routeparam(e_action, PARAM_PARAM)))
@@ -2031,7 +2032,7 @@ void EndpointAppPBX::action_hangup_execute(void)
 		argv[i++] = rparam->string_value;
 	}
 	argv[i++] = e_extdialing;
-	argv[i++] = numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international);
+	argv[i++] = (char *)numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international);
 	argv[i++] = e_callerinfo.extension;
 	argv[i++] = e_callerinfo.name;
 	SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
@@ -2060,7 +2061,7 @@ void EndpointAppPBX::action_hangup_execute(void)
 void EndpointAppPBX::action_hangup_file(void)
 {
 	struct route_param *rparam;
-	char *file, *content, *mode;
+	const char *file, *content, *mode;
 	FILE *fp;
 
 	/* get file / content */

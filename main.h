@@ -58,7 +58,7 @@ extern FILE *debug_fp;
 void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...);
 void _printerror(const char *function, int line, const char *fmt, ...);
 #define DEBUG_FUNC
-void debug(const char *function, int line, char *prefix, char *buffer);
+void debug(const char *function, int line, const char *prefix, char *buffer);
 
 #define DEBUG_CONFIG	0x0001
 #define DEBUG_MSG 	0x0002
@@ -121,7 +121,7 @@ void debug(const char *function, int line, char *prefix, char *buffer);
 
 #ifdef BUDETECT_DEF
  #define BUDETECT	budetect(__FILE__, __LINE__, __FUNCTION__);
- void budetect(const char *file, int line, char *function);
+ void budetect(const char *file, int line, const char *function);
 #else
  #define BUDETECT	;
 #endif

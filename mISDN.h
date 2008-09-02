@@ -86,9 +86,9 @@ void mISDN_port_reorder(void);
 int mISDN_handler(void);
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
 int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
-void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned int handle, unsigned int c1, unsigned int c2, char *trace_name, int trace_value);
-void ph_control_block(struct mISDNport *mISDNport, unsigned int handle, unsigned int c1, void *c2, int c2_len, char *trace_name, int trace_value);
-void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, char *msgtext, int direction);
+void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned int handle, unsigned int c1, unsigned int c2, const char *trace_name, int trace_value);
+void ph_control_block(struct mISDNport *mISDNport, unsigned int handle, unsigned int c1, void *c2, int c2_len, const char *trace_name, int trace_value);
+void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, const char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
 void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned int handle);
@@ -140,7 +140,7 @@ class PmISDN : public Port
 	unsigned int p_m_crypt_listen_crc;
 	void cryptman_listen_bch(unsigned char *p, int l);
 
-	void set_tone(char *dir, char *name);
+	void set_tone(const char *dir, const char *name);
 	void set_echotest(int echotest);
 
 	int p_m_portnum;			/* used port number (1...n) */

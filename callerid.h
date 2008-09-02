@@ -9,6 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-char *nationalize_callerinfo(char *string, int *type, char *national, char *international);
-char *numberrize_callerinfo(char *string, int type, char *national, char *international);
+const char *nationalize_callerinfo(const char *string, int *type, const char *national, const char *international);
+const char *numberrize_callerinfo(const char *string, int type, const char *national, const char *international);
 

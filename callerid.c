@@ -18,7 +18,7 @@
 /* create caller id from digits by comparing with national and international
  * prefixes.
  */
-char *nationalize_callerinfo(char *string, int *ntype, char *national, char *international)
+const char *nationalize_callerinfo(const char *string, int *ntype, const char *national, const char *international)
 {
 	if (!strncmp(international, string, strlen(international)))
 	{
@@ -37,7 +37,7 @@ char *nationalize_callerinfo(char *string, int *ntype, char *national, char *int
 /* create number (including access codes) from caller id
  * prefixes.
  */
-char *numberrize_callerinfo(char *string, int ntype, char *national, char *international)
+const char *numberrize_callerinfo(const char *string, int ntype, const char *national, const char *international)
 {
 	static char result[256];
 

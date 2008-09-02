@@ -20,8 +20,8 @@ int coredebug=0, carddebug=0, dspdebug=0;
 int lawopt=0;
 
 struct cards {
-	char *name;
-	char *module;
+	const char *name;
+	const char *module;
 } cards[] = {
 //	{ "AVM Fritz PCI (PNP)", "avmfritz"},
 	{ "HFC PCI (Cologne Chip)", "hfcpci"},

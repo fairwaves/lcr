@@ -14,7 +14,7 @@
 /* safe strcpy/strncpy */
 
 #define SCPY(dst, src) scpy(dst, src, sizeof(dst))
-static inline void scpy(char *dst, char *src, unsigned int siz)
+static inline void scpy(char *dst, const char *src, unsigned int siz)
 {
 	strncpy(dst, src, siz);
 	dst[siz-1] = '\0';
@@ -23,7 +23,7 @@ static inline void scpy(char *dst, char *src, unsigned int siz)
 /* safe strcat/strncat */
 
 #define SCAT(dst, src) scat(dst, src, sizeof(dst))
-static inline void scat(char *dst, char *src, unsigned int siz)
+static inline void scat(char *dst, const char *src, unsigned int siz)
 {
 	strncat(dst, src, siz);
 	dst[siz-1] = '\0';
@@ -44,7 +44,7 @@ static inline void sccat(char *dst, char chr, unsigned int siz)
 /* safe sprintf/snprintf */
 
 #define SPRINT(dst, fmt, arg...) sprint(dst, sizeof(dst), fmt, ## arg)
-static inline void sprint(char *dst, unsigned int siz, char *fmt, ...)
+static inline void sprint(char *dst, unsigned int siz, const char *fmt, ...)
 {
 	va_list args;
 
@@ -65,7 +65,7 @@ static inline void sprint(char *dst, unsigned int siz, char *fmt, ...)
 
 /* fatal error with error message and exit */
 #define FATAL(fmt, arg...) fatal(__FUNCTION__, __LINE__, fmt, ##arg)
-static inline void fatal(const char *function, int line, char *fmt, ...)
+static inline void fatal(const char *function, int line, const char *fmt, ...)
 {
 	va_list args;
 	char buffer[256];
@@ -78,7 +78,7 @@ static inline void fatal(const char *function, int line, char *fmt, ...)
 	fprintf(stderr, "This error is not recoverable, must exit here.\n");
 #ifdef DEBUG_FUNC
 	debug(function, line, "FATAL ERROR", buffer);
-	debug(function, line, "FATAL ERROR", "This error is not recoverable, must exit here.\n");
+	debug(function, line, "FATAL ERROR", (char *)"This error is not recoverable, must exit here.\n");
 #endif
 	exit(EXIT_FAILURE);
 }

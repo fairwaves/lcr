@@ -54,14 +54,14 @@ enum {
 	MODE_TRACE,
 };
 
-char *text_interfaces[] = {
+const char *text_interfaces[] = {
 	"off",
 	"brief",
 	"active channels",
 	"all channels",
 };
 
-char *text_calls[] = {
+const char *text_calls[] = {
 	"off",
 	"brief",
 	"structured",
@@ -450,7 +450,8 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 
 	return(line);
 }
-char *admin_state(int sock, char *argv[])
+
+const char *admin_state(int sock, char *argv[])
 {
 	struct admin_message	msg,
 				*m;
@@ -1257,7 +1258,7 @@ char *admin_state(int sock, char *argv[])
 /*
  * Send command and show error message.
  */
-char *admin_cmd(int sock, int mode, char *extension, char *number)
+const char *admin_cmd(int sock, int mode, char *extension, char *number)
 {
 	static struct admin_message msg;
 
@@ -1345,7 +1346,7 @@ char *admin_cmd(int sock, int mode, char *extension, char *number)
 	gettimeofday(&now_tv, &now_tz); \
 	now_d = ((double)(now_tv.tv_usec))/1000000 + now_tv.tv_sec; \
 	}
-char *admin_testcall(int sock, int argc, char *argv[])
+const char *admin_testcall(int sock, int argc, char *argv[])
 {
 	static struct admin_message msg;
 	int ar = 2;
@@ -1555,7 +1556,7 @@ next:
 /*
  * makes a trace
  */
-char *admin_trace(int sock, int argc, char *argv[])
+const char *admin_trace(int sock, int argc, char *argv[])
 {
 	static struct admin_message msg;
 	int i;
@@ -1633,7 +1634,7 @@ int main(int argc, char *argv[])
 	int mode;
 	int sock, conn;
 	struct sockaddr_un sock_address;
-	char *ret;
+	const char *ret;
 
 
 	/* show options */

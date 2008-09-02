@@ -225,29 +225,29 @@ struct route_ruleset { /* the ruleset is a list of rules */
 };
 
 struct cond_defs { /* defintion of all conditions */
-	char			*name;			/* item's name */
+	const char		*name;			/* item's name */
 	int			match;			/* what to check */
 	int			type;			/* type of value (COND_TYPE) */
-	char			*doc;			/* syntax */
-	char			*help;			/* short help */
+	const char		*doc;			/* syntax */
+	const char		*help;			/* short help */
 };
 
 struct param_defs { /* definition of all options */
 	unsigned long long	id;			/* ID of parameter (just for checking) */
-	char			*name;			/* name of parameter */
+	const char		*name;			/* name of parameter */
 	int			type;			/* type of value (PARAM_TYPE_*) */
-	char			*doc;			/* syntax */
-	char			*help;			/* quick help */
+	const char		*doc;			/* syntax */
+	const char		*help;			/* quick help */
 };
 
 struct action_defs { /* definition of all actions */
 	int			id;			/* ID of parameter (just for checking) */
-	char			*name;
+	const char		*name;
 	void			(EndpointAppPBX::*init_func)(void);
 	void			(EndpointAppPBX::*dialing_func)(void);
 	void			(EndpointAppPBX::*hangup_func)(void);
 	unsigned long long	 params;
-	char			*help;
+	const char		*help;
 };
 
 
@@ -273,5 +273,5 @@ void ruleset_free(struct route_ruleset *ruleset_start);
 void ruleset_debug(struct route_ruleset *ruleset_start);
 extern char ruleset_error[256];
 struct route_ruleset *ruleset_parse(void);
-struct route_ruleset *getrulesetbyname(char *name);
+struct route_ruleset *getrulesetbyname(const char *name);
 

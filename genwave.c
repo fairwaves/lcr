@@ -119,7 +119,7 @@ void write_law(FILE *fp, char *name, char law)
 		fprintf(fp, "WAVE");
 
 		/* fmt */
-		fprintf(fp, "fmt %c%c%c%c", sizeof(fmt), 0, 0, 0);
+		fprintf(fp, "fmt %c%c%c%c", (unsigned int)sizeof(fmt), 0, 0, 0);
 		fmt.stereo = 1;
 		fmt.channels = 1;
 		fmt.sample_rate = 8000;

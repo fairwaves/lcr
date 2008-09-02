@@ -13,7 +13,7 @@
 
 /* extension */
 
-char *ext_rights[] = {
+const char *ext_rights[] = {
 	"none",
 	"internal",
 	"local",
@@ -22,7 +22,7 @@ char *ext_rights[] = {
 	NULL
 };
 
-char *ext_yesno[] = {
+const char *ext_yesno[] = {
 	"no",
 	"yes",
 	NULL
@@ -151,7 +151,7 @@ int read_extension(struct extension *ext, char *num)
 			SCPY(ext->name, param);
 			if (param2[0])
 			{
-				SCAT(ext->name, " ");
+				SCAT(ext->name, (char *)" ");
 				SCAT(ext->name, param2);
 			}
 
@@ -1329,13 +1329,13 @@ int write_extension(struct extension *ext, char *number)
  */
 int write_log(char *number, char *callerid, char *calledid, time_t start, time_t stop, int aoce, int cause, int location)
 {
-	char *mon[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	const char *mon[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 	FILE *fp=NULL;
 	char filename[256];
 	struct tm *tm;
 
 	if (callerid[0] == '\0')
-		callerid = "<unknown>";
+		callerid = (char *)"<unknown>";
 
 	SPRINT(filename, "%s/%s/%s/log", INSTALL_DATA, options.extensions_dir, number);
 

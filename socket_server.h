@@ -32,7 +32,7 @@ extern struct admin_list *admin_first;
 int admin_init(void);
 void admin_cleanup(void);
 int admin_handle(void);
-void admin_call_response(int adminid, int message, char *connected, int cause, int location, int notify);
+void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify);
 int admin_message_to_join(struct admin_message *msg, int remote_id);
 int admin_message_from_join(int remote_id, unsigned int ref, int message_type, union parameter *param);
 

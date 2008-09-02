@@ -97,11 +97,11 @@ struct interface {
 };
 
 struct interface_param {
-	char			*name;
+	const char		*name;
 /*      return value		(pointer of function)(args ...) */
 	int			(*func)(struct interface *, char *, int, char *, char*);
-	char			*usage;
-	char			*help;
+	const char		*usage;
+	const char		*help;
 };
 
 

@@ -44,14 +44,14 @@ VBOX_STATE_CALLINFO_END, /* this value defines the end of callingo */
 	VBOX_STATE_DELETE_DONE,	/* tell that message is delete */
 };
 
-char *months_english[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
-char *months_german[] = {"Jan","Feb","Maer","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"};
+const char *months_english[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+const char *months_german[] = {"Jan","Feb","Maer","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"};
 
 struct vbox_menu {
-	char digit;
-	char *english;
-	char *german;
-	} vbox_menu[] = {
+	const char digit;
+	const char *english;
+	const char *german;
+} vbox_menu[] = {
 	{'1', "<< previous", "<< zurueck"},
 	{'2', "-> play", "-> anhoeren"},
 	{'3', ">> next", ">> vor"},
@@ -63,7 +63,7 @@ struct vbox_menu {
 	{'9', "X  delete", "X  loeschen"},
 	{'0', "*  call", "*  anrufen"},
 	{'\0', NULL, NULL}
-	};
+};
 
 /*
  * initialize the vbox. this is called at process_dialing(), when the VBOX_PLAY
@@ -890,7 +890,7 @@ void EndpointAppPBX::vbox_message_eof(void)
  * set the given vbox-tone with full path (without appending)
  * the tone is played and after eof, a message is received
  */
-void EndpointAppPBX::set_tone_vbox(char *tone)
+void EndpointAppPBX::set_tone_vbox(const char *tone)
 {
 	struct lcr_msg *message;
 
@@ -902,7 +902,7 @@ void EndpointAppPBX::set_tone_vbox(char *tone)
 		PERROR("EPOINT(%d) no portlist\n", ea_endpoint->ep_serial);
 	}
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_VBOX_TONE);
-	SCPY(message->param.tone.dir, (char *)((e_ext.vbox_language)?"vbox_german":"vbox_english"));
+	SCPY(message->param.tone.dir, ((e_ext.vbox_language) ? "vbox_german" : "vbox_english"));
 	SCPY(message->param.tone.name, tone);
 	message_put(message);
 
@@ -917,7 +917,7 @@ void EndpointAppPBX::set_tone_vbox(char *tone)
  * the current counter value is also received by a message
  * set the offset in seconds of the current recording
  */
-void EndpointAppPBX::set_play_vbox(char *file, int offset)
+void EndpointAppPBX::set_play_vbox(const char *file, int offset)
 {
 	char filename[256];
 	struct lcr_msg *message;

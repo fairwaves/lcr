@@ -774,7 +774,7 @@ void Pdss1::dec_ie_channel_id(struct l3_msg *l3m, int *exclusive, int *channel)
 			return;
 		}
 		*channel = p[3] & 0x7f;
-		if (*channel<1 | *channel==16)
+		if ((*channel<1) || (*channel==16))
 		{
 			add_trace("channel_id", "error", "PRI interface channel out of range (%d)", *channel);
 			return;

@@ -136,8 +136,8 @@ struct trace {
 #define start_trace(port, interface, caller, dialing, direction, category, serial, name) _start_trace(__FILE__, __LINE__, port, interface, caller, dialing, direction, category, serial, name)
 #define add_trace(name, sub, fmt, arg...) _add_trace(__FILE__, __LINE__, name, sub, fmt, ## arg)
 #define end_trace() _end_trace(__FILE__, __LINE__)
-void _start_trace(const char *__file, int line, int port, struct interface *interface, char *caller, char *dialing, int direction, int category, int serial, char *name);
-void _add_trace(const char *__file, int line, char *name, char *sub, const char *fmt, ...);
+void _start_trace(const char *__file, int line, int port, struct interface *interface, const char *caller, const char *dialing, int direction, int category, int serial, const char *name);
+void _add_trace(const char *__file, int line, const char *name, const char *sub, const char *fmt, ...);
 void _end_trace(const char *__file, int line);
 //char *print_trace(int port, char *interface, char *caller, char *dialing, int direction, char *category, char *name);
 

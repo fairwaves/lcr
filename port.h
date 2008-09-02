@@ -46,7 +46,7 @@ enum { /* states of call */
 };
 
 #define PORT_STATE_NAMES \
-static char *state_name[] = { \
+static const char *state_name[] = { \
 	"PORT_STATE_IDLE", \
 	"PORT_STATE_IN_SETUP", \
 	"PORT_STATE_OUT_SETUP", \
@@ -124,14 +124,14 @@ class Port
 {
 	public:
 	/* methods */
-	Port(int type, char *portname, struct port_settings *settings);
+	Port(int type, const char *portname, struct port_settings *settings);
 	virtual ~Port();
 	class Port *next;			/* next port in list */
 	int p_type;				/* type of port */
 	virtual int handler(void);
 	virtual int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	virtual void set_echotest(int echotest);
-	virtual void set_tone(char *dir, char *name);
+	virtual void set_tone(const char *dir, const char *name);
 	virtual int read_audio(unsigned char *buffer, int length);
 
 	struct port_settings p_settings;
@@ -150,8 +150,8 @@ class Port
 //	void *p_knock_fetched;			/* pointer to fetched data */
 //	int p_knock_codec;
 //	signed int p_knock_size, p_knock_left;
-	void set_vbox_tone(char *dir, char *name);/* tone of answering machine */
-	void set_vbox_play(char *name, int offset); /* sample of answ. */
+	void set_vbox_tone(const char *dir, const char *name);/* tone of answering machine */
+	void set_vbox_play(const char *name, int offset); /* sample of answ. */
 	void set_vbox_speed(int speed);	/* speed of answ. */
 
 	/* identification */
@@ -172,7 +172,7 @@ class Port
 	int p_echotest;				/* set to echo audio data FROM port back to port's mixer */
 
 	/* recording */
-	int open_record(int type, int mode, int skip, char *terminal, int anon_ignore, char *vbox_email, int vbox_email_file);
+	int open_record(int type, int mode, int skip, char *terminal, int anon_ignore, const char *vbox_email, int vbox_email_file);
 	void close_record(int beep, int mute);
 	void record(unsigned char *data, int length, int dir_fromup);
 	FILE *p_record;				/* recording fp: if not NULL, recording is enabled */
