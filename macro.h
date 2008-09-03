@@ -22,7 +22,7 @@ static inline void scpy(char *dst, const char *src, unsigned int siz)
 
 /* safe strcat/strncat */
 
-#define SCAT(dst, src) scat(dst, src, sizeof(dst))
+#define SCAT(dst, src) scat(dst, src, sizeof(dst)-strlen(dst)-1)
 static inline void scat(char *dst, const char *src, unsigned int siz)
 {
 	strncat(dst, src, siz);

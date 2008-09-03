@@ -45,14 +45,14 @@ const char *numberrize_callerinfo(const char *string, int ntype, const char *nat
 	{
 		case INFO_NTYPE_INTERNATIONAL:
 		strcpy(result, international);
-		strncat(result, string, sizeof(result));
+		strncat(result, string, sizeof(result)-strlen(result)-1);
 		result[sizeof(result)-1] = '\0';
 		return(result);
 		break;
 
 		case INFO_NTYPE_NATIONAL:
 		strcpy(result, national);
-		strncat(result, string, sizeof(result));
+		strncat(result, string, sizeof(result)-strlen(result)-1);
 		result[sizeof(result)-1] = '\0';
 		return(result);
 		break;
