@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
 
 	/* create lock and lock! */
 	SPRINT(lock, "%s/lcr.lock", options.lock);
-	if ((lockfd = open(lock, O_CREAT | O_WRONLY)) < 0)
+	if ((lockfd = open(lock, O_CREAT | O_WRONLY, S_IWUSR)) < 0)
 	{
 		fprintf(stderr, "Cannot create lock file: %s\n", lock);
 		fprintf(stderr, "Check options.conf to change to path with permissions for you.\n");
