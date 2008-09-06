@@ -199,7 +199,7 @@ PmISDN::~PmISDN()
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, const char *msgtext, int direction)
 {
 	/* init trace with given values */
-	start_trace(mISDNport?mISDNport->portnum:0,
+	start_trace(mISDNport?mISDNport->portnum:-1,
 		    (mISDNport)?((mISDNport->ifport)?mISDNport->ifport->interface:NULL):NULL,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
@@ -301,7 +301,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 	}
 
 	/* init trace with given values */
-	start_trace(mISDNport?mISDNport->portnum:0,
+	start_trace(mISDNport?mISDNport->portnum:-1,
 		    mISDNport?(mISDNport->ifport?mISDNport->ifport->interface:NULL):NULL,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
@@ -401,7 +401,7 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
-	addr.dev = mISDNport->portnum-1;
+	addr.dev = mISDNport->portnum;
 	addr.channel = i+1+(i>=15);
 	ret = bind(mISDNport->b_socket[i], (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
@@ -2140,14 +2140,14 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 		PERROR_RUNTIME("Found no card. Please be sure to load card drivers.\n");
 		return(NULL);
 	}
-	if (port>cnt || port<1)
+	if (port>cnt || port<0)
 	{
-		PERROR_RUNTIME("Port (%d) given at 'ports' (options.conf) is out of existing port range (%d-%d)\n", port, 1, cnt);
+		PERROR_RUNTIME("Port (%d) given at 'ports' (options.conf) is out of existing port range (%d-%d)\n", port, 0, cnt);
 		return(NULL);
 	}
 
 	pri = bri = pots = nt = te = 0;
-	devinfo.id = port - 1;
+	devinfo.id = port;
 	ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
 	if (ret < 0)
 	{
@@ -2263,7 +2263,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
 	mqueue_init(&mISDNport->upqueue);
-	mISDNport->ml3 = open_layer3(port-1, protocol, prop , do_layer3, mISDNport);
+	mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
 	if (!mISDNport->ml3)
 	{
 		mqueue_purge(&mISDNport->upqueue);

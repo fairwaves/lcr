@@ -258,6 +258,11 @@ static int inter_hunt(struct interface *interface, char *filename, int line, cha
 }
 static int inter_port(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+	SPRINT(interface_error, "Error in %s (line %d): parameter '%s' is outdated.\nPlease use 'portnum' and decrease port number by 1! Ports are counted from 0 now.\n", filename, line, parameter);
+	return(-1);
+}
+static int inter_portnum(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
 	struct interface_port *ifport, **ifportp;
 	struct interface *searchif;
 	int val;
@@ -296,6 +301,11 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 		ifportp = &((*ifportp)->next);
 	*ifportp = ifport;
 	return(0);
+}
+static int inter_portname(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not implemented yet.\n", filename, line, parameter);
+	return(-1);
 }
 static int inter_l2hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
@@ -853,6 +863,10 @@ struct interface_param interface_param[] = {
 	"Select the algorithm for selecting port with free channel."},
 
 	{"port", &inter_port, "<number>",
+	""},
+	{"portnum", &inter_portnum, "<number>",
+	"Give exactly one port for this interface.\nTo give multiple ports, add more lines with port parameters."},
+	{"portname", &inter_portname, "<number>",
 	"Give exactly one port for this interface.\nTo give multiple ports, add more lines with port parameters."},
 
 	{"block", &inter_block, "",
@@ -1308,15 +1322,19 @@ void doc_interface(void)
 	ifparam = interface_param;
 	while(ifparam->name)
 	{
-		printf("%s %s\n", ifparam->name, ifparam->usage);
+		if (ifparam->name[0])
+			printf("%s %s\n", ifparam->name, ifparam->usage);
 		ifparam++;
 	}
 
 	ifparam = interface_param;
 	while(ifparam->name)
 	{
-		printf("\nParameter: %s %s\n", ifparam->name, ifparam->usage);
-		printf("%s\n", ifparam->help);
+		if (ifparam->name[0])
+		{
+			printf("\nParameter: %s %s\n", ifparam->name, ifparam->usage);
+			printf("%s\n", ifparam->help);
+		}
 		ifparam++;
 	}
 }

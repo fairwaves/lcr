@@ -1954,7 +1954,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	struct route_rule	*rule = ruleset->rule_first;
 	struct route_cond	*cond;
 	struct route_action	*action = NULL;
-	unsigned int		comp_len;
+	unsigned long		comp_len;
 	int			j, jj;
 	char			callerid[64],	redirid[64];
 	int			integer;
@@ -2270,7 +2270,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				match_string_prefix:
 				comp_len = strlen(cond->string_value); /* because we must reach value's length */
 				/* we must have greater or equal length to values */
-				if ((unsigned int)strlen(string) < comp_len)
+				if ((unsigned long)strlen(string) < comp_len)
 				{
 					/* special case for unfinished dialing */
 					if (cond->match == MATCH_DIALING)

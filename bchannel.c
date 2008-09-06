@@ -164,12 +164,12 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
-	addr.dev = (bchannel->handle>>8)-1;
+	addr.dev = (bchannel->handle>>8);
 	addr.channel = bchannel->handle & 0xff;
 	ret = bind(bchannel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		CERROR(bchannel->call, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. (port %d, channel %d) Did you load mISDNdsp.ko?\n", bchannel->handle, addr.dev + 1, addr.channel);
+		CERROR(bchannel->call, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. (port %d, channel %d) Did you load mISDNdsp.ko?\n", bchannel->handle, addr.dev, addr.channel);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
 		return(0);
