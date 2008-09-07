@@ -668,13 +668,13 @@ const char *admin_state(int sock, char *argv[])
 			color(white);
 			if (m[i].u.i.block >= 2)
 			{
-				SPRINT(buffer, "%s (%d)%s", m[i].u.i.interface_name, m[i].u.i.portnum, (m[i].u.i.extension)?" (extension)":"");
+				SPRINT(buffer, "%s (port %d: %s)%s", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
 				addstr(buffer);
 				color(red);
 				addstr("  not loaded");
 			} else
 			{
-				SPRINT(buffer, "%s (%d) %s %s%s use:%d", m[i].u.i.interface_name, m[i].u.i.portnum, (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp", (m[i].u.i.extension)?" extension":"", m[i].u.i.use);
+				SPRINT(buffer, "%s (port %d: %s) %s %s%s use:%d", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp", (m[i].u.i.extension)?" extension":"", m[i].u.i.use);
 				addstr(buffer);
 				if (m[i].u.i.ptp || !m[i].u.i.ntmode)
 				{

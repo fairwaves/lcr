@@ -887,6 +887,8 @@ int admin_state(struct admin_queue **responsep)
 			SCPY(response->am[num].u.i.interface_name, interface->name);
 			/* portnum */
 			response->am[num].u.i.portnum = ifport->portnum;
+			/* portname */
+			SCPY(response->am[num].u.i.portname, ifport->portname);
 			/* iftype */
 			response->am[num].u.i.extension = interface->extension;
 			/* block */
@@ -1178,7 +1180,6 @@ int admin_handle(void)
 			{
 				work = 1;
 				brokenpipe:
-				printf("Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
 				PDEBUG(DEBUG_LOG, "Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
 				*adminp = admin->next;
 				free_connection(admin);

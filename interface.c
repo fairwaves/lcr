@@ -304,8 +304,38 @@ static int inter_portnum(struct interface *interface, char *filename, int line, 
 }
 static int inter_portname(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not implemented yet.\n", filename, line, parameter);
-	return(-1);
+	struct interface_port *ifport, **ifportp;
+	struct interface *searchif;
+
+	/* check for port already assigned */
+	searchif = interface_newlist;
+	while(searchif)
+	{
+		ifport = searchif->ifport;
+		while(ifport)
+		{
+			if (!strcasecmp(ifport->portname, value))
+			{
+				SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
+				return(-1);
+			}
+			ifport = ifport->next;
+		}
+		searchif = searchif->next;
+	}
+	/* alloc port substructure */
+	ifport = (struct interface_port *)MALLOC(sizeof(struct interface_port));
+	memuse++;
+	ifport->interface = interface;
+	/* set value */
+	ifport->portnum = -1; // disable until resolved
+	SCPY(ifport->portname, value);
+	/* tail port */
+	ifportp = &interface->ifport;
+	while(*ifportp)
+		ifportp = &((*ifportp)->next);
+	*ifportp = ifport;
+	return(0);
 }
 static int inter_l2hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
@@ -866,8 +896,8 @@ struct interface_param interface_param[] = {
 	""},
 	{"portnum", &inter_portnum, "<number>",
 	"Give exactly one port for this interface.\nTo give multiple ports, add more lines with port parameters."},
-	{"portname", &inter_portname, "<number>",
-	"Give exactly one port for this interface.\nTo give multiple ports, add more lines with port parameters."},
+	{"portname", &inter_portname, "<name>",
+	"Same as 'portnum', but the name is given instead.\nUse 'isdninfo' to list all available ports and names."},
 
 	{"block", &inter_block, "",
 	"If keyword is given, calls on this interface are blocked.\n"
@@ -1295,12 +1325,16 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->ptp, ifport->nt, ifport->l2hold, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->l2hold, ifport->interface);
 	if (mISDNport)
 	{
 		/* link port */
 		ifport->mISDNport = mISDNport;
 		mISDNport->ifport = ifport;
+		/* set number and name */
+		ifport->portnum = mISDNport->portnum;
+		SCPY(ifport->portname, mISDNport->name);
+		/* set defaults */
 		set_defaults(ifport);
 	} else
 	{

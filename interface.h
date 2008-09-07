@@ -45,6 +45,7 @@ struct interface_port {
 	struct interface	*interface; /* link to interface */
 	struct mISDNport	*mISDNport; /* link to port */
 	int			portnum; /* port number */
+	char			portname[64]; /* alternately: port name */
 	int			ptp; /* force load stack in PTP mode */
 	int			ptmp; /* force load stack in PTP mode */
 	int			nt; /* load stack in NT-mode */

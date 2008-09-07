@@ -430,7 +430,7 @@ Changes in Version 1.0
 - First Alpha release of chan_lcr - the Asterisk PBX channel link driver.
   -> Use LCR in conjunction with Asterisk, or simply as ISDN frontend.
 
-Fixes in current Version
+Changes in Version 1.1
 - Fixed dtmf bug.
 - Added more display infos
 - Fixed b-channel check bug. (channel seemed busy, even if it was free)
@@ -439,5 +439,10 @@ Fixes in current Version
 - Fixed lockinproblem with chan_lcr (hopefully).
 - HDLC now works and is used for B-channels, if required.
 - Briding for chan_lcr fixed, many other fixed for chan_lcr. Overlap dialing!
+- Compiling and 64-bit issues fixed by Karsten.
+- chan_lcr fixes and tests by Peter.
+- LCR now runs as user, but still can be run as root.
+- Ports can now be given with number or with name.
 
+Fixes in current Version
 

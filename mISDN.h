@@ -79,7 +79,7 @@ calls with no bchannel (call waiting, call on hold).
 /* mISDN none-object functions */
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
-struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, struct interface *interface);
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int l2hold, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

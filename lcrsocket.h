@@ -65,6 +65,7 @@ struct admin_response_state {
 struct admin_response_interface {
 	char		interface_name[32];
 	int		portnum;
+	char		portname[64];
 	int		block;
 	int		ntmode;
 	int		ptp;

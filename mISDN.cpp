@@ -2117,7 +2117,7 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, struct interface *interface)
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int l2hold, struct interface *interface)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2128,6 +2128,7 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	struct mISDN_devinfo devinfo;
 	unsigned int protocol, prop;
 
+	/* check port counts */
 	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
 	if (ret < 0)
 	{
@@ -2140,21 +2141,45 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 		PERROR_RUNTIME("Found no card. Please be sure to load card drivers.\n");
 		return(NULL);
 	}
+	if (port < 0)
+	{
+		/* resolve name */
+		port = 0;
+		while (port < cnt)
+		{
+			devinfo.id = port;
+			ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
+			if (ret < 0)
+			{
+				PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", port, ret);
+				return(NULL);
+			}
+			if (!strcasecmp(devinfo.name, portname))
+				break;
+			port++;
+		}
+		if (port == cnt)
+		{
+			PERROR_RUNTIME("Port name '%s' no found, use 'isdninfo' tool to list all existing ports.\n", portname);
+			return(NULL);
+		}
+		// note: 'port' has still the port number
+	}
 	if (port>cnt || port<0)
 	{
 		PERROR_RUNTIME("Port (%d) given at 'ports' (options.conf) is out of existing port range (%d-%d)\n", port, 0, cnt);
 		return(NULL);
 	}
 
+	/* get port attributes */
 	pri = bri = pots = nt = te = 0;
 	devinfo.id = port;
 	ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
 	if (ret < 0)
 	{
-		PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", i, ret);
+		PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", port, ret);
 		return(NULL);
 	}
-	/* output the port info */
 	if (devinfo.Dprotocols & (1 << ISDN_P_TE_S0))
 	{
 		bri = 1;
@@ -2220,6 +2245,24 @@ struct mISDNport *mISDNport_open(int port, int ptp, int force_nt, int l2hold, st
 	/* if TE an NT is supported (and not forced to NT), turn off NT */
 	if (te && nt)
 		nt = 0;
+
+	/* check for double use of port */
+	if (nt)
+	{
+		mISDNport = mISDNport_first;
+		while(mISDNport)
+		{
+			if (mISDNport->portnum == port)
+				break;
+			mISDNport = mISDNport->next;
+		}
+		if (mISDNport)
+		{
+			PERROR_RUNTIME("Port %d already in use by LCR. You can't use a NT port multiple times.\n", port);
+			return(NULL);
+		}
+	}
+
 
 	/* add mISDNport structure */
 	mISDNportp = &mISDNport_first;
