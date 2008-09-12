@@ -445,4 +445,5 @@ Changes in Version 1.1
 - Ports can now be given with number or with name.
 
 Fixes in current Version
+- Changed isdninfo to misdn_info.
 

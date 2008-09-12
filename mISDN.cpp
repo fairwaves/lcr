@@ -385,7 +385,7 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	mISDNport->b_socket[i] = socket(PF_ISDN, SOCK_DGRAM, (mISDNport->b_mode[i]==B_MODE_HDLC)?ISDN_P_B_L2DSPHDLC:ISDN_P_B_L2DSP);
 	if (mISDNport->b_socket[i] < 0)
 	{
-		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
+		PERROR("Error: Failed to open bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDN_dsp.ko?\n", i);
 		return(0);
 	}
 	
@@ -406,7 +406,7 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	ret = bind(mISDNport->b_socket[i], (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		PERROR("Error: Failed to bind bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDNdsp.ko?\n", i);
+		PERROR("Error: Failed to bind bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDN_dsp.ko?\n", i);
 		close(mISDNport->b_socket[i]);
 		mISDNport->b_socket[i] = -1;
 		return(0);
@@ -2160,7 +2160,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		}
 		if (port == cnt)
 		{
-			PERROR_RUNTIME("Port name '%s' no found, use 'isdninfo' tool to list all existing ports.\n", portname);
+			PERROR_RUNTIME("Port name '%s' no found, use 'misdn_info' tool to list all existing ports.\n", portname);
 			return(NULL);
 		}
 		// note: 'port' has still the port number
