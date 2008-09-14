@@ -1954,15 +1954,21 @@ int mISDN_handler(void)
 			switch(l3m->type)
 			{
 				case MPH_ACTIVATE_IND:
-				l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
-				end_trace();
-				mISDNport->l1link = 1;
+				if (mISDNport->l1link != 1)
+				{
+					l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
+					end_trace();
+					mISDNport->l1link = 1;
+				}
 				break;
 	
 				case MPH_DEACTIVATE_IND:
-				l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
-				end_trace();
-				mISDNport->l1link = 0;
+				if (mISDNport->l1link != 0)
+				{
+					l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
+					end_trace();
+					mISDNport->l1link = 0;
+				}
 				break;
 
 				case MPH_INFORMATION_IND:
@@ -2160,7 +2166,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		}
 		if (port == cnt)
 		{
-			PERROR_RUNTIME("Port name '%s' no found, use 'misdn_info' tool to list all existing ports.\n", portname);
+			PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", portname);
 			return(NULL);
 		}
 		// note: 'port' has still the port number

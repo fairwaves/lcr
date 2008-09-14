@@ -445,7 +445,7 @@ int main(int argc, char *argv[])
 
 	/*** main loop ***/
 	SPRINT(tracetext, "%s %s started, waiting for calls...", NAME, VERSION_STRING);
-	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
+	start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext);
 	printf("%s\n", tracetext);
 	end_trace();
 	GET_NOW();
@@ -635,7 +635,7 @@ BUDETECT
 	}
 	SPRINT(tracetext, "%s terminated", NAME);
 	printf("%s\n", tracetext);
-	start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext);
+	start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext);
 	if (quit)
 		add_trace((char *)"signal", NULL, "%d", quit);
 	end_trace();
@@ -742,7 +742,7 @@ free:
 	if (b) \
 	{ \
 		SPRINT(tracetext, a, NAME); \
-		start_trace(0, NULL, NULL, NULL, 0, 0, 0, tracetext); \
+		start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext); \
 		if (ret) add_trace("blocks", NULL, "%d", b); \
 		end_trace(); \
 		printf("\n******************************\n\007"); \

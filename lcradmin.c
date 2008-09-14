@@ -668,7 +668,10 @@ const char *admin_state(int sock, char *argv[])
 			color(white);
 			if (m[i].u.i.block >= 2)
 			{
-				SPRINT(buffer, "%s (port %d: %s)%s", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
+				if (m[i].u.i.portnum < 0)
+					SPRINT(buffer, "%s (port ?: %s)%s", m[i].u.i.interface_name, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
+				else
+					SPRINT(buffer, "%s (port %d: %s)%s", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
 				addstr(buffer);
 				color(red);
 				addstr("  not loaded");
@@ -1585,6 +1588,7 @@ const char *admin_trace(int sock, int argc, char *argv[])
 	memset(&msg, 0, sizeof(msg));
 	msg.message = ADMIN_TRACE_REQUEST;
 	msg.u.trace_req.detail = 3;
+	msg.u.trace_req.port = -1;
 
 	/* parse args */
 	i = 2;

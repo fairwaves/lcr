@@ -48,7 +48,7 @@ VBoxPort::~VBoxPort()
 static void vbox_trace_header(class VBoxPort *vbox, const char *message, int direction)
 {
 	/* init trace with given values */
-	start_trace(0,
+	start_trace(-1,
 		    NULL,
 		    vbox?numberrize_callerinfo(vbox->p_callerinfo.id, vbox->p_callerinfo.ntype, options.national, options.international):NULL,
 		    vbox?vbox->p_dialinginfo.id:NULL,

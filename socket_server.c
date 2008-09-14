@@ -91,7 +91,7 @@ void free_connection(struct admin_list *admin)
 	/* free remote joins */
 	if (admin->remote_name[0])
 	{
-		start_trace(0,
+		start_trace(-1,
 			NULL,
 			NULL,
 			NULL,
@@ -298,7 +298,7 @@ int admin_route(struct admin_queue **responsep)
 			apppbx->e_callback = 0;
 			apppbx->e_action = NULL;
 			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
-			start_trace(0,
+			start_trace(-1,
 				NULL,
 				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype, options.national, options.international),
 				apppbx->e_dialinginfo.id,
@@ -646,7 +646,7 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 		}
 		/* set remote socket instance */
 		SCPY(admin->remote_name, msg->param.hello.application);
-		start_trace(0,
+		start_trace(-1,
 			NULL,
 			NULL,
 			NULL,

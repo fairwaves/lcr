@@ -112,7 +112,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		return(NULL);
 
 	/* filter trace */
-	if (port && trace.port)
+	if (port >= 0 && trace.port >= 0)
 		if (port != trace.port) return(NULL);
 	if (interface) if (interface[0] && trace.interface[0])
 		if (!!strcasecmp(interface, trace.interface)) return(NULL);
@@ -128,7 +128,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	{
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
 		/* "Port: 1 (BRI PTMP TE)" */
-		if (trace.port)
+		if (trace.port >= 0)
 		{
 			mISDNport = mISDNport_first;
 			while(mISDNport)
@@ -219,7 +219,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	switch(detail)
 	{
 		case 1: /* brief */
-		if (trace.port)
+		if (trace.port >= 0)
 		{
 			SPRINT(buffer, "  port %d", trace.port);
 			SCAT(trace_string, buffer);
@@ -294,7 +294,7 @@ void _end_trace(const char *__file, int __line)
 	
 	if (options.deb || options.log[0])
 	{
-		string = print_trace(1, 0, NULL, NULL, NULL, 0);
+		string = print_trace(1, -1, NULL, NULL, NULL, 0);
 		if (string)
 		{
 			/* process debug */
