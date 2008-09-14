@@ -2147,7 +2147,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					if (mISDNport->ifport)
 					if (strlen(mISDNport->ifport->interface->name) == comp_len)
 					if (!strncasecmp(mISDNport->ifport->interface->name, cond->string_value, comp_len)) 
-					if (!mISDNport->l2hold || mISDNport->l2link)
+					if (!mISDNport->l2hold || mISDNport->l2link>0)
 					{
 						j = 0;
 						jj = mISDNport->b_num;
@@ -2179,7 +2179,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				{
 					if (mISDNport->ifport)
 					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
-					if (!mISDNport->l2hold || mISDNport->l2link)
+					if (!mISDNport->l2hold || mISDNport->l2link>0)
 						break;
 					mISDNport = mISDNport->next;
 				}
@@ -2193,7 +2193,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				{
 					if (mISDNport->ifport)
 					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
-					if (!mISDNport->l2hold || mISDNport->l2link)
+					if (!mISDNport->l2hold || mISDNport->l2link>0)
 						break;
 					
 					mISDNport = mISDNport->next;

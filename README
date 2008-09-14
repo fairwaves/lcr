@@ -447,4 +447,5 @@ Changes in Version 1.1
 Fixes in current Version
 - Changed isdninfo to misdn_info.
 - Fixed some trace bugs.
+- Fixed some layer2-link issues.
 

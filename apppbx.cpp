@@ -672,7 +672,7 @@ foundif:
 	}
 
 	/* see if link is up on PTP*/
-	if (mISDNport->l2hold && !mISDNport->l2link)
+	if (mISDNport->l2hold && mISDNport->l2link<1)
 	{
 		trace_header("CHANNEL SELECTION (port's layer 2 is down, skipping)", DIRECTION_NONE);
 		add_trace("port", NULL, "%d", ifport->portnum);

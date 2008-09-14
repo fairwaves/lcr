@@ -681,8 +681,11 @@ const char *admin_state(int sock, char *argv[])
 				addstr(buffer);
 				if (m[i].u.i.ptp || !m[i].u.i.ntmode)
 				{
-					color((m[i].u.i.l2link)?green:red);
-					addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
+					color((m[i].u.i.l2link > 0)?green:red);
+					if (m[i].u.i.l2link < 0)
+						addstr("  L2 unknown");
+					else
+						addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
 				}
 				color((m[i].u.i.l1link > 0)?green:blue);
 				if (m[i].u.i.l1link < 0)

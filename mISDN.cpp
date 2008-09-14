@@ -406,7 +406,7 @@ static int _bchannel_create(struct mISDNport *mISDNport, int i)
 	ret = bind(mISDNport->b_socket[i], (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0)
 	{
-		PERROR("Error: Failed to bind bchannel-socket for index %d with mISDN-DSP layer. Did you load mISDN_dsp.ko?\n", i);
+		PERROR("Error: Failed to bind bchannel-socket for index %d with mISDN-DSP layer (errno=%d). Did you load mISDN_dsp.ko?\n", i, errno);
 		close(mISDNport->b_socket[i]);
 		mISDNport->b_socket[i] = -1;
 		return(0);
@@ -2006,6 +2006,7 @@ int mISDN_handler(void)
 				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
 				add_trace("tei", NULL, "%d", l3m->pid);
 				end_trace();
+				mISDNport->l2link = 1;
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
 					if (mISDNport->l2establish)
@@ -2013,7 +2014,6 @@ int mISDN_handler(void)
 						mISDNport->l2establish = 0;
 						PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
 					}
-					mISDNport->l2link = 1;
 				}
 				break;
 
@@ -2023,10 +2023,12 @@ int mISDN_handler(void)
 					l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 					add_trace("tei", NULL, "%d", l3m->pid);
 					end_trace();
+					/* down if not nt-ptmp */ 
+					if (!mISDNport->ntmode || mISDNport->ptp)
+						mISDNport->l2link = 0;
 				}
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
-					mISDNport->l2link = 0;
 					if (!mISDNport->l2establish && mISDNport->l2hold)
 					{
 						PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
@@ -2276,6 +2278,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
 	mISDNport->l1link = -1;
+	mISDNport->l2link = -1;
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
@@ -2372,8 +2375,9 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		time(&mISDNport->l2establish);
 	}
 
-	/* initially, we assume that the link is down, exept for nt-ptmp */
-	mISDNport->l2link = (mISDNport->ntmode && !mISDNport->ptp)?1:0;
+	/* for nt-mode ptmp the link is always up */
+	if (mISDNport->ntmode && !mISDNport->ptp)
+		mISDNport->l2link = 1;
 
 	PDEBUG(DEBUG_BCHANNEL, "using 'mISDN_dsp.o' module\n");
 
