@@ -1,12 +1,6 @@
 
-chan_lcr:
+call transfer and other functional protocols 
 
-- das cli
-- config file
-- einbau von b-channel-features
-
-
-call transfer
 display message during nothing/play
 
 doku: 

@@ -27,6 +27,7 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 {
 	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_m_d_ntmode = mISDNport->ntmode;
+	p_m_d_tespecial = mISDNport->tespecial;
 	p_m_d_l3id = 0;
 	p_m_d_ces = -1;
 	p_m_d_queue = NULL;
@@ -34,7 +35,7 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 	p_m_d_collect_cause = 0;
 	p_m_d_collect_location = 0;
 
-	PDEBUG(DEBUG_ISDN, "Created new mISDNPort(%s). Currently %d objects use, %s port #%d\n", portname, mISDNport->use, (mISDNport->ntmode)?"NT":"TE", p_m_portnum);
+	PDEBUG(DEBUG_ISDN, "Created new mISDNPort(%s). Currently %d objects use, %s%s port #%d\n", portname, mISDNport->use, (mISDNport->ntmode)?"NT":"TE", (mISDNport->tespecial)?" (special)":"", p_m_portnum);
 }
 
 
@@ -466,8 +467,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_called_pn(l3m, &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(l3m, (unsigned char *)keypad, sizeof(keypad));
 	/* te-mode: CNIP (calling name identification presentation) */
-	if (!p_m_d_ntmode)
-		dec_facility_centrex(l3m, (unsigned char *)p_callerinfo.name, sizeof(p_callerinfo.name));
+	dec_facility_centrex(l3m, (unsigned char *)p_callerinfo.name, sizeof(p_callerinfo.name));
 	dec_ie_useruser(l3m, &useruser_protocol, useruser, &useruser_len);
 	dec_ie_complete(l3m, &p_dialinginfo.sending_complete);
 	dec_ie_redir_nr(l3m, &redir_type, &redir_plan, &redir_present, &redir_screen, &redir_reason, (unsigned char *)p_redirinfo.id, sizeof(p_redirinfo.id));
@@ -975,8 +975,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_connected_pn(l3m, &type, &plan, &present, &screen, (unsigned char *)p_connectinfo.id, sizeof(p_connectinfo.id));
 	dec_ie_display(l3m, (unsigned char *)p_connectinfo.display, sizeof(p_connectinfo.display));
 	/* te-mode: CONP (connected name identification presentation) */
-	if (!p_m_d_ntmode)
-		dec_facility_centrex(l3m, (unsigned char *)p_connectinfo.name, sizeof(p_connectinfo.name));
+	dec_facility_centrex(l3m, (unsigned char *)p_connectinfo.name, sizeof(p_connectinfo.name));
 	end_trace();
 
 	/* select channel */
@@ -1891,7 +1890,7 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)param->information.id);
- 	 	if (p_m_d_ntmode)
+ 	 	if (p_m_d_ntmode || p_m_d_tespecial)
 			enc_ie_display(l3m, (unsigned char *)param->information.display);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
@@ -1946,7 +1945,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 			/* sending information */
 			l3m = create_l3msg();
 			l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
-	 	 	if (p_m_d_ntmode)
+	 	 	if (p_m_d_ntmode || p_m_d_tespecial)
 				enc_ie_display(l3m, (unsigned char *)p_callerinfo.display);
 			end_trace();
 			p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
@@ -2129,7 +2128,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		break;
 	}
 	/* sending redirecting number only in ntmode */
-	if (type >= 0 && p_m_d_ntmode)
+	if (type >= 0 && (p_m_d_ntmode || p_m_d_tespecial))
 		enc_ie_redir_nr(l3m, type, plan, present, screen, reason, (unsigned char *)p_redirinfo.id);
 	/* bearer capability */
 //printf("hlc=%d\n",p_capainfo.hlc);
@@ -2161,10 +2160,10 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	}
 
 	/* display */
-	if (p_callerinfo.display[0] && p_m_d_ntmode)
+	if (p_callerinfo.display[0] && (p_m_d_ntmode || p_m_d_tespecial))
 		enc_ie_display(l3m, (unsigned char *)p_callerinfo.display);
 	/* nt-mode: CNIP (calling name identification presentation) */
-//	if (p_callerinfo.name[0] && p_m_d_ntmode)
+//	if (p_callerinfo.name[0] && (p_m_d_ntmode || p_m_d_tespecial))
 //		enc_facility_centrex(&setup->FACILITY, dmsg, (unsigned char *)p_callerinfo.name, 1);
 	end_trace();
 
@@ -2180,7 +2179,7 @@ void Pdss1::message_facility(unsigned int epoint_id, int message_id, union param
 	l3_msg *l3m;
 
 	/* facility will not be sent to external lines */
-	if (!p_m_d_ntmode)
+	if (!p_m_d_ntmode && !p_m_d_tespecial)
 		return;
 
 	/* sending facility */
@@ -2266,14 +2265,14 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 			l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_REQ, DIRECTION_OUT);
 			enc_ie_notify(l3m, notify);
 			/* sending redirection number only in ntmode */
-			if (type >= 0 && p_m_d_ntmode)
+			if (type >= 0 && (p_m_d_ntmode || p_m_d_tespecial))
 				enc_ie_redir_dn(l3m, type, plan, present, (unsigned char *)param->notifyinfo.id);
-			if (param->notifyinfo.display[0] && p_m_d_ntmode)
+			if (param->notifyinfo.display[0] && (p_m_d_ntmode || p_m_d_tespecial))
 				enc_ie_display(l3m, (unsigned char *)param->notifyinfo.display);
 			end_trace();
 			p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_NOTIFY, p_m_d_l3id, l3m);
 		}
-	} else if (p_m_d_ntmode)
+	} else if (p_m_d_ntmode || p_m_d_tespecial)
 	{
 		/* sending information */
 		l3m = create_l3msg();
@@ -2308,7 +2307,7 @@ void Pdss1::message_overlap(unsigned int epoint_id, int message_id, union parame
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 	if (p_m_mISDNport->tones)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_SETUP_ACKNOWLEDGE, p_m_d_l3id, l3m);
 
@@ -2331,7 +2330,7 @@ void Pdss1::message_proceeding(unsigned int epoint_id, int message_id, union par
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 	if (p_m_mISDNport->tones)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 
@@ -2356,7 +2355,7 @@ void Pdss1::message_alerting(unsigned int epoint_id, int message_id, union param
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 		if (p_m_mISDNport->tones)
-			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+			enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_IN_PROCEEDING);
@@ -2373,7 +2372,7 @@ void Pdss1::message_alerting(unsigned int epoint_id, int message_id, union param
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 	if (p_m_mISDNport->tones)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_ALERTING, p_m_d_l3id, l3m);
 
@@ -2412,7 +2411,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 		/* sending information */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
-		if (p_m_d_ntmode)
+		if (p_m_d_ntmode || p_m_d_tespecial)
 			enc_ie_display(l3m, (unsigned char *)p_connectinfo.display);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
@@ -2475,13 +2474,13 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	if (type >= 0)
 		enc_ie_connected_pn(l3m, type, plan, present, screen, (unsigned char *)p_connectinfo.id);
 	/* display */
-	if (p_connectinfo.display[0] && p_m_d_ntmode)
+	if (p_connectinfo.display[0] && (p_m_d_ntmode || p_m_d_tespecial))
 		enc_ie_display(l3m, (unsigned char *)p_connectinfo.display);
 	/* nt-mode: CONP (connected name identification presentation) */
-//	if (p_connectinfo.name[0] && p_m_d_ntmode)
+//	if (p_connectinfo.name[0] && (p_m_d_ntmode || p_m_d_tespecial))
 //		enc_facility_centrex(&connect->FACILITY, dmsg, (unsigned char *)p_connectinfo.name, 0);
 	/* date & time */
-	if (p_m_d_ntmode)
+	if (p_m_d_ntmode || p_m_d_tespecial)
 	{
 		epoint = find_epoint_id(epoint_id);
 		enc_ie_date(l3m, now, p_settings.no_seconds);
@@ -2542,7 +2541,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 		if (p_m_mISDNport->tones)
-			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+			enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_IN_PROCEEDING);
@@ -2556,13 +2555,13 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 	if (p_m_mISDNport->tones)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 	/* send cause */
 	enc_ie_cause(l3m, (!p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_REMOTE:param->disconnectinfo.location, param->disconnectinfo.cause);
 	/* send display */
 	if (param->disconnectinfo.display[0])
 		p = param->disconnectinfo.display;
-	if (p) if (*p && p_m_d_ntmode)
+	if (p) if (*p && (p_m_d_ntmode || p_m_d_tespecial))
 		enc_ie_display(l3m, (unsigned char *)p);
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_DISCONNECT, p_m_d_l3id, l3m);
@@ -2637,7 +2636,7 @@ wirklich erst proceeding?:
 		 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 		 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 		if (p_m_mISDNport->tones)
-			enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+			enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_CALL_PROCEEDING, p_m_d_l3id, l3m);
 	}
@@ -2651,14 +2650,14 @@ wirklich erst proceeding?:
 	 || p_capainfo.bearer_capa==INFO_BC_AUDIO
 	 || p_capainfo.bearer_capa==INFO_BC_DATAUNRESTRICTED_TONES)
 	if (p_m_mISDNport->tones)
-		enc_ie_progress(l3m, 0, p_m_d_ntmode?1:5, 8);
+		enc_ie_progress(l3m, 0, (p_m_d_ntmode)?1:5, 8);
 	/* send cause */
 	enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
 	/* send display */
 	epoint = find_epoint_id(epoint_id);
 	if (param->disconnectinfo.display[0])
 		p = param->disconnectinfo.display;
-	if (p) if (*p && p_m_d_ntmode)
+	if (p) if (*p && (p_m_d_ntmode || p_m_d_tespecial))
 		enc_ie_display(l3m, (unsigned char *)p);
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_DISCONNECT, p_m_d_l3id, l3m);

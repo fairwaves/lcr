@@ -875,7 +875,7 @@ struct route_ruleset *ruleset_parse(void)
 		j<<=1;
 	}
 
-        SPRINT(filename[0], "%s/routing.conf", INSTALL_DATA);
+        SPRINT(filename[0], "%s/routing.conf", CONFIG_DATA);
 
         if (!(fp[0]=fopen(filename[0],"r")))
         {
@@ -943,7 +943,7 @@ struct route_ruleset *ruleset_parse(void)
 			if (key[0] == '/')
 				SCPY(filename[nesting+1], key);
 			else
-	        		SPRINT(filename[nesting+1], "%s/%s", INSTALL_DATA, key);
+	        		SPRINT(filename[nesting+1], "%s/%s", CONFIG_DATA, key);
 		        if (!(fp[nesting+1]=fopen(filename[nesting+1],"r")))
 			{
 				PERROR("Cannot open %s\n", filename[nesting+1]);

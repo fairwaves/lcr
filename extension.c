@@ -51,7 +51,7 @@ int read_extension(struct extension *ext, char *num)
 	if (number[0] == '\0')
 		return(0);
 
-	SPRINT(filename, "%s/%s/%s/settings", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/settings", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "r")))
 	{
@@ -923,7 +923,7 @@ int write_extension(struct extension *ext, char *number)
 	if (number[0] == '\0')
 		return(0);
 
-	SPRINT(filename, "%s/%s/%s/settings", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/settings", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "w")))
 	{
@@ -1337,7 +1337,7 @@ int write_log(char *number, char *callerid, char *calledid, time_t start, time_t
 	if (callerid[0] == '\0')
 		callerid = (char *)"<unknown>";
 
-	SPRINT(filename, "%s/%s/%s/log", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/log", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "a")))
 	{
@@ -1378,7 +1378,7 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 	char buffer[1024];
 	int found = 0, found_if_more_digits = 0;
 
-	SPRINT(filename, "%s/%s/%s/phonebook", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/phonebook", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "r")))
 	{
@@ -1518,7 +1518,7 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 	char buffer[4096];
 	int found = 0;
 
-	SPRINT(filename, "%s/%s/%s/secrets", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/secrets", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "r")))
 	{
@@ -1661,7 +1661,7 @@ char *parse_directory(char *number, int type)
 	char buffer[256];
 	int found = 0;
 
-	SPRINT(filename, "%s/directory.list", INSTALL_DATA);
+	SPRINT(filename, "%s/directory.list", CONFIG_DATA);
 
 	if (!(fp = fopen(filename, "r")))
 	{
@@ -1817,7 +1817,7 @@ int parse_callbackauth(char *number, struct caller_info *callerinfo)
 	static char caller_type[32], caller_id[64];
 	int found = 0;
 
-	SPRINT(filename, "%s/%s/%s/callbackauth", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/callbackauth", EXTENSION_DATA, number);
 
 	if (!(fp = fopen(filename, "r")))
 	{
@@ -1909,7 +1909,7 @@ void append_callbackauth(char *number, struct caller_info *callerinfo)
 	FILE *fp = NULL;
 	char filename[256];
 
-	SPRINT(filename, "%s/%s/%s/callbackauth", INSTALL_DATA, options.extensions_dir, number);
+	SPRINT(filename, "%s/%s/callbackauth", EXTENSION_DATA, number);
 
 	if (callerinfo->id[0]=='\0')
 	{

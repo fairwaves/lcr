@@ -64,13 +64,13 @@ int mISDN_initialize(void)
 	/* open debug, if enabled and not only stack debugging */
 	if (options.deb)
 	{
-		SPRINT(filename, "%s/debug.log", INSTALL_DATA);
+		SPRINT(filename, "%s/debug.log", LOG_DIR);
 		debug_fp = fopen(filename, "a");
 	}
 
 	if (options.deb & DEBUG_STACK)
 	{
-		SPRINT(filename, "%s/debug_mISDN.log", INSTALL_DATA);
+		SPRINT(filename, "%s/debug_mISDN.log", LOG_DIR);
 		mISDN_debug_init(0xffffffff, filename, filename, filename);
 	} else
 		mISDN_debug_init(0, NULL, NULL, NULL);
@@ -2125,7 +2125,7 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int l2hold, struct interface *interface)
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l2hold, struct interface *interface)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2353,6 +2353,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	mISDNport->b_num = devinfo.nrbchan;
 	mISDNport->portnum = port;
 	mISDNport->ntmode = nt;
+	mISDNport->tespecial = te_special;
 	mISDNport->pri = pri;
 	mISDNport->ptp = ptp;
 	mISDNport->l2hold = l2hold;

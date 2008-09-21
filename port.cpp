@@ -361,13 +361,13 @@ void Port::set_tone(const char *dir, const char *name)
 		p_tone_fetched = NULL;
 		return;
 	}
-	SPRINT(filename, "%s/%s/%s", INSTALL_DATA, p_tone_dir, p_tone_name);
+	SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
 	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0)
 	{
 		close(fh);
 		return;
 	}
-	SPRINT(filename, "%s/%s/%s_loop", INSTALL_DATA, p_tone_dir, p_tone_name);
+	SPRINT(filename, "%s/%s/%s_loop", SHARE_DATA, p_tone_dir, p_tone_name);
 	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0)
 	{
 		close(fh);
@@ -423,7 +423,7 @@ void Port::set_vbox_tone(const char *dir, const char *name)
 			PDEBUG(DEBUG_PORT, "PORT(%s) opening fetched tone: %s\n", p_name, p_tone_name);
 			return;
 		}
-		SPRINT(filename, "%s/%s/%s", INSTALL_DATA, p_tone_dir, p_tone_name);
+		SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
 		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) >= 0)
 		{
 			fhuse++;
@@ -515,7 +515,7 @@ int Port::read_audio(unsigned char *buffer, int length)
 			/* if file does not exist */
 			if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left)))
 			{
-				SPRINT(filename, "%s/%s/%s", INSTALL_DATA, p_tone_dir, p_tone_name);
+				SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
 				/* if file does not exist */
 				if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
 				{
@@ -611,7 +611,7 @@ try_loop:
 		SPRINT(filename, "%s_loop", p_tone_name);
 		if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left)))
 		{
-			SPRINT(filename, "%s/%s/%s_loop", INSTALL_DATA, p_tone_dir, p_tone_name);
+			SPRINT(filename, "%s/%s/%s_loop", SHARE_DATA, p_tone_dir, p_tone_name);
 			/* if file does not exist */
 			if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
 			{
@@ -725,9 +725,9 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 	}
 
 	if (vbox != 0)
-		SPRINT(filename, "%s/%s/%s/vbox", INSTALL_DATA, options.extensions_dir, p_record_extension);
+		SPRINT(filename, "%s/%s/vbox", EXTENSION_DATA, p_record_extension);
 	else
-		SPRINT(filename, "%s/%s/%s/recordings", INSTALL_DATA, options.extensions_dir, p_record_extension);
+		SPRINT(filename, "%s/%s/recordings", EXTENSION_DATA, p_record_extension);
 	if (mkdir(filename, 0755) < 0)
 	{
 		if (errno != EEXIST)
@@ -969,7 +969,7 @@ void Port::close_record(int beep, int mute)
 
 	if (p_record_vbox == 2)
 	{
-		SPRINT(indexname, "%s/%s/%s/vbox/index", INSTALL_DATA, options.extensions_dir, p_record_extension);
+		SPRINT(indexname, "%s/%s/vbox/index", EXTENSION_DATA, p_record_extension);
 		if ((fp = fopen(indexname,"a")))
 		{
 			fduse++;

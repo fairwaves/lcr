@@ -26,7 +26,6 @@ struct options options = {
 	"00",				/* international prefix */
 	"tones_american",		/* directory of tones */
 	"",				/* directories of tones to fetch */
-	"extensions",			/* directory of extensions */
 	"",				/* dummy caller id */
 	0,				/* use tones by dsp.o */
 	0,				/* by default use priority 0 */
@@ -51,7 +50,7 @@ int read_options(void)
 	unsigned int line,i;
 	char buffer[256];
 
-	SPRINT(filename, "%s/options.conf", INSTALL_DATA);
+	SPRINT(filename, "%s/options.conf", CONFIG_DATA);
 
 	if (!(fp=fopen(filename,"r")))
 	{
@@ -176,15 +175,7 @@ int read_options(void)
 		} else
 		if (!strcmp(option,"extensions_dir"))
 		{
-			if (param[0]==0)
-			{
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
-				goto error;
-			}
-			if (param[strlen(param)-1] == '/')
-				param[strlen(param)-1]=0;
-			SCPY(options.extensions_dir, param);
-
+			// obsolete
 		} else
 		if (!strcmp(option,"national"))
 		{
