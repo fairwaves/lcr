@@ -21,6 +21,7 @@ to allow telephone devices to be connected to their networks.
 Installation and Usage:
 -----------------------
 Read the documentation at http://www.linux-call-router.de
+Also you will find a quick howto there.
 
 
 History:
@@ -444,8 +445,17 @@ Changes in Version 1.1
 - LCR now runs as user, but still can be run as root.
 - Ports can now be given with number or with name.
 
-Fixes in current Version
+Changes in Version 1.2
 - Changed isdninfo to misdn_info.
 - Fixed some trace bugs.
 - Fixed some layer2-link issues.
+- special interface config option "te-special" to allow transmit of all IEs
+  in TE-mode. this is usefull to interconnect LCRs.
+- Introduceing autoconf (./configure) with help of Joerg and Peter.
+  -> Default installation path remains /usr/local/lcr, so don't worry!
+
+Fixes in current Version
+- Finished autoconf.
+- Obsolete "pbxwatch" is removed. 
+
 

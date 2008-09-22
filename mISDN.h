@@ -42,7 +42,8 @@ struct mISDNport {
 	int l2hold; /* set, if layer 2 must be hold/checked */
 	time_t l2establish; /* time until establishing after link failure */
 	int use; /* counts the number of port that uses this port */
-	int ntmode; /* is TRUE if port is nt mode */
+	int ntmode; /* is TRUE if port is NT mode */
+	int tespecial; /* is TRUE if port uses special TE mode */
 	int pri; /* is TRUE if port is a primary rate interface */
 	int tones; /* TRUE if tones are sent outside connect state */
 	int earlyb; /* TRUE if tones are received outside connect state */
@@ -79,7 +80,7 @@ calls with no bchannel (call waiting, call on hold).
 /* mISDN none-object functions */
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int l2hold, struct interface *interface);
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l2hold, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

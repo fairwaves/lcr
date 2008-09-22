@@ -257,11 +257,11 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 			if (c[1] == '/')
 				SPRINT(filename, c+1);
 			else
-				SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, p_vbox_ext.number);
+				SPRINT(filename, "%s/%s/vbox/%s", EXTENSION_DATA, p_vbox_ext.number);
 			*c = '\0';
 		} else
 		{
-			SPRINT(filename, "%s/%s/%s/vbox/announcement", INSTALL_DATA, options.extensions_dir, p_vbox_ext.number);
+			SPRINT(filename, "%s/%s/vbox/announcement", EXTENSION_DATA, p_vbox_ext.number);
 		}
 		vbox_trace_header(this, "SETUP to VBox", DIRECTION_OUT);
 		add_trace("from", "id", "%s", param->setup.callerinfo.id);

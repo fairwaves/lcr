@@ -29,12 +29,13 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <config.h>
 
 #define NAME		"LCR"
 
 #define DEFAULT_ENDPOINT_APP EndpointAppPBX
 
-#define VERSION_STRING	"1.1 (Summer 2008)"
+#define VERSION_STRING	VERSION
 
 extern int memuse;
 extern int mmemuse;

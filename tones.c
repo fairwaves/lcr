@@ -463,7 +463,7 @@ int fetch_tones(void)
 		SCPY((*toneset_nextpointer)->directory, p);
 		tonesettone_nextpointer = &(*toneset_nextpointer)->first;
 
-		SPRINT(path, "%s/%s", INSTALL_DATA, p);
+		SPRINT(path, "%s/%s", SHARE_DATA, p);
 		dir = opendir(path);
 		if (dir == NULL)
 		{

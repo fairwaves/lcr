@@ -208,6 +208,29 @@ static int inter_nt(struct interface *interface, char *filename, int line, char 
 	ifport->nt = 1;
 	return(0);
 }
+static int inter_tespecial(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	/* add value */
+	if (value[0])
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
+		return(-1);
+	}
+	ifport->tespecial = 1;
+	return(0);
+}
 static int inter_tones(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	if (!strcasecmp(value, "yes"))
@@ -920,6 +943,14 @@ struct interface_param interface_param[] = {
 	"This is required on interfaces that support both NT-mode and TE-mode.\n"
 	"This parameter must follow a 'port' parameter."},
 
+	{"te-special", &inter_tespecial, "",
+	"The given port uses a modified TE-mode.\n"
+	"All information elements that are allowed Network->User will then be\n"
+	"transmitted User->Network also. This is usefull to pass all informations\n"
+	"between two interconnected LCRs, like 'redirected number' or 'display'.\n"
+	"Note that this is not compliant with ISDN protocol.\n"
+	"This parameter must follow a 'port' parameter."},
+
 	{"layer2hold", &inter_l2hold, "yes | no",
 	"The given port will continuously try to establish layer 2 link and hold it.\n"
 	"It is required for PTP links in most cases, therefore it is default.\n"
@@ -1002,7 +1033,7 @@ struct interface *read_interfaces(void)
 	if (interface_newlist != NULL)
 		FATAL("list is not empty.\n");
 	interface_error[0] = '\0';
-	SPRINT(filename, "%s/interface.conf", INSTALL_DATA);
+	SPRINT(filename, "%s/interface.conf", CONFIG_DATA);
 
 	if (!(fp = fopen(filename,"r")))
 	{
@@ -1325,7 +1356,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->l2hold, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l2hold, ifport->interface);
 	if (mISDNport)
 	{
 		/* link port */

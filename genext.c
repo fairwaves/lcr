@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 		return(0);
 	}
 
-	SPRINT(pathname, "%s/%s/%s", INSTALL_DATA, options.extensions_dir, argv[1]);
+	SPRINT(pathname, "%s/%s", EXTENSION_DATA, argv[1]);
 	if (mkdir(pathname, 0755) < 0)
 	{
 		if (errno == EEXIST)
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	ext.facility = 1;
 	write_extension(&ext, argv[1]);
 
-	SPRINT(pathname, "%s/%s/%s/phonebook", INSTALL_DATA, options.extensions_dir, argv[1]);
+	SPRINT(pathname, "%s/%s/phonebook", EXTENSION_DATA, argv[1]);
 	if (!(fp = fopen(pathname, "w")))
 	{
 		PERROR("Failed to write phonebook example '%s'.\n", pathname);
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		fclose(fp);
 	}
 
-	SPRINT(pathname, "%s/%s/%s/secrets", INSTALL_DATA, options.extensions_dir, argv[1]);
+	SPRINT(pathname, "%s/%s/secrets", EXTENSION_DATA, argv[1]);
 	if (!(fp = fopen(pathname, "w")))
 	{
 		PERROR("Failed to write secrets example '%s'.\n", pathname);
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "021250993               manual  blowfish        0x012345678\n");
 		fclose(fp);
 	}
-	printf("Extension %s created at %s/%s/%s/.\n", argv[1], INSTALL_DATA, options.extensions_dir, argv[1]);
+	printf("Extension %s created at %s/%s/.\n", argv[1], EXTENSION_DATA, argv[1]);
 
 	return(0);
 }

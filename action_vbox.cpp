@@ -136,7 +136,7 @@ void EndpointAppPBX::vbox_index_read(int num)
 
 	e_vbox_index_num = 0;
 
-	SPRINT(filename, "%s/%s/%s/vbox/index", INSTALL_DATA, options.extensions_dir, e_vbox);
+	SPRINT(filename, "%s/%s/vbox/index", EXTENSION_DATA, e_vbox);
 	if (!(fp = fopen(filename, "r")))
 	{
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) no files in index\n", ea_endpoint->ep_serial);
@@ -194,8 +194,8 @@ void EndpointAppPBX::vbox_index_remove(int num)
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing entrie #%d\n", ea_endpoint->ep_serial, num);
 
-	SPRINT(filename1, "%s/%s/%s/vbox/index", INSTALL_DATA, options.extensions_dir, e_vbox);
-	SPRINT(filename2, "%s/%s/%s/vbox/index-temp", INSTALL_DATA, options.extensions_dir, e_vbox);
+	SPRINT(filename1, "%s/%s/vbox/index", EXTENSION_DATA, e_vbox);
+	SPRINT(filename2, "%s/%s/vbox/index-temp", EXTENSION_DATA, e_vbox);
 	if (!(fpr = fopen(filename1, "r")))
 	{
 		return;
@@ -348,12 +348,12 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 
 			case '1':
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) do store/delete.\n", ea_endpoint->ep_serial);
-			SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, e_vbox, e_vbox_index_file);
+			SPRINT(filename, "%s/%s/vbox/%s", EXTENSION_DATA, e_vbox, e_vbox_index_file);
 
 			/* move file */
 			if (e_vbox_state == VBOX_STATE_STORE_ASK)
 			{
-				SPRINT(filename, "%s/%s/%s/recordings", INSTALL_DATA, options.extensions_dir, e_vbox);
+				SPRINT(filename, "%s/%s/recordings", EXTENSION_DATA, e_vbox);
 				if (mkdir(filename, 0755) < 0)
 				{
 					if (errno != EEXIST)
@@ -362,7 +362,7 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 						goto done;
 					}
 				}
-				SPRINT(filename2, "%s/%s/%s/recordings/%s", INSTALL_DATA, options.extensions_dir, e_vbox, e_vbox_index_file);
+				SPRINT(filename2, "%s/%s/recordings/%s", EXTENSION_DATA, e_vbox, e_vbox_index_file);
 				rename(filename, filename2);
 				e_vbox_state = VBOX_STATE_STORE_DONE;
 				if (e_ext.vbox_language)
@@ -922,7 +922,7 @@ void EndpointAppPBX::set_play_vbox(const char *file, int offset)
 	char filename[256];
 	struct lcr_msg *message;
 
-	SPRINT(filename, "%s/%s/%s/vbox/%s", INSTALL_DATA, options.extensions_dir, e_vbox, file);
+	SPRINT(filename, "%s/%s/vbox/%s", EXTENSION_DATA, e_vbox, file);
 	
 	/* remove .wav */
 	if (!strcmp(filename+strlen(filename)-4, ".wav")) /* filename is always more than 4 digits long */
