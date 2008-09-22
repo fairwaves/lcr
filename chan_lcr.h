@@ -55,6 +55,8 @@ struct chan_call {
 					/* dtmf disabled by option */
         int                     rebuffer; /* send only 160 bytes frames
 					     to asterisk */
+        int                     on_hold; /* track hold management, since
+					    sip phones sometimes screw it up */
 	char			pipeline[256];
 					/* echo cancel pipeline by option */
 	int			tx_gain, rx_gain;

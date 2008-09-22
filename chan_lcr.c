@@ -2069,6 +2069,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			
 			/*start music onhold*/
 			ast_moh_start(ast,data,ast->musicclass);
+			call->on_hold = 1;
                         break;
                 case AST_CONTROL_UNHOLD:
 			CDEBUG(call, ast, "Received indicate AST_CONTROL_UNHOLD from Asterisk.\n");
@@ -2079,8 +2080,14 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 
 			/*stop moh*/
                 	ast_moh_stop(ast);
+			call->on_hold = 0;
 		        break;
-
+#ifdef AST_CONTROL_SRCUPDATE
+	        case AST_CONTROL_SRCUPDATE:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_SRCUPDATE from Asterisk.\n");
+                        res = -1;
+                        break;
+#endif
                 default:
 			CERROR(call, ast, "Received indicate from Asterisk with unknown condition %d.\n", cond);
                         res = -1;
@@ -2206,6 +2213,30 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	 || call2->state == CHAN_LCR_STATE_IN_ALERTING) {
 		CDEBUG(call2, ast2, "Bridge established before lcr_answer, so we call it ourself: Calling lcr_answer...\n");
 		lcr_answer(ast2);
+	}
+
+	/* sometimes SIP phones forget to send RETRIEVE before TRANSFER
+	   so let's do it for them. Hmpf.
+	*/
+
+	if (call1->on_hold) {
+		union parameter newparam;
+
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_RETRIEVAL;
+		send_message(MESSAGE_NOTIFY, call1->ref, &newparam);
+
+		call1->on_hold = 0;
+	}
+
+	if (call2->on_hold) {
+		union parameter newparam;
+
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.notifyinfo.notify = INFO_NOTIFY_REMOTE_RETRIEVAL;
+		send_message(MESSAGE_NOTIFY, call2->ref, &newparam);
+
+		call2->on_hold = 0;
 	}
 	
 	ast_mutex_unlock(&chan_lock);
