@@ -43,7 +43,7 @@ if ENABLE_ASTERISK_CHANNEL_DRIVER
 sbin_PROGRAMS = lcr genrc genextension chan_lcr.so
 chan_lcr_so_SOURCES = 
 chan_lcr_so_LDFLAGS = -shared
-chan_lcr_so_LDADD = chan_lcr.o bchannel.o 
+chan_lcr_so_LDADD = chan_lcr.o bchannel.o options.o
 
 chan_lcr.o: chan_lcr.c chan_lcr.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE -c chan_lcr.c

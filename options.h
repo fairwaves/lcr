@@ -8,6 +8,9 @@
 ** options header file                                                       **
 **                                                                           **
 \*****************************************************************************/ 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct options {
 	char	log[128];		/* location of log file */
@@ -33,4 +36,7 @@ extern char options_error[256];
 
 int read_options(void);
 
+#ifdef __cplusplus
+}
+#endif
 
