@@ -205,46 +205,24 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
  */
 struct chan_call *call_first;
 
+/*
+ * find call by ref
+ * special case: 0: find new ref, that has not been assigned a ref yet
+ */
+
 struct chan_call *find_call_ref(unsigned int ref)
 {
 	struct chan_call *call = call_first;
-
+	int assigned = (ref > 0);
+	
 	while(call)
 	{
-		if (call->ref == ref)
+		if (call->ref == ref && call->ref_was_assigned == assigned)
 			break;
 		call = call->next;
 	}
 	return(call);
 }
-
-#if 0
-struct chan_call *find_call_ast(struct ast_channel *ast)
-{
-	struct chan_call *call = call_first;
-
-	while(call)
-	{
-		if (call->ast == ast)
-			break;
-		call = call->next;
-	}
-	return(call);
-}
-
-struct chan_call *find_call_handle(unsigned int handle)
-{
-	struct chan_call *call = call_first;
-
-	while(call)
-	{
-		if (call->bchannel_handle == handle)
-			break;
-		call = call->next;
-	}
-	return(call);
-}
-#endif
 
 void free_call(struct chan_call *call)
 {
@@ -299,7 +277,6 @@ struct chan_call *alloc_call(void)
 	CDEBUG(*callp, NULL, "Call instance allocated.\n");
 	return(*callp);
 }
-
 
 unsigned short new_bridge_id(void)
 {
@@ -948,7 +925,7 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 }
 
 /*
- * incoming setup acknowledge from LCR
+ * incoming release from LCR
  */
 static void lcr_in_release(struct chan_call *call, int message_type, union parameter *param)
 {
@@ -1199,6 +1176,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			call->state = CHAN_LCR_STATE_IN_PREPARE;
 			/* set ref */
 			call->ref = ref;
+			call->ref_was_assigned = 1;
 			/* wait for setup (or release from asterisk) */
 		} else
 		{
@@ -1214,6 +1192,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			}
 			/* store new ref */
 			call->ref = ref;
+			call->ref_was_assigned = 1;
 			/* send pending setup info */
 			if (call->state == CHAN_LCR_STATE_OUT_PREPARE)
 				send_setup_to_lcr(call);
