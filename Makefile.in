@@ -70,7 +70,8 @@ PROGRAMS = $(bin_PROGRAMS) $(sbin_PROGRAMS)
 am_chan_lcr_so_OBJECTS =
 chan_lcr_so_OBJECTS = $(am_chan_lcr_so_OBJECTS)
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_DEPENDENCIES =  \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.o bchannel.o
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.o bchannel.o \
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	options.o
 am_genextension_OBJECTS = genext.$(OBJEXT) options.$(OBJEXT) \
 	extension.$(OBJEXT)
 genextension_OBJECTS = $(am_genextension_OBJECTS)
@@ -224,7 +225,7 @@ INSTALLATION_DEFINES = \
 INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.o bchannel.o 
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.o bchannel.o options.o
 lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
