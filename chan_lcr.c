@@ -21,8 +21,9 @@ Now the channel driver is linked to LCR and can receive and make calls.
 Call is initiated by LCR:
 
 If a call is received from LCR, a MESSAGE_NEWREF is received first.
+The ref_was_assigned ist set to 1.
 A new chan_call instance is created. The call reference (ref) is given by
-MESSAGE_NEWREF. The state is CHAN_LCR_STATE_IN_PREPARE.
+the received MESSAGE_NEWREF. The state is CHAN_LCR_STATE_IN_PREPARE.
 After receiving MESSAGE_SETUP from LCR, the ast_channel instance is created
 using ast_channel_alloc(1).  The setup information is given to asterisk.
 The new Asterisk instance pointer (ast) is stored to chan_call structure.
@@ -34,8 +35,9 @@ Call is initiated by Asterisk:
 If a call is requested from Asterisk, a new chan_call instance is created.
 The new Asterisk instance pointer (ast) is stored to chan_call structure.
 The current call ref is set to 0, the state is CHAN_LCR_STATE_OUT_PREPARE.
-If the call is received (lcr_call) A MESSASGE_NEWREF is sent to LCR requesting
+If the call is received (lcr_call) A MESSAGE_NEWREF is sent to LCR requesting
 a new call reference (ref).
+The ref_was_assigned ist set to 1.
 Further dialing information is queued.
 After the new callref is received by special MESSAGE_NEWREF reply, new ref
 is stored in the chan_call structure. 
@@ -57,6 +59,7 @@ Call is released by LCR:
 
 A MESSAGE_RELEASE is received with the call reference (ref) to be released.
 The current ref is set to 0, to indicate released reference.
+The ref_was_assigned==1 shows that there is no other ref to be assigned.
 The state changes to CHAN_LCR_STATE_RELEASE.
 ast_queue_hangup() is called, if asterisk instance (ast) exists, if not,
 the chan_call instance is destroyed.
@@ -73,6 +76,7 @@ lcr_hangup() is called-back by Asterisk. If the call reference (ref) is set,
 a MESSAGE_RELEASE is sent to LCR and the chan_call instance is destroyed.
 If the ref is 0 and the state is not CHAN_LCR_STATE_RELEASE, the new state is
 set to CHAN_LCR_STATE_RELEASE.
+The ref_was_assigned==0 shows that a ref is still requested.
 Later, if the MESSAGE_NEWREF reply is received, a MESSAGE_RELEASE is sent to
 LCR and the chan_call instance is destroyed.
 If the ref is 0 and the state is CHAN_LCR_STATE_RELEASE, see the proceedure
