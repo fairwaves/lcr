@@ -461,7 +461,6 @@ void apply_opt(struct chan_call *call, char *data)
 			CDEBUG(call, call->ast, "Option 'r' (re-buffer 160 bytes)");
 			call->rebuffer = 1;
 			break;
-#if 0
 		case 's':
 			if (opt[1] != '\0') {
 				CERROR(call, call->ast, "Option 's' (inband DTMF) expects no parameter.\n", opt);
@@ -469,9 +468,7 @@ void apply_opt(struct chan_call *call, char *data)
 			}
 			CDEBUG(call, call->ast, "Option 's' (inband DTMF).\n");
 			call->inband_dtmf = 1;
-todo
 			break;
-#endif
 		case 'v':
 			if (opt[1] != 'r' && opt[1] != 't') {
 				CERROR(call, call->ast, "Option 'v' (volume) expects parameter.\n", opt);
@@ -1755,6 +1752,42 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	return 0; 
 }
 
+static void send_digit_to_chan(struct ast_channel * ast, char digit )
+{
+        static const char* dtmf_tones[] = {
+                "!941+1336/100,!0/100", /* 0 */
+                "!697+1209/100,!0/100", /* 1 */
+                "!697+1336/100,!0/100", /* 2 */
+                "!697+1477/100,!0/100", /* 3 */
+                "!770+1209/100,!0/100", /* 4 */
+                "!770+1336/100,!0/100", /* 5 */
+                "!770+1477/100,!0/100", /* 6 */
+                "!852+1209/100,!0/100", /* 7 */
+                "!852+1336/100,!0/100", /* 8 */
+                "!852+1477/100,!0/100", /* 9 */
+                "!697+1633/100,!0/100", /* A */
+                "!770+1633/100,!0/100", /* B */
+                "!852+1633/100,!0/100", /* C */
+                "!941+1633/100,!0/100", /* D */
+                "!941+1209/100,!0/100", /* * */
+                "!941+1477/100,!0/100" };       /* # */
+
+        if (digit >= '0' && digit <='9')
+                ast_playtones_start(ast,0,dtmf_tones[digit-'0'], 0);
+        else if (digit >= 'A' && digit <= 'D')
+                ast_playtones_start(ast,0,dtmf_tones[digit-'A'+10], 0);
+        else if (digit == '*')
+                ast_playtones_start(ast,0,dtmf_tones[14], 0);
+        else if (digit == '#')
+                ast_playtones_start(ast,0,dtmf_tones[15], 0);
+        else {
+                /* not handled */
+                ast_log(LOG_DEBUG, "Unable to handle DTMF tone "
+			"'%c' for '%s'\n", digit, ast->name);
+        }
+}
+
+
 static int lcr_digit_begin(struct ast_channel *ast, char digit)
 {
         struct chan_call *call;
@@ -1798,7 +1831,34 @@ static int lcr_digit_begin(struct ast_channel *ast, char digit)
 
 static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int duration)
 {
-	printf("DIGIT END %c\n", digit);
+	int inband_dtmf = 0;
+        struct chan_call *call;
+
+	ast_mutex_lock(&chan_lock);
+
+        call = ast->tech_pvt;
+
+	if (!call) {
+		CERROR(NULL, ast, 
+		       "Received digit from Asterisk, "
+		       "but no call instance exists.\n");
+		ast_mutex_unlock(&chan_lock);
+		return -1;
+	}
+
+	CDEBUG(call, ast, "DIGIT END '%c' from Asterisk.\n", digit);
+
+	if (call->state == CHAN_LCR_STATE_CONNECT && call->inband_dtmf) {
+		inband_dtmf = 1;
+	}
+
+	ast_mutex_unlock(&chan_lock);
+
+	if (inband_dtmf) {
+		CDEBUG(call, ast, "-> sending '%c' inband.\n", digit);
+		send_digit_to_chan(ast, digit);
+	}
+
 	return (0);
 }
 
@@ -2469,7 +2529,7 @@ int load_module(void)
 				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
 				 "    e - Perform echo cancelation on this channel.\n"
 				 "        Takes mISDN pipeline option as optarg.\n"
-//				 "    s - Send Non Inband DTMF as inband.\n"
+				 "    s - Send Non Inband DTMF as inband.\n"
 				 "   vr - rxgain control\n"
 				 "   vt - txgain control\n"
 				 "        Volume changes at factor 2 ^ optarg.\n"

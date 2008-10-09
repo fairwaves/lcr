@@ -54,6 +54,8 @@ struct chan_call {
 					/* shall dtmf be enabled */
 	int			no_dtmf;
 					/* dtmf disabled by option */
+	int                     inband_dtmf; /* generate dtmf tones, if
+					      requested by asterisk */
         int                     rebuffer; /* send only 160 bytes frames
 					     to asterisk */
         int                     on_hold; /* track hold management, since
