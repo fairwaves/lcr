@@ -615,7 +615,7 @@ static void bridge_message_if_bridged(struct chan_call *call, int message_type, 
 	/* check bridge */
 	if (!call) return;
 	if (!call->bridge_call) return;
-	CDEBUG(call, NULL, "Sending message due briding.\n");
+	CDEBUG(call, NULL, "Sending message due bridging.\n");
 	send_message(message_type, call->bridge_call->ref, param);
 }
 
@@ -993,7 +993,7 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 
 	/* use bridge to forware message not supported by asterisk */
 	if (call->state == CHAN_LCR_STATE_CONNECT) {
-		CDEBUG(call, call->ast, "Call is connected, briding.\n");
+		CDEBUG(call, call->ast, "Call is connected, bridging.\n");
 		bridge_message_if_bridged(call, message_type, param);
 	}
 }
@@ -2206,7 +2206,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	struct ast_frame	*f;
 	int			bridge_id;
 
-	CDEBUG(NULL, NULL, "Received briding request from Asterisk.\n");
+	CDEBUG(NULL, NULL, "Received bridging request from Asterisk.\n");
 
 	carr[0] = ast1;
 	carr[1] = ast2;
@@ -2223,7 +2223,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 
 	/* join, if both call instances uses dsp */
 	if (!call1->nodsp && !call2->nodsp) {
-		CDEBUG(NULL, NULL, "Both calls use DSP, briding via DSP.\n");
+		CDEBUG(NULL, NULL, "Both calls use DSP, bridging via DSP.\n");
 
 		/* get bridge id and join */
 		bridge_id = new_bridge_id();
@@ -2237,9 +2237,9 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 			bchannel_join(call2->bchannel, bridge_id);
 	} else
 	if (call1->nodsp && call2->nodsp)
-		CDEBUG(NULL, NULL, "Both calls use no DSP, briding in channel driver.\n");
+		CDEBUG(NULL, NULL, "Both calls use no DSP, bridging in channel driver.\n");
 	else
-		CDEBUG(NULL, NULL, "One call uses no DSP, briding in channel driver.\n");
+		CDEBUG(NULL, NULL, "One call uses no DSP, bridging in channel driver.\n");
 	call1->bridge_call = call2;
 	call2->bridge_call = call1;
 
@@ -2322,7 +2322,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
     
 	}
 	
-	CDEBUG(NULL, NULL, "Releasing bride.\n");
+	CDEBUG(NULL, NULL, "Releasing bridge.\n");
 
 	/* split channels */
 	ast_mutex_lock(&chan_lock);
