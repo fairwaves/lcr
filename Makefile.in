@@ -216,6 +216,7 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 INSTALLdir = /usr/local/lcr
+astmoddir = /usr/lib/asterisk/modules
 INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(INSTALLdir)\"" \
  -DSHARE_DATA="\"$(INSTALLdir)\"" \
@@ -767,6 +768,8 @@ install-data-hook:
 	@if test -a $(INSTALLdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
 		cp -a tones_efi $(INSTALLdir) ; fi
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	@echo "Moving chan_lcr.so (if it fails, do it manually)"
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	mv $(sbindir)/chan_lcr.so $(astmoddir)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

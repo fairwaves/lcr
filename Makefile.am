@@ -28,6 +28,8 @@
 
 INSTALLdir = /usr/local/lcr
 
+astmoddir = /usr/lib/asterisk/modules
+
 INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(INSTALLdir)\"" \
  -DSHARE_DATA="\"$(INSTALLdir)\"" \
@@ -112,6 +114,10 @@ install-data-hook:
 	@if test -a $(INSTALLdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
 		cp -a tones_efi $(INSTALLdir) ; fi
+if ENABLE_ASTERISK_CHANNEL_DRIVER
+	@echo "Moving chan_lcr.so (if it fails, do it manually)"
+	mv $(sbindir)/chan_lcr.so $(astmoddir)
+endif
 
 # test rule, nothing important
 #echo:
