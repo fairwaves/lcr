@@ -649,21 +649,24 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 {
 	int cause, ret;
 	union parameter newparam;
+	char *exten = ast->exten;
+	if (!*exten)
+		exten = "s";
 
-	CDEBUG(call, ast, "Try to start pbx. (exten=%s context=%s complete=%s)\n", ast->exten, ast->context, complete?"yes":"no");
+	CDEBUG(call, ast, "Try to start pbx. (exten=%s context=%s complete=%s)\n", exten, ast->context, complete?"yes":"no");
 	
 	if (complete)
 	{
 		/* if not match */
-		if (!ast_canmatch_extension(ast, ast->context, ast->exten, 1, call->oad))
+		if (!ast_canmatch_extension(ast, ast->context, exten, 1, call->oad))
 		{
-			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", ast->exten, ast->context);
+			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", exten, ast->context);
 			cause = 1;
 			goto release;
 		}
-		if (!ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad))
+		if (!ast_exists_extension(ast, ast->context, exten, 1, call->oad))
 		{
-			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", ast->exten, ast->context);
+			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", exten, ast->context);
 			cause = 28;
 			goto release;
 		}
@@ -678,7 +681,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		goto start;
 	}
 
-	if (ast_canmatch_extension(ast, ast->context, ast->exten, 1, call->oad))
+	if (ast_canmatch_extension(ast, ast->context, exten, 1, call->oad))
 	{
 		/* send setup acknowledge to lcr */
 		if (call->state != CHAN_LCR_STATE_IN_DIALING) {
@@ -690,7 +693,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		call->state = CHAN_LCR_STATE_IN_DIALING;
 
 		/* if match, start pbx */
-		if (ast_exists_extension(ast, ast->context, ast->exten, 1, call->oad)) {
+		if (ast_exists_extension(ast, ast->context, exten, 1, call->oad)) {
 			CDEBUG(call, ast, "Extensions matches.\n");
 			goto start;
 		}
@@ -724,11 +727,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		goto release;
 	}
 	call->pbx_started = 1;
-//	if (call->state == CHAN_LCR_STATE_IN_DIALING)
-		ast_setstate(ast, AST_STATE_RINGING);
-//	else
-//		ast_setstate(ast, AST_STATE_RINGING);
-//	return;
+		ast_setstate(ast, AST_STATE_RING);
 }
 
 /*
@@ -1961,6 +1960,7 @@ static int lcr_hangup(struct ast_channel *ast)
 			/* during prepare, we change to release state */
 			CDEBUG(call, ast, "We must wait until we received our ref, until we can free call instance.\n");
 			call->state = CHAN_LCR_STATE_RELEASE;
+			call->ast = NULL;
 		}
 	} 
 	if (!pthread_equal(tid, chan_tid))
@@ -2125,10 +2125,9 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                 	ast_moh_stop(ast);
 			call->on_hold = 0;
 		        break;
-#ifdef AST_CONTROL_SRCUPDATE
+#if ASTERISK_VERSION_NUM >= 10600
 	        case AST_CONTROL_SRCUPDATE:
-			CDEBUG(call, ast, "Received indicate AST_CONTROL_SRCUPDATE from Asterisk.\n");
-                        res = -1;
+			CDEBUG(call, ast, "Received AST_CONTROL_SRCUPDATE from Asterisk.\n");
                         break;
 #endif
                 default:

@@ -20,41 +20,58 @@
 ##    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 ##    Boston, MA 02110-1301, USA.
 
-#INSTALLATION_DEFINES = \
-# -DCONFIG_DATA="\"$(pkgsysconfdir)\"" \
-# -DSHARE_DATA="\"$(pkgdatadir)\"" \
-# -DLOG_DIR="\"$(pkglogdir)\"" \
-# -DEXTENSION_DATA="\"$(localstatedir)/lib/lcr\""
+INSTALLdir = $(DESTDIR)/usr/local/lcr
 
-INSTALLdir = /usr/local/lcr
+pkglogdir=$(localstatedir)/log/@PACKAGE@
+pkgsysconfdir=$(sysconfdir)/@PACKAGE@
 
-astmoddir = /usr/lib/asterisk/modules
+#CONFIGdir=$(DESTDIR)$(pkgsysconfdir)
+#SHAREdir=$(DESTDIR)$(pkgdatadir)
+#LOGdir=$(DESTDIR)$(pkglogdir)
+#EXTENSIONdir=$(DESTDIR)$(localstatedir)/lib/lcr
+
+CONFIGdir=$(INSTALLdir)
+SHAREdir=$(INSTALLdir)
+LOGdir=$(INSTALLdir)
+EXTENSIONdir=$(INSTALLdir)/extensions
+
+astmoddir = $(DESTDIR)/usr/lib/asterisk/modules
 
 INSTALLATION_DEFINES = \
- -DCONFIG_DATA="\"$(INSTALLdir)\"" \
- -DSHARE_DATA="\"$(INSTALLdir)\"" \
- -DLOG_DIR="\"$(INSTALLdir)\"" \
- -DEXTENSION_DATA="\"$(INSTALLdir)/extensions\""
+ -DCONFIG_DATA="\"$(CONFIGdir)\"" \
+ -DSHARE_DATA="\"$(SHAREdir)\"" \
+ -DLOG_DIR="\"$(LOGdir)\"" \
+ -DEXTENSION_DATA="\"$(EXTENSIONdir)/extensions\""
 
 INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
 
 
 bin_PROGRAMS = lcradmin gentones genwave
 
+sbin_PROGRAMS = lcr genrc genextension
+
 if ENABLE_ASTERISK_CHANNEL_DRIVER
-sbin_PROGRAMS = lcr genrc genextension chan_lcr.so
-chan_lcr_so_SOURCES = 
+noinst_PROGRAMS = chan_lcr.so
+chan_lcr_so_SOURCES =
 chan_lcr_so_LDFLAGS = -shared
-chan_lcr_so_LDADD = chan_lcr.o bchannel.o options.o
+chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
 
-chan_lcr.o: chan_lcr.c chan_lcr.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -c chan_lcr.c
+chan_lcr.po: chan_lcr.c chan_lcr.h
+	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
 
-bchannel.o: bchannel.c bchannel.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -c bchannel.c
+bchannel.po: bchannel.c bchannel.h
+	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c bchannel.c -o bchannel.po
 
-else
-sbin_PROGRAMS = lcr genrc genextension 
+callerid.po: callerid.c callerid.h
+	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c callerid.c -o callerid.po
+
+options.po: options.c options.h
+	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
+
+install-exec-hook:
+	mkdir -p $(astmoddir)
+	$(INSTALL) -d $(astmoddir)
+	$(INSTALL) chan_lcr.so $(astmoddir)
 endif
 
 lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
@@ -81,43 +98,41 @@ install-data-hook:
 	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
-	mkdir -p $(INSTALLdir)
-	mkdir -p $(INSTALLdir)/extensions
-	@if test -a $(INSTALLdir)/options.conf ; then \
+	mkdir -p $(CONFIGdir)
+	mkdir -p $(SHAREdir)
+	mkdir -p $(LOGdir)
+	mkdir -p $(EXTENSIONdir)
+	@if test -a $(CONFIGdir)/options.conf ; then \
 		echo "NOTE: options.conf already exists, not changed." ; else \
-		cp -v default/options.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/interface.conf ; then \
+		cp -v default/options.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/interface.conf ; then \
 		echo "NOTE: interface.conf already exists, not changed." ; else \
-		cp -v default/interface.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/routing.conf ; then \
+		cp -v default/interface.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
-		cp -v default/routing.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/numbering_int.conf ; then \
+		cp -v default/routing.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
-	@if test -a $(INSTALLdir)/numbering_ext.conf ; then \
+	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \
 		echo "NOTE: numbering_ext.conf is obsolete, please use routing." ; fi
-	@if test -a $(INSTALLdir)/directory.list ; then \
+	@if test -a $(CONFIGdir)/directory.list ; then \
 		echo "NOTE: directory.list already exists, not changed." ; else \
-		cp -v default/directory.list $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_american ; then \
+		cp -v default/directory.list $(CONFIGdir) ; fi
+	@if test -a $(SHAREdir)/tones_american ; then \
 		echo "NOTE: american tones already exists, not overwritten." ; else \
-		cp -a tones_american $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_german ; then \
+		cp -a tones_american $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/tones_german ; then \
 		echo "NOTE: german tones already exists, not overwritten." ; else \
-		cp -a tones_german $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/vbox_german ; then \
+		cp -a tones_german $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/vbox_german ; then \
 		echo "NOTE: german vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_german $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/vbox_english ; then \
+		cp -a vbox_german $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/vbox_english ; then \
 		echo "NOTE: english vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_english $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_efi ; then \
+		cp -a vbox_english $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
-		cp -a tones_efi $(INSTALLdir) ; fi
-if ENABLE_ASTERISK_CHANNEL_DRIVER
-	@echo "Moving chan_lcr.so (if it fails, do it manually)"
-	mv $(sbindir)/chan_lcr.so $(astmoddir)
-endif
+		cp -a tones_efi $(SHAREdir) ; fi
 
 # test rule, nothing important
 #echo:
@@ -128,8 +143,5 @@ endif
 # This should better be removed and all .c files renamed to .cpp
 COMPILE=$(CXXCOMPILE)
 LINK=$(CXXLINK)
-
-pkglogdir=$(localstatedir)/log/@PACKAGE@
-pkgsysconfdir=$(sysconfdir)/@PACKAGE@
 
 

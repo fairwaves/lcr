@@ -1656,7 +1656,7 @@ int main(int argc, char *argv[])
 		printf("dial <extension> <number> - Tell LCR the next number to dial for extension.\n");
 		printf("release <number> - Tell LCR to release endpoint with given number.\n");
 		printf("block <port> - Block given port.\n");
-		printf("unblock <port> - Unblock given port.\n");
+		printf("unblock/load <port> - Unblock given port.\n");
 		printf("unload <port> - Unload port. To load port use 'block' or 'unblock'.\n");
 		printf("testcall [options] <interface> <callerid> <number> [present|restrict [<capability>]] - Testcall\n");
 		printf(" -> options = --setup-timeout <seconds> --proceeding-timeout <seconds>\n");
@@ -1693,7 +1693,8 @@ int main(int argc, char *argv[])
 			goto usage;
 		mode = MODE_RELEASE;
 	} else
-	if (!(strcasecmp(argv[1],"unblock")))
+	if (!(strcasecmp(argv[1],"unblock"))
+	 || !(strcasecmp(argv[1],"load")))
 	{
 		if (argc <= 2)
 			goto usage;

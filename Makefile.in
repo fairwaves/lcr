@@ -14,12 +14,6 @@
 
 @SET_MAKE@
 
-#INSTALLATION_DEFINES = \
-# -DCONFIG_DATA="\"$(pkgsysconfdir)\"" \
-# -DSHARE_DATA="\"$(pkgdatadir)\"" \
-# -DLOG_DIR="\"$(pkglogdir)\"" \
-# -DEXTENSION_DATA="\"$(localstatedir)/lib/lcr\""
-
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -41,12 +35,8 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = lcradmin$(EXEEXT) gentones$(EXEEXT) genwave$(EXEEXT)
-@ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@sbin_PROGRAMS = lcr$(EXEEXT) \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@	genrc$(EXEEXT) \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@	genextension$(EXEEXT)
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@sbin_PROGRAMS = lcr$(EXEEXT) \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	genrc$(EXEEXT) \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	genextension$(EXEEXT) \
+sbin_PROGRAMS = lcr$(EXEEXT) genrc$(EXEEXT) genextension$(EXEEXT)
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@noinst_PROGRAMS =  \
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.so$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
@@ -66,12 +56,12 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(sbindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(bin_PROGRAMS) $(sbin_PROGRAMS)
+PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS) $(sbin_PROGRAMS)
 am_chan_lcr_so_OBJECTS =
 chan_lcr_so_OBJECTS = $(am_chan_lcr_so_OBJECTS)
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_DEPENDENCIES =  \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.o bchannel.o \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	options.o
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.po bchannel.po \
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	options.po callerid.po
 am_genextension_OBJECTS = genext.$(OBJEXT) options.$(OBJEXT) \
 	extension.$(OBJEXT)
 genextension_OBJECTS = $(am_genextension_OBJECTS)
@@ -215,18 +205,29 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-INSTALLdir = /usr/local/lcr
-astmoddir = /usr/lib/asterisk/modules
+INSTALLdir = $(DESTDIR)/usr/local/lcr
+pkglogdir = $(localstatedir)/log/@PACKAGE@
+pkgsysconfdir = $(sysconfdir)/@PACKAGE@
+
+#CONFIGdir=$(DESTDIR)$(pkgsysconfdir)
+#SHAREdir=$(DESTDIR)$(pkgdatadir)
+#LOGdir=$(DESTDIR)$(pkglogdir)
+#EXTENSIONdir=$(DESTDIR)$(localstatedir)/lib/lcr
+CONFIGdir = $(INSTALLdir)
+SHAREdir = $(INSTALLdir)
+LOGdir = $(INSTALLdir)
+EXTENSIONdir = $(INSTALLdir)/extensions
+astmoddir = $(DESTDIR)/usr/lib/asterisk/modules
 INSTALLATION_DEFINES = \
- -DCONFIG_DATA="\"$(INSTALLdir)\"" \
- -DSHARE_DATA="\"$(INSTALLdir)\"" \
- -DLOG_DIR="\"$(INSTALLdir)\"" \
- -DEXTENSION_DATA="\"$(INSTALLdir)/extensions\""
+ -DCONFIG_DATA="\"$(CONFIGdir)\"" \
+ -DSHARE_DATA="\"$(SHAREdir)\"" \
+ -DLOG_DIR="\"$(LOGdir)\"" \
+ -DEXTENSION_DATA="\"$(EXTENSIONdir)/extensions\""
 
 INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.o bchannel.o options.o
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
 lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
@@ -249,8 +250,6 @@ genextension_SOURCES = genext.c options.c extension.c
 # This should better be removed and all .c files renamed to .cpp
 COMPILE = $(CXXCOMPILE)
 LINK = $(CXXLINK)
-pkglogdir = $(localstatedir)/log/@PACKAGE@
-pkgsysconfdir = $(sysconfdir)/@PACKAGE@
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -329,6 +328,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+
+clean-noinstPROGRAMS:
+	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
 install-sbinPROGRAMS: $(sbin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(sbindir)" || $(mkdir_p) "$(DESTDIR)$(sbindir)"
@@ -647,10 +649,11 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+@ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@install-exec-hook:
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-sbinPROGRAMS \
-	mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-noinstPROGRAMS \
+	clean-sbinPROGRAMS mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -674,6 +677,8 @@ install-data-am:
 	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
 install-exec-am: install-binPROGRAMS install-sbinPROGRAMS
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 
 install-info: install-info-am
 
@@ -704,26 +709,39 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am \
 	uninstall-sbinPROGRAMS
 
 .PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
-	clean-binPROGRAMS clean-generic clean-sbinPROGRAMS ctags dist \
-	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
-	distcheck distclean distclean-compile distclean-generic \
-	distclean-hdr distclean-tags distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-data \
-	install-data-am install-data-hook install-exec install-exec-am \
-	install-info install-info-am install-man install-sbinPROGRAMS \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-info-am uninstall-sbinPROGRAMS
+	clean-binPROGRAMS clean-generic clean-noinstPROGRAMS \
+	clean-sbinPROGRAMS ctags dist dist-all dist-bzip2 dist-gzip \
+	dist-shar dist-tarZ dist-zip distcheck distclean \
+	distclean-compile distclean-generic distclean-hdr \
+	distclean-tags distcleancheck distdir distuninstallcheck dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-binPROGRAMS install-data install-data-am \
+	install-data-hook install-exec install-exec-am \
+	install-exec-hook install-info install-info-am install-man \
+	install-sbinPROGRAMS install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-info-am \
+	uninstall-sbinPROGRAMS
 
 
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr.o: chan_lcr.c chan_lcr.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -c chan_lcr.c
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr.po: chan_lcr.c chan_lcr.h
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
 
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@bchannel.o: bchannel.c bchannel.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -c bchannel.c
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@bchannel.po: bchannel.c bchannel.h
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c bchannel.c -o bchannel.po
+
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@callerid.po: callerid.c callerid.h
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c callerid.c -o callerid.po
+
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@options.po: options.c options.h
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
+
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@install-exec-hook:
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	mkdir -p $(astmoddir)
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(INSTALL) -d $(astmoddir)
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(INSTALL) chan_lcr.so $(astmoddir)
 
 # Special install function to preserve existing configs.
 # Optimization with equivalen results are welcome
@@ -735,41 +753,41 @@ install-data-hook:
 	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
 	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
-	mkdir -p $(INSTALLdir)
-	mkdir -p $(INSTALLdir)/extensions
-	@if test -a $(INSTALLdir)/options.conf ; then \
+	mkdir -p $(CONFIGdir)
+	mkdir -p $(SHAREdir)
+	mkdir -p $(LOGdir)
+	mkdir -p $(EXTENSIONdir)
+	@if test -a $(CONFIGdir)/options.conf ; then \
 		echo "NOTE: options.conf already exists, not changed." ; else \
-		cp -v default/options.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/interface.conf ; then \
+		cp -v default/options.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/interface.conf ; then \
 		echo "NOTE: interface.conf already exists, not changed." ; else \
-		cp -v default/interface.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/routing.conf ; then \
+		cp -v default/interface.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
-		cp -v default/routing.conf $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/numbering_int.conf ; then \
+		cp -v default/routing.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
-	@if test -a $(INSTALLdir)/numbering_ext.conf ; then \
+	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \
 		echo "NOTE: numbering_ext.conf is obsolete, please use routing." ; fi
-	@if test -a $(INSTALLdir)/directory.list ; then \
+	@if test -a $(CONFIGdir)/directory.list ; then \
 		echo "NOTE: directory.list already exists, not changed." ; else \
-		cp -v default/directory.list $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_american ; then \
+		cp -v default/directory.list $(CONFIGdir) ; fi
+	@if test -a $(SHAREdir)/tones_american ; then \
 		echo "NOTE: american tones already exists, not overwritten." ; else \
-		cp -a tones_american $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_german ; then \
+		cp -a tones_american $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/tones_german ; then \
 		echo "NOTE: german tones already exists, not overwritten." ; else \
-		cp -a tones_german $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/vbox_german ; then \
+		cp -a tones_german $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/vbox_german ; then \
 		echo "NOTE: german vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_german $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/vbox_english ; then \
+		cp -a vbox_german $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/vbox_english ; then \
 		echo "NOTE: english vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_english $(INSTALLdir) ; fi
-	@if test -a $(INSTALLdir)/tones_efi ; then \
+		cp -a vbox_english $(SHAREdir) ; fi
+	@if test -a $(SHAREdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
-		cp -a tones_efi $(INSTALLdir) ; fi
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	@echo "Moving chan_lcr.so (if it fails, do it manually)"
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	mv $(sbindir)/chan_lcr.so $(astmoddir)
+		cp -a tones_efi $(SHAREdir) ; fi
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
