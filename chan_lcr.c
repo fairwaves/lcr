@@ -2132,7 +2132,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                 	ast_moh_stop(ast);
 			call->on_hold = 0;
 		        break;
-#if ASTERISK_VERSION_NUM >= 10600
+#ifdef AST_CONTROL_SRCUPDATE
 	        case AST_CONTROL_SRCUPDATE:
 			CDEBUG(call, ast, "Received AST_CONTROL_SRCUPDATE from Asterisk.\n");
                         break;
