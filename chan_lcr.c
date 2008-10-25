@@ -703,6 +703,12 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		return;
 	}
 
+	if (!*ast->exten) {
+		/* if can match */
+		CDEBUG(call, ast, "There is no 's' extension (and we tried to match it implicitly). Extensions may match, if more digits are dialed.\n");
+		return;
+	}
+
 	/* if not match */
 	cause = 1;
 	release:
@@ -1495,6 +1501,7 @@ static int queue_send(void)
 					case 'R':
 						CDEBUG(call, ast, "Sending queued RINGING to Asterisk.\n");
 						ast_queue_control(ast, AST_CONTROL_RINGING);
+						ast_setstate(ast, AST_STATE_RINGING);
 						break;
 					case 'A':
 						CDEBUG(call, ast, "Sending queued ANSWER to Asterisk.\n");
