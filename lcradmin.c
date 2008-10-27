@@ -43,6 +43,7 @@ int	show_interfaces = 2,
 
 enum {
 	MODE_STATE,
+	MODE_PORTINFO,
 	MODE_INTERFACE,
 	MODE_ROUTE,
 	MODE_DIAL,
@@ -1129,6 +1130,7 @@ const char *admin_state(int sock, char *argv[])
 			    !!strncmp(enter_string, "release ", 8) &&
 			    !!strncmp(enter_string, "block ", 6) &&
 			    !!strncmp(enter_string, "unblock ", 8) &&
+			    !!strncmp(enter_string, "load ", 5) &&
 			    !!strncmp(enter_string, "unload ", 7))
 			{
 				SPRINT(logline[logcur++ % LOGLINES], "usage:");
@@ -1136,7 +1138,7 @@ const char *admin_state(int sock, char *argv[])
 				SPRINT(logline[logcur++ % LOGLINES], "route (reload routing.conf)");
 				SPRINT(logline[logcur++ % LOGLINES], "release <EP> (release endpoint with given ID)");
 				SPRINT(logline[logcur++ % LOGLINES], "block <port> (block port for further calls)");
-				SPRINT(logline[logcur++ % LOGLINES], "unblock <port> (unblock port for further calls, load if not loaded)");
+				SPRINT(logline[logcur++ % LOGLINES], "unblock/load <port> (unblock port for further calls, load if not loaded)");
 				SPRINT(logline[logcur++ % LOGLINES], "unload <port> (unload mISDN stack, release call calls)");
 			} else
 			{
@@ -1256,6 +1258,170 @@ const char *admin_state(int sock, char *argv[])
 
 	/* cleanup curses and exit */
 	cleanup_curses();
+
+	return(NULL);
+}
+
+const char *admin_portinfo(int sock, int argc, char *argv[])
+{
+	struct admin_message	msg,
+				*m;
+	int			i, ii, j;
+	int			num;
+	int			len;
+	int			off;
+
+	/* send state request command */
+	memset(&msg, 0, sizeof(msg));
+	msg.message = ADMIN_REQUEST_STATE;
+	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
+	{
+		cleanup_curses();
+		return("Broken pipe while sending command.");
+	}
+
+	/* receive response */
+	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
+	{
+		cleanup_curses();
+		return("Broken pipe while receiving response.");
+	}
+
+	if (msg.message != ADMIN_RESPONSE_STATE)
+	{
+		cleanup_curses();
+		return("Response not valid. Expecting state response.");
+	}
+	num = msg.u.s.interfaces + msg.u.s.remotes + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
+	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
+	off=0;
+	if (num)
+	{
+		readagain:
+		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
+		{
+			if (len <= 0) {
+				FREE(m, 0);
+				cleanup_curses();
+				return("Broken pipe while receiving state infos.");
+			}
+			if (len < num*(int)sizeof(struct admin_message))
+			{
+				off+=len;
+				goto readagain;
+			}
+		}
+	}
+	j = 0;
+	i = 0;
+	while(i < msg.u.s.interfaces)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting interface information.");
+		}
+		i++;
+		j++;
+	}
+	i = 0;
+	while(i < msg.u.s.remotes)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_REMOTE)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting remote application information.");
+		}
+		i++;
+		j++;
+	}
+	i = 0;
+	while(i < msg.u.s.joins)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_JOIN)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting join information.");
+		}
+		i++;
+		j++;
+	}
+	i = 0;
+	while(i < msg.u.s.epoints)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_EPOINT)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting endpoint information.");
+		}
+		i++;
+		j++;
+	}
+	i = 0;
+	while(i < msg.u.s.ports)
+	{
+		if (m[j].message != ADMIN_RESPONSE_S_PORT)
+		{
+			FREE(m, 0);
+			cleanup_curses();
+			return("Response not valid. Expecting port information.");
+		}
+		i++;
+		j++;
+	}
+	// now j is the number of message blocks
+
+	/* output interfaces */
+	i = 0;
+	ii = i + msg.u.s.interfaces;
+	while(i < ii)
+	{
+		if (argc > 2)
+		{
+			if (!!strcmp(argv[2], m[i].u.i.interface_name))
+			{
+				i++;
+				continue;
+			}
+		}
+		printf("%s:\n", m[i].u.i.interface_name);
+		if (m[i].u.i.portnum < 0)
+			printf("\t port = unknown\n");
+		else
+			printf("\t port = %d \"%s\"\n",m[i].u.i.portnum, m[i].u.i.portname);
+		printf("\t extension = %s\n", (m[i].u.i.extension)?" yes":"no");
+		if (m[i].u.i.block >= 2)
+		{
+			printf("\t status = not loaded\n");
+		} else
+		{
+			if (m[i].u.i.block)
+				printf("\t status = blocked\n");
+			else
+				printf("\t status = unblocked\n");
+			printf("\t mode = %s %s\n", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp");
+			if (m[i].u.i.l1link < 0)
+				printf("\t l1 link = unknown\n");
+			else
+				printf("\t l1 link = %s\n", (m[i].u.i.l1link)?"up":"down");
+			if (m[i].u.i.ptp || !m[i].u.i.ntmode)
+			{
+				if (m[i].u.i.l2link < 0)
+					printf("\t l2 link = unknown\n");
+				else
+					printf("\t l2 link = %s\n", (m[i].u.i.l2link)?"up":"down");
+			}
+			printf("\t usage = %d\n", m[i].u.i.use);
+		}
+		i++;
+	}
+
+	/* free memory */
+	FREE(m, 0);
 
 	return(NULL);
 }
@@ -1651,7 +1817,8 @@ int main(int argc, char *argv[])
 		printf("\n");
 		printf("Usage: %s state | interface | route | dial ...\n", argv[0]);
 		printf("state - View current states using graphical console output.\n");
-		printf("interface - Tell LCR to reload \"interface.conf\".\n");
+		printf("portinfo - Get info of current ports.\n");
+		printf("interface [<portname>] - Tell LCR to reload \"interface.conf\".\n");
 		printf("route - Tell LCR to reload \"route.conf\".\n");
 		printf("dial <extension> <number> - Tell LCR the next number to dial for extension.\n");
 		printf("release <number> - Tell LCR to release endpoint with given number.\n");
@@ -1672,6 +1839,10 @@ int main(int argc, char *argv[])
 	if (!(strcasecmp(argv[1],"state")))
 	{
 		mode = MODE_STATE;
+	} else
+	if (!(strcasecmp(argv[1],"portinfo")))
+	{
+		mode = MODE_PORTINFO;
 	} else
 	if (!(strcasecmp(argv[1],"interface")))
 	{
@@ -1752,6 +1923,10 @@ int main(int argc, char *argv[])
 	{
 		case MODE_STATE:
 		ret = admin_state(sock, argv);
+		break;
+	
+		case MODE_PORTINFO:
+		ret = admin_portinfo(sock, argc, argv);
 		break;
 	
 		case MODE_INTERFACE:
