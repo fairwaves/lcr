@@ -41,7 +41,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 	char linkname[256];        
 	unsigned char buffer[256];
 	struct fmt *fmt;
-	int channels, bytes;
+	int channels = 0, bytes = 0;
 	unsigned int size, chunk;
 	int gotfmt = 0;
 	struct stat _stat;
@@ -272,7 +272,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
  */
 int read_tone(int fh, unsigned char *buffer, int codec, int len, signed int size, signed int *left, int speed)
 {
-	int l;
+	int l = 0;
 	int offset;
 	signed short buffer16[len], *buf16 = buffer16;
 	signed short buffer32[len<<1], *buf32 = buffer32;

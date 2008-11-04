@@ -14,19 +14,7 @@
 struct trace trace;
 char trace_string[MAX_TRACE_ELEMENTS * 100 + 400];
 
-static const char *spaces[11] = {
-	"          ",
-	"         ",
-	"        ",
-	"       ",
-	"      ",
-	"     ",
-	"    ",
-	"   ",
-	"  ",
-	" ",
-	"",
-};
+static const char *spaces = "          ";
 
 /*
  * initializes a new trace
@@ -252,12 +240,12 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		i = 0;
 		while(i < trace.elements)
 		{
-			SPRINT(buffer, " %s%s", trace.element[i].name, spaces[strlen(trace.element[i].name)]);
+			SPRINT(buffer, " %s%s", trace.element[i].name, &spaces[strlen(trace.element[i].name)]);
 			if (i) if (!strcmp(trace.element[i].name, trace.element[i-1].name))
 				SPRINT(buffer, "           ");
 			SCAT(trace_string, buffer);
 			if (trace.element[i].sub[0])
-				SPRINT(buffer, " : %s%s = ", trace.element[i].sub, spaces[strlen(trace.element[i].sub)]);
+				SPRINT(buffer, " : %s%s = ", trace.element[i].sub, &spaces[strlen(trace.element[i].sub)]);
 			else
 				SPRINT(buffer, " :              ");
 			SCAT(trace_string, buffer);

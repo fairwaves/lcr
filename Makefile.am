@@ -41,7 +41,7 @@ INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(CONFIGdir)\"" \
  -DSHARE_DATA="\"$(SHAREdir)\"" \
  -DLOG_DIR="\"$(LOGdir)\"" \
- -DEXTENSION_DATA="\"$(EXTENSIONdir)/extensions\""
+ -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
 INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
 
@@ -133,6 +133,9 @@ install-data-hook:
 	@if test -a $(SHAREdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
 		cp -a tones_efi $(SHAREdir) ; fi
+
+clean-generic:
+	rm -f *.po
 
 # test rule, nothing important
 #echo:

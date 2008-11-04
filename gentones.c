@@ -86,9 +86,9 @@ static short isdn_audio_alaw_to_s16[] =
 
 unsigned char encode_isdn(short sample, char law)
 {
-	int best=-1;
+	int best = -1;
 	int i,diff;
-	int best_diff;
+	int best_diff = 9999;
 
 	i=0;
 	while(i<256)
@@ -149,7 +149,7 @@ void write_wav(FILE *fp, char *wav, char law)
 	struct fmt *fmt;
 	FILE *wfp;
 	signed int i;
-	int channels, bytes;
+	int channels = 0, bytes = 0;
 	short sample, sample2;
 	signed int size, chunk;
 	int gotfmt = 0, gotdata = 0;

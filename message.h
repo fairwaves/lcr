@@ -19,17 +19,17 @@ enum { /* interface types */
 };
 
 enum { /* number types */
-	INFO_NTYPE_UNKNOWN = 0,
+	INFO_NTYPE_NOTPRESENT = 0,
+	INFO_NTYPE_UNKNOWN,
 	INFO_NTYPE_SUBSCRIBER,
 	INFO_NTYPE_NATIONAL,
 	INFO_NTYPE_INTERNATIONAL
 };
 
 enum { /* number presentation */
-	INFO_PRESENT_NULL = 0,
+	INFO_PRESENT_NOTAVAIL,
 	INFO_PRESENT_ALLOWED,
-	INFO_PRESENT_RESTRICTED,
-	INFO_PRESENT_NOTAVAIL
+	INFO_PRESENT_RESTRICTED
 };
 
 enum { /* number presentation */
@@ -161,6 +161,10 @@ struct caller_info {
 	int present;			/* presentation */
 	int screen;			/* who provided the number */
 	char display[84];		/* display information */
+	char id2[32];			/* second callerid */
+	int ntype2;			/* second type of number */
+	int present2;			/* second presentation */
+	int screen2;			/* second who provided the number */
 };
 
 /* call-info structure DIALING */

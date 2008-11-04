@@ -428,6 +428,7 @@ use_channel:
 void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
 	int calling_type, calling_plan, calling_present, calling_screen;
+	int calling_type2, calling_plan2, calling_present2, calling_screen2;
 	int called_type, called_plan;
 	int redir_type, redir_plan, redir_present, redir_screen, redir_reason;
 	int hlc_coding, hlc_presentation, hlc_interpretation, hlc_hlc, hlc_exthlc;
@@ -463,7 +464,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	end_trace();
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_IND, DIRECTION_IN);
-	dec_ie_calling_pn(l3m, &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id));
+	dec_ie_calling_pn(l3m, &calling_type, &calling_plan, &calling_present, &calling_screen, (unsigned char *)p_callerinfo.id, sizeof(p_callerinfo.id), &calling_type2, &calling_plan2, &calling_present2, &calling_screen2, (unsigned char *)p_callerinfo.id2, sizeof(p_callerinfo.id2));
 	dec_ie_called_pn(l3m, &called_type, &called_plan, (unsigned char *)p_dialinginfo.id, sizeof(p_dialinginfo.id));
 	dec_ie_keypad(l3m, (unsigned char *)keypad, sizeof(keypad));
 	/* te-mode: CNIP (calling name identification presentation) */
@@ -516,9 +517,10 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (calling_type)
 	{
 		case -1:
+		p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
+		break;
+		case 0x0:
 		p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
-		p_callerinfo.present = INFO_PRESENT_NOTAVAIL;
-		p_callerinfo.screen = INFO_SCREEN_NETWORK;
 		break;
 		case 0x1:
 		p_callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -535,6 +537,50 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 	p_callerinfo.isdn_port = p_m_portnum;
 	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);
+
+	/* caller info2 */
+	switch (calling_present2)
+	{
+		case 1:
+		p_callerinfo.present2 = INFO_PRESENT_RESTRICTED;
+		break;
+		case 2:
+		p_callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
+		break;
+		default:
+		p_callerinfo.present2 = INFO_PRESENT_ALLOWED;
+		break;
+	}
+	switch (calling_screen2)
+	{
+		case 0:
+		p_callerinfo.screen2 = INFO_SCREEN_USER;
+		break;
+		default:
+		p_callerinfo.screen2 = INFO_SCREEN_NETWORK;
+		break;
+	}
+	switch (calling_type2)
+	{
+		case -1:
+		p_callerinfo.ntype2 = INFO_NTYPE_NOTPRESENT;
+		break;
+		case 0x0:
+		p_callerinfo.ntype2 = INFO_NTYPE_UNKNOWN;
+		break;
+		case 0x1:
+		p_callerinfo.ntype2 = INFO_NTYPE_INTERNATIONAL;
+		break;
+		case 0x2:
+		p_callerinfo.ntype2 = INFO_NTYPE_NATIONAL;
+		break;
+		case 0x4:
+		p_callerinfo.ntype2 = INFO_NTYPE_SUBSCRIBER;
+		break;
+		default:
+		p_callerinfo.ntype2 = INFO_NTYPE_UNKNOWN;
+		break;
+	}
 
 	/* dialing information */
 	SCAT(p_dialinginfo.id, (char *)keypad);
@@ -600,9 +646,10 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (redir_type)
 	{
 		case -1:
+		p_redirinfo.ntype = INFO_NTYPE_NOTPRESENT;
+		break;
+		case 0x0:
 		p_redirinfo.ntype = INFO_NTYPE_UNKNOWN;
-		p_redirinfo.present = INFO_PRESENT_NULL; /* not redirecting */
-		p_redirinfo.reason = INFO_REDIR_UNKNOWN;
 		break;
 		case 0x1:
 		p_redirinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -859,8 +906,7 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		switch (type)
 		{
 			case -1:
-			message->param.notifyinfo.ntype = INFO_NTYPE_UNKNOWN;
-			message->param.notifyinfo.present = INFO_PRESENT_NULL;
+			message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 			break;
 			case 1:
 			message->param.notifyinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -940,8 +986,7 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		switch (type)
 		{
 			case -1:
-			message->param.notifyinfo.ntype = INFO_NTYPE_UNKNOWN;
-			message->param.notifyinfo.present = INFO_PRESENT_NULL;
+			message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 			break;
 			case 1:
 			message->param.notifyinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -1016,9 +1061,8 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 	switch (type)
 	{
-		case 0x0:
-		p_connectinfo.present = INFO_PRESENT_NULL; /* no COLP info */
-		p_connectinfo.ntype = INFO_NTYPE_UNKNOWN;
+		case -1:
+		p_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
 		case 0x1:
 		p_connectinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -1280,8 +1324,7 @@ void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (type)
 	{
 		case -1:
-		message->param.notifyinfo.ntype = INFO_NTYPE_UNKNOWN;
-		message->param.notifyinfo.present = INFO_PRESENT_NULL;
+		message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
 		case 1:
 		message->param.notifyinfo.ntype = INFO_NTYPE_INTERNATIONAL;
@@ -1907,6 +1950,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	l3_msg *l3m;
 	int ret;
 	int plan, type, screen, present, reason;
+	int plan2, type2, screen2, present2;
 	int capability, mode, rate, coding, user, presentation, interpretation, hlc, exthlc;
 	int channel, exclusive;
 	struct epoint_list *epointlist;
@@ -1933,6 +1977,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
 	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
+	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface);
 
 	/* only display at connect state: this case happens if endpoint is in connected mode */
 	if (p_state==PORT_STATE_CONNECT)
@@ -2012,6 +2057,9 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	plan = 1;
 	switch (p_callerinfo.ntype)
 	{
+		case INFO_NTYPE_UNKNOWN:
+		type = 0x0;
+		break;
 		case INFO_NTYPE_INTERNATIONAL:
 		type = 0x1;
 		break;
@@ -2021,8 +2069,8 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		case INFO_NTYPE_SUBSCRIBER:
 		type = 0x4;
 		break;
-		default: /* INFO_NTYPE_UNKNOWN */
-		type = 0x0;
+		default: /* INFO_NTYPE_NOTPRESENT */
+		type = -1;
 		break;
 	}
 	switch (p_callerinfo.screen)
@@ -2036,18 +2084,59 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	}
 	switch (p_callerinfo.present)
 	{
+		case INFO_PRESENT_ALLOWED:
+		present = 0;
+		break;
 		case INFO_PRESENT_RESTRICTED:
 		present = 1;
 		break;
-		case INFO_PRESENT_NOTAVAIL:
+		default: /* INFO_PRESENT_NOTAVAIL */
 		present = 2;
 		break;
-		default: /* INFO_PRESENT_ALLOWED */
-		present = 0;
+	}
+	/* caller information 2 */
+	plan2 = 1;
+	switch (p_callerinfo.ntype2)
+	{
+		case INFO_NTYPE_UNKNOWN:
+		type2 = 0x0;
+		break;
+		case INFO_NTYPE_INTERNATIONAL:
+		type2 = 0x1;
+		break;
+		case INFO_NTYPE_NATIONAL:
+		type2 = 0x2;
+		break;
+		case INFO_NTYPE_SUBSCRIBER:
+		type2 = 0x4;
+		break;
+		default: /* INFO_NTYPE_NOTPRESENT */
+		type2 = -1;
+		break;
+	}
+	switch (p_callerinfo.screen2)
+	{
+		case INFO_SCREEN_USER:
+		screen2 = 0;
+		break;
+		default: /* INFO_SCREEN_NETWORK */
+		screen2 = 3;
+		break;
+	}
+	switch (p_callerinfo.present2)
+	{
+		case INFO_PRESENT_ALLOWED:
+		present2 = 0;
+		break;
+		case INFO_PRESENT_RESTRICTED:
+		present2 = 1;
+		break;
+		default: /* INFO_PRESENT_NOTAVAIL */
+		present2 = 2;
 		break;
 	}
 	if (type >= 0)
-		enc_ie_calling_pn(l3m, type, plan, present, screen, (unsigned char *)p_callerinfo.id);
+		enc_ie_calling_pn(l3m, type, plan, present, screen, (unsigned char *)p_callerinfo.id, type2, plan2, present2, screen2, (unsigned char *)p_callerinfo.id2);
 	/* dialing information */
 	if (p_dialinginfo.id[0]) /* only if we have something to dial */
 	{
@@ -2065,6 +2154,9 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	plan = 1;
 	switch (p_redirinfo.ntype)
 	{
+		case INFO_NTYPE_UNKNOWN:
+		type = 0x0;
+		break;
 		case INFO_NTYPE_INTERNATIONAL:
 		type = 0x1;
 		break;
@@ -2074,8 +2166,8 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		case INFO_NTYPE_SUBSCRIBER:
 		type = 0x4;
 		break;
-		default: /* INFO_NTYPE_UNKNOWN */
-		type = 0x0;
+		default: /* INFO_NTYPE_NOTPRESENT */
+		type = -1;
 		break;
 	}
 	switch (p_redirinfo.screen)
@@ -2110,21 +2202,14 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	}
 	switch (p_redirinfo.present)
 	{
-		case INFO_PRESENT_NULL: /* no redir at all */
-		present = -1;
-		screen = -1;
-		reason = -1;
-		plan = -1;
-		type = -1;
+		case INFO_PRESENT_ALLOWED:
+		present = 0;
 		break;
 		case INFO_PRESENT_RESTRICTED:
 		present = 1;
 		break;
-		case INFO_PRESENT_NOTAVAIL:
+		default: /* INFO_PRESENT_NOTAVAIL */
 		present = 2;
-		break;
-		default: /* INFO_PRESENT_ALLOWED */
-		present = 0;
 		break;
 	}
 	/* sending redirecting number only in ntmode */
@@ -2195,7 +2280,7 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 {
 	l3_msg *l3m;
 	int notify;
-	int plan, type = -1, present;
+	int plan = 0, type = -1, present = 0;
 
 	if (param->notifyinfo.notify>INFO_NOTIFY_NONE)
 		notify = param->notifyinfo.notify & 0x7f;
@@ -2211,6 +2296,9 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 		plan = 1;
 		switch (param->notifyinfo.ntype)
 		{
+			case INFO_NTYPE_UNKNOWN:
+			type = 0;
+			break;
 			case INFO_NTYPE_INTERNATIONAL:
 			type = 1;
 			break;
@@ -2221,24 +2309,19 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 			type = 4;
 			break;
 			default: /* INFO_NTYPE_UNKNOWN */
-			type = 0;
+			type = -1;
 			break;
 		}
 		switch (param->notifyinfo.present)
 		{
-			case INFO_PRESENT_NULL: /* no redir at all */
-			present = -1;
-			plan = -1;
-			type = -1;
+			case INFO_PRESENT_ALLOWED:
+			present = 0;
 			break;
 			case INFO_PRESENT_RESTRICTED:
 			present = 1;
 			break;
-			case INFO_PRESENT_NOTAVAIL:
+			default: /* INFO_PRESENT_NOTAVAIL */
 			present = 2;
-			break;
-			default: /* INFO_PRESENT_ALLOWED */
-			present = 0;
 			break;
 		}
 	}
@@ -2431,6 +2514,9 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	plan = 1;
 	switch (p_connectinfo.ntype)
 	{
+		case INFO_NTYPE_UNKNOWN:
+		type = 0x0;
+		break;
 		case INFO_NTYPE_INTERNATIONAL:
 		type = 0x1;
 		break;
@@ -2440,8 +2526,8 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 		case INFO_NTYPE_SUBSCRIBER:
 		type = 0x4;
 		break;
-		default: /* INFO_NTYPE_UNKNOWN */
-		type = 0x0;
+		default: /* INFO_NTYPE_NOTPRESENT */
+		type = -1;
 		break;
 	}
 	switch (param->connectinfo.screen)
@@ -2455,20 +2541,14 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	}
 	switch (p_connectinfo.present)
 	{
-		case INFO_PRESENT_NULL: /* no colp at all */
-		present = -1;
-		screen = -1;
-		plan = -1;
-		type = -1;
+		case INFO_PRESENT_ALLOWED:
+		present = 0;
 		break;
 		case INFO_PRESENT_RESTRICTED:
 		present = 1;
 		break;
-		case INFO_PRESENT_NOTAVAIL:
+		default: /* INFO_PRESENT_NOTAVAIL */
 		present = 2;
-		break;
-		default: /* INFO_PRESENT_ALLOWED */
-		present = 0;
 		break;
 	}
 	if (type >= 0)
@@ -2675,8 +2755,6 @@ wirklich erst proceeding?:
  */
 int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
-	struct lcr_msg *message;
-
 	if (PmISDN::message_epoint(epoint_id, message_id, param))
 		return(1);
 
@@ -2800,7 +2878,7 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		break;
 
 		default:
-		PERROR("Pdss1(%s) isdn port with (caller id %s) received a wrong message: %d\n", p_name, p_callerinfo.id, message);
+		PERROR("Pdss1(%s) isdn port with (caller id %s) received a wrong message: %d\n", p_name, p_callerinfo.id, message_id);
 	}
 
 	return(1);

@@ -222,7 +222,7 @@ INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(CONFIGdir)\"" \
  -DSHARE_DATA="\"$(SHAREdir)\"" \
  -DLOG_DIR="\"$(LOGdir)\"" \
- -DEXTENSION_DATA="\"$(EXTENSIONdir)/extensions\""
+ -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
 INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
@@ -641,8 +641,6 @@ install-strip:
 	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
 mostlyclean-generic:
 
-clean-generic:
-
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 
@@ -788,6 +786,9 @@ install-data-hook:
 	@if test -a $(SHAREdir)/tones_efi ; then \
 		echo "NOTE: special efi tones already exists, not overwritten." ; else \
 		cp -a tones_efi $(SHAREdir) ; fi
+
+clean-generic:
+	rm -f *.po
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

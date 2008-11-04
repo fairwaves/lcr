@@ -373,7 +373,7 @@ void Pdss1::dec_ie_called_pn(struct l3_msg *l3m, int *type, int *plan, unsigned 
 
 
 /* IE_CALLING_PN */
-void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number)
+void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number, int type2, int plan2, int present2, int screen2, unsigned char *number2)
 {
 	unsigned char p[256];
 	int l;
@@ -425,15 +425,74 @@ void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int presen
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
 	}
 	add_layer3_ie(l3m, p[0], p[1], p+2);
+
+	/* second calling party number */
+	if (type2 < 0)
+		return;
+	
+	if (type2>7)
+	{
+		PERROR("type2(%d) is out of range.\n", type2);
+		return;
+	}
+	if (plan2<0 || plan2>15)
+	{
+		PERROR("plan2(%d) is out of range.\n", plan2);
+		return;
+	}
+	if (present2>3)
+	{
+		PERROR("present2(%d) is out of range.\n", present2);
+		return;
+	}
+	if (present2 >= 0) if (screen2<0 || screen2>3)
+	{
+		PERROR("screen2(%d) is out of range.\n", screen2);
+		return;
+	}
+
+	add_trace("call_pn 2", "type", "%d", type2);
+	add_trace("call_pn 2", "plan", "%d", plan2);
+	add_trace("call_pn 2", "present", "%d", present2);
+	add_trace("call_pn 2", "screen", "%d", screen2);
+	add_trace("call_pn 2", "number", "%s", number2);
+
+	l = 1;
+	if (number2) if (number2[0])
+		l += strlen((char *)number2);
+	if (present2 >= 0)
+		l += 1;
+	p[0] = IE_CALLING_PN;
+	p[1] = l;
+	if (present2 >= 0)
+	{
+		p[2] = 0x00 + (type2<<4) + plan2;
+		p[3] = 0x80 + (present2<<5) + screen2;
+		if (number2) if (number2[0])
+			UNCPY((char *)p+4, (char *)number2, strlen((char *)number2));
+	} else
+	{
+		p[2] = 0x80 + (type2<<4) + plan2;
+		if (number2) if (number2[0])
+			UNCPY((char *)p+3, (char *)number2, strlen((char *)number2));
+	}
+	add_layer3_ie(l3m, p[0], p[1], p+2);
 }
 
-void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len)
+void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len, int *type2, int *plan2, int *present2, int *screen2, unsigned char *number2, int number_len2)
 {
 	*type = -1;
 	*plan = -1;
 	*present = -1;
 	*screen = -1;
 	*number = '\0';
+	*type2 = -1;
+	*plan2 = -1;
+	*present2 = -1;
+	*screen2 = -1;
+	*number2 = '\0';
+	unsigned int numextra = sizeof(l3m->extra) / sizeof(struct m_extie);
+	unsigned int i;
 
 	unsigned char *p = l3m->calling_nr;
 	if (!p)
@@ -466,6 +525,51 @@ void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *pre
 	add_trace("calling_pn", "present", "%d", *present);
 	add_trace("calling_pn", "screen", "%d", *screen);
 	add_trace("calling_pn", "number", "%s", number);
+
+	/* second calling party number */
+	p = NULL;
+	i = 0;
+	while(i < numextra)
+	{
+		if (!l3m->extra[i].val)
+			break;
+		if (l3m->extra[i].ie == IE_CALLING_PN)
+		{
+			p = l3m->extra[i].val;
+			break;
+		}
+		i++;
+	}
+	if (!p)
+		return;
+	if (p[0] < 1)
+	{
+		add_trace("calling_pn2", "error", "IE too short (len=%d)", p[0]);
+		return;
+	}
+
+	*type2 = (p[1]&0x70) >> 4;
+	*plan2 = p[1] & 0xf;
+	if (!(p[1] & 0x80))
+	{
+		if (p[0] < 2)
+		{
+			add_trace("calling_pn2", "error", "IE too short (len=%d)", p[0]);
+			return;
+		}
+		*present2 = (p[2]&0x60) >> 5;
+		*screen2 = p[2] & 0x3;
+		strnncpy(number2, p+3, p[0]-2, number_len2);
+	} else
+	{
+		strnncpy(number2, p+2, p[0]-1, number_len2);
+	}
+
+	add_trace("call_pn 2", "type", "%d", *type2);
+	add_trace("call_pn 2", "plan", "%d", *plan2);
+	add_trace("call_pn 2", "present", "%d", *present2);
+	add_trace("call_pn 2", "screen", "%d", *screen2);
+	add_trace("call_pn 2", "number", "%s", number2);
 }
 
 

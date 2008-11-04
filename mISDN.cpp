@@ -1534,7 +1534,7 @@ void PmISDN::set_echotest(int echo)
  */
 void PmISDN::set_tone(const char *dir, const char *tone)
 {
-	int id;
+	int id = TONE_OFF;
 
 	if (!tone)
 		tone = "";

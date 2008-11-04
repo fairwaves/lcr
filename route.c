@@ -26,6 +26,8 @@ struct cond_defs cond_defs[] = {
 	  "interface=<interface>[,...]", "Matches if call is received from given interface(s). NOT PORTS!"},
 	{ "callerid",	MATCH_CALLERID,	COND_TYPE_STRING,
 	  "callerid=<digits>[-<digits>][,...]", "Matches if caller ID matches or begins with the given (range(s) of) prefixes(s)."},
+	{ "callerid2",	MATCH_CALLERID2,COND_TYPE_STRING,
+	  "callerid2=<digits>[-<digits>][,...]", "Matches the second caller ID (network provided)."},
 	{ "extension",	MATCH_EXTENSION,COND_TYPE_STRING,
 	  "extension=<digits>[-<digits>][,...]", "Matches if caller calls from given (range(s) of) extension(s)."},
 	{ "dialing",	MATCH_DIALING,	COND_TYPE_STRING,
@@ -1956,7 +1958,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	struct route_action	*action = NULL;
 	unsigned long		comp_len;
 	int			j, jj;
-	char			callerid[64],	redirid[64];
+	char			callerid[64], callerid2[64], redirid[64];
 	int			integer;
 	char			*string;
 	FILE			*tfp;
@@ -1969,6 +1971,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	e_match_to_action = NULL;
 
 	SCPY(callerid, numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international));
+	SCPY(callerid2, numberrize_callerinfo(e_callerinfo.id2, e_callerinfo.ntype2, options.national, options.international));
 	SCPY(redirid, numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype, options.national, options.international));
 	
 	PDEBUG(DEBUG_ROUTE, "parsing ruleset '%s'\n", ruleset->name);
@@ -2012,6 +2015,10 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_CALLERID:
 				string = callerid;
+				goto match_string_prefix;
+
+				case MATCH_CALLERID2:
+				string = callerid2;
 				goto match_string_prefix;
 
 				case MATCH_EXTENSION:
@@ -2063,12 +2070,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				case MATCH_REDIRECTED:
-				if (e_redirinfo.present != INFO_PRESENT_NULL)
+				if (e_redirinfo.ntype != INFO_NTYPE_NOTPRESENT)
 					istrue = 1;
 				break;
 
 				case MATCH_DIRECT:
-				if (e_redirinfo.present == INFO_PRESENT_NULL)
+				if (e_redirinfo.ntype == INFO_NTYPE_NOTPRESENT)
 					istrue = 1;
 				break;
 

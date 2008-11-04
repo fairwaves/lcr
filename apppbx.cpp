@@ -386,7 +386,7 @@ char *EndpointAppPBX::apply_callerid_display(const char *id, int itype, int ntyp
 	}
 
 	/* display if callerid is anonymouse but available due anon-ignore */
-	if (e_ext.display_fake && screen==INFO_SCREEN_USER && present!=INFO_PRESENT_NULL)
+	if (e_ext.display_fake && screen==INFO_SCREEN_USER && ntype!=INFO_NTYPE_NOTPRESENT)
 	{
 		if (!display[0])
 		{
@@ -1023,6 +1023,7 @@ void EndpointAppPBX::out_setup(void)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 			/* handle restricted caller ids */
 			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id2, &message->param.setup.callerinfo.ntype2, &message->param.setup.callerinfo.present2, &message->param.setup.callerinfo.screen2, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
 			apply_callerid_restriction(&e_ext, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
@@ -1037,11 +1038,18 @@ void EndpointAppPBX::out_setup(void)
 				SCAT(message->param.setup.callerinfo.id, numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype, options.national, options.international));
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 			}
+			if (message->param.setup.callerinfo.id2[0] && e_ext.clip_prefix[0])
+			{
+				SCPY(message->param.setup.callerinfo.id2, e_ext.clip_prefix);
+				SCAT(message->param.setup.callerinfo.id2, numberrize_callerinfo(e_callerinfo.id2,e_callerinfo.ntype2, options.national, options.international));
+				message->param.setup.callerinfo.ntype2 = INFO_NTYPE_UNKNOWN;
+			}
 			/* use internal caller id */
 			if (e_callerinfo.extension[0] && (message->param.setup.callerinfo.present!=INFO_PRESENT_RESTRICTED || e_ext.anon_ignore))
 			{
 				SCPY(message->param.setup.callerinfo.id, e_callerinfo.extension);
 				message->param.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
+				message->param.setup.callerinfo.ntype2 = INFO_NTYPE_NOTPRESENT;
 			}
 			message_put(message);
 			logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
@@ -1055,6 +1063,7 @@ void EndpointAppPBX::out_setup(void)
 			if (e_ext.anon_ignore && e_callerinfo.id[0])
 			{
 				e_callerinfo.present = INFO_PRESENT_ALLOWED;
+				e_callerinfo.present2 = INFO_PRESENT_ALLOWED;
 			}
 		}
 
@@ -1135,6 +1144,7 @@ void EndpointAppPBX::out_setup(void)
 				SCPY(message->param.setup.callerinfo.extension, e_ext.number);
 				message->param.setup.callerinfo.ntype = e_ext.callerid_type;
 				message->param.setup.callerinfo.present = e_ext.callerid_present;
+				message->param.setup.callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
 			}
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
@@ -1142,6 +1152,7 @@ void EndpointAppPBX::out_setup(void)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 				/* handle restricted caller ids */
 			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id2, &message->param.setup.callerinfo.ntype2, &message->param.setup.callerinfo.present2, &message->param.setup.callerinfo.screen2, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
 			apply_callerid_restriction(&e_ext, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
@@ -1217,6 +1228,7 @@ void EndpointAppPBX::out_setup(void)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
 				/* handle restricted caller ids */
 			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id, &message->param.setup.callerinfo.ntype, &message->param.setup.callerinfo.present, &message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
+			apply_callerid_restriction(&e_ext, message->param.setup.callerinfo.id2, &message->param.setup.callerinfo.ntype2, &message->param.setup.callerinfo.present2, &message->param.setup.callerinfo.screen2, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name);
 			apply_callerid_restriction(&e_ext, message->param.setup.redirinfo.id, &message->param.setup.redirinfo.ntype, &message->param.setup.redirinfo.present, 0, message->param.setup.redirinfo.extension, NULL);
 			/* display callerid if desired for extension */
 			SCPY(message->param.setup.callerinfo.display, apply_callerid_display(message->param.setup.callerinfo.id, message->param.setup.callerinfo.itype, message->param.setup.callerinfo.ntype, message->param.setup.callerinfo.present, message->param.setup.callerinfo.screen, message->param.setup.callerinfo.extension, message->param.setup.callerinfo.name));
@@ -1493,8 +1505,10 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 		}
 		interface = interface->next;
 	}
-	if (interface)
+	if (interface) {
 		do_screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, interface);
+		do_screen(0, e_callerinfo.id2, sizeof(e_callerinfo.id2), &e_callerinfo.ntype2, &e_callerinfo.present2, interface);
+	}
 
 	/* process extension */
 	if (e_callerinfo.itype == INFO_ITYPE_ISDN_EXTENSION)
@@ -1565,6 +1579,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 			else	e_callerinfo.present = e_ext.callerid_present;
 			e_callerinfo.ntype = e_ext.callerid_type;
 		}
+		e_callerinfo.ntype2 = INFO_NTYPE_NOTPRESENT;
 
 		/* extension is written */
 		if (writeext)
@@ -2087,7 +2102,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	/* other calls with no caller id (or not available for the extension) and force colp */
 	if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE)
 	{
-		e_connectinfo.present = INFO_PRESENT_NOTAVAIL;
+		e_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT) /* external extension answered */
 		{
 			port = find_port_id(portlist->port_id);
@@ -2151,6 +2166,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			e_callerinfo.present = e_ext.callerid_present;
 			e_callerinfo.ntype = e_ext.callerid_type;
 		}
+		e_callerinfo.ntype2 = INFO_NTYPE_NOTPRESENT;
 
 		e_connectedmode = 1; /* dtmf-hangup & disconnect prevention */
 		e_dtmf = 1;
@@ -2607,7 +2623,6 @@ void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, u
 void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, union parameter *param)
 {
 	struct port_list *portlist;
-	struct lcr_msg *message;
 
 	portlist = ea_endpoint->ep_portlist;
 	while(portlist)
@@ -2797,7 +2812,7 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 
 
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: %d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message_type);
 	}
 
 	/* Note: this endpoint may be destroyed, so we MUST return */
@@ -3535,7 +3550,7 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 		break;
 
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: #%d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received a wrong message: #%d\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, message_type);
 	}
 }
 
@@ -4093,6 +4108,21 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			break;
 		      	default:
 			add_trace("caller id", "present", "not available");
+		}
+		if (param->setup.callerinfo.ntype2)
+		{
+			add_trace("caller id2", "number", "%s", numberrize_callerinfo(param->setup.callerinfo.id2, param->setup.callerinfo.ntype2, options.national, options.international));
+			switch(param->setup.callerinfo.present)
+			{
+			      	case INFO_PRESENT_RESTRICTED:
+				add_trace("caller id2", "present", "restricted");
+				break;
+			      	case INFO_PRESENT_ALLOWED:
+				add_trace("caller id2", "present", "allowed");
+				break;
+			      	default:
+				add_trace("caller id2", "present", "not available");
+			}
 		}
 		if (param->setup.redirinfo.id[0])
 		{

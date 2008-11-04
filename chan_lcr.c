@@ -543,17 +543,15 @@ static void send_setup_to_lcr(struct chan_call *call)
 	}
 	switch(ast->cid.cid_pres & AST_PRES_RESTRICTION)
 	{
-		case AST_PRES_ALLOWED:
-		newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
-		break;
 		case AST_PRES_RESTRICTED:
 		newparam.setup.callerinfo.present = INFO_PRESENT_RESTRICTED;
 		break;
 		case AST_PRES_UNAVAILABLE:
 		newparam.setup.callerinfo.present = INFO_PRESENT_NOTAVAIL;
 		break;
+		case AST_PRES_ALLOWED:
 		default:
-		newparam.setup.callerinfo.present = INFO_PRESENT_NULL;
+		newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
 	}
 	switch(ast->cid.cid_ton)
 	{

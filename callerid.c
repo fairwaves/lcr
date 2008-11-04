@@ -43,6 +43,9 @@ const char *numberrize_callerinfo(const char *string, int ntype, const char *nat
 
 	switch(ntype)
 	{
+		case INFO_NTYPE_NOTPRESENT:
+		return("");
+
 		case INFO_NTYPE_INTERNATIONAL:
 		strcpy(result, international);
 		strncat(result, string, sizeof(result)-strlen(result)-1);

@@ -55,6 +55,7 @@ int read_extension(struct extension *ext, char *num)
 
 	if (!(fp = fopen(filename, "r")))
 	{
+		printf("the given extension doesn't exist: \"%s\"\n", filename);
 		PDEBUG(DEBUG_CONFIG, "the given extension doesn't exist: \"%s\"\n", filename);
 		return(0);
 	}

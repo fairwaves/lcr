@@ -450,7 +450,6 @@ void Port::set_vbox_tone(const char *dir, const char *name)
  */
 void Port::set_vbox_play(const char *name, int offset)
 {
-	signed int size;
 	struct lcr_msg *message;
 
 	/* use ser_box_tone() */
@@ -469,7 +468,7 @@ void Port::set_vbox_play(const char *name, int offset)
 		{
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_COUNTER);
 			message->param.counter.current = offset;
-			message->param.counter.max = size;
+			message->param.counter.max = p_tone_size;
 			message_put(message);
 		}
 	}
@@ -491,7 +490,7 @@ void Port::set_vbox_speed(int speed)
  */
 int Port::read_audio(unsigned char *buffer, int length)
 {
-	int l,len;
+	int l = 0,len;
 	int nodata=0; /* to detect 0-length files and avoid endless reopen */
 	char filename[128];
 	int tone_left_before; /* temp variable to determine the change in p_tone_left */
@@ -794,7 +793,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 void Port::close_record(int beep, int mute)
 {
 	static signed short beep_mono[256];
-	unsigned int size, wsize;
+	unsigned int size = 0, wsize = 0;
 	struct fmt fmt;
 	char filename[512], indexname[512];
 	FILE *fp;

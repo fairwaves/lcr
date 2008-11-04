@@ -1503,7 +1503,7 @@ void EndpointAppPBX::action_dialing_calculator(void)
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	struct lcr_msg *message;
 	double value1, value2, v, sign1;
-	int komma1, komma2, k, state, mode, first;
+	int komma1, komma2, k, state, mode = 0, first;
 	char *p;
 
 	portlist = ea_endpoint->ep_portlist;

@@ -71,8 +71,8 @@ class Pdss1 : public PmISDN
 	void dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *callid_len);
 	void enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number);
 	void dec_ie_called_pn(struct l3_msg *l3m, int *type, int *plan, unsigned char *number, int number_len);
-	void enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number);
-	void dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len);
+	void enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number, int type2, int plan2, int present2, int screen2, unsigned char *number2);
+	void dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len, int *type2, int *plan2, int *present2, int *screen2, unsigned char *number2, int number_len2);
 	void enc_ie_connected_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number);
 	void dec_ie_connected_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len);
 	void enc_ie_cause(struct l3_msg *l3m, int location, int cause);

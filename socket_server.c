@@ -415,6 +415,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 	response->am[0].u.x.portnum = portnum;
 
 	/* search for port */
+	ifport = NULL;
 	interface = interface_first;
 	while(interface)
 	{
