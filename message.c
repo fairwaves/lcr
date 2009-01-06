@@ -49,6 +49,8 @@ void message_put(struct lcr_msg *message)
 
 	*messagepointer_end = message;
 	messagepointer_end = &(message->next);
+	/* Nullify next pointer if recycled messages */
+	*messagepointer_end=NULL;
 }
 
 struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param)
