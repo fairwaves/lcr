@@ -2362,20 +2362,21 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 }
 static struct ast_channel_tech lcr_tech = {
 	.type="LCR",
-	.description="Channel driver for connecting to Linux-Call-Router",
-	.requester=lcr_request,
-	.send_digit_begin=lcr_digit_begin,
-	.send_digit_end=lcr_digit_end,
-	.call=lcr_call,
-	.bridge=lcr_bridge, 
-	.hangup=lcr_hangup,
-	.answer=lcr_answer,
-	.read=lcr_read,
-	.write=lcr_write,
-	.indicate=lcr_indicate,
-	.fixup=lcr_fixup,
-	.send_text=lcr_send_text,
-	.properties=0
+	.description = "Channel driver for connecting to Linux-Call-Router",
+	.capabilities = AST_FORMAT_ALAW,
+	.requester = lcr_request,
+	.send_digit_begin = lcr_digit_begin,
+	.send_digit_end = lcr_digit_end,
+	.call = lcr_call,
+	.bridge = lcr_bridge, 
+	.hangup = lcr_hangup,
+	.answer = lcr_answer,
+	.read = lcr_read,
+	.write = lcr_write,
+	.indicate = lcr_indicate,
+	.fixup = lcr_fixup,
+	.send_text = lcr_send_text,
+	.properties = 0
 };
 
 
