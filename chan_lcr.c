@@ -121,6 +121,12 @@ it is called from ast_channel process which has already locked ast_channel.
 
 #include <semaphore.h>
 
+#define HAVE_ATTRIBUTE_always_inline 1
+#define HAVE_ARPA_INET_H 1
+#define HAVE_TIMERSUB 1
+
+#include <asterisk/compiler.h>
+#include <asterisk/buildopts.h>
 #include <asterisk/module.h>
 #include <asterisk/channel.h>
 #include <asterisk/config.h>

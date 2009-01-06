@@ -59,11 +59,11 @@ AC_ARG_WITH([asterisk],
 	[with_asterisk="check"])
 
 AS_IF([test "x$with_asterisk" != xno],
-      [AC_CHECK_HEADERS([asterisk/channel.h],
+      [AC_CHECK_HEADERS([asterisk/compiler.h],
 			[with_asterisk="yes"],
 			[if test "x$with_asterisk" != xcheck ; then
                       AC_MSG_FAILURE(
-                        [--with-asterisk was given, but test for header-file asterisk/channel.h failed])
+                        [--with-asterisk was given, but test for header-file asterisk/compiler.h failed])
                      fi
 		     ])
       ])

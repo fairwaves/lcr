@@ -5828,7 +5828,7 @@ fi
 
 if test "x$with_asterisk" != xno; then
 
-for ac_header in asterisk/channel.h
+for ac_header in asterisk/compiler.h
 do
 as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -5978,9 +5978,9 @@ else
   if test "x$with_asterisk" != xcheck ; then
                       { { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-{ { $as_echo "$as_me:$LINENO: error: --with-asterisk was given, but test for header-file asterisk/channel.h failed
+{ { $as_echo "$as_me:$LINENO: error: --with-asterisk was given, but test for header-file asterisk/compiler.h failed
 See \`config.log' for more details." >&5
-$as_echo "$as_me: error: --with-asterisk was given, but test for header-file asterisk/channel.h failed
+$as_echo "$as_me: error: --with-asterisk was given, but test for header-file asterisk/compiler.h failed
 See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }; }
                      fi

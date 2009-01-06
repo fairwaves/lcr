@@ -410,16 +410,16 @@ int main(int argc, char *argv[])
 		switch(errno)
 		{
 			case ENOMEM:
-			fprintf(stderr, "Warning: Not enough memory to lock paging, exitting...\n");
+			fprintf(stderr, "Warning: Not enough memory to lock paging.\n");
 			break;
 			case EPERM:
-			fprintf(stderr, "Warning: No permission to lock paging, exitting...\n");
+			fprintf(stderr, "Warning: No permission to lock paging.\n");
 			break;
 			case EFAULT:
-			fprintf(stderr, "Warning: 'Bad address' while locking paging, exitting...\n");
+			fprintf(stderr, "Warning: 'Bad address' while locking paging.\n");
 			break;
 			default:
-			fprintf(stderr, "Warning: Unknown error %d while locking paging, exitting...\n", errno);
+			fprintf(stderr, "Warning: Unknown error %d while locking paging.\n", errno);
 		}
 	}
 

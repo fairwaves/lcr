@@ -1393,7 +1393,7 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 			printf("\t port = unknown\n");
 		else
 			printf("\t port = %d \"%s\"\n",m[i].u.i.portnum, m[i].u.i.portname);
-		printf("\t extension = %s\n", (m[i].u.i.extension)?" yes":"no");
+		printf("\t extension = %s\n", (m[i].u.i.extension)?"yes":"no");
 		if (m[i].u.i.block >= 2)
 		{
 			printf("\t status = not loaded\n");

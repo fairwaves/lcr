@@ -29,6 +29,11 @@
 #define MISDN_OLD_AF_COMPATIBILITY 1
 #include <compat_af_isdn.h>
 
+#define HAVE_ATTRIBUTE_always_inline 1
+#define HAVE_ARPA_INET_H 1
+#define HAVE_TIMERSUB 1
+
+#include <asterisk/compiler.h>
 #include <asterisk/frame.h>
 
 
