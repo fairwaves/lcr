@@ -326,7 +326,7 @@ struct action_defs action_defs[] = {
 //	  "Caller calls the timer."},
 	{ ACTION_GOTO,
 	  "goto",	NULL, &EndpointAppPBX::action_dialing_goto, NULL,
-	  PARAM_CONNECT | PARAM_RULESET | PARAM_STRIP | PARAM_SAMPLE,
+	  PARAM_PROCEEDING | PARAM_ALERTING | PARAM_CONNECT | PARAM_RULESET | PARAM_STRIP | PARAM_SAMPLE,
 	  "Jump to given ruleset and optionally play sample. Dialed digits are not flushed."},
 	{ ACTION_MENU,
 	  "menu",	NULL, &EndpointAppPBX::action_dialing_menu, NULL,
