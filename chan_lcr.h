@@ -66,7 +66,9 @@ struct chan_call {
 					/* gain by option */
 	unsigned char		bf_key[56];
 	int			bf_len;	/* blowfish crypt key */
-	int			nodsp, hdlc;
+	struct ast_dsp		*dsp; /* ast dsp processor for fax/tone detection */
+	struct ast_trans_pvt 	*trans; /* Codec translation path as fax/tone detection requires slin */
+	int			nodsp, hdlc, faxdetect;
 					/* flags for bchannel mode */
 	char			queue_string[64];
 					/* queue for asterisk */

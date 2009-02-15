@@ -464,4 +464,6 @@ Changes in Version 1.3
 - Dialing length can now be limited. EWSD allows only 20 digits at a time.
   -> Multiple messages are sent to dial full string.
 - Added alerting and proceeding to the goto rule.
+- Added patch by gregory, asterisk should now use faxdetection with mISDN_dsp
+  disabled.
 

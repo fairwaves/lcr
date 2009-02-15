@@ -259,6 +259,10 @@ void free_call(struct chan_call *call)
 					CERROR(call, NULL, "Linked call structure has no link to us.\n");
 				call->bridge_call->bridge_call = NULL;
 			}
+			if (call->trans)
+				ast_translator_free_path(call->trans);
+			if (call->dsp)
+				ast_dsp_free(call->dsp);
 			CDEBUG(call, NULL, "Call instance freed.\n");
 			free(call);
 			return;
@@ -349,7 +353,7 @@ void apply_opt(struct chan_call *call, char *data)
 {
 	union parameter newparam;
 	char string[1024], *p = string, *opt, *key;
-	int gain, i, newmode = 0;
+	int gain, i;
 
 	if (!data[0])
 		return; // no opts
@@ -437,10 +441,8 @@ void apply_opt(struct chan_call *call, char *data)
 				break;
 			}
 			CDEBUG(call, call->ast, "Option 'h' (HDLC).\n");
-			if (!call->hdlc) {
+			if (!call->hdlc)
 				call->hdlc = 1;
-				newmode = 1;
-			}
 			break;
 		case 't':
 			if (opt[1] != '\0') {
@@ -448,10 +450,8 @@ void apply_opt(struct chan_call *call, char *data)
 				break;
 			}
 			CDEBUG(call, call->ast, "Option 't' (no dsp).\n");
-			if (!call->nodsp) {
+			if (!call->nodsp)
 				call->nodsp = 1;
-				newmode = 1;
-			}
 			break;
 		case 'e':
 			if (opt[1] == '\0') {
@@ -462,6 +462,21 @@ void apply_opt(struct chan_call *call, char *data)
 			strncpy(call->pipeline, opt+1, sizeof(call->pipeline)-1);
 			if (call->bchannel)
 				bchannel_pipeline(call->bchannel, call->pipeline);
+			break;
+		case 'f':
+			if (opt[1] == '\0') {
+				CERROR(call, call->ast, "Option 'f' (faxdetect) expects parameter.\n", opt);
+				break;
+			}
+			call->faxdetect=atoi(opt+1);
+			if (!call->dsp)
+				call->dsp=ast_dsp_new();
+			if (call->dsp) {
+				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_DETECT);
+				if (!call->trans)
+					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
+			}
+			CDEBUG(call, call->ast, "Option 'f' (faxdetect) with config '%s'.\n", call->faxdetect);
 			break;
 		case 'r':
 			if (opt[1] != '\0') {
@@ -508,7 +523,7 @@ void apply_opt(struct chan_call *call, char *data)
 	/* re-open, if bchannel is created */
 	if (call->bchannel && call->bchannel->b_sock > -1) {
 		bchannel_destroy(call->bchannel);
-		if (bchannel_create(call->bchannel, ((call->nodsp)?1:0) + ((call->hdlc)?2:0)))
+		if (bchannel_create(call->bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0)))
 			bchannel_activate(call->bchannel, 1);
 	}
 }
@@ -1129,7 +1144,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 					bchannel_join(bchannel, call->bridge_id);
 				}
 				/* create only, if call exists, othewhise it bchannel is freed below... */
-				if (bchannel_create(bchannel, ((call->nodsp)?1:0) + ((call->hdlc)?2:0)))
+				if (bchannel_create(bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0)))
 					bchannel_activate(bchannel, 1);
 			}
 			/* acknowledge */
@@ -2231,7 +2246,9 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 		return AST_BRIDGE_COMPLETE;
 	}
 
-	/* join, if both call instances uses dsp */
+	/* join, if both call instances uses dsp 
+	   ignore the case of fax detection here it may be benificial for ISDN fax machines or pass through.
+ 	*/
 	if (!call1->nodsp && !call2->nodsp) {
 		CDEBUG(NULL, NULL, "Both calls use DSP, bridging via DSP.\n");
 
@@ -2541,6 +2558,8 @@ int load_module(void)
 				 "    n - Don't detect dtmf tones on called channel.\n"
 				 "    h - Force data call (HDLC).\n" 
 				 "    t - Disable mISDN_dsp features (required for fax application).\n"
+				 "    f - Adding fax detection. It it timeouts, mISDN_dsp is used.\n"
+				 "        Use time to detect for optarg.\n"
 				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
 				 "    e - Perform echo cancelation on this channel.\n"
 				 "        Takes mISDN pipeline option as optarg.\n"
