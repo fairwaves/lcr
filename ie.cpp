@@ -314,7 +314,7 @@ void Pdss1::dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *calli
 
 
 /* IE_CALLED_PN */
-void Pdss1::enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number)
+void Pdss1::enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number, int number_len)
 {
 	unsigned char p[256];
 	int l;
@@ -337,13 +337,15 @@ void Pdss1::enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned ch
 
 	add_trace("called_pn", "type", "%d", type);
 	add_trace("called_pn", "plan", "%d", plan);
-	add_trace("called_pn", "number", "%s", number);
+	UNCPY((char *)p, (char *)number, number_len);
+	p[number_len] = '\0';
+	add_trace("called_pn", "number", "%s", p);
 
-	l = 1+strlen((char *)number);
+	l = 1+number_len;
 	p[0] = IE_CALLED_PN;
 	p[1] = l;
 	p[2] = 0x80 + (type<<4) + plan;
-	UNCPY((char *)p+3, (char *)number, strlen((char *)number));
+	UNCPY((char *)p+3, (char *)number, number_len);
 	add_layer3_ie(l3m, p[0], p[1], p+2);
 }
 

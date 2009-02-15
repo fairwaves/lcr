@@ -23,7 +23,7 @@ class Pdss1 : public PmISDN
 
 	int p_m_d_ntmode;			/* flags the nt-mode */
 	int p_m_d_tespecial;			/* special te-mode with all nt-mode IEs */
-	struct lcr_msg *p_m_d_queue;		/* queue for SETUP if link is down */
+	char p_m_d_queue[64];			/* queue for dialing information (if larger than setup allows) */
 	struct lcr_msg *p_m_d_notify_pending;	/* queue for NOTIFY if not connected */
 
 	int p_m_d_collect_cause;		/* collecting cause and location */
@@ -69,7 +69,7 @@ class Pdss1 : public PmISDN
 	void dec_ie_bearer(struct l3_msg *l3m, int *coding, int *capability, int *mode, int *rate, int *multi, int *user);
 	void enc_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int callid_len);
 	void dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *callid_len);
-	void enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number);
+	void enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned char *number, int number_len);
 	void dec_ie_called_pn(struct l3_msg *l3m, int *type, int *plan, unsigned char *number, int number_len);
 	void enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int present, int screen, unsigned char *number, int type2, int plan2, int present2, int screen2, unsigned char *number2);
 	void dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *present, int *screen, unsigned char *number, int number_len, int *type2, int *plan2, int *present2, int *screen2, unsigned char *number2, int number_len2);

@@ -62,6 +62,7 @@ struct interface_port {
         int			tout_disconnect;
 //	int			tout_hold;
 //	int			tout_park;
+	int			dialmax; /* maximum number of digits to dial */
 };
 
 struct interface_msn {

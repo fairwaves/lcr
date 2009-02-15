@@ -898,6 +898,23 @@ static int inter_filter(struct interface *interface, char *filename, int line, c
 	}
 	return(0);
 }
+static int inter_dialmax(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->dialmax = atoi(value);
+	return(0);
+}
 
 
 /*
@@ -1007,6 +1024,9 @@ struct interface_param interface_param[] = {
 	"gain <tx-volume> <rx-volume> - Changes volume (-8 .. 8)\n"
 	"pipeline <string> - Sets echo cancelation pipeline.\n"
 	"blowfish <key> - Adds encryption. Key must be 4-56 bytes (8-112 hex characters."},
+
+	{"dialmax", &inter_dialmax, "<digits>",
+	"Limits the number of digits in setup/information message."},
 
 	{NULL, NULL, NULL, NULL}
 };

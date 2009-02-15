@@ -1995,7 +1995,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 		return -1;
 	}
 	if (call->bchannel && f->samples)
-		bchannel_transmit(call->bchannel, f->data, f->samples);
+		bchannel_transmit(call->bchannel, (unsigned char *)f->data, f->samples);
 	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
@@ -2035,7 +2035,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	call->read_fr.datalen = len;
 	call->read_fr.samples = len;
 	call->read_fr.delivery = ast_tv(0,0);
-	call->read_fr.data = call->read_buff;
+	(unsigned char *)call->read_fr.data = call->read_buff;
 	ast_mutex_unlock(&chan_lock);
 
 	return &call->read_fr;

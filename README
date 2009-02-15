@@ -454,8 +454,14 @@ Changes in Version 1.2
 - Introduceing autoconf (./configure) with help of Joerg and Peter.
   -> Default installation path remains /usr/local/lcr, so don't worry!
 
-Fixes in current Version
+Changes in Version 1.3
 - Finished autoconf.
 - Obsolete "pbxwatch" is removed. 
+- fixes in chan_lcr, thanx to peter and gregor
+- message pointer forwarding fix, thanx to bodo!
+- capability fix, thanx to gregor
+- processing of second caller id
+- Dialing length can now be limited. EWSD allows only 20 digits at a time.
+  -> Multiple messages are sent to dial full string.
 
 

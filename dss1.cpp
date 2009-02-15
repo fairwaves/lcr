@@ -30,7 +30,7 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 	p_m_d_tespecial = mISDNport->tespecial;
 	p_m_d_l3id = 0;
 	p_m_d_ces = -1;
-	p_m_d_queue = NULL;
+	p_m_d_queue[0] = '\0';
 	p_m_d_notify_pending = NULL;
 	p_m_d_collect_cause = 0;
 	p_m_d_collect_location = 0;
@@ -45,9 +45,6 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 Pdss1::~Pdss1()
 {
 	/* remove queued message */
-	if (p_m_d_queue)
-		message_free(p_m_d_queue);
-
 	if (p_m_d_notify_pending)
 		message_free(p_m_d_notify_pending);
 }
@@ -821,6 +818,9 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 	int coding, location, progress;
 	int ret;
 	struct lcr_msg *message;
+	int max = p_m_mISDNport->ifport->dialmax;
+	char *number;
+	l3_msg *nl3m;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_ACKNOWLEDGE_IND, DIRECTION_IN);
 	dec_ie_channel_id(l3m, &exclusive, &channel);
@@ -844,6 +844,21 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 	message_put(message);
 
 	new_state(PORT_STATE_OUT_OVERLAP);
+
+	number = p_m_d_queue;
+	while (number[0]) /* as long we have something to dial */
+	{
+		if (max > strlen(number) || max == 0)
+			max = strlen(number);
+      
+		nl3m = create_l3msg();
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
+		enc_ie_called_pn(nl3m, 0, 1, (unsigned char *)number, max);
+		end_trace();
+		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, nl3m);
+		number += max;
+	}
+	p_m_d_queue[0] = '\0';
 }
 
 /* CC_PROCEEDING INDICATION */
@@ -1927,16 +1942,25 @@ int Pdss1::handler(void)
 void Pdss1::message_information(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
+	char *display = param->information.display;
+	char *number = param->information.id;
+	int max = p_m_mISDNport->ifport->dialmax;
 
-	if (param->information.id[0]) /* only if we have something to dial */
+	while (number[0]) /* as long we have something to dial */
 	{
+		if (max > strlen(number) || max == 0)
+			max = strlen(number);
+      
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
-		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)param->information.id);
- 	 	if (p_m_d_ntmode || p_m_d_tespecial)
-			enc_ie_display(l3m, (unsigned char *)param->information.display);
+		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)number, max);
+ 	 	if ((p_m_d_ntmode || p_m_d_tespecial) && display[0]) {
+			enc_ie_display(l3m, (unsigned char *)display);
+			display = "";
+		}
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
+		number += max;
 	}
 	new_state(p_state);
 }
@@ -1954,6 +1978,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	int capability, mode, rate, coding, user, presentation, interpretation, hlc, exthlc;
 	int channel, exclusive;
 	struct epoint_list *epointlist;
+	int max = p_m_mISDNport->ifport->dialmax;
 
 	/* release if port is blocked */
 	if (p_m_mISDNport->ifport->block)
@@ -2140,7 +2165,10 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	/* dialing information */
 	if (p_dialinginfo.id[0]) /* only if we have something to dial */
 	{
-		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)p_dialinginfo.id);
+		if (max > strlen(p_dialinginfo.id) || max == 0)
+			max = strlen(p_dialinginfo.id);
+		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)p_dialinginfo.id, max);
+		SCPY(p_m_d_queue, p_dialinginfo.id + max);
 	}
 	/* sending complete */
 	if (p_dialinginfo.sending_complete)
@@ -3028,56 +3056,6 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 }
 
 
-#if 0
-/*
- * sending message that were queued during L1 activation
- * or releasing port if link is down
- */
-void setup_queue(struct mISDNport *mISDNport, int link)
-{
-	class Port *port;
-	class Pdss1 *pdss1;
-	struct lcr_msg *message;
-
-	if (!mISDNport->ntmode)
-		return;
-
-	/* check all port objects for pending message */
-	port = port_first;
-	while(port)
-	{
-		if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
-		{
-			pdss1 = (class Pdss1 *)port;
-			if (pdss1->p_m_mISDNport == mISDNport)
-			{
-				if (pdss1->p_m_d_queue)
-				{
-					if (link)
-					{
-						PDEBUG(DEBUG_ISDN, "the L1 became active, so we send queued message for portnum=%d (%s).\n", mISDNport->portnum, pdss1->p_name);
-						/* LAYER 1 is up, so we send */
-						pdss1->message_setup(pdss1->p_m_d_queue->id_from, pdss1->p_m_d_queue->type, &pdss1->p_m_d_queue->param);
-						message_free(pdss1->p_m_d_queue);
-						pdss1->p_m_d_queue = NULL;
-					} else
-					{
-						PDEBUG(DEBUG_ISDN, "the L1 became NOT active, so we release port for portnum=%d (%s).\n", mISDNport->portnum, pdss1->p_name);
-						message = message_create(pdss1->p_serial, pdss1->p_m_d_queue->id_from, PORT_TO_EPOINT, MESSAGE_RELEASE);
-						message->param.disconnectinfo.cause = 27;
-						message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-						message_put(message);
-						pdss1->new_state(PORT_STATE_RELEASE);
-						pdss1->p_m_delete = 1;
-					}
-				}
-			}
-		}
-		port = port->next;
-	}
-}
-
-#endif
 
 
 
