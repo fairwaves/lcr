@@ -454,7 +454,7 @@ Changes in Version 1.2
 - Introduceing autoconf (./configure) with help of Joerg and Peter.
   -> Default installation path remains /usr/local/lcr, so don't worry!
 
-Changes in Version 1.3
+Changes after Version 1.3
 - Finished autoconf.
 - Obsolete "pbxwatch" is removed. 
 - fixes in chan_lcr, thanx to peter and gregor
@@ -466,4 +466,6 @@ Changes in Version 1.3
 - Added alerting and proceeding to the goto rule.
 - Added patch by gregory, asterisk should now use faxdetection with mISDN_dsp
   disabled.
+
+Changes after Version 1.4
 
