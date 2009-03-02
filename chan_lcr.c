@@ -2564,6 +2564,7 @@ int load_module(void)
 				 "    e - Perform echo cancelation on this channel.\n"
 				 "        Takes mISDN pipeline option as optarg.\n"
 				 "    s - Send Non Inband DTMF as inband.\n"
+				 "    r - re-buffer packets (160 bytes). Required for some SIP-phones and fax applications.\n"
 				 "   vr - rxgain control\n"
 				 "   vt - txgain control\n"
 				 "        Volume changes at factor 2 ^ optarg.\n"
