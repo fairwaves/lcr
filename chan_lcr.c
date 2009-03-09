@@ -485,6 +485,7 @@ void apply_opt(struct chan_call *call, char *data)
 			}
 			CDEBUG(call, call->ast, "Option 'r' (re-buffer 160 bytes)");
 			call->rebuffer = 1;
+			call->framepos = 0;
 			break;
 		case 's':
 			if (opt[1] != '\0') {
@@ -2029,7 +2030,11 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	}
 	if (call->pipe[0] > -1) {
 		if (call->rebuffer && !call->hdlc) {
-			len = read(call->pipe[0], call->read_buff, 160);
+			/* Make sure we have a complete 20ms (160byte) frame */
+			len=read(call->pipe[0],call->read_buff + call->framepos, 160 - call->framepos);
+			if (len > 0) {
+				call->framepos += len;
+			}
 		} else {
 			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
 		}
@@ -2042,13 +2047,23 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 			call->pipe[0] = -1;
 			ast_mutex_unlock(&chan_lock);
 			return NULL;
+		} else if (call->rebuffer && call->framepos < 160) {
+			/* Not a complete frame, so we send a null-frame */
+			ast_mutex_unlock(&chan_lock);
+			return &ast_null_frame;
 		}
 	}
 
 	call->read_fr.frametype = AST_FRAME_VOICE;
 	call->read_fr.subclass = ast->nativeformats;
-	call->read_fr.datalen = len;
-	call->read_fr.samples = len;
+	if (call->rebuffer) {
+		call->read_fr.datalen = call->framepos;
+		call->read_fr.samples = call->framepos;
+		call->framepos = 0;
+	} else {
+		call->read_fr.datalen = len;
+		call->read_fr.samples = len;
+	}
 	call->read_fr.delivery = ast_tv(0,0);
 	*((unsigned char **)&(call->read_fr.data)) = call->read_buff;
 	ast_mutex_unlock(&chan_lock);

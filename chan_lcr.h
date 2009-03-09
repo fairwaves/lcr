@@ -58,6 +58,9 @@ struct chan_call {
 					      requested by asterisk */
         int                     rebuffer; /* send only 160 bytes frames
 					     to asterisk */
+
+	int			framepos; /* send only 160 bytes frames to asterisk */
+	
         int                     on_hold; /* track hold management, since
 					    sip phones sometimes screw it up */
 	char			pipeline[256];
