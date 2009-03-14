@@ -1321,8 +1321,11 @@ void relink_interfaces(void)
 			mISDNport = mISDNport_first;
 			while(mISDNport)
 			{
+				if (!strcmp(mISDNport->name, ifport->portname))
+					ifport->portnum = mISDNport->portnum; /* same name, so we use same number */
 				if (mISDNport->portnum == ifport->portnum)
 				{
+					PDEBUG(DEBUG_ISDN, "Port %d:%s relinking!\n", mISDNport->portnum);
 					ifport->mISDNport = mISDNport;
 					mISDNport->ifport = ifport;
 					set_defaults(ifport);
