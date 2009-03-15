@@ -348,8 +348,11 @@ int main(int argc, char *argv[])
 
 		/* write pid file */
 		pidfile = fopen("/var/run/lcr.pid","w");
-		fprintf(pidfile, "%d\n", getpid());
-		fclose(pidfile);
+		if (pidfile)
+		{
+			fprintf(pidfile, "%d\n", getpid());
+			fclose(pidfile);
+		}
 	} else
 	/* if not start */
 	if (!!strcasecmp(argv[1],"start"))
