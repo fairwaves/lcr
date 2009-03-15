@@ -105,6 +105,11 @@ it is called from ast_channel process which has already locked ast_channel.
 
 */
 
+
+/* Choose if you want to have chan_lcr for Asterisk 1.4.x or CallWeaver 1.2.x */
+#define LCR_FOR_ASTERISK
+/* #define LCR_FOR_CALLWEAVER */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -126,7 +131,9 @@ it is called from ast_channel process which has already locked ast_channel.
 #define HAVE_TIMERSUB 1
 
 #include <asterisk/compiler.h>
+#ifdef LCR_FOR_ASTERISK
 #include <asterisk/buildopts.h>
+#endif
 #include <asterisk/module.h>
 #include <asterisk/channel.h>
 #include <asterisk/config.h>
@@ -141,7 +148,13 @@ it is called from ast_channel process which has already locked ast_channel.
 #include <asterisk/dsp.h>
 #include <asterisk/translate.h>
 #include <asterisk/file.h>
+#ifdef LCR_FOR_ASTERISK
 #include <asterisk/callerid.h>
+#endif
+#ifdef LCR_FOR_CALLWEAVER
+#include <asterisk/phone_no_utils.h>
+#endif
+
 #include <asterisk/indications.h>
 #include <asterisk/app.h>
 #include <asterisk/features.h>
@@ -159,12 +172,26 @@ it is called from ast_channel process which has already locked ast_channel.
 CHAN_LCR_STATE // state description structure
 MESSAGES // message text
 
+#ifdef LCR_FOR_CALLWEAVER
+AST_MUTEX_DEFINE_STATIC(rand_lock);
+#endif
+
 unsigned char flip_bits[256];
+
+#ifdef LCR_FOR_CALLWEAVER
+static struct ast_frame nullframe = { AST_FRAME_NULL, };
+#endif
 
 int lcr_debug=1;
 int mISDN_created=1;
 
 char lcr_type[]="lcr";
+
+#ifdef LCR_FOR_CALLWEAVER
+static ast_mutex_t usecnt_lock;
+static int usecnt=0;
+static char *desc = "Channel driver for mISDN/LCR Support (Bri/Pri)";
+#endif
 
 pthread_t chan_tid;
 ast_mutex_t chan_lock; /* global lock */
@@ -472,9 +499,19 @@ void apply_opt(struct chan_call *call, char *data)
 			if (!call->dsp)
 				call->dsp=ast_dsp_new();
 			if (call->dsp) {
+				#ifdef LCR_FOR_CALLWEAVER
+				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_CNG_DETECT);
+				#endif
+				#ifdef LCR_FOR_ASTERISK
 				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_DETECT);
+				#endif
 				if (!call->trans)
+					#ifdef LCR_FOR_CALLWEAVER
+					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, 8000, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW, 8000);
+					#endif
+					#ifdef LCR_FOR_ASTERISK
 					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
+					#endif
 			}
 			CDEBUG(call, call->ast, "Option 'f' (faxdetect) with config '%s'.\n", call->faxdetect);
 			break;
@@ -746,6 +783,12 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 	start:
 	/* send setup to asterisk */
 	CDEBUG(call, ast, "Starting call to Asterisk due to matching extension.\n");
+
+	#ifdef LCR_FOR_CALLWEAVER	
+	ast->type = "LCR";
+	snprintf(ast->name, sizeof(ast->name), "LCR/%s-%04x",ast->cid.cid_num, ast_random() & 0xffff);
+	#endif
+	
 	ret = ast_pbx_start(ast);
 	if (ret < 0)
 	{
@@ -766,7 +809,15 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	CDEBUG(call, NULL, "Incomming setup from LCR. (callerid %s, dialing %s)\n", param->setup.callerinfo.id, param->setup.dialinginfo.id);
 
 	/* create asterisk channel instrance */
+
+	#ifdef LCR_FOR_CALLWEAVER
+	ast = ast_channel_alloc(1);
+	#endif
+
+	#ifdef LCR_FOR_ASTERISK
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
+	#endif
+	
 	if (!ast)
 	{
 		/* release */
@@ -1538,12 +1589,24 @@ static int queue_send(void)
 						CDEBUG(call, ast, "Sending queued digit '%c' to Asterisk.\n", *p);
 						/* send digit to asterisk */
 						memset(&fr, 0, sizeof(fr));
+						
+						#ifdef LCR_FOR_ASTERISK
 						fr.frametype = AST_FRAME_DTMF_BEGIN;
+						#endif
+
+						#ifdef LCR_FOR_CALLWEAVER
+						fr.frametype = AST_FRAME_DTMF;
+						#endif
+						
 						fr.subclass = *p;
 						fr.delivery = ast_tv(0, 0);
 						ast_queue_frame(ast, &fr);
+						
+						#ifdef LCR_FOR_ASTERISK
 						fr.frametype = AST_FRAME_DTMF_END;
 						ast_queue_frame(ast, &fr);
+						#endif
+												
 						break;
 					default:
 						CDEBUG(call, ast, "Ignoring queued digit 0x%02d.\n", *p);
@@ -1624,7 +1687,15 @@ static void *chan_thread(void *arg)
 		/* delay if no work done */
 		if (!work) {
 			ast_mutex_unlock(&chan_lock);
+
+			#ifdef LCR_FOR_ASTERISK			
 			usleep(30000);
+			#endif
+			
+			#ifdef LCR_FOR_CALLWEAVER			
+			usleep(20000);
+			#endif
+			
 			ast_mutex_lock(&chan_lock);
 		}
 	}
@@ -1671,7 +1742,15 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	}
 
 	/* create asterisk channel instrance */
+
+	#ifdef LCR_FOR_ASTERISK
 	ast = ast_channel_alloc(1, AST_STATE_RESERVED, NULL, NULL, "", NULL, "", 0, "%s/%d", lcr_type, ++glob_channel);
+	#endif
+	
+	#ifdef LCR_FOR_CALLWEAVER
+	ast = ast_channel_alloc(1);
+	#endif
+		
 	if (!ast)
 	{
 		CERROR(NULL, NULL, "Failed to create Asterisk channel.\n");
@@ -1736,6 +1815,12 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
+        
+        #ifdef LCR_FOR_CALLWEAVER
+        ast->type = "LCR";
+        snprintf(ast->name, sizeof(ast->name), "LCR/%s-%04x",call->dialstring, ast_random() & 0xffff);
+        #endif
+        
 	if (!call) {
 		CERROR(NULL, ast, "Received call from Asterisk, but call instance does not exist.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -1817,12 +1902,20 @@ static void send_digit_to_chan(struct ast_channel * ast, char digit )
         }
 }
 
-
+#ifdef LCR_FOR_ASTERISK
 static int lcr_digit_begin(struct ast_channel *ast, char digit)
+#endif
+#ifdef LCR_FOR_CALLWEAVER
+static int lcr_digit(struct ast_channel *ast, char digit)
+#endif
 {
         struct chan_call *call;
 	union parameter newparam;
 	char buf[]="x";
+
+#ifdef LCR_FOR_CALLWEAVER
+	int inband_dtmf = 0;
+#endif
 
 	/* only pass IA5 number space */
 	if (digit > 126 || digit < 32)
@@ -1856,6 +1949,8 @@ static int lcr_digit_begin(struct ast_channel *ast, char digit)
 	}
 
 	ast_mutex_unlock(&chan_lock);
+
+#ifdef LCR_FOR_ASTERISK
 	return(0);
 }
 
@@ -1863,6 +1958,7 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 {
 	int inband_dtmf = 0;
         struct chan_call *call;
+#endif
 
 	ast_mutex_lock(&chan_lock);
 
@@ -2040,7 +2136,15 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 		}
 		if (len < 0 && errno == EAGAIN) {
 			ast_mutex_unlock(&chan_lock);
+
+			#ifdef LCR_FOR_ASTERISK
 			return &ast_null_frame;
+			#endif
+			
+			#ifdef LCR_FOR_CALLWEAVER
+			return &nullframe;
+			#endif
+			
 		}
 		if (len <= 0) {
 			close(call->pipe[0]);
@@ -2152,7 +2256,14 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			send_message(MESSAGE_NOTIFY, call->ref, &newparam);
 			
 			/*start music onhold*/
+			#ifdef LCR_FOR_ASTERISK
 			ast_moh_start(ast,data,ast->musicclass);
+			#endif
+			
+			#ifdef LCR_FOR_CALLWEAVER
+			ast_moh_start(ast, NULL);
+			#endif
+			
 			call->on_hold = 1;
                         break;
                 case AST_CONTROL_UNHOLD:
@@ -2397,8 +2508,16 @@ static struct ast_channel_tech lcr_tech = {
 	.description = "Channel driver for connecting to Linux-Call-Router",
 	.capabilities = AST_FORMAT_ALAW,
 	.requester = lcr_request,
+
+	#ifdef LCR_FOR_ASTERISK
 	.send_digit_begin = lcr_digit_begin,
 	.send_digit_end = lcr_digit_end,
+	#endif
+
+	#ifdef LCR_FOR_CALLWEAVER
+	.send_digit = lcr_digit,
+	#endif
+
 	.call = lcr_call,
 	.bridge = lcr_bridge, 
 	.hangup = lcr_hangup,
@@ -2502,13 +2621,26 @@ static struct ast_cli_entry cli_port_unload =
 #endif
 
 
-
+#ifdef LCR_FOR_ASTERISK
 static int lcr_config_exec(struct ast_channel *ast, void *data)
+#endif
+
+#ifdef LCR_FOR_CALLWEAVER
+static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
+#endif
 {
 	struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
+
+	#ifdef LCR_FOR_ASTERISK
 	CDEBUG(NULL, ast, "Received lcr_config (data=%s)\n", (char *)data);
+	#endif
+	
+	#ifdef LCR_FOR_CALLWEAVER
+	CDEBUG(NULL, ast, "Received lcr_config (data=%s)\n", argv[0]);
+	#endif
+	
 	/* find channel */
 	call = call_first;
 	while(call) {
@@ -2517,7 +2649,15 @@ static int lcr_config_exec(struct ast_channel *ast, void *data)
 		call = call->next;
 	}
 	if (call)
+		
+		#ifdef LCR_FOR_ASTERISK
 		apply_opt(call, (char *)data);
+		#endif		
+		
+		#ifdef LCR_FOR_CALLWEAVER		
+		apply_opt(call, (char *)argv[0]);
+		#endif
+
 	else
 		CERROR(NULL, ast, "lcr_config app not called by chan_lcr channel.\n");
 
@@ -2539,7 +2679,15 @@ int load_module(void)
 
 	if (read_options() == 0) {
 		CERROR(NULL, NULL, "%s", options_error);
+
+		#ifdef LCR_FOR_ASTERISK || ASTERISK_1_6
 		return AST_MODULE_LOAD_DECLINE;
+		#endif		
+		
+		#ifdef LCR_FOR_CALLWEAVER
+		return 0;
+		#endif
+			
 	}
 
 	ast_mutex_init(&chan_lock);
@@ -2552,7 +2700,14 @@ int load_module(void)
 	if (bchannel_initialize()) {
 		CERROR(NULL, NULL, "Unable to open mISDN device\n");
 		close_socket();
+		
+		#ifdef LCR_FOR_ASTERISK
 		return AST_MODULE_LOAD_DECLINE;
+		#endif		
+		
+		#ifdef LCR_FOR_CALLWEAVER
+		return 0;
+		#endif
 	}
 	mISDN_created = 1;
 
@@ -2561,11 +2716,26 @@ int load_module(void)
 		CERROR(NULL, NULL, "Unable to register channel class\n");
 		bchannel_deinitialize();
 		close_socket();
+
+		#ifdef LCR_FOR_ASTERISK
 		return AST_MODULE_LOAD_DECLINE;
+		#endif		
+		
+		#ifdef LCR_FOR_CALLWEAVER
+		return 0;
+		#endif
 	}
 
 	ast_register_application("lcr_config", lcr_config_exec, "lcr_config",
+				
+				 #ifdef LCR_FOR_ASTERISK
 				 "lcr_config(<opt><optarg>:<opt>:...)\n"
+				 #endif
+				 
+				 #ifdef LCR_FOR_CALLWEAVER
+				 "lcr_config(<opt><optarg>:<opt>:...)\n",				 
+				 #endif
+							 
 				 "Sets LCR opts. and optargs\n"
 				 "\n"
 				 "The available options are:\n"
@@ -2603,7 +2773,15 @@ int load_module(void)
 		bchannel_deinitialize();
 		close_socket();
 		ast_channel_unregister(&lcr_tech);
+
+		#ifdef LCR_FOR_ASTERISK
 		return AST_MODULE_LOAD_DECLINE;
+		#endif		
+		
+		#ifdef LCR_FOR_CALLWEAVER
+		return 0;
+		#endif
+		
 	}
 	return 0;
 }
@@ -2640,12 +2818,32 @@ int reload_module(void)
 	return 0;
 }
 
-
+#ifdef LCR_FOR_ASTERISK
 #define AST_MODULE "chan_lcr"
+#endif
 
+#ifdef LCR_FOR_CALLWEAVER
+int usecount(void)
+{
+	int res;
+	ast_mutex_lock(&usecnt_lock);
+	res = usecnt;
+	ast_mutex_unlock(&usecnt_lock);
+	return res;
+}
+#endif
+
+#ifdef LCR_FOR_ASTERISK
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Channel driver for Linux-Call-Router Support (ISDN BRI/PRI)",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload_module,
 	       );
+#endif
 
+#ifdef LCR_FOR_CALLWEAVER
+char *description(void)
+{
+	return desc;
+}
+#endif

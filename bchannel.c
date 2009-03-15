@@ -36,6 +36,15 @@
 #include <asterisk/compiler.h>
 #include <asterisk/frame.h>
 
+/* Choose if you want to have chan_lcr for Asterisk 1.4.x or CallWeaver 1.2.x */
+/* #define LCR_FOR_CALLWEAVER */
+
+#ifdef LCR_FOR_CALLWEAVER
+#include <asterisk/phone_no_utils.h>
+#include <asterisk/logger.h>
+#include <asterisk/module.h>
+#include <asterisk/channel.h>
+#endif
 
 #include "extension.h"
 #include "message.h"
