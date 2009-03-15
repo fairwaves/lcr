@@ -474,4 +474,4 @@ Changes after Version 1.4 release
   interface was specified by name.
 - Added PID file (thanx to Joerg)
 - Added Callweaver support. (thanx to Kristijan)
-
+- Bugfix on timeout rules. (thanx to Benjamin)

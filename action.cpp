@@ -2227,7 +2227,7 @@ void EndpointAppPBX::process_dialing(void)
 
 //PDEBUG(~0, "HANG-BUG-DEBUGGING: before action-timeout processing\n");
 	/* process timeout */
-	if (e_action_timeout)
+	if (e_action && e_action_timeout) /* e_action may be NULL, but e_action_timeout may still be set and must be ignored */
 	{
 		e_action_timeout = 0;
 		if (e_state == EPOINT_STATE_CONNECT)
