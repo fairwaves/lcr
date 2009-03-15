@@ -475,3 +475,4 @@ Changes after Version 1.4 release
 - Added PID file (thanx to Joerg)
 - Added Callweaver support. (thanx to Kristijan)
 - Bugfix on timeout rules. (thanx to Benjamin)
+- Fixed dtmf detection of A-D. (thanx to Ralf)

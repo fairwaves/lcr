@@ -957,7 +957,7 @@ static void lcr_in_connect(struct chan_call *call, int message_type, union param
 	memcpy(&call->connectinfo, &param->connectinfo, sizeof(struct connect_info));
 	/* queue event to asterisk */
 	if (call->ast && call->pbx_started)
-		strncat(call->queue_string, "A", sizeof(call->queue_string)-1);
+		strncat(call->queue_string, "N", sizeof(call->queue_string)-1);
 }
 
 /*
@@ -1574,7 +1574,7 @@ static int queue_send(void)
 						ast_queue_control(ast, AST_CONTROL_RINGING);
 						ast_setstate(ast, AST_STATE_RINGING);
 						break;
-					case 'A':
+					case 'N':
 						CDEBUG(call, ast, "Sending queued ANSWER to Asterisk.\n");
 						ast_queue_control(ast, AST_CONTROL_ANSWER);
 						break;
@@ -1582,10 +1582,10 @@ static int queue_send(void)
 						CDEBUG(call, ast, "Sending queued HANGUP to Asterisk.\n");
 						ast_queue_hangup(ast);
 						break;
-					case '1': case '2': case '3': case 'a':
-					case '4': case '5': case '6': case 'b':
-					case '7': case '8': case '9': case 'c':
-					case '*': case '0': case '#': case 'd':
+					case '1': case '2': case '3': case 'A':
+					case '4': case '5': case '6': case 'B':
+					case '7': case '8': case '9': case 'C':
+					case '*': case '0': case '#': case 'D':
 						CDEBUG(call, ast, "Sending queued digit '%c' to Asterisk.\n", *p);
 						/* send digit to asterisk */
 						memset(&fr, 0, sizeof(fr));
@@ -1609,7 +1609,7 @@ static int queue_send(void)
 												
 						break;
 					default:
-						CDEBUG(call, ast, "Ignoring queued digit 0x%02d.\n", *p);
+						CDEBUG(call, ast, "Ignoring queued digit 0x%02x.\n", *p);
 					}
 					p++;
 				}
@@ -2680,7 +2680,7 @@ int load_module(void)
 	if (read_options() == 0) {
 		CERROR(NULL, NULL, "%s", options_error);
 
-		#ifdef LCR_FOR_ASTERISK || ASTERISK_1_6
+		#ifdef LCR_FOR_ASTERISK
 		return AST_MODULE_LOAD_DECLINE;
 		#endif		
 		
