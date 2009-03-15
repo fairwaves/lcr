@@ -472,4 +472,5 @@ Changes after Version 1.3 release
 Changes after Version 1.4 release
 - Bugfix: When reloading interfaces, interface will not be reopened, if
   interface was specified by name.
+- Added PID file (thanx to Joerg)
 

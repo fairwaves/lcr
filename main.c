@@ -314,6 +314,7 @@ int main(int argc, char *argv[])
 	if (!(strcasecmp(argv[1],"fork")))
 	{
 		pid_t pid;
+		FILE *pidfile;
 
 		/* do daemon fork */
 		pid = fork();
@@ -344,6 +345,11 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 		nooutput = 1;
+
+		/* write pid file */
+		pidfile = fopen("/var/run/lcr.pid","w");
+		fprintf(pidfile, "%d\n", getpid());
+		fclose(pidfile);
 	} else
 	/* if not start */
 	if (!!strcasecmp(argv[1],"start"))
