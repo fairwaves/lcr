@@ -360,6 +360,34 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 	*ifportp = ifport;
 	return(0);
 }
+static int inter_l1hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	if (!strcmp(value, "yes"))
+	{
+		ifport->l1hold = 1;
+	} else
+	if (!strcmp(value, "no"))
+	{
+		ifport->l1hold = 0;
+	} else
+	{
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expecting parameter 'yes' or 'no'.\n", filename, line, parameter);
+		return(-1);
+	}
+	return(0);
+}
 static int inter_l2hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_port *ifport;
@@ -968,6 +996,11 @@ struct interface_param interface_param[] = {
 	"Note that this is not compliant with ISDN protocol.\n"
 	"This parameter must follow a 'port' parameter."},
 
+	{"layer1hold", &inter_l1hold, "yes | no",
+	"The given port will not release layer 1 after layer 2 is down.\n"
+	"It is required to keep layer 1 of telephones up, to solve activation problems.\n"
+	"This parameter must follow a 'port' parameter."},
+
 	{"layer2hold", &inter_l2hold, "yes | no",
 	"The given port will continuously try to establish layer 2 link and hold it.\n"
 	"It is required for PTP links in most cases, therefore it is default.\n"
@@ -1379,7 +1412,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l2hold, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface);
 	if (mISDNport)
 	{
 		/* link port */

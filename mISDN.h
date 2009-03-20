@@ -39,6 +39,7 @@ struct mISDNport {
 	int ptp; /* if ptp is set, we keep track of l2link */
 	int l1link; /* if l1 is available (only works with nt-mode) */
 	int l2link; /* if l2 is available (at PTP we take this serious) */
+	int l1hold; /* set, if layer 1 should be holt */
 	int l2hold; /* set, if layer 2 must be hold/checked */
 	time_t l2establish; /* time until establishing after link failure */
 	int use; /* counts the number of port that uses this port */
@@ -80,7 +81,7 @@ calls with no bchannel (call waiting, call on hold).
 /* mISDN none-object functions */
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l2hold, struct interface *interface);
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

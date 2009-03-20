@@ -49,7 +49,8 @@ struct interface_port {
 	int			ptmp; /* force load stack in PTP mode */
 	int			nt; /* load stack in NT-mode */
 	int			tespecial; /* special TE-mode behavior */
-	int			l2hold; /* hold layer 2 (1=force, -1=disable */
+	int			l1hold; /* hold layer 1 (1=on, 0=off) */
+	int			l2hold; /* hold layer 2 (1=force, -1=disable, 0=default) */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */

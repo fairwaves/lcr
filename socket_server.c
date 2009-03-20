@@ -900,6 +900,10 @@ int admin_state(struct admin_queue **responsep)
 
 				/* ptp */
 				response->am[num].u.i.ptp = mISDNport->ptp;
+				/* l1hold */
+				response->am[num].u.i.l1hold = mISDNport->l1hold;
+				/* l2hold */
+				response->am[num].u.i.l2hold = mISDNport->l2hold;
 				/* ntmode */
 				response->am[num].u.i.ntmode = mISDNport->ntmode;
 				/* pri */

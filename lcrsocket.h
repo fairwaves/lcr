@@ -69,6 +69,8 @@ struct admin_response_interface {
 	int		block;
 	int		ntmode;
 	int		ptp;
+	int		l1hold;
+	int		l2hold;
 	int		pri;
 	int		extension;
 	int		use; /* number of ports that use this interface */

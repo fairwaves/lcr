@@ -2124,7 +2124,7 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l2hold, struct interface *interface)
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2310,6 +2310,8 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	       prop |= (1 << MISDN_FLG_PTP);
 	if (nt) // supports hold/retrieve on nt-mode
 	       prop |= (1 << MISDN_FLG_NET_HOLD);
+	if (l1hold) // supports layer 1 hold
+	       prop |= (1 << MISDN_FLG_L1_HOLD);
 	if (l2hold) // supports layer 2 hold
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
@@ -2355,6 +2357,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	mISDNport->tespecial = te_special;
 	mISDNport->pri = pri;
 	mISDNport->ptp = ptp;
+	mISDNport->l1hold = l1hold;
 	mISDNport->l2hold = l2hold;
 	PDEBUG(DEBUG_ISDN, "Port has %d b-channels.\n", mISDNport->b_num);
 	i = 0;

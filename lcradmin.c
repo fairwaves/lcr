@@ -678,7 +678,19 @@ const char *admin_state(int sock, char *argv[])
 				addstr("  not loaded");
 			} else
 			{
-				SPRINT(buffer, "%s (port %d: %s) %s %s%s use:%d", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp", (m[i].u.i.extension)?" extension":"", m[i].u.i.use);
+				SPRINT(buffer, "%s", m[i].u.i.interface_name);
+				addstr(buffer);
+				color(yellow);
+				SPRINT(buffer, "(port %d: %s)", m[i].u.i.portnum, m[i].u.i.portname);
+				addstr(buffer);
+				color(cyan);
+				SPRINT(buffer, " %s %s%s%s%s", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp":"ptmp", (m[i].u.i.l1hold)?" l1hold":"", (m[i].u.i.l2hold)?" l2hold":"", (m[i].u.i.extension)?" extension":"");
+				addstr(buffer);
+				if (m[i].u.i.use)
+					color(green);
+				else
+					color(blue);
+				SPRINT(buffer, " use:%d", m[i].u.i.use);
 				addstr(buffer);
 				if (m[i].u.i.ptp || !m[i].u.i.ntmode)
 				{
@@ -1403,7 +1415,7 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 				printf("\t status = blocked\n");
 			else
 				printf("\t status = unblocked\n");
-			printf("\t mode = %s %s\n", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp ":"ptmp");
+			printf("\t mode = %s %s%s%s\n", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp":"ptmp", (m[i].u.i.l1hold)?" l1hold":"", (m[i].u.i.l2hold)?" l2hold":"");
 			if (m[i].u.i.l1link < 0)
 				printf("\t l1 link = unknown\n");
 			else
