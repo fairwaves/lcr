@@ -97,7 +97,8 @@
 #define L3_RELEASE_L3ID_IND		0x0003f102
 #define L3_TIMEOUT_REQ			0x0003f200
 #define L3_TIMEOUT_IND			0x0003f202
-#define L3_UNKNOWN			0x0003ff00
+#define L3_UNKNOWN_REQ			0x0003ff00
+#define L3_UNKNOWN_IND			0x0003ff02
 
 
 struct trace_element {

@@ -47,6 +47,7 @@ class Pdss1 : public PmISDN
 	void t312_timeout_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
+	void progress_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	void suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);

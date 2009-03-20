@@ -1685,6 +1685,20 @@ void Pdss1::facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 }
 
 
+/* CC_PROGRESS INDICATION */
+void Pdss1::progress_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
+{
+	unsigned char facil[256];
+	int facil_len;
+	struct lcr_msg *message;
+	int coding, location, progress;
+
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_PROGRESS_IND, DIRECTION_IN);
+	dec_ie_progress(l3m, &coding, &location, &progress);
+	end_trace();
+}
+
+
 /*
  * handler for isdn connections
  * incoming information are parsed and sent via message to the endpoint
@@ -1827,6 +1841,10 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		facility_ind(cmd, pid, l3m);
 		break;
 
+		case MT_PROGRESS:
+		progress_ind(cmd, pid, l3m);
+		break;
+
 		case MT_FREE:
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_L3ID_IND, DIRECTION_IN);
 		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
@@ -1859,7 +1877,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		break;
 
 		default:
-		l1l2l3_trace_header(p_m_mISDNport, this, L3_UNKNOWN, DIRECTION_IN);
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_UNKNOWN_IND, DIRECTION_IN);
 		add_trace("unhandled", "cmd", "0x%x", cmd);
 		end_trace();
 	}
@@ -2310,15 +2328,11 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 	int notify;
 	int plan = 0, type = -1, present = 0;
 
+	printf("if = %d\n", param->notifyinfo.notify);
 	if (param->notifyinfo.notify>INFO_NOTIFY_NONE)
 		notify = param->notifyinfo.notify & 0x7f;
 	else
 		notify = -1;
-	if (p_state != PORT_STATE_CONNECT)
-	{
-		/* notify only allowed in active state */
-		notify = -1;
-	}
 	if (notify >= 0)
 	{
 		plan = 1;
@@ -2362,7 +2376,7 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 
 	if (notify >= 0)
 	{
-		if (p_state!=PORT_STATE_CONNECT)
+		if (p_state!=PORT_STATE_CONNECT && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING)
 		{
 			/* queue notification */
 			if (p_m_d_notify_pending)
@@ -2856,6 +2870,13 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 			break;
 		}
 		message_proceeding(epoint_id, message_id, param);
+		if (p_m_d_notify_pending)
+		{
+			/* send pending notify message during connect */
+			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
+			message_free(p_m_d_notify_pending);
+			p_m_d_notify_pending = NULL;
+		}
 		break;
 
 		case MESSAGE_ALERTING: /* call of endpoint is ringing */
@@ -2866,6 +2887,13 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 			break;
 		}
 		message_alerting(epoint_id, message_id, param);
+		if (p_m_d_notify_pending)
+		{
+			/* send pending notify message during connect */
+			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
+			message_free(p_m_d_notify_pending);
+			p_m_d_notify_pending = NULL;
+		}
 		break;
 
 		case MESSAGE_CONNECT: /* call of endpoint is connected */
@@ -2878,6 +2906,13 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 			break;
 		}
 		message_connect(epoint_id, message_id, param);
+		if (p_m_d_notify_pending)
+		{
+			/* send pending notify message during connect */
+			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
+			message_free(p_m_d_notify_pending);
+			p_m_d_notify_pending = NULL;
+		}
 		break;
 
 		case MESSAGE_DISCONNECT: /* call has been disconnected */

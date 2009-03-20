@@ -221,7 +221,7 @@ static struct isdn_message {
 	{"PH_DEACTIVATE", L1_DEACTIVATE_REQ},
 	{"DL_ESTABLISH", L2_ESTABLISH_REQ},
 	{"DL_RELEASE", L2_RELEASE_REQ},
-	{"UNKNOWN", L3_UNKNOWN},
+	{"UNKNOWN", L3_UNKNOWN_REQ},
 	{"MT_TIMEOUT", L3_TIMEOUT_REQ},
 	{"MT_SETUP", L3_SETUP_REQ},
 	{"MT_SETUP_ACK", L3_SETUP_ACKNOWLEDGE_REQ},
@@ -270,6 +270,7 @@ void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsign
 	i = 0;
 	while(isdn_message[i].name)
 	{
+//		if (msg == L3_NOTIFY_REQ) printf("val = %x %s\n", isdn_message[i].value, isdn_message[i].name);
 		if (isdn_message[i].value == (msg&0xffffff00))
 		{
 			SCPY(msgtext, isdn_message[i].name);
@@ -1560,11 +1561,9 @@ void PmISDN::set_tone(const char *dir, const char *tone)
 		Port::set_tone(dir, tone);
 		return;
 	}
-	if (p_tone_dir[0])
-		goto nodsp;
 
 	/* now we USE dsp-tone, convert name */
-	else if (!strcmp(tone, "dialtone"))
+	if (!strcmp(tone, "dialtone"))
 	{
 		switch(options.dsptones) {
 		case DSP_AMERICAN: id = TONE_AMERICAN_DIALTONE; break;
