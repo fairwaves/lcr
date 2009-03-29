@@ -129,6 +129,8 @@ it is called from ast_channel process which has already locked ast_channel.
 #define HAVE_ATTRIBUTE_always_inline 1
 #define HAVE_ARPA_INET_H 1
 #define HAVE_TIMERSUB 1
+#define HAVE_STRTOQ 1
+#define HAVE_INET_ATON 1
 
 #include <asterisk/compiler.h>
 #ifdef LCR_FOR_ASTERISK
@@ -503,7 +505,12 @@ void apply_opt(struct chan_call *call, char *data)
 				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_CNG_DETECT);
 				#endif
 				#ifdef LCR_FOR_ASTERISK
+				#ifdef DSP_FEATURE_DTMF_DETECT
 				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_DETECT);
+				#else
+				ast_dsp_set_features(call->dsp, DSP_FEATURE_DIGIT_DETECT| DSP_FEATURE_FAX_DETECT);
+				#endif
+
 				#endif
 				if (!call->trans)
 					#ifdef LCR_FOR_CALLWEAVER
@@ -2107,7 +2114,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 		return -1;
 	}
 	if (call->bchannel && f->samples)
-		bchannel_transmit(call->bchannel, (unsigned char *)f->data, f->samples);
+		bchannel_transmit(call->bchannel, *((unsigned char **)&(f->data)), f->samples);
 	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
