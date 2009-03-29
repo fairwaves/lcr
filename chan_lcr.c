@@ -1118,6 +1118,34 @@ static void lcr_in_facility(struct chan_call *call, int message_type, union para
 }
 
 /*
+ * incoming pattern from LCR
+ */
+static void lcr_in_pattern(struct chan_call *call, int message_type, union parameter *param)
+{
+	union parameter newparam;
+
+	CDEBUG(call, call->ast, "Incomming pattern indication from LCR.\n");
+
+	if (!call->ast) return;
+
+	/* pattern are indicated only once */
+	if (call->has_pattern)
+		return;
+	call->has_pattern = 1;
+
+	/* request bchannel */
+	if (!call->bchannel) {
+		CDEBUG(call, call->ast, "Requesting B-channel.\n");
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.bchannel.type = BCHANNEL_REQUEST;
+		send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
+	}
+	/* queue PROGRESS, because tones are available */
+	if (call->ast && call->pbx_started)
+		strncat(call->queue_string, "T", sizeof(call->queue_string)-1);
+}
+
+/*
  * got dtmf from bchannel (locked state)
  */
 void lcr_in_dtmf(struct chan_call *call, int val)
@@ -1354,6 +1382,8 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 		break;
 
 		case MESSAGE_PATTERN: // audio available from LCR
+		if (!call->has_pattern)
+			lcr_in_pattern(call, message_type, param);
 		break;
 
 		case MESSAGE_NOPATTERN: // audio not available from LCR
@@ -1572,6 +1602,10 @@ static int queue_send(void)
 			if (!ast_channel_trylock(ast)) { /* succeed */
 				while(*p) {
 					switch (*p) {
+					case 'T':
+						CDEBUG(call, ast, "Sending queued PROGRESS to Asterisk.\n");
+						ast_queue_control(ast, AST_CONTROL_PROGRESS);
+						break;
 					case 'P':
 						CDEBUG(call, ast, "Sending queued PROCEEDING to Asterisk.\n");
 						ast_queue_control(ast, AST_CONTROL_PROCEEDING);
@@ -2244,6 +2278,16 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				send_message(MESSAGE_ALERTING, call->ref, &newparam);
 				/* change state */
 				call->state = CHAN_LCR_STATE_IN_ALERTING;
+			}
+			break;
+		case AST_CONTROL_PROGRESS:
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_PROGRESS from Asterisk.\n");
+			/* request bchannel */
+			if (!call->bchannel) {
+				CDEBUG(call, ast, "Requesting B-channel.\n");
+				memset(&newparam, 0, sizeof(union parameter));
+				newparam.bchannel.type = BCHANNEL_REQUEST;
+				send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
 			}
 			break;
                 case -1:

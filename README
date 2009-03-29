@@ -480,3 +480,6 @@ Changes after Version 1.4 release
   -> Notifications like diversions are now sent to terminal.
 - Added l1hold feature (requires new mISDN and mISDNuser).
 - chan_lcr: Fixed compile problem with newer versions.
+- chan_lcr: Open b-channel if asterisk indicates "PROGRESS".
+  -> Also if tones are available, asterisk gets "PROGRESS" indication.
+

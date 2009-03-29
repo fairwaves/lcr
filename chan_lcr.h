@@ -75,6 +75,8 @@ struct chan_call {
 					/* flags for bchannel mode */
 	char			queue_string[64];
 					/* queue for asterisk */
+	int			has_pattern;
+					/* pattern are available, PROGRESS has been indicated */
 		
 };
 
