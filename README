@@ -482,4 +482,5 @@ Changes after Version 1.4 release
 - chan_lcr: Fixed compile problem with newer versions.
 - chan_lcr: Open b-channel if asterisk indicates "PROGRESS".
   -> Also if tones are available, asterisk gets "PROGRESS" indication.
+- lcradmin displays TEI values in NT-mode PTMP
 

@@ -670,7 +670,7 @@ const char *admin_state(int sock, char *argv[])
 			if (m[i].u.i.block >= 2)
 			{
 				if (m[i].u.i.portnum < 0)
-					SPRINT(buffer, "%s (port ?: %s)%s", m[i].u.i.interface_name, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
+					SPRINT(buffer, "%s (port ?: %s)%s", m[i].u.i.interface_name, m[i].u.i.portname, (m[i].u.i.extension)?" exten":"");
 				else
 					SPRINT(buffer, "%s (port %d: %s)%s", m[i].u.i.interface_name, m[i].u.i.portnum, m[i].u.i.portname, (m[i].u.i.extension)?" extension":"");
 				addstr(buffer);
@@ -684,7 +684,7 @@ const char *admin_state(int sock, char *argv[])
 				SPRINT(buffer, "(port %d: %s)", m[i].u.i.portnum, m[i].u.i.portname);
 				addstr(buffer);
 				color(cyan);
-				SPRINT(buffer, " %s %s%s%s%s", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp":"ptmp", (m[i].u.i.l1hold)?" l1hold":"", (m[i].u.i.l2hold)?" l2hold":"", (m[i].u.i.extension)?" extension":"");
+				SPRINT(buffer, " %s %s%s%s%s", (m[i].u.i.ntmode)?"NT":"TE", (m[i].u.i.ptp)?"ptp":"ptmp", (m[i].u.i.l1hold)?" l1hold":"", (m[i].u.i.l2hold)?" l2hold":"", (m[i].u.i.extension)?" extension":"");
 				addstr(buffer);
 				if (m[i].u.i.use)
 					color(green);
@@ -696,15 +696,32 @@ const char *admin_state(int sock, char *argv[])
 				{
 					color((m[i].u.i.l2link > 0)?green:red);
 					if (m[i].u.i.l2link < 0)
-						addstr("  L2 unknown");
+						addstr("  L2 unkn");
 					else
 						addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
+				} else
+				{
+					k = 0;
+					color(green);
+					j = 0;
+					while(j < 128)
+					{
+						if (m[i].u.i.l2mask[j>>3] & (1 << (j&7)))
+						{
+							SPRINT(buffer, "%s%d", k?",":"  TEI(", j);
+							addstr(buffer);
+							k = 1;
+						}
+						j++;
+					}
+					if (k)
+						addstr(")");
 				}
 				color((m[i].u.i.l1link > 0)?green:blue);
 				if (m[i].u.i.l1link < 0)
-					addstr("  L1 unknown");
+					addstr("  L1 unkn");
 				else
-					addstr((m[i].u.i.l1link)?"  L1 ACTIVE":"  L1 inactive");
+					addstr((m[i].u.i.l1link)?"  L1 UP":"  L1 down");
 				if (m[i].u.i.los)
 				{
 					color(red);

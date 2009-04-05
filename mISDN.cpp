@@ -71,7 +71,7 @@ int mISDN_initialize(void)
 	if (options.deb & DEBUG_STACK)
 	{
 		SPRINT(filename, "%s/debug_mISDN.log", LOG_DIR);
-		mISDN_debug_init(0xffffffff, filename, filename, filename);
+		mISDN_debug_init(0xfffffeff, filename, filename, filename);
 	} else
 		mISDN_debug_init(0, NULL, NULL, NULL);
 
@@ -2006,6 +2006,8 @@ int mISDN_handler(void)
 				add_trace("tei", NULL, "%d", l3m->pid);
 				end_trace();
 				mISDNport->l2link = 1;
+				if (l3m->pid < 128)
+					mISDNport->l2mask[l3m->pid >> 3] |= (1 << (l3m->pid & 7));
 				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 				{
 					if (mISDNport->l2establish)
@@ -2017,6 +2019,8 @@ int mISDN_handler(void)
 				break;
 
 				case MT_L2RELEASE:
+				if (l3m->pid < 128)
+					mISDNport->l2mask[l3m->pid >> 3] &= ~(1 << (l3m->pid & 7));
 				if (!mISDNport->l2establish)
 				{
 					l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);

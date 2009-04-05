@@ -914,6 +914,7 @@ int admin_state(struct admin_queue **responsep)
 				response->am[num].u.i.l1link = mISDNport->l1link;
 				/* l2link */
 				response->am[num].u.i.l2link = mISDNport->l2link;
+				memcpy(response->am[num].u.i.l2mask, mISDNport->l2mask, 16);
 				/* los */
 				response->am[num].u.i.los = mISDNport->los;
 				/* ais */

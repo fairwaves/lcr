@@ -39,6 +39,7 @@ struct mISDNport {
 	int ptp; /* if ptp is set, we keep track of l2link */
 	int l1link; /* if l1 is available (only works with nt-mode) */
 	int l2link; /* if l2 is available (at PTP we take this serious) */
+	unsigned char l2mask[16]; /* 128 bits for each tei */
 	int l1hold; /* set, if layer 1 should be holt */
 	int l2hold; /* set, if layer 2 must be hold/checked */
 	time_t l2establish; /* time until establishing after link failure */
