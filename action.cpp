@@ -142,7 +142,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	}
 
 	/* check if extension exists AND only if not multiple extensions */
-	if (!read_extension(&ext, dialinginfo.id) && !strchr(dialinginfo.id,','))
+	if (!strchr(dialinginfo.id,',') && !read_extension(&ext, dialinginfo.id))
 	{
 		trace_header("ACTION extension (extension doesn't exist)", DIRECTION_NONE);
 		add_trace("extension", NULL, dialinginfo.id);
