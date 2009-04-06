@@ -2001,14 +2001,57 @@ void EndpointAppPBX::action_dialing_setforward(void)
 {
 }
 
+/*
+ * process init 'execute'
+ */ 
+void EndpointAppPBX::action_init_execute(void)
+{
+	struct route_param *rparam;
+	int executeon = INFO_ON_HANGUP;  /* Use Hangup as a default for compatibility */
+	
+	/* Get the execute on parameter */
+	if ((rparam = routeparam(e_action, PARAM_ON)))
+	executeon = rparam->integer_value;
+
+	/* Execute this action if init was specified */
+	if (executeon == INFO_ON_INIT)
+	{
+		trace_header("ACTION execute ON init", DIRECTION_NONE);
+		end_trace();
+		action_execute();
+	}
+}
 
 /*
  * process hangup 'execute'
- */
+ */ 
 void EndpointAppPBX::action_hangup_execute(void)
 {
 	struct route_param *rparam;
+	int executeon = INFO_ON_HANGUP;  /* Use Hangup as a default for compatibility */
+	
+	/* Get the execute on parameter */
+	if ((rparam = routeparam(e_action, PARAM_ON)))
+	executeon = rparam->integer_value;
+
+	/* Execute this action if init was specified */
+	if (executeon == INFO_ON_HANGUP)
+	{
+		trace_header("ACTION execute ON hangup", DIRECTION_NONE);
+		end_trace();
+		action_execute();
+	}
+}
+
+/*
+ * process 'execute' from action_init_execute or action_hangup_execute
+ */
+void EndpointAppPBX::action_execute(void)
+{
+	struct route_param *rparam;
 	pid_t pid;
+	pid_t pid2;
+	int iWaitStatus;
 	char *command = (char *)"";
 	char isdn_port[10];
 	char *argv[11]; /* check also number of args below */
@@ -2044,12 +2087,24 @@ void EndpointAppPBX::action_hangup_execute(void)
 			end_trace();
 			break;
 		case 0:
-			execve("/bin/sh", argv, environ);
-	      		break;
+			/* To be shure there are no zombies created double fork */
+			if ((pid2 = fork()) == 0)
+			{
+				execve("/bin/sh", argv, environ);
+			}
+			else
+			{
+				/* Exit immediately and release the waiting parent. The subprocess falls to init because the parent died */
+				exit(0);
+			}
+			break;
 		default:
 			trace_header("ACTION execute", DIRECTION_NONE);
 			add_trace("command", NULL, "%s", command);
 			end_trace();
+
+			/* Wait for the pid. The forked process will exit immediately so there is no problem waiting. */
+			waitpid(pid, &iWaitStatus, 0);
 			break;
 	}
 }

@@ -289,7 +289,9 @@ class EndpointAppPBX : public EndpointApp
 	void action_dialing_help(void);
 	void action_dialing_deflect(void);
 	void action_dialing_setforward(void);
+	void action_init_execute(void);
 	void action_hangup_execute(void);
+	void action_execute(void);
 	void action_hangup_file(void);
 	void action_init_pick(void);
 	void action_dialing_password(void);

@@ -239,6 +239,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_EXTEN,
 	  "exten",	PARAM_TYPE_STRING,
 	  "exten=<extension>", "Give exten parameter to the remote application. (overrides dialed number)"},
+	{ PARAM_ON,
+	  "on",	PARAM_TYPE_STRING,
+	  "on=[init|hangup]", "Defines if the action is executed on call init or on hangup."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -347,8 +350,8 @@ struct action_defs action_defs[] = {
 	  NULL},
 //	  "The call forward is set within the telephone network of the external line."},
 	{ ACTION_EXECUTE,
-	  "execute",	NULL, NULL, &EndpointAppPBX::action_hangup_execute,
-	  PARAM_CONNECT | PARAM_EXECUTE | PARAM_PARAM,
+	  "execute",	&EndpointAppPBX::action_init_execute, NULL, &EndpointAppPBX::action_hangup_execute,
+	  PARAM_CONNECT | PARAM_EXECUTE | PARAM_PARAM | PARAM_ON,
 	  "Executes the given script file. The file must terminate quickly, because it will halt the PBX."},
 	{ ACTION_FILE,
 	  "file",	NULL, NULL, &EndpointAppPBX::action_hangup_file,
@@ -1684,6 +1687,7 @@ struct route_ruleset *ruleset_parse(void)
 				case PARAM_TYPE_DESTIN:
 				case PARAM_TYPE_TYPE:
 				case PARAM_TYPE_YESNO:
+				case PARAM_TYPE_ON:
 				key[0] = '\0';
 				if (*p==',' || *p==' ' || *p=='\0')
 				{
@@ -1720,6 +1724,22 @@ struct route_ruleset *ruleset_parse(void)
 						break;
 					}
 					SPRINT(failure, "Caller ID type '%s' unknown.", key);
+					goto parse_error;
+				}
+				if (param_defs[index].type == PARAM_TYPE_ON)
+				{
+					param->value_type = VALUE_TYPE_INTEGER;
+					if (!strcasecmp(key, "init"))
+					{
+						param->integer_value = INFO_ON_INIT;
+						break;
+					}
+					if (!strcasecmp(key, "hangup"))
+					{
+						param->integer_value = INFO_ON_HANGUP;
+						break;
+					}
+					SPRINT(failure, "Execute on '%s' unknown.", key);
 					goto parse_error;
 				}
 				if (param_defs[index].type == PARAM_TYPE_CAPABILITY)

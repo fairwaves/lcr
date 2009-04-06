@@ -483,4 +483,7 @@ Changes after Version 1.4 release
 - chan_lcr: Open b-channel if asterisk indicates "PROGRESS".
   -> Also if tones are available, asterisk gets "PROGRESS" indication.
 - lcradmin displays TEI values in NT-mode PTMP
+- Added patch from Daniel
+  -> Improved forking
+  -> Execution action can now be done on call init or on call hangup.
 

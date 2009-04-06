@@ -89,6 +89,12 @@ enum { /* how to parse text file during startup */
 	PARAM_TYPE_PORTS,
 	PARAM_TYPE_TYPE,
 	PARAM_TYPE_CALLERIDTYPE,
+	PARAM_TYPE_ON,
+};
+
+enum { /* defines when a statement should be executed */
+	INFO_ON_INIT,
+	INFO_ON_HANGUP,
 };
 
 /* parameter ID bits */
@@ -139,7 +145,7 @@ enum { /* how to parse text file during startup */
 #define PARAM_APPLICATION	(1LL<<44)
 #define PARAM_CONTEXT		(1LL<<45)
 #define PARAM_EXTEN		(1LL<<46)
-
+#define PARAM_ON		(1LL<<47)
 
 /* action index
  * NOTE: The given index is the actual entry number of action_defs[], so add/remove both lists!!!
