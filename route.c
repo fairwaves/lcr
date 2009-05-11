@@ -2022,7 +2022,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_PORT:
 				if (ea_endpoint->ep_portlist)
-				if ((ea_endpoint->ep_portlist->port_type & PORT_CLASS_mISDN_MASK) != PORT_CLASS_mISDN_DSS1)
+				if ((ea_endpoint->ep_portlist->port_type & PORT_CLASS_MASK) != PORT_CLASS_mISDN)
 					break;
 				integer = e_callerinfo.isdn_port;
 				goto match_integer;

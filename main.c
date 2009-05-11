@@ -394,6 +394,21 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 
+#ifdef WITH_GSM
+	/* handle gsm */
+	if (options.gsm && gsm_init())
+	{
+		fprintf(stderr, "GSM initialization failed.\n");
+		goto free;
+	}
+#else
+	if (options.gsm)
+	{
+		fprintf(stderr, "GSM is enabled, but not compiled. Use --with-gsm while configure!\n");
+		goto free;
+	}
+#endif
+
 	/* read interfaces and open ports */
 	if (!read_interfaces())
 	{
@@ -614,6 +629,15 @@ BUDETECT
 			all_idle = 0;
 BUDETECT
 
+#ifdef WITH_GSM
+		/* handle gsm */
+		if (options.gsm)
+			while(handle_gsm())
+				all_idle = 0;
+#endif
+
+BUDETECT
+
 #if 0
 		/* check for child to exit (eliminate zombies) */
 		if (waitpid(-1, NULL, WNOHANG) > 0)
@@ -745,6 +769,12 @@ free:
 	/* deinitialize mISDN */
 	if (created_misdn)
 		mISDN_deinitialize();
+
+#ifdef WITH_GSM
+	/* free gsm */
+	if (options.gsm)
+		gsm_exit(0);
+#endif
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \

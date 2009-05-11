@@ -1947,106 +1947,109 @@ int mISDN_handler(void)
 		}
 
 		/* handle queued up-messages (d-channel) */
-		while ((mb = mdequeue(&mISDNport->upqueue)))
+		if (!mISDNport->gsm)
 		{
-			l3m = &mb->l3;
-			switch(l3m->type)
+			while ((mb = mdequeue(&mISDNport->upqueue)))
 			{
-				case MPH_ACTIVATE_IND:
-				if (mISDNport->l1link != 1)
+				l3m = &mb->l3;
+				switch(l3m->type)
 				{
-					l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
-					end_trace();
-					mISDNport->l1link = 1;
-				}
-				break;
-	
-				case MPH_DEACTIVATE_IND:
-				if (mISDNport->l1link != 0)
-				{
-					l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
-					end_trace();
-					mISDNport->l1link = 0;
-				}
-				break;
-
-				case MPH_INFORMATION_IND:
-				PDEBUG(DEBUG_ISDN, "Received MPH_INFORMATION_IND for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
-				switch (l3m->pid)
-				{
-					case L1_SIGNAL_LOS_ON:
-					mISDNport->los = 1;
-					break;
-					case L1_SIGNAL_LOS_OFF:
-					mISDNport->los = 0;
-					break;
-					case L1_SIGNAL_AIS_ON:
-					mISDNport->ais = 1;
-					break;
-					case L1_SIGNAL_AIS_OFF:
-					mISDNport->ais = 0;
-					break;
-					case L1_SIGNAL_RDI_ON:
-					mISDNport->rdi = 1;
-					break;
-					case L1_SIGNAL_RDI_OFF:
-					mISDNport->rdi = 0;
-					break;
-					case L1_SIGNAL_SLIP_TX:
-					mISDNport->slip_tx++;
-					break;
-					case L1_SIGNAL_SLIP_RX:
-					mISDNport->slip_rx++;
-					break;
-				}
-				break;
-
-				case MT_L2ESTABLISH:
-				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
-				add_trace("tei", NULL, "%d", l3m->pid);
-				end_trace();
-				mISDNport->l2link = 1;
-				if (l3m->pid < 128)
-					mISDNport->l2mask[l3m->pid >> 3] |= (1 << (l3m->pid & 7));
-				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
-				{
-					if (mISDNport->l2establish)
+					case MPH_ACTIVATE_IND:
+					if (mISDNport->l1link != 1)
 					{
-						mISDNport->l2establish = 0;
-						PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+						l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
+						end_trace();
+						mISDNport->l1link = 1;
 					}
-				}
-				break;
+					break;
+		
+					case MPH_DEACTIVATE_IND:
+					if (mISDNport->l1link != 0)
+					{
+						l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
+						end_trace();
+						mISDNport->l1link = 0;
+					}
+					break;
 
-				case MT_L2RELEASE:
-				if (l3m->pid < 128)
-					mISDNport->l2mask[l3m->pid >> 3] &= ~(1 << (l3m->pid & 7));
-				if (!mISDNport->l2establish)
-				{
-					l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
+					case MPH_INFORMATION_IND:
+					PDEBUG(DEBUG_ISDN, "Received MPH_INFORMATION_IND for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+					switch (l3m->pid)
+					{
+						case L1_SIGNAL_LOS_ON:
+						mISDNport->los = 1;
+						break;
+						case L1_SIGNAL_LOS_OFF:
+						mISDNport->los = 0;
+						break;
+						case L1_SIGNAL_AIS_ON:
+						mISDNport->ais = 1;
+						break;
+						case L1_SIGNAL_AIS_OFF:
+						mISDNport->ais = 0;
+						break;
+						case L1_SIGNAL_RDI_ON:
+						mISDNport->rdi = 1;
+						break;
+						case L1_SIGNAL_RDI_OFF:
+						mISDNport->rdi = 0;
+						break;
+						case L1_SIGNAL_SLIP_TX:
+						mISDNport->slip_tx++;
+						break;
+						case L1_SIGNAL_SLIP_RX:
+						mISDNport->slip_rx++;
+						break;
+					}
+					break;
+
+					case MT_L2ESTABLISH:
+					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
 					add_trace("tei", NULL, "%d", l3m->pid);
 					end_trace();
-					/* down if not nt-ptmp */ 
-					if (!mISDNport->ntmode || mISDNport->ptp)
-						mISDNport->l2link = 0;
-				}
-				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
-				{
-					if (!mISDNport->l2establish && mISDNport->l2hold)
+					mISDNport->l2link = 1;
+					if (l3m->pid < 128)
+						mISDNport->l2mask[l3m->pid >> 3] |= (1 << (l3m->pid & 7));
+					if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
 					{
-						PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
-						time(&mISDNport->l2establish);
-						mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+						if (mISDNport->l2establish)
+						{
+							mISDNport->l2establish = 0;
+							PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+						}
 					}
-				}
-				break;
+					break;
 
-				default:
-				/* l3-data is sent to LCR */
-				stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
+					case MT_L2RELEASE:
+					if (l3m->pid < 128)
+						mISDNport->l2mask[l3m->pid >> 3] &= ~(1 << (l3m->pid & 7));
+					if (!mISDNport->l2establish)
+					{
+						l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
+						add_trace("tei", NULL, "%d", l3m->pid);
+						end_trace();
+						/* down if not nt-ptmp */ 
+						if (!mISDNport->ntmode || mISDNport->ptp)
+							mISDNport->l2link = 0;
+					}
+					if (!mISDNport->gsm && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127)
+					{
+						if (!mISDNport->l2establish && mISDNport->l2hold)
+						{
+							PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
+							time(&mISDNport->l2establish);
+							mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+						}
+					}
+					break;
+
+					default:
+					/* l3-data is sent to LCR */
+					stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
+				}
+				/* free message */
+				free_l3_msg(l3m);
 			}
-			/* free message */
-			free_l3_msg(l3m);
 		}
 
 #if 0
@@ -2062,7 +2065,7 @@ int mISDN_handler(void)
 			if (now-mISDNport->l2establish > 5)
 			{
 				mISDNport->l2establish = 0;
-				if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
+				if (!mISDNport->gsm && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
 				{
 
 					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
@@ -2109,7 +2112,6 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 		mt_assign_pid = pid;
 		return(0);
 	}
-	
 	/* queue message, create, if required */
 	if (!l3m)
 	{
@@ -2124,11 +2126,32 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 	return 0;
 }
 
+int mISDN_getportbyname(int sock, int cnt, char *portname)
+{
+	struct mISDN_devinfo devinfo;
+	int port = 0, ret;
+
+	/* resolve name */
+	while (port < cnt)
+	{
+		devinfo.id = port;
+		ret = ioctl(sock, IMGETDEVINFO, &devinfo);
+		if (ret < 0)
+			return ret;
+		if (!strcasecmp(devinfo.name, portname))
+			break;
+		port++;
+	}
+	if (port == cnt)
+		return -EIO;
+
+	return (port);
+}
 
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface)
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2154,24 +2177,13 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	}
 	if (port < 0)
 	{
-		/* resolve name */
-		port = 0;
-		while (port < cnt)
+		port = mISDN_getportbyname(mISDNsocket, cnt, portname);
+		if (port < 0)
 		{
-			devinfo.id = port;
-			ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
-			if (ret < 0)
-			{
-				PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", port, ret);
-				return(NULL);
-			}
-			if (!strcasecmp(devinfo.name, portname))
-				break;
-			port++;
-		}
-		if (port == cnt)
-		{
-			PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", portname);
+			if (gsm)
+				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", portname);
+			else
+				PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", portname);
 			return(NULL);
 		}
 		// note: 'port' has still the port number
@@ -2274,14 +2286,48 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		}
 	}
 
+	/* check for continous channelmap with no bchannel on slot 16 */
+	if (test_channelmap(0, devinfo.channelmap))
+	{
+		PERROR_RUNTIME("Port %d provides channel 0, but we cannot access it!\n", port);
+		return(NULL);
+	}
+	i = 1;
+	while(i < (int)devinfo.nrbchan + 1)
+	{
+		if (i == 16) {
+			if (test_channelmap(i, devinfo.channelmap))
+			{
+				PERROR("Port %d provides bchannel 16. Pleas upgrade mISDN, if this port is mISDN loopback interface.\n", port);
+				return(NULL);
+			}
+		} else
+		{
+			if (!test_channelmap(i, devinfo.channelmap))
+			{
+				PERROR_RUNTIME("Port %d has no channel on slot %d!\n", port, i);
+				return(NULL);
+			}
+		}
+		i++;
+	}
 
 	/* add mISDNport structure */
 	mISDNportp = &mISDNport_first;
 	while(*mISDNportp)
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
-	mISDNport->l1link = -1;
-	mISDNport->l2link = -1;
+	if (gsm)
+	{
+		/* gsm audio is always active */
+		mISDNport->l1link = 1;
+		mISDNport->l2link = 1;
+	} else
+	{
+		mISDNport->l1link = -1;
+		mISDNport->l2link = -1;
+	}
+	mISDNport->gsm = gsm;
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
@@ -2307,7 +2353,6 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	}
 		
 	/* allocate ressources of port */
-	/* open layer 3 and init upqueue */
 	protocol = (nt)?L3_PROTOCOL_DSS1_NET:L3_PROTOCOL_DSS1_USER;
 	prop = (1 << MISDN_FLG_L2_CLEAN);
 	if (ptp) // ptp forced
@@ -2318,41 +2363,65 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	       prop |= (1 << MISDN_FLG_L1_HOLD);
 	if (l2hold) // supports layer 2 hold
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
-	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
-	mqueue_init(&mISDNport->upqueue);
-	mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
-	if (!mISDNport->ml3)
+	/* open layer 3 and init upqueue */
+	if (gsm)
 	{
-		mqueue_purge(&mISDNport->upqueue);
-		PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
-		start_trace(port,
-		    	interface,
-			NULL,
-			NULL,
-			DIRECTION_NONE,
-			CATEGORY_CH,
-			0,
-			"PORT (open failed)");
-		end_trace();
-		mISDNport_close(mISDNport);
-		return(NULL);
-	}
+		unsigned long on = 1;
+		struct sockaddr_mISDN addr;
 
-#if 0
-	/* if ntmode, establish L1 to send the tei removal during start */
-	if (mISDNport->ntmode)
+		if (devinfo.nrbchan < 8)
+		{
+			PERROR_RUNTIME("GSM port %d must have at least 8 b-channels.\n", port);
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
+
+		if ((mISDNport->lcr_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_NT_S0)) < 0)
+		{
+			PERROR_RUNTIME("GSM port %d failed to open socket.\n", port);
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
+		/* set nonblocking io */
+		if (ioctl(mISDNport->lcr_sock, FIONBIO, &on) < 0)
+		{
+			PERROR_RUNTIME("GSM port %d failed to set socket into nonblocking io.\n", port);
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
+		/* bind socket to dchannel */
+		memset(&addr, 0, sizeof(addr));
+		addr.family = AF_ISDN;
+		addr.dev = port;
+		addr.channel = 0;
+		if (bind(mISDNport->lcr_sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+		{
+			PERROR_RUNTIME("GSM port %d failed to bind socket. (errno %d)\n", port, errno);
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
+	} else
 	{
-		iframe_t act;
-		/* L1 */
-		act.prim = PH_ACTIVATE | REQUEST; 
-		act.addr = mISDNport->upper_id | FLG_MSG_DOWN;
-		printf("UPPER ID 0x%x, addr 0x%x\n",mISDNport->upper_id, act.addr);
-		act.dinfo = 0;
-		act.len = 0;
-		mISDN_write(mISDNdevice, &act, mISDN_HEADER_LEN+act.len, TIMEOUT_1SEC);
-		usleep(10000); /* to be sure, that l1 is up */
+		/* queue must be initializes, because l3-thread may send messages during open_layer3() */
+		mqueue_init(&mISDNport->upqueue);
+		mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
+		if (!mISDNport->ml3)
+		{
+			mqueue_purge(&mISDNport->upqueue);
+			PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
+			start_trace(port,
+				interface,
+				NULL,
+				NULL,
+				DIRECTION_NONE,
+				CATEGORY_CH,
+				0,
+				"PORT (open failed)");
+			end_trace();
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
 	}
-#endif
 
 	SCPY(mISDNport->name, devinfo.name);
 	mISDNport->b_num = devinfo.nrbchan;
@@ -2373,7 +2442,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	}
 
 	/* if ptp, pull up the link */
-	if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
+	if (!mISDNport->gsm && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode))
 	{
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
@@ -2465,12 +2534,21 @@ void mISDNport_close(struct mISDNport *mISDNport)
 		i++;
 	}
 
-	/* close layer 3, if open and purge upqueue */
-	if (mISDNport->ml3)
+	/* close layer 3, if open */
+	if (!mISDNport->gsm && mISDNport->ml3)
 	{
 		close_layer3(mISDNport->ml3);
-		mqueue_purge(&mISDNport->upqueue);
 	}
+
+	/* close gsm socket, if open */
+	if (mISDNport->gsm && mISDNport->lcr_sock > -1)
+	{
+		close(mISDNport->lcr_sock);
+	}
+
+	/* purge upqueue */
+	if (!mISDNport->gsm)
+		mqueue_purge(&mISDNport->upqueue);
 
 	/* remove from list */
 	mISDNportp = &mISDNport_first;

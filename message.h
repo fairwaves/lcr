@@ -12,7 +12,7 @@
 #define ISDN_TRANSMIT	256 // samples
 
 enum { /* interface types */
-	INFO_ITYPE_ISDN,
+	INFO_ITYPE_ISDN, /* call from external */
 	INFO_ITYPE_ISDN_EXTENSION, /* call from internal extension */
 	INFO_ITYPE_CHAN,
 	INFO_ITYPE_VBOX

@@ -24,7 +24,7 @@ dnl    Boston, MA 02110-1301, USA.
 dnl This keeps being the first instruction.
 dnl Change the 2nd argument if the version increases
 dnl 1st + 2nd argument is used for distribution package name
-AC_INIT(lcr, 1.4, andreas@eversberg.eu)
+AC_INIT(lcr, 1.5, andreas@eversberg.eu)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR([main.c])
 AM_CONFIG_HEADER(config.h)
@@ -32,7 +32,7 @@ AM_CONFIG_HEADER(config.h)
 # fix warnings from autoconf + automake
 AC_GNU_SOURCE
 # AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE(lcr,1.4)
+AM_INIT_AUTOMAKE(lcr,1.5)
 
 
 
@@ -94,6 +94,16 @@ AS_IF([test "x$with_ssl" != xno],
                    )
       ]
      )
+
+# check for gsm
+AC_ARG_WITH([gsm],
+	[AS_HELP_STRING([--with-gsm],
+			[compile with OpenBSC support (libbsc) @<:@default=no@:>@])
+	],
+	[],
+	[with_gsm=no])
+
+AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm" != "xno" )
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])

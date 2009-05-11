@@ -31,7 +31,8 @@ struct options options = {
 	0,				/* by default use priority 0 */
 	"lcr@your.machine",		/* source mail adress */
 	"/var/tmp",			/* path of lock files */
-	0700				/* rights of lcr admin socket */
+	0700,				/* rights of lcr admin socket */
+	0				/* enable gsm */
 };
 
 char options_error[256];
@@ -248,6 +249,10 @@ int read_options(void)
 		if (!strcmp(option,"socketrights"))
 		{
 			options.socketrights = strtol(param, NULL, 0);
+		} else
+		if (!strcmp(option,"gsm"))
+		{
+			options.gsm = 1;
 		} else
 		{
 			SPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);

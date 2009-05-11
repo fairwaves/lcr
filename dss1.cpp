@@ -1,6 +1,6 @@
 /*****************************************************************************\
 **                                                                           **
-** PBX4Linux                                                                 **
+** LCR                                                                       **
 **                                                                           **
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
@@ -12,7 +12,7 @@
 #include "main.h"
 #include "myisdn.h"
 // socket mISDN
-#include <sys/socket.h>
+//#include <sys/socket.h>
 extern "C" {
 }
 #include <q931.h>
@@ -81,8 +81,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		exclusive = 0;
 	
 	/* select scenario */
-	if (p_m_b_channel && p_m_b_exclusive)
-	{
+	if (p_m_b_channel && p_m_b_exclusive) {
 		/*** we gave an exclusive channel (or if we are done) ***/
 
 		/* if not first reply, we are done */
@@ -94,8 +93,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		add_trace("channel", "reply", (channel>=0)?"%d":"(none)", channel);
 
 		/* if give channel not accepted or not equal */
-		if (channel!=-1 && p_m_b_channel!=channel)
-		{
+		if (channel!=-1 && p_m_b_channel!=channel) {
 			add_trace("conclusion", NULL, "forced channel not accepted");
 			end_trace();
 			ret = -44;
@@ -109,8 +107,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		/* activate our exclusive channel */
 		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
 	} else
-	if (p_m_b_channel)
-	{
+	if (p_m_b_channel) {
 		/*** we gave a non-exclusive channel ***/
 
 		/* if not first reply, we are done */
@@ -122,8 +119,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		add_trace("channel", "reply", (channel>=0)?"%d":"(none)", channel);
 
 		/* if channel was accepted as given */
-		if (channel==-1 || p_m_b_channel==channel)
-		{
+		if (channel==-1 || p_m_b_channel==channel) {
 			add_trace("conclusion", NULL, "channel was accepted as given");
 			add_trace("connect", "channel", "%d", p_m_b_channel);
 			end_trace();
@@ -133,8 +129,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		}
 
 		/* if channel value is faulty */
-		if (channel <= 0)
-		{
+		if (channel <= 0) {
 			add_trace("conclusion", NULL, "illegal reply");
 			end_trace();
 			ret = -111; // protocol error
@@ -144,8 +139,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		/* if channel was not accepted, try to get it */
 		ret = seize_bchannel(channel, 1); // exclusively
 		add_trace("channel", "available", ret<0?"no":"yes");
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			add_trace("conclusion", NULL, "replied channel not available");
 			end_trace();
 			goto channelerror;
@@ -157,8 +151,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		/* activate channel given by remote */
 		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
 	} else
-	if (p_m_b_reserve)
-	{
+	if (p_m_b_reserve) {
 		/*** we sent 'any channel acceptable' ***/
 
 		/* if not first reply, we are done */
@@ -169,8 +162,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		add_trace("channel", "request", "any");
 		add_trace("channel", "reply", (channel>=0)?"%d":"(none)", channel);
 		/* if no channel was replied */
-		if (channel <= 0)
-		{
+		if (channel <= 0) {
 			add_trace("conclusion", NULL, "no channel, protocol error");
 			end_trace();
 			ret = -111; // protocol error
@@ -180,8 +172,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		/* we will see, if our received channel is available */
 		ret = seize_bchannel(channel, 1); // exclusively
 		add_trace("channel", "available", ret<0?"no":"yes");
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			add_trace("conclusion", NULL, "replied channel not available");
 			end_trace();
 			goto channelerror;
@@ -192,24 +183,20 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 
 		/* activate channel given by remote */
 		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
-	} else
-	{
+	} else {
 		/*** we sent 'no channel available' ***/
 
 		/* if not the first reply, but a connect, we are forced */
-		if (cmd==MT_CONNECT && p_state!=PORT_STATE_OUT_SETUP)
-		{
+		if (cmd==MT_CONNECT && p_state!=PORT_STATE_OUT_SETUP) {
 			chan_trace_header(p_m_mISDNport, this, "CHANNEL SELECTION (connect)", DIRECTION_NONE);
 			add_trace("channel", "request", "no-channel");
 			add_trace("channel", "reply", (channel>=0)?"%d%s":"(none)", channel, exclusive?" (forced)":"");
-			if (channel > 0)
-			{
+			if (channel > 0) {
 				goto use_from_connect;
 			}
 			ret = seize_bchannel(CHANNEL_ANY, 0); // any channel
 			add_trace("channel", "available", ret<0?"no":"yes");
-			if (ret < 0)
-			{
+			if (ret < 0) {
 				add_trace("conclusion", NULL, "no channel available during call-waiting");
 				end_trace();
 				goto channelerror;
@@ -232,8 +219,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		add_trace("channel", "request", "no-channel");
 		add_trace("channel", "reply", (channel>=0)?"%d":"(none)", channel);
 		/* if first reply has no channel, we are done */
-		if (channel <= 0)
-		{
+		if (channel <= 0) {
 			add_trace("conclusion", NULL, "no channel until connect");
 			end_trace();
 			return(0);
@@ -243,8 +229,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 		use_from_connect:
 		ret = seize_bchannel(channel, exclusive);
 		add_trace("channel", "available", ret<0?"no":"yes");
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			add_trace("conclusion", NULL, "replied channel not available");
 			end_trace();
 			goto channelerror;
@@ -291,8 +276,7 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 		add_trace("channel", "request", "no-channel");
 	else
 		add_trace("channel", "request", (channel>0)?"%d%s":"any", channel, exclusive?" (forced)":"");
-	if (channel==CHANNEL_NO && p_type==PORT_TYPE_DSS1_TE_IN)
-	{
+	if (channel==CHANNEL_NO && p_type==PORT_TYPE_DSS1_TE_IN) {
 		add_trace("conclusion", NULL, "incoming call-waiting not supported for TE-mode");
 		end_trace();
 		return(-6); // channel unacceptable
@@ -300,20 +284,17 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 	if (channel <= 0) /* not given, no channel, whatever.. */
 		channel = CHANNEL_ANY; /* any channel */
 	add_trace("channel", "reserved", "%d", p_m_mISDNport->b_reserved);
-	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) // of out chan..
-	{
+	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) { // of out chan..
 		add_trace("conclusion", NULL, "all channels are reserved");
 		end_trace();
 		return(-34); // no channel
 	}
 	if (channel == CHANNEL_ANY)
 		goto get_from_list;
-	if (channel > 0)
-	{
+	if (channel > 0) {
 		/* check for given channel in selection list */
 		selchannel = ifport->in_channel;
-		while(selchannel)
-		{
+		while(selchannel) {
 			if (selchannel->channel == channel || selchannel->channel == CHANNEL_FREE)
 				break;
 			selchannel = selchannel->next;
@@ -322,19 +303,16 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 			channel = 0;
 
 		/* exclusive channel requests must be in the list */
-		if (exclusive)
-		{
+		if (exclusive) {
 			/* no exclusive channel */
-			if (!channel)
-			{
+			if (!channel) {
 				add_trace("conclusion", NULL, "exclusively requested channel not in list");
 				end_trace();
 				return(-6); // channel unacceptable
 			}
 			/* get index for channel */
 			i = channel-1-(channel>=17);
-			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16)
-			{
+			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16) {
 				add_trace("conclusion", NULL, "exclusively requested channel outside interface range");
 				end_trace();
 				return(-6); // channel unacceptable
@@ -348,12 +326,10 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 		}
 
 		/* requested channels in list will be used */
-		if (channel)
-		{
+		if (channel) {
 			/* get index for channel */
 			i = channel-1-(channel>=17);
-			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16)
-			{
+			if (i < 0 || i >= p_m_mISDNport->b_num || channel == 16) {
 				add_trace("info", NULL, "requested channel %d outside interface range", channel);
 			} else /* if inside range (else) check if available */
 			if (p_m_mISDNport->b_port[i] == NULL)
@@ -365,20 +341,16 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 		/* check for first free channel in list */
 		channel = 0;
 		selchannel = ifport->in_channel;
-		while(selchannel)
-		{
-			switch(selchannel->channel)
-			{
+		while(selchannel) {
+			switch(selchannel->channel) {
 				case CHANNEL_FREE: /* free channel */
 				add_trace("hunting", "channel", "free");
 				if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num)
 					break; /* all channel in use or reserverd */
 				/* find channel */
 				i = 0;
-				while(i < p_m_mISDNport->b_num)
-				{
-					if (p_m_mISDNport->b_port[i] == NULL)
-					{
+				while(i < p_m_mISDNport->b_num) {
+					if (p_m_mISDNport->b_port[i] == NULL) {
 						channel = i+1+(i>=15);
 						break;
 					}
@@ -393,8 +365,7 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 				i = selchannel->channel-1-(selchannel->channel>=17);
 				if (i >= p_m_mISDNport->b_num)
 					break; /* channel not in port */
-				if (p_m_mISDNport->b_port[i] == NULL)
-				{
+				if (p_m_mISDNport->b_port[i] == NULL) {
 					channel = selchannel->channel;
 					break;
 				}
@@ -404,8 +375,7 @@ int Pdss1::hunt_bchannel(int channel, int exclusive)
 				break; /* found channel */
 			selchannel = selchannel->next;
 		}
-		if (!channel)
-		{
+		if (!channel) {
 			add_trace("conclusion", NULL, "no channel available");
 			end_trace();
 			return(-6); // channel unacceptable
@@ -441,8 +411,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id)
-	{
+	if (p_m_d_l3id) {
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
@@ -476,8 +445,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	end_trace();
 
 	/* if blocked, release call with MT_RELEASE_COMPLETE */
-	if (p_m_mISDNport->ifport->block)
-	{
+	if (p_m_mISDNport->ifport->block) {
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_REQ, DIRECTION_OUT);
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, 27); /* temporary unavailable */
@@ -490,8 +458,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 
 	/* caller info */
-	switch (calling_present)
-	{
+	switch (calling_present) {
 		case 1:
 		p_callerinfo.present = INFO_PRESENT_RESTRICTED;
 		break;
@@ -502,8 +469,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_callerinfo.present = INFO_PRESENT_ALLOWED;
 		break;
 	}
-	switch (calling_screen)
-	{
+	switch (calling_screen) {
 		case 0:
 		p_callerinfo.screen = INFO_SCREEN_USER;
 		break;
@@ -511,8 +477,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_callerinfo.screen = INFO_SCREEN_NETWORK;
 		break;
 	}
-	switch (calling_type)
-	{
+	switch (calling_type) {
 		case -1:
 		p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
@@ -536,8 +501,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);
 
 	/* caller info2 */
-	switch (calling_present2)
-	{
+	switch (calling_present2) {
 		case 1:
 		p_callerinfo.present2 = INFO_PRESENT_RESTRICTED;
 		break;
@@ -548,8 +512,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_callerinfo.present2 = INFO_PRESENT_ALLOWED;
 		break;
 	}
-	switch (calling_screen2)
-	{
+	switch (calling_screen2) {
 		case 0:
 		p_callerinfo.screen2 = INFO_SCREEN_USER;
 		break;
@@ -557,8 +520,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_callerinfo.screen2 = INFO_SCREEN_NETWORK;
 		break;
 	}
-	switch (calling_type2)
-	{
+	switch (calling_type2) {
 		case -1:
 		p_callerinfo.ntype2 = INFO_NTYPE_NOTPRESENT;
 		break;
@@ -581,8 +543,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* dialing information */
 	SCAT(p_dialinginfo.id, (char *)keypad);
-	switch (called_type)
-	{
+	switch (called_type) {
 		case 0x1:
 		p_dialinginfo.ntype = INFO_NTYPE_INTERNATIONAL;
 		break;
@@ -598,8 +559,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 
 	/* redir info */
-	switch (redir_present)
-	{
+	switch (redir_present) {
 		case 1:
 		p_redirinfo.present = INFO_PRESENT_RESTRICTED;
 		break;
@@ -610,8 +570,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_redirinfo.present = INFO_PRESENT_ALLOWED;
 		break;
 	}
-	switch (redir_screen)
-	{
+	switch (redir_screen) {
 		case 0:
 		p_redirinfo.screen = INFO_SCREEN_USER;
 		break;
@@ -619,8 +578,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_redirinfo.screen = INFO_SCREEN_NETWORK;
 		break;
 	}
-	switch (redir_reason)
-	{
+	switch (redir_reason) {
 		case 1:
 		p_redirinfo.reason = INFO_REDIR_BUSY;
 		break;
@@ -640,8 +598,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_redirinfo.reason = INFO_REDIR_UNKNOWN;
 		break;
 	}
-	switch (redir_type)
-	{
+	switch (redir_type) {
 		case -1:
 		p_redirinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
@@ -664,8 +621,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	p_redirinfo.isdn_port = p_m_portnum;
 
 	/* bearer capability */
-	switch (bearer_capability)
-	{
+	switch (bearer_capability) {
 		case -1:
 		p_capainfo.bearer_capa = INFO_BC_AUDIO;
 		bearer_user = (options.law=='a')?3:2;
@@ -674,8 +630,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_capainfo.bearer_capa = bearer_capability;
 		break;
 	}
-	switch (bearer_mode)
-	{
+	switch (bearer_mode) {
 		case 2:
 		p_capainfo.bearer_mode = INFO_BMODE_PACKET;
 		break;
@@ -683,8 +638,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 		break;
 	}
-	switch (bearer_user)
-	{
+	switch (bearer_user) {
 		case -1:
 		p_capainfo.bearer_info1 = INFO_INFO1_NONE;
 		break;
@@ -694,8 +648,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 
 	/* hlc */
-	switch (hlc_hlc)
-	{
+	switch (hlc_hlc) {
 		case -1:
 		p_capainfo.hlc = INFO_HLC_NONE;
 		break;
@@ -703,8 +656,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_capainfo.hlc = hlc_hlc + 0x80;
 		break;
 	}
-	switch (hlc_exthlc)
-	{
+	switch (hlc_exthlc) {
 		case -1:
 		p_capainfo.exthlc = INFO_HLC_NONE;
 		break;
@@ -729,8 +681,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* open channel */
 	ret = seize_bchannel(channel, 1);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		no_channel:
 		/*
 		 * NOTE: we send MT_RELEASE_COMPLETE to "REJECT" the channel
@@ -788,8 +739,7 @@ void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l
 	end_trace();
 
 	SCAT(p_dialinginfo.id, (char *)keypad);
-	switch (type)
-	{
+	switch (type) {
 		case 0x1:
 		p_dialinginfo.ntype = INFO_NTYPE_INTERNATIONAL;
 		break;
@@ -829,8 +779,7 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 
 	/* process channel */
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = -ret;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -846,10 +795,9 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 	new_state(PORT_STATE_OUT_OVERLAP);
 
 	number = p_m_d_queue;
-	while (number[0]) /* as long we have something to dial */
-	{
-		if (max > strlen(number) || max == 0)
-			max = strlen(number);
+	while (number[0]) { /* as long we have something to dial */
+		if (max > (int)strlen(number) || max == 0)
+			max = (int)strlen(number);
       
 		nl3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
@@ -879,8 +827,7 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	end_trace();
 
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = -ret;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -898,16 +845,14 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		notify |= 0x80;
 	else
 		notify = 0;
-	if (type >= 0 || notify)
-	{
+	if (type >= 0 || notify) {
 		if (!notify && type >= 0)
 			notify = 251;
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
 		message->param.notifyinfo.notify = notify;
 		SCPY(message->param.notifyinfo.id, redir);
 		/* redirection number */
-		switch (present)
-		{
+		switch (present) {
 			case 1:
 			message->param.notifyinfo.present = INFO_PRESENT_RESTRICTED;
 			break;
@@ -918,8 +863,7 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 			message->param.notifyinfo.present = INFO_PRESENT_ALLOWED;
 			break;
 		}
-		switch (type)
-		{
+		switch (type) {
 			case -1:
 			message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 			break;
@@ -960,8 +904,7 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* process channel */
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = -ret;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -979,15 +922,13 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		notify |= 0x80;
 	else
 		notify = 0;
-	if (type >= 0 || notify)
-	{
+	if (type >= 0 || notify) {
 		if (!notify && type >= 0)
 			notify = 251;
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
 		message->param.notifyinfo.notify = notify;
 		SCPY(message->param.notifyinfo.id, redir);
-		switch (present)
-		{
+		switch (present) {
 			case 1:
 			message->param.notifyinfo.present = INFO_PRESENT_RESTRICTED;
 			break;
@@ -998,8 +939,7 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 			message->param.notifyinfo.present = INFO_PRESENT_ALLOWED;
 			break;
 		}
-		switch (type)
-		{
+		switch (type) {
 			case -1:
 			message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 			break;
@@ -1041,8 +981,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	/* select channel */
 	bchannel_before = p_m_b_channel;
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = -ret;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -1053,8 +992,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 
 	/* connect information */
-	switch (present)
-	{
+	switch (present) {
 		case 1:
 		p_connectinfo.present = INFO_PRESENT_RESTRICTED;
 		break;
@@ -1065,8 +1003,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_connectinfo.present = INFO_PRESENT_ALLOWED;
 		break;
 	}
-	switch (screen)
-	{
+	switch (screen) {
 		case 0:
 		p_connectinfo.screen = INFO_SCREEN_USER;
 		break;
@@ -1074,8 +1011,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		p_connectinfo.screen = INFO_SCREEN_NETWORK;
 		break;
 	}
-	switch (type)
-	{
+	switch (type) {
 		case -1:
 		p_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
@@ -1096,8 +1032,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	SCPY(p_connectinfo.interface, p_m_mISDNport->ifport->interface->name);
 
 	/* only in nt-mode we send connect ack. in te-mode it is done by stack itself or optional */
-	if (p_m_d_ntmode)
-	{
+	if (p_m_d_ntmode) {
 		/* send connect acknowledge */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_RES, DIRECTION_OUT);
@@ -1133,8 +1068,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		cause = 16;
 
 	/* release if remote sends us no tones */
-	if (!p_m_mISDNport->earlyb)
-	{
+	if (!p_m_mISDNport->earlyb) {
 		l3_msg *l3m;
 
 		l3m = create_l3msg();
@@ -1147,8 +1081,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		/* sending release to endpoint */
 		if (location == LOCATION_PRIVATE_LOCAL)
 			location = LOCATION_PRIVATE_REMOTE;
-		while(p_epointlist)
-		{
+		while(p_epointlist) {
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = cause;
 			message->param.disconnectinfo.location = location;
@@ -1165,16 +1098,14 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	/* sending disconnect to active endpoint and release to inactive endpoints */
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
-	if (ACTIVE_EPOINT(p_epointlist))
-	{
+	if (ACTIVE_EPOINT(p_epointlist)) {
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DISCONNECT);
 		message->param.disconnectinfo.location = location;
 		message->param.disconnectinfo.cause = cause;
 		SCAT(message->param.disconnectinfo.display, (char *)display);
 		message_put(message);
 	}
-	while(INACTIVE_EPOINT(p_epointlist))
-	{
+	while(INACTIVE_EPOINT(p_epointlist)) {
 		message = message_create(p_serial, INACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.location = location;
 		message->param.disconnectinfo.cause = cause;
@@ -1193,8 +1124,7 @@ void Pdss1::disconnect_ind_i(unsigned int cmd, unsigned int pid, struct l3_msg *
 
 	/* cause */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_DISCONNECT_IND, DIRECTION_IN);
-	if (p_m_d_collect_cause > 0)
-	{
+	if (p_m_d_collect_cause > 0) {
 		add_trace("old-cause", "location", "%d", p_m_d_collect_location);
 		add_trace("old-cause", "value", "%d", p_m_d_collect_cause);
 	}
@@ -1228,8 +1158,7 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	/* sending release to endpoint */
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
-	while(p_epointlist)
-	{
+	while(p_epointlist) {
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = cause;
 		message->param.disconnectinfo.location = location;
@@ -1260,12 +1189,10 @@ void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_m
 	
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_COMPLETE_IND, DIRECTION_IN);
 	/* in case layer 2 is down during setup, we send cause 27 loc 5 */
-	if (p_state == PORT_STATE_OUT_SETUP && p_m_mISDNport->l1link == 0)
-	{
+	if (p_state == PORT_STATE_OUT_SETUP && p_m_mISDNport->l1link == 0) {
 		cause = 27;
 		location = 5;
-	} else
-	{
+	} else {
 		dec_ie_cause(l3m, &location, &cause);
 		if (p_m_mISDNport->l1link < 0)
 			add_trace("layer 1", NULL, "unknown");
@@ -1280,8 +1207,7 @@ void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_m
 		cause = 16;
 
 	/* sending release to endpoint */
-	while(p_epointlist)
-	{
+	while(p_epointlist) {
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = cause;
 		message->param.disconnectinfo.location = location;
@@ -1324,8 +1250,7 @@ void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	message->param.notifyinfo.notify = notify;
 	SCPY(message->param.notifyinfo.id, (char *)notifyid);
 	/* redirection number */
-	switch (present)
-	{
+	switch (present) {
 		case 1:
 		message->param.notifyinfo.present = INFO_PRESENT_RESTRICTED;
 		break;
@@ -1336,8 +1261,7 @@ void Pdss1::notify_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		message->param.notifyinfo.present = INFO_PRESENT_ALLOWED;
 		break;
 	}
-	switch (type)
-	{
+	switch (type) {
 		case -1:
 		message->param.notifyinfo.ntype = INFO_NTYPE_NOTPRESENT;
 		break;
@@ -1369,8 +1293,7 @@ void Pdss1::hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_HOLD_IND, DIRECTION_IN);
 	end_trace();
 
-	if (!ACTIVE_EPOINT(p_epointlist) || p_m_hold)
-	{
+	if (!ACTIVE_EPOINT(p_epointlist) || p_m_hold) {
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_HOLD_REJECT_REQ, DIRECTION_OUT);
 		enc_ie_cause(l3m, (p_m_mISDNport->locally)?LOCATION_PRIVATE_LOCAL:LOCATION_PRIVATE_REMOTE, p_m_hold?101:31); /* normal unspecified / incompatible state */
@@ -1397,8 +1320,7 @@ void Pdss1::hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	p_m_hold = 1;
 #if 0
 	epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
-	if (epoint && p_m_d_ntmode)
-	{
+	if (epoint && p_m_d_ntmode) {
 		p_m_timeout = p_settings.tout_hold;
 		time(&p_m_timer);
 	}
@@ -1423,8 +1345,7 @@ void Pdss1::retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_channel_id(l3m, &exclusive, &channel);
 	end_trace();
 
-	if (!p_m_hold)
-	{
+	if (!p_m_hold) {
 		cause = 101; /* incompatible state */
 		reject:
 
@@ -1450,8 +1371,7 @@ void Pdss1::retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* open channel */
 	ret = seize_bchannel(channel, 1);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		no_channel:
 		cause = -ret;
 		goto reject;
@@ -1483,8 +1403,7 @@ void Pdss1::suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_call_id(l3m, callid, &len);
 	end_trace();
 
-	if (!ACTIVE_EPOINT(p_epointlist))
-	{
+	if (!ACTIVE_EPOINT(p_epointlist)) {
 		reject:
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_SUSPEND_REJECT_REQ, DIRECTION_OUT);
@@ -1499,13 +1418,10 @@ void Pdss1::suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* check if call id is in use */
 	epoint = epoint_first;
-	while(epoint)
-	{
-		if (epoint->ep_park)
-		{
+	while(epoint) {
+		if (epoint->ep_park) {
 			if (epoint->ep_park_len == len)
-			if (!memcmp(epoint->ep_park_callid, callid, len))
-			{
+			if (!memcmp(epoint->ep_park_callid, callid, len)) {
 				ret = -84; /* call id in use */
 				goto reject;
 			}
@@ -1526,8 +1442,7 @@ void Pdss1::suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	drop_bchannel();
 
 	/* sending suspend to endpoint */
-	while (p_epointlist)
-	{
+	while (p_epointlist) {
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_SUSPEND);
 		memcpy(message->param.parkinfo.callid, callid, sizeof(message->param.parkinfo.callid));
 		message->param.parkinfo.len = len;
@@ -1559,8 +1474,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	/* process given callref */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", pid);
-	if (p_m_d_l3id)
-	{
+	if (p_m_d_l3id) {
 		/* release is case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
@@ -1583,8 +1497,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	end_trace();
 
 	/* if blocked, release call */
-	if (p_m_mISDNport->ifport->block)
-	{
+	if (p_m_mISDNport->ifport->block) {
 		ret = -27;
 		goto reject;
 	}
@@ -1604,8 +1517,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 // mode (if hdlc parked) to be done. never mind, this is almost never requested
 	/* open channel */
 	ret = seize_bchannel(channel, 1);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		no_channel:
 		reject:
 		l3m = create_l3msg();
@@ -1626,10 +1538,8 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		FATAL("Incoming resume but already got an endpoint.\n");
 	ret = -85; /* no call suspended */
 	epoint = epoint_first;
-	while(epoint)
-	{
-		if (epoint->ep_park)
-		{
+	while(epoint) {
+		if (epoint->ep_park) {
 			ret = -83; /* suspended call exists, but this not */
 			if (epoint->ep_park_len == len)
 			if (!memcmp(epoint->ep_park_callid, callid, len))
@@ -1688,9 +1598,6 @@ void Pdss1::facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 /* CC_PROGRESS INDICATION */
 void Pdss1::progress_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
-	unsigned char facil[256];
-	int facil_len;
-	struct lcr_msg *message;
 	int coding, location, progress;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_PROGRESS_IND, DIRECTION_IN);
@@ -1707,16 +1614,13 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
 	int timer = 0;
 
-	switch (cmd)
-	{
+	switch (cmd) {
 		case MT_TIMEOUT:
-		if (!l3m->cause)
-		{
+		if (!l3m->cause) {
 			PERROR("Pdss1(%s) timeout without cause.\n", p_name);
 			break;
 		}
-		if (l3m->cause[0] != 5)
-		{
+		if (l3m->cause[0] != 5) {
 			PERROR("Pdss1(%s) expecting timeout with timer diagnostic. (got len=%d)\n", p_name, l3m->cause[0]);
 			break;
 		}
@@ -1741,8 +1645,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		break;
 
 		case MT_SETUP_ACKNOWLEDGE:
-		if (p_state != PORT_STATE_OUT_SETUP)
-		{
+		if (p_state != PORT_STATE_OUT_SETUP) {
 			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received setup_acknowledge, but we are not in outgoing setup state, IGNORING.\n", p_name);
 			break;
 		}
@@ -1751,8 +1654,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 		case MT_CALL_PROCEEDING:
 		if (p_state != PORT_STATE_OUT_SETUP
-		 && p_state != PORT_STATE_OUT_OVERLAP)
-		{
+		 && p_state != PORT_STATE_OUT_OVERLAP) {
 			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received proceeding, but we are not in outgoing setup OR overlap state, IGNORING.\n", p_name);
 			break;
 		}
@@ -1762,8 +1664,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		case MT_ALERTING:
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP
-		 && p_state != PORT_STATE_OUT_PROCEEDING)
-		{
+		 && p_state != PORT_STATE_OUT_PROCEEDING) {
 			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding state, IGNORING.\n", p_name);
 			break;
 		}
@@ -1774,14 +1675,12 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		if (p_state != PORT_STATE_OUT_SETUP
 		 && p_state != PORT_STATE_OUT_OVERLAP
 		 && p_state != PORT_STATE_OUT_PROCEEDING
-		 && p_state != PORT_STATE_OUT_ALERTING)
-		{
+		 && p_state != PORT_STATE_OUT_ALERTING) {
 			PDEBUG(DEBUG_ISDN, "Pdss1(%s) received alerting, but we are not in outgoing setup OR overlap OR proceeding OR ALERTING state, IGNORING.\n", p_name);
 			break;
 		}
 		connect_ind(cmd, pid, l3m);
-		if (p_m_d_notify_pending)
-		{
+		if (p_m_d_notify_pending) {
 			/* send pending notify message during connect */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
@@ -1792,8 +1691,7 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		case MT_CONNECT_ACKNOWLEDGE:
 		if (p_state == PORT_STATE_CONNECT_WAITING)
 			new_state(PORT_STATE_CONNECT);
-		if (p_m_d_notify_pending)
-		{
+		if (p_m_d_notify_pending) {
 			/* send pending notify message during connect-ack */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
@@ -1855,16 +1753,13 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		/* sending release to endpoint in case we still have an endpoint
 		 * this is because we don't get any response if a release_complete is received (or a release in release state)
 		 */
-		while(p_epointlist) // only if not already released
-		{
+		while(p_epointlist) { // only if not already released
 			struct lcr_msg *message;
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-			if (p_m_d_collect_cause)
-			{
+			if (p_m_d_collect_cause) {
 				message->param.disconnectinfo.cause = p_m_d_collect_cause;
 				message->param.disconnectinfo.location = p_m_d_collect_location;
-			} else
-			{
+			} else {
 				message->param.disconnectinfo.cause = CAUSE_NOUSER;
 				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			}
@@ -1888,41 +1783,34 @@ void Pdss1::new_state(int state)
 //	class Endpoint *epoint;
 
 	/* set timeout */
-	if (state == PORT_STATE_IN_OVERLAP)
-	{
+	if (state == PORT_STATE_IN_OVERLAP) {
 		p_m_timeout = p_m_mISDNport->ifport->tout_dialing;
 		time(&p_m_timer);
 	}
-	if (state != p_state)
-	{
+	if (state != p_state) {
 		if (state == PORT_STATE_IN_SETUP
 		 || state == PORT_STATE_OUT_SETUP
 		 || state == PORT_STATE_IN_OVERLAP
-		 || state == PORT_STATE_OUT_OVERLAP)
-		{
+		 || state == PORT_STATE_OUT_OVERLAP) {
 			p_m_timeout = p_m_mISDNport->ifport->tout_setup;
 			time(&p_m_timer);
 		}
 		if (state == PORT_STATE_IN_PROCEEDING
-		 || state == PORT_STATE_OUT_PROCEEDING)
-		{
+		 || state == PORT_STATE_OUT_PROCEEDING) {
 			p_m_timeout = p_m_mISDNport->ifport->tout_proceeding;
 			time(&p_m_timer);
 		}
 		if (state == PORT_STATE_IN_ALERTING
-		 || state == PORT_STATE_OUT_ALERTING)
-		{
+		 || state == PORT_STATE_OUT_ALERTING) {
 			p_m_timeout = p_m_mISDNport->ifport->tout_alerting;
 			time(&p_m_timer);
 		}
 		if (state == PORT_STATE_CONNECT
-		 || state == PORT_STATE_CONNECT_WAITING)
-		{
+		 || state == PORT_STATE_CONNECT_WAITING) {
 			p_m_timeout = 0;
 		}
 		if (state == PORT_STATE_IN_DISCONNECT
-		 || state == PORT_STATE_OUT_DISCONNECT)
-		{
+		 || state == PORT_STATE_OUT_DISCONNECT) {
 			p_m_timeout = p_m_mISDNport->ifport->tout_disconnect;
 			time(&p_m_timer);
 		}
@@ -1943,8 +1831,7 @@ int Pdss1::handler(void)
 		return(ret);
 
 	/* handle destruction */
-	if (p_m_delete && p_m_d_l3id==0)
-	{
+	if (p_m_delete && p_m_d_l3id==0) {
 		delete this;
 		return(-1);
 	}
@@ -1964,10 +1851,9 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 	char *number = param->information.id;
 	int max = p_m_mISDNport->ifport->dialmax;
 
-	while (number[0]) /* as long we have something to dial */
-	{
-		if (max > strlen(number) || max == 0)
-			max = strlen(number);
+	while (number[0]) { /* as long we have something to dial */
+		if (max > (int)strlen(number) || max == 0)
+			max = (int)strlen(number);
       
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
@@ -1999,8 +1885,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	int max = p_m_mISDNport->ifport->dialmax;
 
 	/* release if port is blocked */
-	if (p_m_mISDNport->ifport->block)
-	{
+	if (p_m_mISDNport->ifport->block) {
 		struct lcr_msg *message;
 
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -2023,13 +1908,11 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface);
 
 	/* only display at connect state: this case happens if endpoint is in connected mode */
-	if (p_state==PORT_STATE_CONNECT)
-	{
+	if (p_state==PORT_STATE_CONNECT) {
 		if (p_type!=PORT_TYPE_DSS1_NT_OUT
 		 && p_type!=PORT_TYPE_DSS1_NT_IN)
 			return;
-		if (p_callerinfo.display[0])
-		{
+		if (p_callerinfo.display[0]) {
 			/* sending information */
 			l3m = create_l3msg();
 			l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
@@ -2043,8 +1926,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 
 	/* attach only if not already */
 	epointlist = p_epointlist;
-	while(epointlist)
-	{
+	while(epointlist) {
 		if (epointlist->epoint_id == epoint_id)
 			break;
 		epointlist = epointlist->next;
@@ -2054,8 +1936,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 
 	/* get channel */
 	exclusive = 0;
-	if (p_m_b_channel)
-	{
+	if (p_m_b_channel) {
 		channel = p_m_b_channel;
 		exclusive = p_m_b_exclusive;
 	} else
@@ -2069,8 +1950,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	/* see MT_ASSIGN notes at do_layer3() */
 	mt_assign_pid = 0;
 	ret = p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_ASSIGN, 0, NULL);
-	if (mt_assign_pid == 0 || ret < 0)
-	{
+	if (mt_assign_pid == 0 || ret < 0) {
 		struct lcr_msg *message;
 
 		add_trace("callref", NULL, "no free id");
@@ -2093,13 +1973,10 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_REQ, DIRECTION_OUT);
 	/* channel information */
 	if (channel >= 0) /* it should */
-	{
 		enc_ie_channel_id(l3m, exclusive, channel);
-	}
 	/* caller information */
 	plan = 1;
-	switch (p_callerinfo.ntype)
-	{
+	switch (p_callerinfo.ntype) {
 		case INFO_NTYPE_UNKNOWN:
 		type = 0x0;
 		break;
@@ -2116,8 +1993,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		type = -1;
 		break;
 	}
-	switch (p_callerinfo.screen)
-	{
+	switch (p_callerinfo.screen) {
 		case INFO_SCREEN_USER:
 		screen = 0;
 		break;
@@ -2125,8 +2001,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		screen = 3;
 		break;
 	}
-	switch (p_callerinfo.present)
-	{
+	switch (p_callerinfo.present) {
 		case INFO_PRESENT_ALLOWED:
 		present = 0;
 		break;
@@ -2139,8 +2014,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	}
 	/* caller information 2 */
 	plan2 = 1;
-	switch (p_callerinfo.ntype2)
-	{
+	switch (p_callerinfo.ntype2) {
 		case INFO_NTYPE_UNKNOWN:
 		type2 = 0x0;
 		break;
@@ -2157,8 +2031,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		type2 = -1;
 		break;
 	}
-	switch (p_callerinfo.screen2)
-	{
+	switch (p_callerinfo.screen2) {
 		case INFO_SCREEN_USER:
 		screen2 = 0;
 		break;
@@ -2166,8 +2039,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		screen2 = 3;
 		break;
 	}
-	switch (p_callerinfo.present2)
-	{
+	switch (p_callerinfo.present2) {
 		case INFO_PRESENT_ALLOWED:
 		present2 = 0;
 		break;
@@ -2181,10 +2053,9 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	if (type >= 0)
 		enc_ie_calling_pn(l3m, type, plan, present, screen, (unsigned char *)p_callerinfo.id, type2, plan2, present2, screen2, (unsigned char *)p_callerinfo.id2);
 	/* dialing information */
-	if (p_dialinginfo.id[0]) /* only if we have something to dial */
-	{
-		if (max > strlen(p_dialinginfo.id) || max == 0)
-			max = strlen(p_dialinginfo.id);
+	if (p_dialinginfo.id[0]) { /* only if we have something to dial */
+		if (max > (int)strlen(p_dialinginfo.id) || max == 0)
+			max = (int)strlen(p_dialinginfo.id);
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)p_dialinginfo.id, max);
 		SCPY(p_m_d_queue, p_dialinginfo.id + max);
 	}
@@ -2192,14 +2063,12 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	if (p_dialinginfo.sending_complete)
 		enc_ie_complete(l3m, 1);
 	/* sending user-user */
-	if (param->setup.useruser.len)
-	{
+	if (param->setup.useruser.len) {
 		enc_ie_useruser(l3m, param->setup.useruser.protocol, param->setup.useruser.data, param->setup.useruser.len);
 	}
 	/* redirecting number */
 	plan = 1;
-	switch (p_redirinfo.ntype)
-	{
+	switch (p_redirinfo.ntype) {
 		case INFO_NTYPE_UNKNOWN:
 		type = 0x0;
 		break;
@@ -2216,8 +2085,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		type = -1;
 		break;
 	}
-	switch (p_redirinfo.screen)
-	{
+	switch (p_redirinfo.screen) {
 		case INFO_SCREEN_USER:
 		screen = 0;
 		break;
@@ -2225,8 +2093,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		screen = 3;
 		break;
 	}
-	switch (p_redirinfo.reason)
-	{
+	switch (p_redirinfo.reason) {
 		case INFO_REDIR_BUSY:
 		reason = 1;
 		break;
@@ -2246,8 +2113,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		reason = 0;
 		break;
 	}
-	switch (p_redirinfo.present)
-	{
+	switch (p_redirinfo.present) {
 		case INFO_PRESENT_ALLOWED:
 		present = 0;
 		break;
@@ -2267,8 +2133,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	capability = p_capainfo.bearer_capa;
 	mode = p_capainfo.bearer_mode;
 	rate = (mode==INFO_BMODE_CIRCUIT)?0x10:0x00;
-	switch (p_capainfo.bearer_info1)
-	{
+	switch (p_capainfo.bearer_info1) {
 		case INFO_INFO1_NONE:
 		user = -1;
 		break;
@@ -2278,8 +2143,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	}
 	enc_ie_bearer(l3m, coding, capability, mode, rate, -1, user);
 	/* hlc */
-	if (p_capainfo.hlc)
-	{
+	if (p_capainfo.hlc) {
 		coding = 0;
 		interpretation = 4;
 		presentation = 1;
@@ -2333,11 +2197,9 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 		notify = param->notifyinfo.notify & 0x7f;
 	else
 		notify = -1;
-	if (notify >= 0)
-	{
+	if (notify >= 0) {
 		plan = 1;
-		switch (param->notifyinfo.ntype)
-		{
+		switch (param->notifyinfo.ntype) {
 			case INFO_NTYPE_UNKNOWN:
 			type = 0;
 			break;
@@ -2354,8 +2216,7 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 			type = -1;
 			break;
 		}
-		switch (param->notifyinfo.present)
-		{
+		switch (param->notifyinfo.present) {
 			case INFO_PRESENT_ALLOWED:
 			present = 0;
 			break;
@@ -2368,23 +2229,19 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 		}
 	}
 
-	if (notify<0 && !param->notifyinfo.display[0])
-	{
+	if (notify<0 && !param->notifyinfo.display[0]) {
 		/* nothing to notify, nothing to display */
 		return;
 	}
 
-	if (notify >= 0)
-	{
-		if (p_state!=PORT_STATE_CONNECT && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING)
-		{
+	if (notify >= 0) {
+		if (p_state!=PORT_STATE_CONNECT && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING) {
 			/* queue notification */
 			if (p_m_d_notify_pending)
 				message_free(p_m_d_notify_pending);
 			p_m_d_notify_pending = message_create(ACTIVE_EPOINT(p_epointlist), p_serial, EPOINT_TO_PORT, message_id);
 			memcpy(&p_m_d_notify_pending->param, param, sizeof(union parameter));
-		} else
-		{
+		} else {
 			/* sending notification */
 			l3m = create_l3msg();
 			l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_REQ, DIRECTION_OUT);
@@ -2397,8 +2254,7 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 			end_trace();
 			p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_NOTIFY, p_m_d_l3id, l3m);
 		}
-	} else if (p_m_d_ntmode || p_m_d_tespecial)
-	{
+	} else if (p_m_d_ntmode || p_m_d_tespecial) {
 		/* sending information */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
@@ -2414,8 +2270,7 @@ void Pdss1::message_overlap(unsigned int epoint_id, int message_id, union parame
 	l3_msg *l3m;
 
 	/* in case of sending complete, we proceed */
-	if (p_dialinginfo.sending_complete)
-	{
+	if (p_dialinginfo.sending_complete) {
 		PDEBUG(DEBUG_ISDN, "sending proceeding instead of setup_acknowledge, because address is complete.\n");
 		message_proceeding(epoint_id, message_id, param);
 		return;
@@ -2468,8 +2323,7 @@ void Pdss1::message_alerting(unsigned int epoint_id, int message_id, union param
 	l3_msg *l3m;
 
 	/* NT-MODE in setup state we must send PROCEEDING first */
-	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP)
-	{
+	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP) {
 		/* sending proceeding */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
@@ -2512,8 +2366,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	class Endpoint *epoint;
 
 	/* NT-MODE in setup state we must send PROCEEDING first */
-	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP)
-	{
+	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP) {
 		/* sending proceeding */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
@@ -2531,8 +2384,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 
 	/* only display at connect state */
 	if (p_state == PORT_STATE_CONNECT)
-	if (p_connectinfo.display[0])
-	{
+	if (p_connectinfo.display[0]) {
 		/* sending information */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_REQ, DIRECTION_OUT);
@@ -2543,8 +2395,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 		return;
 	}
 
-	if (p_state!=PORT_STATE_IN_SETUP && p_state!=PORT_STATE_IN_OVERLAP && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING)
-	{
+	if (p_state!=PORT_STATE_IN_SETUP && p_state!=PORT_STATE_IN_OVERLAP && p_state!=PORT_STATE_IN_PROCEEDING && p_state!=PORT_STATE_IN_ALERTING) {
 		/* connect command only possible in setup, proceeding or alerting state */
 		return;
 	}
@@ -2554,8 +2405,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_CONNECT_REQ, DIRECTION_OUT);
 	/* connect information */
 	plan = 1;
-	switch (p_connectinfo.ntype)
-	{
+	switch (p_connectinfo.ntype) {
 		case INFO_NTYPE_UNKNOWN:
 		type = 0x0;
 		break;
@@ -2572,8 +2422,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 		type = -1;
 		break;
 	}
-	switch (param->connectinfo.screen)
-	{
+	switch (param->connectinfo.screen) {
 		case INFO_SCREEN_USER:
 		screen = 0;
 		break;
@@ -2581,8 +2430,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 		screen = 3;
 		break;
 	}
-	switch (p_connectinfo.present)
-	{
+	switch (p_connectinfo.present) {
 		case INFO_PRESENT_ALLOWED:
 		present = 0;
 		break;
@@ -2602,8 +2450,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 //	if (p_connectinfo.name[0] && (p_m_d_ntmode || p_m_d_tespecial))
 //		enc_facility_centrex(&connect->FACILITY, dmsg, (unsigned char *)p_connectinfo.name, 0);
 	/* date & time */
-	if (p_m_d_ntmode || p_m_d_tespecial)
-	{
+	if (p_m_d_ntmode || p_m_d_tespecial) {
 		epoint = find_epoint_id(epoint_id);
 		enc_ie_date(l3m, now, p_settings.no_seconds);
 	}
@@ -2627,11 +2474,9 @@ void Pdss1::message_disconnect(unsigned int epoint_id, int message_id, union par
 
 	/* we reject during incoming setup when we have no tones. also if we are in outgoing setup state */
 //	if ((p_state==PORT_STATE_IN_SETUP && !p_m_mISDNport->tones)
-if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
-	{
+if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP) {
 		/* sending release to endpoint */
-		while(p_epointlist)
-		{
+		while(p_epointlist) {
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			memcpy(&message->param, param, sizeof(union parameter));
 			message_put(message);
@@ -2651,8 +2496,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP)
 	}
 
 	/* workarround: NT-MODE in setup state we must send PROCEEDING first to make it work */
-	if (p_state==PORT_STATE_IN_SETUP)
-	{
+	if (p_state==PORT_STATE_IN_SETUP) {
 		/* sending proceeding */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_PROCEEDING_REQ, DIRECTION_OUT);
@@ -2702,8 +2546,7 @@ void Pdss1::message_release(unsigned int epoint_id, int message_id, union parame
 	 * this means that the endpoint doesnt require audio anymore
 	 */
 	if (p_state == PORT_STATE_IN_DISCONNECT
-     	 || p_state == PORT_STATE_OUT_DISCONNECT)
-	{
+     	 || p_state == PORT_STATE_OUT_DISCONNECT) {
 		/* sending release */
 		l3m = create_l3msg();
 		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
@@ -2723,8 +2566,7 @@ void Pdss1::message_release(unsigned int epoint_id, int message_id, union parame
 	 * also on outgoing call setup, we send a release complete, BUT this is not conform. (i don't know any other way)
 	 */
 	if (p_state==PORT_STATE_IN_SETUP
-	 || p_state==PORT_STATE_OUT_SETUP)
-	{
+	 || p_state==PORT_STATE_OUT_SETUP) {
 //#warning remove me
 //PDEBUG(DEBUG_LOG, "JOLLY sending release complete %d\n", p_serial);
 		/* sending release complete */
@@ -2744,8 +2586,7 @@ void Pdss1::message_release(unsigned int epoint_id, int message_id, union parame
 #if 0
 wirklich erst proceeding?:
 	/* NT-MODE in setup state we must send PROCEEDING first */
-	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP)
-	{
+	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP) {
 		CALL_PROCEEDING_t *proceeding;
 
 		/* sending proceeding */
@@ -2800,15 +2641,13 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 	if (PmISDN::message_epoint(epoint_id, message_id, param))
 		return(1);
 
-	switch(message_id)
-	{
+	switch(message_id) {
 		case MESSAGE_INFORMATION: /* overlap dialing */
 		if (p_type==PORT_TYPE_DSS1_NT_OUT
 		 && p_state!=PORT_STATE_OUT_OVERLAP
 		 && p_state!=PORT_STATE_CONNECT
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
-		 && p_state!=PORT_STATE_IN_DISCONNECT)
-		{
+		 && p_state!=PORT_STATE_IN_DISCONNECT) {
 			break;
 		}
 		if (p_type==PORT_TYPE_DSS1_TE_OUT
@@ -2817,8 +2656,7 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		 && p_state!=PORT_STATE_OUT_ALERTING
 		 && p_state!=PORT_STATE_CONNECT
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
-		 && p_state!=PORT_STATE_IN_DISCONNECT)
-		{
+		 && p_state!=PORT_STATE_IN_DISCONNECT) {
 			break;
 		}
 		if ((p_type==PORT_TYPE_DSS1_NT_IN || p_type==PORT_TYPE_DSS1_TE_IN)
@@ -2828,8 +2666,7 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		 && p_state!=PORT_STATE_CONNECT
 		 && p_state!=PORT_STATE_CONNECT_WAITING
 		 && p_state!=PORT_STATE_OUT_DISCONNECT
-		 && p_state!=PORT_STATE_IN_DISCONNECT)
-		{
+		 && p_state!=PORT_STATE_IN_DISCONNECT) {
 			break;
 		}
 		message_information(epoint_id, message_id, param);
@@ -2837,8 +2674,7 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint */
 		if (p_state!=PORT_STATE_IDLE
-		 && p_state!=PORT_STATE_CONNECT)
-		{
+		 && p_state!=PORT_STATE_CONNECT) {
 			PERROR("Pdss1(%s) ignoring setup because isdn port is not in idle state (or connected for sending display info).\n", p_name);
 			break;
 		}
@@ -2856,8 +2692,7 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		break;
 
 		case MESSAGE_OVERLAP: /* more information is needed */
-		if (p_state!=PORT_STATE_IN_SETUP)
-		{
+		if (p_state!=PORT_STATE_IN_SETUP) {
 			break;
 		}
 		message_overlap(epoint_id, message_id, param);
@@ -2865,13 +2700,11 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 
 		case MESSAGE_PROCEEDING: /* call of endpoint is proceeding */
 		if (p_state!=PORT_STATE_IN_SETUP
-		 && p_state!=PORT_STATE_IN_OVERLAP)
-		{
+		 && p_state!=PORT_STATE_IN_OVERLAP) {
 			break;
 		}
 		message_proceeding(epoint_id, message_id, param);
-		if (p_m_d_notify_pending)
-		{
+		if (p_m_d_notify_pending) {
 			/* send pending notify message during connect */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
@@ -2882,13 +2715,11 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		case MESSAGE_ALERTING: /* call of endpoint is ringing */
 		if (p_state!=PORT_STATE_IN_SETUP
 		 && p_state!=PORT_STATE_IN_OVERLAP
-		 && p_state!=PORT_STATE_IN_PROCEEDING)
-		{
+		 && p_state!=PORT_STATE_IN_PROCEEDING) {
 			break;
 		}
 		message_alerting(epoint_id, message_id, param);
-		if (p_m_d_notify_pending)
-		{
+		if (p_m_d_notify_pending) {
 			/* send pending notify message during connect */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
@@ -2901,13 +2732,11 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		 && p_state!=PORT_STATE_IN_OVERLAP
 		 && p_state!=PORT_STATE_IN_PROCEEDING
 		 && p_state!=PORT_STATE_IN_ALERTING
-		 && !(p_state==PORT_STATE_CONNECT && p_m_d_ntmode))
-		{
+		 && !(p_state==PORT_STATE_CONNECT && p_m_d_ntmode)) {
 			break;
 		}
 		message_connect(epoint_id, message_id, param);
-		if (p_m_d_notify_pending)
-		{
+		if (p_m_d_notify_pending) {
 			/* send pending notify message during connect */
 			message_notify(ACTIVE_EPOINT(p_epointlist), p_m_d_notify_pending->type, &p_m_d_notify_pending->param);
 			message_free(p_m_d_notify_pending);
@@ -2925,16 +2754,14 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 		 && p_state!=PORT_STATE_OUT_PROCEEDING
 		 && p_state!=PORT_STATE_OUT_ALERTING
 		 && p_state!=PORT_STATE_CONNECT
-		 && p_state!=PORT_STATE_CONNECT_WAITING)
-		{
+		 && p_state!=PORT_STATE_CONNECT_WAITING) {
 			break;
 		}
 		message_disconnect(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_RELEASE: /* release isdn port */
-		if (p_state==PORT_STATE_RELEASE)
-		{
+		if (p_state==PORT_STATE_RELEASE) {
 			break;
 		}
 		message_release(epoint_id, message_id, param);
@@ -2960,30 +2787,24 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 
 	PDEBUG(DEBUG_ISDN, "cmd(0x%x) pid(0x%x)\n", cmd, pid);
 
-	if (pid == 0)
-	{
+	if (pid == 0) {
 		PDEBUG(DEBUG_ISDN, "ignoring dummy process from phone.\n");
 		return(0);
 	}
 
 	/* find Port object of type ISDN */
 	port = port_first;
-	while(port)
-	{
+	while(port) {
 		/* are we ISDN ? */
-		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
-		{
+		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1) {
 			pdss1 = (class Pdss1 *)port;
 			/* check out correct stack and id */
-			if (pdss1->p_m_mISDNport == mISDNport)
-			{
-				if (pdss1->p_m_d_l3id & MISDN_PID_CR_FLAG)
-				{
+			if (pdss1->p_m_mISDNport == mISDNport) {
+				if (pdss1->p_m_d_l3id & MISDN_PID_CR_FLAG) {
 					/* local callref, so match value only */
 					if ((pdss1->p_m_d_l3id & MISDN_PID_CRVAL_MASK) == (pid & MISDN_PID_CRVAL_MASK))
 						break; // found
-				} else
-				{
+				} else {
 					/* remote callref, ref + channel id */
 					if (pdss1->p_m_d_l3id == pid)
 						break; // found
@@ -2994,10 +2815,8 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	}
 
 	/* aktueller prozess */
-	if (port)
-	{
-		if (cmd == MT_ASSIGN)
-		{
+	if (port) {
+		if (cmd == MT_ASSIGN) {
 			/* stack gives us new layer 3 id (during connect) */
 			l1l2l3_trace_header(mISDNport, pdss1, L3_NEW_L3ID_IND, DIRECTION_IN);
 			add_trace("callref", "old", "0x%x", pdss1->p_m_d_l3id);
@@ -3014,11 +2833,9 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		/* if process id is master process, but a child disconnects */
 		if (mISDNport->ntmode
 		 && (pid & MISDN_PID_CRTYPE_MASK) != MISDN_PID_MASTER
-		 && (pdss1->p_m_d_l3id & MISDN_PID_CRTYPE_MASK) == MISDN_PID_MASTER)
-		{
+		 && (pdss1->p_m_d_l3id & MISDN_PID_CRTYPE_MASK) == MISDN_PID_MASTER) {
 			if (cmd == MT_DISCONNECT
-			 || cmd == MT_RELEASE)
-			{
+			 || cmd == MT_RELEASE) {
 				/* send special indication for child disconnect */
 				pdss1->disconnect_ind_i(cmd, pid, l3m);
 				return(0);
@@ -3039,8 +2856,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	}
 
 	/* d-message */
-	switch(cmd)
-	{
+	switch(cmd) {
 		case MT_SETUP:
 		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
@@ -3073,10 +2889,8 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		default:
 		PERROR("unhandled message: cmd(0x%x) pid(0x%x)\n", cmd, pid);
 		port = port_first;
-		while(port)
-		{
-			if (port->p_type == PORT_TYPE_DSS1_NT_IN || port->p_type == PORT_TYPE_DSS1_NT_OUT)
-			{
+		while(port) {
+			if (port->p_type == PORT_TYPE_DSS1_NT_IN || port->p_type == PORT_TYPE_DSS1_NT_OUT) {
 				pdss1 = (class Pdss1 *)port;
 				/* check out correct stack */
 				if (pdss1->p_m_mISDNport == mISDNport)

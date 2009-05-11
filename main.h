@@ -67,6 +67,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer);
 #define DEBUG_BCHANNEL 	0x0008
 #define DEBUG_PORT 	0x0100
 #define DEBUG_ISDN 	0x0110
+#define DEBUG_GSM 	0x0120
 //#define DEBUG_KNOCK	0x0140
 #define DEBUG_VBOX	0x0180
 #define DEBUG_EPOINT 	0x0200
@@ -147,6 +148,9 @@ extern "C" {
 #include "port.h"
 #include "mISDN.h"
 #include "dss1.h"
+#ifdef WITH_GSM
+#include "gsm.h"
+#endif
 #include "vbox.h"
 #include "join.h"
 #include "joinpbx.h"
@@ -158,6 +162,7 @@ extern "C" {
 #include "socket_server.h"
 #include "trace.h"
 
+extern int quit;
 extern double now_d;
 extern time_t now;
 extern struct tm *now_tm;

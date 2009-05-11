@@ -827,7 +827,6 @@ void EndpointAppPBX::out_setup(void)
 {
 	struct dialing_info	dialinginfo;
 	class Port		*port;
-//	class pdss1		*pdss1;
 	struct port_list	*portlist;
 	struct lcr_msg		*message;
 	int			anycall = 0;
@@ -987,9 +986,16 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating INTERNAL port */
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			if (!mISDNport->gsm)
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			else
+#ifdef WITH_GSM
+				port = new Pgsm(PORT_TYPE_GSM_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+#else
+				port = NULL;
+#endif
 			if (!port)
-				FATAL("No memory for DSS1 Port instance\n");
+				FATAL("No memory for Port instance\n");
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			SCPY(dialinginfo.id, e_dialinginfo.id);
@@ -1104,8 +1110,9 @@ void EndpointAppPBX::out_setup(void)
 				{
 					/* creating EXTERNAL port*/
 					SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-					if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode)))
-						FATAL("No memory for DSS1 Port instance\n");
+						port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+					if (!port)
+						FATAL("No memory for Port instance\n");
 					earlyb = mISDNport->earlyb;
 				} else
 				{
@@ -1200,8 +1207,16 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating EXTERNAL port*/
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-			if (!(port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode)))
-				FATAL("No memory for DSS1 Port instance\n");
+			if (!mISDNport->gsm)
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			else
+#ifdef WITH_GSM
+				port = new Pgsm(PORT_TYPE_GSM_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+#else
+				port = NULL;
+#endif
+			if (!port)
+				FATAL("No memory for Port instance\n");
 			earlyb = mISDNport->earlyb;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
@@ -1215,7 +1230,6 @@ void EndpointAppPBX::out_setup(void)
 				delete port;
 				goto check_anycall_extern;
 			}
-//			dss1 = (class Pdss1 *)port;
 //printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.id);
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
 			memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
@@ -2103,7 +2117,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE)
 	{
 		e_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
-		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT) /* external extension answered */
+		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT || portlist->port_type==PORT_TYPE_GSM_OUT) /* external extension answered */
 		{
 			port = find_port_id(portlist->port_id);
 			if (port)
@@ -3626,7 +3640,7 @@ void EndpointAppPBX::pick_join(char *extensions)
 							break;
 						}
 					}
-					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT || port->p_type==PORT_TYPE_DSS1_TE_OUT)
+					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT || port->p_type==PORT_TYPE_DSS1_TE_OUT || port->p_type==PORT_TYPE_GSM_OUT)
 					 && port->p_state==PORT_STATE_OUT_ALERTING)
 						if (match_list(extensions, eapp->e_ext.number))
 						{

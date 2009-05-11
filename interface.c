@@ -342,6 +342,12 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 				SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
 				return(-1);
 			}
+			/* check for use as GSM */
+			if (ifport->gsm)
+			{
+				SPRINT(interface_error, "Error in %s (line %d): Interface already used for GSM.\n", filename, line);
+				return(-1);
+			}
 			ifport = ifport->next;
 		}
 		searchif = searchif->next;
@@ -943,6 +949,48 @@ static int inter_dialmax(struct interface *interface, char *filename, int line, 
 	ifport->dialmax = atoi(value);
 	return(0);
 }
+static int inter_gsm(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_GSM
+	SPRINT(interface_error, "Error in %s (line %d): GSM not compiled in.\n", filename, line);
+	return(-1);
+#else
+	struct interface_port *ifport;
+	struct interface *searchif;
+
+	/* check gsm */
+	if (!gsm)
+	{
+		SPRINT(interface_error, "Error in %s (line %d): GSM is not activated.\n", filename, line);
+		return(-1);
+	}
+	searchif = interface_newlist;
+	while(searchif)
+	{
+		ifport = searchif->ifport;
+		while(ifport)
+		{
+			if (ifport->gsm)
+			{
+				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses gsm\n", filename, line, value);
+				return(-1);
+			}
+			ifport = ifport->next;
+		}
+		searchif = searchif->next;
+	}
+
+	/* set portname */
+	if (inter_portname(interface, filename, line, "portname", gsm->conf.interface_lcr))
+		return(-1);
+	/* goto end of chain again to set gsmflag*/
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->gsm = 1;
+	return(0);
+#endif
+}
 
 
 /*
@@ -1060,6 +1108,11 @@ struct interface_param interface_param[] = {
 
 	{"dialmax", &inter_dialmax, "<digits>",
 	"Limits the number of digits in setup/information message."},
+
+	{"gsm", &inter_gsm, "",
+	"Sets up GSM interface for using OpenBSC.\n"
+	"This interface must be a loopback interface. The second loopback interface\n"
+	"must be assigned to OpenBSC"},
 
 	{NULL, NULL, NULL, NULL}
 };
@@ -1412,7 +1465,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface, ifport->gsm);
 	if (mISDNport)
 	{
 		/* link port */

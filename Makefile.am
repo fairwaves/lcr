@@ -43,8 +43,18 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
-INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
+if ENABLE_GSM
 
+GSM_INCLUDE = -DWITH_GSM
+
+GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c
+
+GSM_LIB = /usr/local/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
+
+#gsm_audio.po: gsm_audio.c gsm_audio.h
+#	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
+
+endif
 
 bin_PROGRAMS = lcradmin gentones genwave
 
@@ -74,7 +84,9 @@ install-exec-hook:
 	$(INSTALL) chan_lcr.so $(astmoddir)
 endif
 
-lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
+INCLUDES = $(all_includes) $(GSM_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+
+lcr_SOURCES = $(GSM_SOURCE) action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
@@ -83,7 +95,8 @@ lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
 	callerid.c       joinremote.cpp  route.c \
 	cause.c          socket_server.c
 
-lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread
+lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB)
+
 
 lcradmin_SOURCES = lcradmin.c cause.c options.c
 genextension_SOURCES = genext.c options.c extension.c
@@ -111,6 +124,9 @@ install-data-hook:
 	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/gsm.conf ; then \
+		echo "NOTE: gsm.conf already exists, not changed." ; else \
+		cp -v default/gsm.conf $(CONFIGdir) ; fi
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \

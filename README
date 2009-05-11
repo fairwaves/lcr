@@ -487,3 +487,8 @@ Changes after Version 1.4 release
   -> Improved forking
   -> Execution action can now be done on call init or on call hangup.
 
+New release Version 1.5
+- Added GSM network support.
+  -> Requires OpenBSC, GSM codec, and a BS11 base station.
+  -> For more refer to www.linux-call-router.de.
+

@@ -67,7 +67,7 @@ Endpoint::Endpoint(unsigned int port_id, unsigned int join_id)
 		port = find_port_id(port_id);
 		if (port)
 		{
-			if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
+			if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_mISDN)
 				earlyb = ((class PmISDN *)port)->p_m_mISDNport->earlyb;
 			if (!portlist_new(port_id, port->p_type, earlyb))
 				FATAL("No memory for portlist.\n");

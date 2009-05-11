@@ -15,6 +15,8 @@
 extern int entity;
 extern int mISDNdevice;
 
+extern int mISDNsocket;
+
 enum {
 	B_EVENT_USE,		/* activate/export bchannel */
 	B_EVENT_EXPORTREQUEST,	/* remote app requests bchannel */
@@ -61,6 +63,10 @@ struct mISDNport {
 	unsigned int b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
 	int los, ais, rdi, slip_rx, slip_tx;
+
+	/* gsm */
+	int gsm; /* this is the (only) GSM interface */
+	int lcr_sock; /* socket of loopback on LCR side */
 };
 extern mISDNport *mISDNport_first;
 
@@ -82,7 +88,8 @@ calls with no bchannel (call waiting, call on hold).
 /* mISDN none-object functions */
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface);
+int mISDN_getportbyname(int sock, int cnt, char *portname);
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);

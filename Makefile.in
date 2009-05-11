@@ -75,18 +75,30 @@ gentones_LDADD = $(LDADD)
 genwave_SOURCES = genwave.c
 genwave_OBJECTS = genwave.$(OBJEXT)
 genwave_LDADD = $(LDADD)
-am_lcr_OBJECTS = action.$(OBJEXT) mISDN.$(OBJEXT) tones.$(OBJEXT) \
-	action_efi.$(OBJEXT) crypt.$(OBJEXT) mail.$(OBJEXT) \
-	trace.$(OBJEXT) action_vbox.$(OBJEXT) dss1.$(OBJEXT) \
-	main.$(OBJEXT) vbox.$(OBJEXT) alawulaw.$(OBJEXT) \
-	endpoint.$(OBJEXT) interface.$(OBJEXT) message.$(OBJEXT) \
-	apppbx.$(OBJEXT) endpointapp.$(OBJEXT) join.$(OBJEXT) \
-	options.$(OBJEXT) extension.$(OBJEXT) joinpbx.$(OBJEXT) \
-	port.$(OBJEXT) callerid.$(OBJEXT) joinremote.$(OBJEXT) \
-	route.$(OBJEXT) cause.$(OBJEXT) socket_server.$(OBJEXT)
+am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c \
+	action.cpp mISDN.cpp tones.c action_efi.cpp crypt.cpp mail.c \
+	trace.c action_vbox.cpp dss1.cpp main.c vbox.cpp alawulaw.c \
+	endpoint.cpp interface.c message.c apppbx.cpp endpointapp.cpp \
+	join.cpp options.c extension.c joinpbx.cpp port.cpp callerid.c \
+	joinremote.cpp route.c cause.c socket_server.c
+@ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
+@ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT) bootstrap.$(OBJEXT)
+am_lcr_OBJECTS = $(am__objects_1) action.$(OBJEXT) mISDN.$(OBJEXT) \
+	tones.$(OBJEXT) action_efi.$(OBJEXT) crypt.$(OBJEXT) \
+	mail.$(OBJEXT) trace.$(OBJEXT) action_vbox.$(OBJEXT) \
+	dss1.$(OBJEXT) main.$(OBJEXT) vbox.$(OBJEXT) \
+	alawulaw.$(OBJEXT) endpoint.$(OBJEXT) interface.$(OBJEXT) \
+	message.$(OBJEXT) apppbx.$(OBJEXT) endpointapp.$(OBJEXT) \
+	join.$(OBJEXT) options.$(OBJEXT) extension.$(OBJEXT) \
+	joinpbx.$(OBJEXT) port.$(OBJEXT) callerid.$(OBJEXT) \
+	joinremote.$(OBJEXT) route.$(OBJEXT) cause.$(OBJEXT) \
+	socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
-lcr_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@ENABLE_GSM_TRUE@am__DEPENDENCIES_2 = /usr/local/lib/libgsm.a \
+@ENABLE_GSM_TRUE@	/usr/local/lib/libbsc.a \
+@ENABLE_GSM_TRUE@	/usr/local/lib/libvty.a
+lcr_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
 am_lcradmin_OBJECTS = lcradmin.$(OBJEXT) cause.$(OBJEXT) \
 	options.$(OBJEXT)
 lcradmin_OBJECTS = $(am_lcradmin_OBJECTS)
@@ -103,7 +115,8 @@ CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 SOURCES = $(chan_lcr_so_SOURCES) $(genextension_SOURCES) genrc.c \
 	gentones.c genwave.c $(lcr_SOURCES) $(lcradmin_SOURCES)
 DIST_SOURCES = $(chan_lcr_so_SOURCES) $(genextension_SOURCES) genrc.c \
-	gentones.c genwave.c $(lcr_SOURCES) $(lcradmin_SOURCES)
+	gentones.c genwave.c $(am__lcr_SOURCES_DIST) \
+	$(lcradmin_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -142,6 +155,8 @@ ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE = @ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@
 ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE = @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@
+ENABLE_GSM_FALSE = @ENABLE_GSM_FALSE@
+ENABLE_GSM_TRUE = @ENABLE_GSM_TRUE@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 INSTALL_DATA = @INSTALL_DATA@
@@ -224,11 +239,14 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
-INCLUDES = $(all_includes) -I/usr/include/mISDNuser $(INSTALLATION_DEFINES) 
+@ENABLE_GSM_TRUE@GSM_INCLUDE = -DWITH_GSM
+@ENABLE_GSM_TRUE@GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c
+@ENABLE_GSM_TRUE@GSM_LIB = /usr/local/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
-lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
+INCLUDES = $(all_includes) $(GSM_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+lcr_SOURCES = $(GSM_SOURCE) action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
@@ -237,7 +255,7 @@ lcr_SOURCES = action.cpp       mISDN.cpp        tones.c \
 	callerid.c       joinremote.cpp  route.c \
 	cause.c          socket_server.c
 
-lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread
+lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB)
 lcradmin_SOURCES = lcradmin.c cause.c options.c
 genextension_SOURCES = genext.c options.c extension.c
 
@@ -387,6 +405,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/action_vbox.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alawulaw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/apppbx.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bootstrap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callerid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cause.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crypt.Po@am__quote@
@@ -398,6 +417,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/genrc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gentones.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/genwave.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_audio.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/join.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/joinpbx.Po@am__quote@
@@ -764,6 +786,9 @@ install-data-hook:
 	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/gsm.conf ; then \
+		echo "NOTE: gsm.conf already exists, not changed." ; else \
+		cp -v default/gsm.conf $(CONFIGdir) ; fi
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \
