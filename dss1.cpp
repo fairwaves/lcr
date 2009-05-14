@@ -1902,7 +1902,6 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	memcpy(&p_dialinginfo, &param->setup.dialinginfo, sizeof(p_dialinginfo));
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
-//		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
 	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
 	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface);

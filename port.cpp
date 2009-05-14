@@ -63,16 +63,14 @@ void Port::free_epointlist(struct epoint_list *epointlist)
 
 	temp = p_epointlist;
 	tempp = &p_epointlist;
-	while(temp)
-	{
+	while(temp) {
 		if (temp == epointlist)
 			break;
 
 		tempp = &temp->next;
 		temp = temp->next;
 	}
-	if (temp == 0)
-	{
+	if (temp == 0) {
 		PERROR("SOFTWARE ERROR: epointlist not in port's list.\n");
 		return;
 	}
@@ -92,16 +90,14 @@ void Port::free_epointid(unsigned int epoint_id)
 
 	temp = p_epointlist;
 	tempp = &p_epointlist;
-	while(temp)
-	{
+	while(temp) {
 		if (temp->epoint_id == epoint_id)
 			break;
 
 		tempp = &temp->next;
 		temp = temp->next;
 	}
-	if (temp == 0)
-	{
+	if (temp == 0) {
 		PERROR("epoint_id not in port's list.\n");
 		return;
 	}
@@ -155,13 +151,11 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 	/* initialize object */
 	if (settings)
 		memcpy(&p_settings, settings, sizeof(struct port_settings));
-	else
-	{
+	else {
 		memset(&p_settings, 0, sizeof(p_settings));
-		SCPY(p_settings.tones_dir, options.tones_dir);
 	}
 	SCPY(p_name, portname);
-	SCPY(p_tone_dir, p_settings.tones_dir); // just to be sure
+	p_tone_dir[0] = '\0';
 	p_type = type;
 	p_serial = port_serial++;
 	p_tone_fh = -1;
@@ -190,8 +184,7 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 	next = NULL;
 	temp = port_first;
 	tempp = &port_first;
-	while(temp)
-	{
+	while(temp) {
 		tempp = &temp->next;
 		temp = temp->next;
 	}
@@ -217,8 +210,7 @@ Port::~Port(void)
 	PDEBUG(DEBUG_PORT, "removing port of type %d, name '%s'\n", p_type, p_name);
 
 	/* disconnect port from endpoint */
-	while(p_epointlist)
-	{
+	while(p_epointlist) {
 		/* send disconnect */
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = 16;
@@ -231,8 +223,7 @@ Port::~Port(void)
 	/* remove port from chain */
 	temp=port_first;
 	tempp=&port_first;
-	while(temp)
-	{
+	while(temp) {
 		if (temp == this)
 			break;
 		tempp = &temp->next;
@@ -244,8 +235,7 @@ Port::~Port(void)
 	*tempp=this->next;
 
 	/* close open tones file */
-	if (p_tone_fh >= 0)
-	{
+	if (p_tone_fh >= 0) {
 		close(p_tone_fh);
 		p_tone_fh = -1;
 		fhuse--;
@@ -271,8 +261,7 @@ class Port *find_port_id(unsigned int port_id)
 {
 	class Port *port = port_first;
 
-	while(port)
-	{
+	while(port) {
 //printf("comparing: '%s' with '%s'\n", name, port->name);
 		if (port->p_serial == port_id)
 			return(port);
@@ -303,16 +292,8 @@ void Port::set_tone(const char *dir, const char *name)
 	if (name == NULL)
 		name = "";
 
-#if 0
-	/* if tones is jingle, store next tone */
-	if ((p_tone_fh >= 0 || p_tone_fetched)
-	 && (!strcmp(p_tone_name, "left") || !strcmp(p_tone_name, "joined")))
-	{
-		SCPY(p_tone_dir, dir);
-		SCPY(p_tone_name, name);
-		return;
-	}
-#endif
+	if (!dir && !dir[0])
+		dir = options.tones_dir; /* just in case we have no PmISDN instance */
 
 	/* no counter, no eof, normal speed */
 	p_tone_counter = 0;
@@ -320,27 +301,22 @@ void Port::set_tone(const char *dir, const char *name)
 	p_tone_speed = 1;
 	p_tone_codec = CODEC_LAW;
 
-	if (p_tone_fh >= 0)
-	{
+	if (p_tone_fh >= 0) {
 		close(p_tone_fh);
 		p_tone_fh = -1;
 		fhuse--;
 	}
 	p_tone_fetched = NULL;
 
-	if (name[0])
-	{
-		if (name[0] == '/')
-		{
+	if (name[0]) {
+		if (name[0] == '/') {
 			SPRINT(p_tone_name, "%s", name);
 			p_tone_dir[0] = '\0';
-		} else
-		{
+		} else {
 			SCPY(p_tone_dir, dir);
 			SCPY(p_tone_name, name);
 		}
-	} else
-	{
+	} else {
 	 	p_tone_name[0]= '\0';
 	 	p_tone_dir[0]= '\0';
 		return;
@@ -350,41 +326,34 @@ void Port::set_tone(const char *dir, const char *name)
 		return;
 
 	/* now we check if the cause exists, otherwhise we use error tone. */
-	if ((p_tone_fetched=open_tone_fetched(p_tone_dir, p_tone_name, &p_tone_codec, 0, 0)))
-	{
+	if ((p_tone_fetched=open_tone_fetched(p_tone_dir, p_tone_name, &p_tone_codec, 0, 0))) {
 		p_tone_fetched = NULL;
 		return;
 	}
 	SPRINT(filename, "%s_loop", p_tone_name);
-	if ((p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, 0, 0)))
-	{
+	if ((p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, 0, 0))) {
 		p_tone_fetched = NULL;
 		return;
 	}
 	SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
-	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0)
-	{
+	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0) {
 		close(fh);
 		return;
 	}
 	SPRINT(filename, "%s/%s/%s_loop", SHARE_DATA, p_tone_dir, p_tone_name);
-	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0)
-	{
+	if ((fh=open_tone(filename, &p_tone_codec, 0, 0)) >= 0) {
 		close(fh);
 		return;
 	}
 
-	if (!strcmp(name,"cause_00") || !strcmp(name,"cause_10"))
-	{
+	if (!strcmp(name,"cause_00") || !strcmp(name,"cause_10")) {
 		PDEBUG(DEBUG_PORT, "PORT(%s) Given Cause 0x%s has no tone, using release tone\n", p_name, name+6);
 		SPRINT(p_tone_name,"release");
 	} else
-	if (!strcmp(name,"cause_11"))
-	{
+	if (!strcmp(name,"cause_11")) {
 		PDEBUG(DEBUG_PORT, "PORT(%s) Given Cause 0x%s has no tone, using busy tone\n", p_name, name+6);
 		SPRINT(p_tone_name,"busy");
-	} else
-	{
+	} else {
 		PDEBUG(DEBUG_PORT, "PORT(%s) Given Cause 0x%s has no tone, using error tone\n", p_name, name+6);
 		SPRINT(p_tone_name,"error");
 	}
@@ -404,8 +373,7 @@ void Port::set_vbox_tone(const char *dir, const char *name)
 	p_tone_codec = CODEC_LAW;
 	p_tone_eof = 1;
 
-	if (p_tone_fh >= 0)
-	{
+	if (p_tone_fh >= 0) {
 		close(p_tone_fh);
 		p_tone_fh = -1;
 		fhuse--;
@@ -416,25 +384,20 @@ void Port::set_vbox_tone(const char *dir, const char *name)
 	SPRINT(p_tone_name,  name);
 
 	/* now we check if the cause exists, otherwhise we use error tone. */
-	if (p_tone_dir[0])
-	{
-		if ((p_tone_fetched=open_tone_fetched(p_tone_dir, p_tone_name, &p_tone_codec, &p_tone_size, &p_tone_left)))
-		{
+	if (p_tone_dir[0]) {
+		if ((p_tone_fetched=open_tone_fetched(p_tone_dir, p_tone_name, &p_tone_codec, &p_tone_size, &p_tone_left))) {
 			PDEBUG(DEBUG_PORT, "PORT(%s) opening fetched tone: %s\n", p_name, p_tone_name);
 			return;
 		}
 		SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
-		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) >= 0)
-		{
+		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) >= 0) {
 			fhuse++;
 			PDEBUG(DEBUG_PORT, "PORT(%s) opening tone: %s\n", p_name, filename);
 			return;
 		}
-	} else
-	{
+	} else {
 		SPRINT(filename, "%s", p_tone_name);
-		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) >= 0)
-		{
+		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) >= 0) {
 			fhuse++;
 			PDEBUG(DEBUG_PORT, "PORT(%s) opening tone: %s\n", p_name, filename);
 			return;
@@ -461,11 +424,9 @@ void Port::set_vbox_play(const char *name, int offset)
 	p_tone_counter = 1;
 
 	/* seek */
-	if (p_tone_name[0])
-	{
+	if (p_tone_name[0]) {
 		/* send message with counter value */
-		if (p_tone_size>=0 && ACTIVE_EPOINT(p_epointlist))
-		{
+		if (p_tone_size>=0 && ACTIVE_EPOINT(p_epointlist)) {
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_COUNTER);
 			message->param.counter.current = offset;
 			message->param.counter.max = p_tone_size;
@@ -506,29 +467,23 @@ int Port::read_audio(unsigned char *buffer, int length)
 		return(0);
 
 	/* if the file pointer is not open, we open it */
-	if (p_tone_fh<0 && p_tone_fetched==NULL)
-	{
-		if (p_tone_dir[0])
-		{
+	if (p_tone_fh<0 && p_tone_fetched==NULL) {
+		if (p_tone_dir[0]) {
 			SPRINT(filename, "%s", p_tone_name);
 			/* if file does not exist */
-			if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left)))
-			{
+			if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left))) {
 				SPRINT(filename, "%s/%s/%s", SHARE_DATA, p_tone_dir, p_tone_name);
 				/* if file does not exist */
-				if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
-				{
+				if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0) {
 					PDEBUG(DEBUG_PORT, "PORT(%s) no tone: %s\n", p_name, filename);
 					goto try_loop;
 				}
 				fhuse++;
 			}
-		} else
-		{
+		} else {
 			SPRINT(filename, "%s", p_tone_name);
 			/* if file does not exist */
-			if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
-			{
+			if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0) {
 				PDEBUG(DEBUG_PORT, "PORT(%s) no tone: %s\n", p_name, filename);
 				goto try_loop;
 			}
@@ -540,16 +495,14 @@ int Port::read_audio(unsigned char *buffer, int length)
 read_more:
 	/* file descriptor is open read data */
 	tone_left_before = p_tone_left;
-	if (p_tone_fh >= 0)
-	{
+	if (p_tone_fh >= 0) {
 		l = read_tone(p_tone_fh, buffer, p_tone_codec, len, p_tone_size, &p_tone_left, p_tone_speed);
 		if (l<0 || l>len) /* paranoia */
 			l=0;
 		buffer += l;
 		len -= l;
 	}
-	if (p_tone_fetched)
-	{
+	if (p_tone_fetched) {
 		l = read_tone_fetched(&p_tone_fetched, buffer, len, p_tone_size, &p_tone_left, p_tone_speed);
 		if (l<0 || l>len) /* paranoia */
 			l=0;
@@ -558,11 +511,9 @@ read_more:
 	}
 
 	/* if counter is enabled, we check if we have a change */
-	if (p_tone_counter && p_tone_size>=0 && ACTIVE_EPOINT(p_epointlist))
-	{
+	if (p_tone_counter && p_tone_size>=0 && ACTIVE_EPOINT(p_epointlist)) {
 		/* if we jumed to the next second */
-		if (((p_tone_size-p_tone_left)/8000) != (p_tone_size-tone_left_before)/8000)
-		{
+		if (((p_tone_size-p_tone_left)/8000) != (p_tone_size-tone_left_before)/8000) {
 //printf("\nsize=%d left=%d\n\n",p_tone_size,p_tone_left);
 			struct lcr_msg *message;
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_COUNTER);
@@ -575,8 +526,7 @@ read_more:
 	if (len==0)
 		return(length-len);
 
-	if (p_tone_fh >= 0)
-	{
+	if (p_tone_fh >= 0) {
 		close(p_tone_fh);
 		p_tone_fh = -1;
 		fhuse--;
@@ -587,8 +537,7 @@ read_more:
 		nodata=0;
 
 	/* if the file has 0-length */
-	if (nodata>1)
-	{
+	if (nodata>1) {
 		PDEBUG(DEBUG_PORT, "PORT(%s) 0-length loop: %s\n", p_name, filename);
 		p_tone_name[0]=0;
 		p_tone_dir[0]=0;
@@ -597,23 +546,19 @@ read_more:
 
 	/* if eof is reached, or if the normal file cannot be opened, continue with the loop file if possible */
 try_loop:
-	if (p_tone_eof && ACTIVE_EPOINT(p_epointlist))
-	{
+	if (p_tone_eof && ACTIVE_EPOINT(p_epointlist)) {
 		struct lcr_msg *message;
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_TONE_EOF);
 		message_put(message);
 	}
 
-	if (p_tone_dir[0])
-	{
+	if (p_tone_dir[0]) {
 		/* if file does not exist */
 		SPRINT(filename, "%s_loop", p_tone_name);
-		if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left)))
-		{
+		if (!(p_tone_fetched=open_tone_fetched(p_tone_dir, filename, &p_tone_codec, &p_tone_size, &p_tone_left))) {
 			SPRINT(filename, "%s/%s/%s_loop", SHARE_DATA, p_tone_dir, p_tone_name);
 			/* if file does not exist */
-			if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
-			{
+			if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0) {
 				PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 				p_tone_dir[0] = '\0';
 				p_tone_name[0] = '\0';
@@ -621,12 +566,10 @@ try_loop:
 			}
 			fhuse++;
 		}
-	} else
-	{
+	} else {
 		SPRINT(filename, "%s_loop", p_tone_name);
 		/* if file does not exist */
-		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0)
-		{
+		if ((p_tone_fh=open_tone(filename, &p_tone_codec, &p_tone_size, &p_tone_left)) < 0) {
 			PDEBUG(DEBUG_PORT, "PORT(%s) no tone loop: %s\n",p_name, filename);
 			p_tone_dir[0] = '\0';
 			p_tone_name[0] = '\0';
@@ -657,8 +600,7 @@ int Port::handler(void)
 int Port::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	/* check if we got audio data from one remote port */
-	switch(message_id)
-	{
+	switch(message_id) {
 		case MESSAGE_TONE: /* play tone */
 		PDEBUG(DEBUG_PORT, "PORT(%s) isdn port with (caller id %s) setting tone '%s' dir '%s'\n", p_name, p_callerinfo.id, param->tone.name, param->tone.dir);
 		set_tone(param->tone.dir,param->tone.name);
@@ -707,8 +649,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 	char dummyheader[8+4+8+sizeof(fmt)+8];
 	char filename[256];
 
-	if (!extension)
-	{
+	if (!extension) {
 		PERROR("Port(%d) not an extension\n", p_serial);
 		return(0);
 	}
@@ -717,8 +658,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 	SCPY(p_record_vbox_email, vbox_email);
 	p_record_vbox_email_file = vbox_email_file;
 	
-	if (p_record)
-	{
+	if (p_record) {
 		PERROR("Port(%d) already recording\n", p_serial);
 		return(0);
 	}
@@ -727,10 +667,8 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 		SPRINT(filename, "%s/%s/vbox", EXTENSION_DATA, p_record_extension);
 	else
 		SPRINT(filename, "%s/%s/recordings", EXTENSION_DATA, p_record_extension);
-	if (mkdir(filename, 0755) < 0)
-	{
-		if (errno != EEXIST)
-		{
+	if (mkdir(filename, 0755) < 0) {
+		if (errno != EEXIST) {
 			PERROR("Port(%d) cannot create directory '%s'\n", p_serial, filename);
 			return(0);
 		}
@@ -740,8 +678,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 		UPRINT(strchr(filename,'\0'), "/announcement");
 	else
 		UPRINT(strchr(filename,'\0'), "/%04d-%02d-%02d_%02d%02d%02d", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-	if (vbox == 2)
-	{
+	if (vbox == 2) {
 		p_record_vbox_year = now_tm->tm_year;
 		p_record_vbox_mon = now_tm->tm_mon;
 		p_record_vbox_mday = now_tm->tm_mday;
@@ -751,15 +688,13 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 
 	/* check, if file exists (especially when an extension calls the same extension) */
 	if (vbox != 1)
-	if ((p_record = fopen(filename, "r")))
-	{
+	if ((p_record = fopen(filename, "r"))) {
 		fclose(p_record);
 		SCAT(filename, "_2nd");
 	}
 			
 	p_record = fopen(filename, "w");
-	if (!p_record)
-	{
+	if (!p_record) {
 		PERROR("Port(%d) cannot record because file cannot be opened '%s'\n", p_serial, filename);
 		return(0);
 	}
@@ -769,8 +704,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 	p_record_vbox = vbox;
 	p_record_skip = skip;
 	p_record_length = 0;
-	switch(p_record_type)
-	{
+	switch(p_record_type) {
 		case CODEC_MONO:
 		case CODEC_STEREO:
 		case CODEC_8BIT:
@@ -812,8 +746,7 @@ void Port::close_record(int beep, int mute)
 
 	SCPY(number, p_dialinginfo.id);
 	SCPY(callerid, numberrize_callerinfo(callerinfo.id, callerinfo.ntype, options.national, options.international));
-	if (callerid[0] == '\0')
-	{
+	if (callerid[0] == '\0') {
 		if (callerinfo.present == INFO_PRESENT_RESTRICTED)
 			UCPY(callerid,"anonymous");
 		else
@@ -835,24 +768,21 @@ void Port::close_record(int beep, int mute)
 		*(p++) = 'x';
 	i = 0;
 	ii = strlen(callerid);
-	while(i < ii)
-	{
+	while(i < ii) {
 		if (!strchr(valid_chars, callerid[i]))
 			callerid[i] = '_';
 		i++;
 	}
 	i = 0;
 	ii = strlen(number);
-	while(i < ii)
-	{
+	while(i < ii) {
 		if (!strchr(valid_chars, number[i]))
 			number[i] = '_';
 		i++;
 	}
 
 	/* mute */
-	if (mute && p_record_type==CODEC_MONO)
-	{
+	if (mute && p_record_type==CODEC_MONO) {
 		i = p_record_length;
 		if (i > mute)
 			i = mute;	
@@ -860,17 +790,14 @@ void Port::close_record(int beep, int mute)
 		p_record_length -= (i<<1);
 	}
 	/* add beep to the end of recording */
-	if (beep && p_record_type==CODEC_MONO)
-	{
+	if (beep && p_record_type==CODEC_MONO) {
 		i = 0;
-		while(i < 256)
-		{
+		while(i < 256) {
 			beep_mono[i] = (signed short)(sin((double)i / 5.688888888889 * 2.0 * 3.1415927) * 2000.0);
 			i++;
 		}
 		i = 0;
-		while(i < beep)
-		{
+		while(i < beep) {
 			fwrite(beep_mono, sizeof(beep_mono), 1, p_record);
 			i += sizeof(beep_mono);
 			p_record_length += sizeof(beep_mono);
@@ -878,8 +805,7 @@ void Port::close_record(int beep, int mute)
 	}
 
 	/* complete header */
-	switch(p_record_type)
-	{
+	switch(p_record_type) {
 		case CODEC_MONO:
 		case CODEC_STEREO:
 		case CODEC_8BIT:
@@ -904,8 +830,7 @@ void Port::close_record(int beep, int mute)
 
 		/* fmt */
 		fprintf(p_record, "fmt %c%c%c%c", (unsigned int)sizeof(fmt), 0, 0, 0);
-		switch(p_record_type)
-		{
+		switch(p_record_type) {
 			case CODEC_MONO:
 			fmt.stereo = 1;
 			fmt.channels = 1;
@@ -958,19 +883,16 @@ void Port::close_record(int beep, int mute)
 	fduse--;
 	p_record = NULL;
 
-	if (rename(p_record_filename, filename) < 0)
-	{
+	if (rename(p_record_filename, filename) < 0) {
 		PERROR("Port(%d) cannot rename from '%s' to '%s'\n", p_serial, p_record_filename, filename);
 		return;
 	}
 
 	PDEBUG(DEBUG_PORT, "Port(%d) recording is written and renamed to '%s' and must have the following size:%lu raw:%lu samples:%lu\n", p_serial, filename, wsize+8, size, size>>1);
 
-	if (p_record_vbox == 2)
-	{
+	if (p_record_vbox == 2) {
 		SPRINT(indexname, "%s/%s/vbox/index", EXTENSION_DATA, p_record_extension);
-		if ((fp = fopen(indexname,"a")))
-		{
+		if ((fp = fopen(indexname,"a"))) {
 			fduse++;
 
 			/* remove path from file name */
@@ -981,14 +903,12 @@ void Port::close_record(int beep, int mute)
 
 			fclose(fp);
 			fduse--;
-		} else
-		{
+		} else {
 			PERROR("Port(%d) cannot open index file '%s' to append.\n", p_serial, indexname);
 		}
 
 		/* send email with sample*/
-		if (p_record_vbox_email[0])
-		{
+		if (p_record_vbox_email[0]) {
 			send_mail(p_record_vbox_email_file?filename:(char *)"", callerid, callerinfo.extension, callerinfo.name, p_record_vbox_email, p_record_vbox_year, p_record_vbox_mon, p_record_vbox_mday, p_record_vbox_hour, p_record_vbox_min, p_record_extension);
 		}
 	}
@@ -1021,11 +941,9 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 		return;
 
 	/* skip data from local caller (dtmf input) */
-	if (p_record_skip && !dir_fromup)
-	{
+	if (p_record_skip && !dir_fromup) {
 		/* more to skip than we have */
-		if (p_record_skip > length)
-		{
+		if (p_record_skip > length) {
 			p_record_skip -= length;
 			return;
 		}
@@ -1042,14 +960,12 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 //PDEBUG(DEBUG_PORT, "record(data,%d,%d): free=%d, p_record_buffer_dir=%d, p_record_buffer_readp=%d, p_record_buffer_writep=%d.\n", length, dir_fromup, free, p_record_buffer_dir, p_record_buffer_readp, p_record_buffer_writep);
 
 	/* the buffer stores the same data stream */
-	if (dir_fromup == p_record_buffer_dir)
-	{
+	if (dir_fromup == p_record_buffer_dir) {
 same_again:
 
 //printf("same free=%d length=%d\n", free, length);
 		/* first write what we can to the buffer */
-		while(free && length)
-		{
+		while(free && length) {
 			p_record_buffer[p_record_buffer_writep] = audio_law_to_s32[*data++];
 			p_record_buffer_writep = (p_record_buffer_writep + 1) & RECORD_BUFFER_MASK;
 			free--;
@@ -1059,13 +975,11 @@ same_again:
 		if (!length)
 			return;
 		/* still data left, buffer is full, so we need to write a chunk to file */
-		switch(p_record_type)
-		{
+		switch(p_record_type) {
 			case CODEC_MONO:
 			s = (signed short *)write_buffer;
 			i = 0;
-			while(i < 256)
-			{
+			while(i < 256) {
 				*s++ = p_record_buffer[p_record_buffer_readp];
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
@@ -1076,21 +990,17 @@ same_again:
 
 			case CODEC_STEREO:
 			s = (signed short *)write_buffer;
-			if (p_record_buffer_dir)
-			{
+			if (p_record_buffer_dir) {
 				i = 0;
-				while(i < 256)
-				{
+				while(i < 256) {
 					*s++ = 0; /* nothing from down */
 					*s++ = p_record_buffer[p_record_buffer_readp];
 					p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 					i++;
 				}
-			} else
-			{
+			} else {
 				i = 0;
-				while(i < 256)
-				{
+				while(i < 256) {
 					*s++ = p_record_buffer[p_record_buffer_readp];
 					*s++ = 0; /* nothing from up */
 					p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
@@ -1104,8 +1014,7 @@ same_again:
 			case CODEC_8BIT:
 			d = write_buffer;
 			i = 0;
-			while(i < 256)
-			{
+			while(i < 256) {
 				*d++ = ((unsigned short)(p_record_buffer[p_record_buffer_readp]+0x8000)) >> 8;
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
@@ -1117,8 +1026,7 @@ same_again:
 			case CODEC_LAW:
 			d = write_buffer;
 			i = 0;
-			while(i < 256)
-			{
+			while(i < 256) {
 				*d++ = audio_s16_to_law[p_record_buffer[p_record_buffer_readp] & 0xffff];
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
@@ -1135,8 +1043,7 @@ same_again:
 	
 different_again:
 	/* if buffer empty, change it */
-	if (p_record_buffer_readp == p_record_buffer_writep)
-	{
+	if (p_record_buffer_readp == p_record_buffer_writep) {
 		p_record_buffer_dir = dir_fromup;
 		goto same_again;
 	}
@@ -1151,13 +1058,11 @@ different_again:
 //PDEBUG(DEBUG_PORT, "record(data,%d,%d): free=%d, p_record_buffer_dir=%d, p_record_buffer_readp=%d, p_record_buffer_writep=%d: mixing %d bytes.\n", length, dir_fromup, free, p_record_buffer_dir, p_record_buffer_readp, p_record_buffer_writep, ii);
 
 	/* write data mixed with the buffer */
-	switch(p_record_type)
-	{
+	switch(p_record_type) {
 		case CODEC_MONO:
 		s = (signed short *)write_buffer;
 		i = 0;
-		while(i < ii)
-		{
+		while(i < ii) {
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
@@ -1172,21 +1077,17 @@ different_again:
 		
 		case CODEC_STEREO:
 		s = (signed short *)write_buffer;
-		if (p_record_buffer_dir)
-		{
+		if (p_record_buffer_dir) {
 			i = 0;
-			while(i < ii)
-			{
+			while(i < ii) {
 				*s++ = audio_law_to_s32[*data++];
 				*s++ = p_record_buffer[p_record_buffer_readp];
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
-		} else
-		{
+		} else {
 			i = 0;
-			while(i < ii)
-			{
+			while(i < ii) {
 				*s++ = p_record_buffer[p_record_buffer_readp];
 				*s++ = audio_law_to_s32[*data++];
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
@@ -1200,8 +1101,7 @@ different_again:
 		case CODEC_8BIT:
 		d = write_buffer;
 		i = 0;
-		while(i < ii)
-		{
+		while(i < ii) {
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
@@ -1217,8 +1117,7 @@ different_again:
 		case CODEC_LAW:
 		d = write_buffer;
 		i = 0;
-		while(i < ii)
-		{
+		while(i < ii) {
 			sample = p_record_buffer[p_record_buffer_readp]
 				+ audio_law_to_s32[*data++];
 			p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;

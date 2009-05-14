@@ -23,7 +23,6 @@ struct options {
 	char	tones_dir[64];		/* directory of all tones/patterns */
 	char	fetch_tones[256];	/* directories of tones to fetch */
 	char	dummyid[32];		/* caller id for external calls if not available */
-	int	dsptones;		/* tones will be generated via dsp.o 1=american 2=ger */
 	int	schedule;		/* run process in realtime @ given priority */
 	char	email[128];		/* source email address */
 	char	lock[128];		/* path of lock files */

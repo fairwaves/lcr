@@ -615,11 +615,11 @@ void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 
 	/* modify lchan to GSM codec V1 */
 	gsm_trace_header(p_m_mISDNport, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
-	end_trace();
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_m_g_callref);
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	send_and_free_mncc(gsm->network, mode->msg_type, mode);
+	end_trace();
 
 }
 
@@ -927,6 +927,7 @@ static int message_bcs(void *net, int msg_type, void *arg)
 
 		case MNCC_REL_IND:
 		case MNCC_REL_CNF:
+		case MNCC_REJ_IND:
 		pgsm->rel_ind(msg_type, callref, mncc);
 		break;
 

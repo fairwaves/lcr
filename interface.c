@@ -31,8 +31,7 @@ void default_out_channel(struct interface_port *ifport)
 	ifport->out_channel = selchannel;
 
 	/* additional channel selection for multipoint NT ports */
-	if (!ifport->mISDNport->ptp && ifport->mISDNport->ntmode)
-	{
+	if (!ifport->mISDNport->ptp && ifport->mISDNport->ntmode) {
 		selchannelp = &(selchannel->next);
 		selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 		memuse++;
@@ -77,10 +76,8 @@ static int get_number(char *value)
  * and return pointer to next element in buffer */
 static char *get_seperated(char *buffer)
 {
-	while(*buffer)
-	{
-		if (*buffer==',' || *buffer<=32) /* seperate */
-		{
+	while(*buffer) {
+		if (*buffer==',' || *buffer<=32) { /* seperate */
 			*buffer++ = '\0';
 			while((*buffer>'\0' && *buffer<=32) || *buffer==',')
 				buffer++;
@@ -99,8 +96,7 @@ static int inter_block(struct interface *interface, char *filename, int line, ch
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -109,8 +105,7 @@ static int inter_block(struct interface *interface, char *filename, int line, ch
 	while(ifport->next)
 		ifport = ifport->next;
 	/* add value */
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -119,8 +114,7 @@ static int inter_block(struct interface *interface, char *filename, int line, ch
 }
 static int inter_extension(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -132,13 +126,11 @@ static int inter_ptp(struct interface *interface, char *filename, int line, char
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
-	if (interface->ifport->ptmp)
-	{
+	if (interface->ifport->ptmp) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' previously ptmp was given.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -147,8 +139,7 @@ static int inter_ptp(struct interface *interface, char *filename, int line, char
 	while(ifport->next)
 		ifport = ifport->next;
 	/* add value */
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -161,13 +152,11 @@ static int inter_ptmp(struct interface *interface, char *filename, int line, cha
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
-	if (interface->ifport->ptp)
-	{
+	if (interface->ifport->ptp) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' previously ptp was given.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -176,8 +165,7 @@ static int inter_ptmp(struct interface *interface, char *filename, int line, cha
 	while(ifport->next)
 		ifport = ifport->next;
 	/* add value */
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -190,8 +178,7 @@ static int inter_nt(struct interface *interface, char *filename, int line, char 
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -200,8 +187,7 @@ static int inter_nt(struct interface *interface, char *filename, int line, char 
 	while(ifport->next)
 		ifport = ifport->next;
 	/* add value */
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -213,8 +199,7 @@ static int inter_tespecial(struct interface *interface, char *filename, int line
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -223,8 +208,7 @@ static int inter_tespecial(struct interface *interface, char *filename, int line
 	while(ifport->next)
 		ifport = ifport->next;
 	/* add value */
-	if (value[0])
-	{
+	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -233,15 +217,12 @@ static int inter_tespecial(struct interface *interface, char *filename, int line
 }
 static int inter_tones(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	if (!strcasecmp(value, "yes"))
-	{
+	if (!strcasecmp(value, "yes")) {
 		interface->is_tones = IS_YES;
 	} else
-	if (!strcasecmp(value, "no"))
-	{
+	if (!strcasecmp(value, "no")) {
 		interface->is_tones = IS_NO;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects value 'yes' or 'no'.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -249,15 +230,12 @@ static int inter_tones(struct interface *interface, char *filename, int line, ch
 }
 static int inter_earlyb(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	if (!strcasecmp(value, "yes"))
-	{
+	if (!strcasecmp(value, "yes")) {
 		interface->is_earlyb = IS_YES;
 	} else
-	if (!strcasecmp(value, "no"))
-	{
+	if (!strcasecmp(value, "no")) {
 		interface->is_earlyb = IS_NO;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects value 'yes' or 'no'.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -265,15 +243,12 @@ static int inter_earlyb(struct interface *interface, char *filename, int line, c
 }
 static int inter_hunt(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	if (!strcasecmp(value, "linear"))
-	{
+	if (!strcasecmp(value, "linear")) {
 		interface->hunt = HUNT_LINEAR;
 	} else
-	if (!strcasecmp(value, "roundrobin"))
-	{
+	if (!strcasecmp(value, "roundrobin")) {
 		interface->hunt = HUNT_ROUNDROBIN;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects value 'linear' or 'roundrobin'.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -291,20 +266,16 @@ static int inter_portnum(struct interface *interface, char *filename, int line, 
 	int val;
 
 	val = get_number(value);
-	if (val == -1)
-	{
+	if (val == -1) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects one numeric value.\n", filename, line, parameter);
 		return(-1);
 	}
 	/* check for port already assigned */
 	searchif = interface_newlist;
-	while(searchif)
-	{
+	while(searchif) {
 		ifport = searchif->ifport;
-		while(ifport)
-		{
-			if (ifport->portnum == val)
-			{
+		while(ifport) {
+			if (ifport->portnum == val) {
 				SPRINT(interface_error, "Error in %s (line %d): port '%d' already used above.\n", filename, line, val);
 				return(-1);
 			}
@@ -332,19 +303,15 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 
 	/* check for port already assigned */
 	searchif = interface_newlist;
-	while(searchif)
-	{
+	while(searchif) {
 		ifport = searchif->ifport;
-		while(ifport)
-		{
-			if (!strcasecmp(ifport->portname, value))
-			{
+		while(ifport) {
+			if (!strcasecmp(ifport->portname, value)) {
 				SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
 				return(-1);
 			}
 			/* check for use as GSM */
-			if (ifport->gsm)
-			{
+			if (ifport->gsm) {
 				SPRINT(interface_error, "Error in %s (line %d): Interface already used for GSM.\n", filename, line);
 				return(-1);
 			}
@@ -371,8 +338,7 @@ static int inter_l1hold(struct interface *interface, char *filename, int line, c
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -380,15 +346,12 @@ static int inter_l1hold(struct interface *interface, char *filename, int line, c
 	ifport = interface->ifport;
 	while(ifport->next)
 		ifport = ifport->next;
-	if (!strcmp(value, "yes"))
-	{
+	if (!strcmp(value, "yes")) {
 		ifport->l1hold = 1;
 	} else
-	if (!strcmp(value, "no"))
-	{
+	if (!strcmp(value, "no")) {
 		ifport->l1hold = 0;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expecting parameter 'yes' or 'no'.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -399,8 +362,7 @@ static int inter_l2hold(struct interface *interface, char *filename, int line, c
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -408,15 +370,12 @@ static int inter_l2hold(struct interface *interface, char *filename, int line, c
 	ifport = interface->ifport;
 	while(ifport->next)
 		ifport = ifport->next;
-	if (!strcmp(value, "yes"))
-	{
+	if (!strcmp(value, "yes")) {
 		ifport->l2hold = 1;
 	} else
-	if (!strcmp(value, "no"))
-	{
+	if (!strcmp(value, "no")) {
 		ifport->l2hold = -1;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expecting parameter 'yes' or 'no'.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -430,8 +389,7 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 	char *p, *el;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -440,44 +398,35 @@ static int inter_channel_out(struct interface *interface, char *filename, int li
 	while(ifport->next)
 		ifport = ifport->next;
 	p = value;
-	while(*p)
-	{
+	while(*p) {
 		el = p;
 		p = get_seperated(p);
-		if (!strcasecmp(el, "force"))
-		{
+		if (!strcasecmp(el, "force")) {
 			ifport->channel_force = 1;
-			if (ifport->out_channel)
-			{
+			if (ifport->out_channel) {
 				SPRINT(interface_error, "Error in %s (line %d): value 'force' may only appear as first element in list.\n", filename, line);
 				return(-1);
 			}
 		} else
-		if (!strcasecmp(el, "any"))
-		{
+		if (!strcasecmp(el, "any")) {
 			val = CHANNEL_ANY;
 			goto selchannel;
 		} else
-		if (!strcasecmp(el, "free"))
-		{
+		if (!strcasecmp(el, "free")) {
 			val = CHANNEL_FREE;
 			goto selchannel;
 		} else
-		if (!strcasecmp(el, "no"))
-		{
+		if (!strcasecmp(el, "no")) {
 			val = CHANNEL_NO;
 			goto selchannel;
-		} else
-		{
+		} else {
 			val = get_number(el);
-			if (val == -1)
-			{
+			if (val == -1) {
 				SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects a comma seperated list of 'force', 'any', 'free', 'no' and any channel number.\n", filename, line, parameter);
 				return(-1);
 			}
 
-			if (val<1 || val==16 || val>126)
-			{
+			if (val<1 || val==16 || val>126) {
 				SPRINT(interface_error, "Error in %s (line %d): channel '%d' out of range.\n", filename, line, val);
 				return(-1);
 			}
@@ -504,8 +453,7 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 	char *p, *el;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -514,30 +462,24 @@ static int inter_channel_in(struct interface *interface, char *filename, int lin
 	while(ifport->next)
 		ifport = ifport->next;
 	p = value;
-	while(*p)
-	{
+	while(*p) {
 		el = p;
 		p = get_seperated(p);
-		if (ifport->in_channel) if (ifport->in_channel->channel == CHANNEL_FREE)
-		{
+		if (ifport->in_channel) if (ifport->in_channel->channel == CHANNEL_FREE) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s' has values behind 'free' keyword. They has no effect.\n", filename, line, parameter);
 				return(-1);
 		}
-		if (!strcasecmp(el, "free"))
-		{
+		if (!strcasecmp(el, "free")) {
 			val = CHANNEL_FREE;
 			goto selchannel;
-		} else
-		{
+		} else {
 			val = get_number(el);
-			if (val == -1)
-			{
+			if (val == -1) {
 				SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects a comma seperated list of channel numbers and 'free'.\n", filename, line, parameter);
 				return(-1);
 			}
 
-			if (val<1 || val==16 || val>126)
-			{
+			if (val<1 || val==16 || val>126) {
 				SPRINT(interface_error, "Error in %s (line %d): channel '%d' out of range.\n", filename, line, val);
 				return(-1);
 			}
@@ -564,8 +506,7 @@ static int inter_timeouts(struct interface *interface, char *filename, int line,
 	char *p, *el;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -574,8 +515,7 @@ static int inter_timeouts(struct interface *interface, char *filename, int line,
 	while(ifport->next)
 		ifport = ifport->next;
 	p = value;
-	if (!*p)
-	{
+	if (!*p) {
 		nofive:
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects five timeout values.\n", filename, line, parameter);
 		return(-1);
@@ -610,21 +550,18 @@ static int inter_msn(struct interface *interface, char *filename, int line, char
 	struct interface_msn *ifmsn, **ifmsnp;
 	char *p, *el;
 
-	if (!value[0])
-	{
+	if (!value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects one MSN number or a list.\n", filename, line, parameter);
 		return(-1);
 	}
-	if (interface->ifscreen_in)
-	{
+	if (interface->ifscreen_in) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not allowed with 'screen_in' parameter.\n", filename, line, parameter);
 		return(-1);
 	}
 
 	/* process list */
 	p = value;
-	while(*p)
-	{
+	while(*p) {
 		el = p;
 		p = get_seperated(p);
 		/* add MSN to list */
@@ -645,8 +582,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 	struct interface_screen *ifscreen;
 	char *p, *el;
 
-	if (!value[0])
-	{
+	if (!value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects old caller ID and new caller ID.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -664,60 +600,49 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 //	printf("interface=%s\n", interface->name);
 	/* get match */
 	p = value;
-	while(*p)
-	{
+	while(*p) {
 		el = p;
 		p = get_seperated(p);
-		if (!strcasecmp(el, "unknown"))
-		{
-			if (ifscreen->match_type != -1)
-			{
+		if (!strcasecmp(el, "unknown")) {
+			if (ifscreen->match_type != -1) {
 				typeerror:
 				SPRINT(interface_error, "Error in %s (line %d): number type already set earlier.\n", filename, line, parameter);
 				return(-1);
 			}
 			ifscreen->match_type = INFO_NTYPE_UNKNOWN;
 		} else
-		if (!strcasecmp(el, "subscriber"))
-		{
+		if (!strcasecmp(el, "subscriber")) {
 			if (ifscreen->match_type != -1)
 				goto typeerror;
 			ifscreen->match_type = INFO_NTYPE_SUBSCRIBER;
 		} else
-		if (!strcasecmp(el, "national"))
-		{
+		if (!strcasecmp(el, "national")) {
 			if (ifscreen->match_type != -1)
 				goto typeerror;
 			ifscreen->match_type = INFO_NTYPE_NATIONAL;
 		} else
-		if (!strcasecmp(el, "international"))
-		{
+		if (!strcasecmp(el, "international")) {
 			if (ifscreen->match_type != -1)
 				goto typeerror;
 			ifscreen->match_type = INFO_NTYPE_INTERNATIONAL;
 		} else
-		if (!strcasecmp(el, "allowed"))
-		{
-			if (ifscreen->match_present != -1)
-			{
+		if (!strcasecmp(el, "allowed")) {
+			if (ifscreen->match_present != -1) {
 				presenterror:
 				SPRINT(interface_error, "Error in %s (line %d): presentation type already set earlier.\n", filename, line);
 				return(-1);
 			}
 			ifscreen->match_present = INFO_PRESENT_ALLOWED;
 		} else
-		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted"))
-		{
+		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted")) {
 			if (ifscreen->match_present != -1)
 				goto presenterror;
 			ifscreen->match_present = INFO_PRESENT_RESTRICTED;
 		} else {
 			SCPY(ifscreen->match, el);
 			/* check for % at the end */
-			if (strchr(el, '%'))
-			{
-				if (strchr(el, '%') != el+strlen(el)-1)
-				{
+			if (strchr(el, '%')) {
+				if (strchr(el, '%') != el+strlen(el)-1) {
 					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
 					return(-1);
 				}
@@ -725,58 +650,48 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			break;
 		}
 	}
-	if (ifscreen->match[0] == '\0')
-	{
+	if (ifscreen->match[0] == '\0') {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects old caller ID.\n", filename, line, parameter);
 		return(-1);
 	}
 	/* get result */
-	while(*p)
-	{
+	while(*p) {
 		el = p;
 		p = get_seperated(p);
-		if (!strcasecmp(el, "unknown"))
-		{
+		if (!strcasecmp(el, "unknown")) {
 			if (ifscreen->result_type != -1)
 				goto typeerror;
 			ifscreen->result_type = INFO_NTYPE_UNKNOWN;
 		} else
-		if (!strcasecmp(el, "subscriber"))
-		{
+		if (!strcasecmp(el, "subscriber")) {
 			if (ifscreen->result_type != -1)
 				goto typeerror;
 			ifscreen->result_type = INFO_NTYPE_SUBSCRIBER;
 		} else
-		if (!strcasecmp(el, "national"))
-		{
+		if (!strcasecmp(el, "national")) {
 			if (ifscreen->result_type != -1)
 				goto typeerror;
 			ifscreen->result_type = INFO_NTYPE_NATIONAL;
 		} else
-		if (!strcasecmp(el, "international"))
-		{
+		if (!strcasecmp(el, "international")) {
 			if (ifscreen->result_type != -1)
 				goto typeerror;
 			ifscreen->result_type = INFO_NTYPE_INTERNATIONAL;
 		} else
-		if (!strcasecmp(el, "present") || !strcasecmp(el, "presented") || !strcasecmp(el, "allowed") || !strcasecmp(el, "allow"))
-		{
+		if (!strcasecmp(el, "present") || !strcasecmp(el, "presented") || !strcasecmp(el, "allowed") || !strcasecmp(el, "allow")) {
 			if (ifscreen->result_present != -1)
 				goto presenterror;
 			ifscreen->result_present = INFO_PRESENT_ALLOWED;
 		} else
-		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted") || !strcasecmp(el, "deny") || !strcasecmp(el, "denied"))
-		{
+		if (!strcasecmp(el, "restrict") || !strcasecmp(el, "restricted") || !strcasecmp(el, "deny") || !strcasecmp(el, "denied")) {
 			if (ifscreen->result_present != -1)
 				goto presenterror;
 			ifscreen->result_present = INFO_PRESENT_RESTRICTED;
 		} else {
 			SCPY(ifscreen->result, el);
 			/* check for % at the end */
-			if (strchr(el, '%'))
-			{
-				if (strchr(el, '%') != el+strlen(el)-1)
-				{
+			if (strchr(el, '%')) {
+				if (strchr(el, '%') != el+strlen(el)-1) {
 					SPRINT(interface_error, "Error in %s (line %d): %% joker found, but must at the end.\n", filename, line, parameter);
 					return(-1);
 				}
@@ -784,8 +699,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 			break;
 		}
 	}
-	if (ifscreen->result[0] == '\0')
-	{
+	if (ifscreen->result[0] == '\0') {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects new caller ID.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -793,8 +707,7 @@ static int inter_screen(struct interface_screen **ifscreenp, struct interface *i
 }
 static int inter_screen_in(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	if (interface->ifmsn)
-	{
+	if (interface->ifmsn) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not allowed with 'msn' parameter.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -810,8 +723,7 @@ static int inter_nodtmf(struct interface *interface, char *filename, int line, c
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -830,62 +742,51 @@ static int inter_filter(struct interface *interface, char *filename, int line, c
 	p = value;
 	while(*p > 32)
 		p++;
-	if (*p)
-	{
+	if (*p) {
 		*p++ = 0;
 		while(*p > 0 && *p <= 32)
 			p++;
 	}
 
-	if (!strcasecmp(value, "gain"))
-	{
+	if (!strcasecmp(value, "gain")) {
 		q = p;
 		while(*q > 32)
 			q++;
-		if (*q)
-		{
+		if (*q) {
 			*q++ = 0;
 			while(*q > 0 && *q <= 32)
 				q++;
 		}
-		if (*p == 0 || *q == 0)
-		{
+		if (*p == 0 || *q == 0) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects two gain values.\n", filename, line, parameter, value);
 			return(-1);
 		}
-		if (atoi(p)<-8 || atoi(p)>8 || atoi(q)<-8 || atoi(q)>8)
-		{
+		if (atoi(p)<-8 || atoi(p)>8 || atoi(q)<-8 || atoi(q)>8) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' gain values not in range. (-8...8)\n", filename, line, parameter, value);
 			return(-1);
 		}
 		interface->tx_gain = atoi(p);
 		interface->rx_gain = atoi(q);
 	} else
-	if (!strcasecmp(value, "pipeline"))
-	{
-		if (*p == 0)
-		{
+	if (!strcasecmp(value, "pipeline")) {
+		if (*p == 0) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects pipeline string.\n", filename, line, parameter, value);
 			return(-1);
 		}
 		SCPY(interface->pipeline, p);
 	} else
-	if (!strcasecmp(value, "blowfish"))
-	{
+	if (!strcasecmp(value, "blowfish")) {
 		unsigned char key[56];
 		int l;
 		
-		if (!!strncmp(p, "0x", 2))
-		{
+		if (!!strncmp(p, "0x", 2)) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' expects blowfish key starting with '0x'.\n", filename, line, parameter, value);
 			return(-1);
 		}
 		p += 2;
 		l = 0; 
-		while(*p)
-		{
-			if (l == 56)
-			{
+		while(*p) {
+			if (l == 56) {
 				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key too long.\n", filename, line, parameter, value);
 				return(-1);
 			}
@@ -895,15 +796,13 @@ static int inter_filter(struct interface *interface, char *filename, int line, c
 				key[l] = (*p-'a'+10)<<4;
 			else if (*p >= 'A' && *p <= 'F')
 				key[l] = (*p-'A'+10)<<4;
-			else
-			{
+			else {
 				digout:
 				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key has digits out of range. (0...9, a...f)\n", filename, line, parameter, value);
 				return(-1);
 			}
 			p++;
-			if (*p == 0)
-			{
+			if (*p == 0) {
 				SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key must end on an 8 bit boundary (two character boundary).\n", filename, line, parameter, value);
 				return(-1);
 			}
@@ -918,15 +817,13 @@ static int inter_filter(struct interface *interface, char *filename, int line, c
 			p++;
 			l++;
 		}
-		if (l < 4)
-		{
+		if (l < 4) {
 			SPRINT(interface_error, "Error in %s (line %d): parameter '%s %s' key must be at least 4 bytes (8 characters).\n", filename, line, parameter, value);
 			return(-1);
 		}
 		memcpy(interface->bf_key, key, l);
 		interface->bf_len = l;
-	} else
-	{
+	} else {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' has unknown filter '%s'.\n", filename, line, parameter, value);
 		return(-1);
 	}
@@ -937,8 +834,7 @@ static int inter_dialmax(struct interface *interface, char *filename, int line, 
 	struct interface_port *ifport;
 
 	/* port in chain ? */
-	if (!interface->ifport)
-	{
+	if (!interface->ifport) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
 		return(-1);
 	}
@@ -947,6 +843,22 @@ static int inter_dialmax(struct interface *interface, char *filename, int line, 
 	while(ifport->next)
 		ifport = ifport->next;
 	ifport->dialmax = atoi(value);
+	return(0);
+}
+static int inter_tones_dir(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	SCPY(ifport->tones_dir, value);
 	return(0);
 }
 static int inter_gsm(struct interface *interface, char *filename, int line, char *parameter, char *value)
@@ -959,19 +871,15 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	struct interface *searchif;
 
 	/* check gsm */
-	if (!gsm)
-	{
+	if (!gsm) {
 		SPRINT(interface_error, "Error in %s (line %d): GSM is not activated.\n", filename, line);
 		return(-1);
 	}
 	searchif = interface_newlist;
-	while(searchif)
-	{
+	while(searchif) {
 		ifport = searchif->ifport;
-		while(ifport)
-		{
-			if (ifport->gsm)
-			{
+		while(ifport) {
+			if (ifport->gsm) {
 				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses gsm\n", filename, line, value);
 				return(-1);
 			}
@@ -1109,6 +1017,10 @@ struct interface_param interface_param[] = {
 	{"dialmax", &inter_dialmax, "<digits>",
 	"Limits the number of digits in setup/information message."},
 
+	{"tones_dir", &inter_tones_dir, "<path>",
+	"Overrides the given tone_dir in options.conf.\n"
+	"To used kernel tones in mISDN_dsp.ko, say 'american', 'german', or 'oldgerman'."},
+
 	{"gsm", &inter_gsm, "",
 	"Sets up GSM interface for using OpenBSC.\n"
 	"This interface must be a loopback interface. The second loopback interface\n"
@@ -1141,22 +1053,19 @@ struct interface *read_interfaces(void)
 	interface_error[0] = '\0';
 	SPRINT(filename, "%s/interface.conf", CONFIG_DATA);
 
-	if (!(fp = fopen(filename,"r")))
-	{
+	if (!(fp = fopen(filename,"r"))) {
 		SPRINT(interface_error, "Cannot open '%s'\n", filename);
 		goto error;
 	}
 
 	line=0;
-	while((fgets(buffer,sizeof(buffer),fp)))
-	{
+	while((fgets(buffer,sizeof(buffer),fp))) {
 		buffer[sizeof(buffer)-1]=0;
 		if (buffer[0]) buffer[strlen(buffer)-1]=0;
 		p=buffer;
 		line++;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -1167,10 +1076,8 @@ struct interface *read_interfaces(void)
 		parameter[0]=0;
 		value[0]=0;
 		i=0; /* read parameter */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(parameter))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(parameter)) {
 				SPRINT(interface_error, "Error in %s (line %d): parameter name too long.\n",filename,line);
 				goto error;
 			}
@@ -1178,20 +1085,16 @@ struct interface *read_interfaces(void)
 			parameter[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
 		}
 
-		if (*p!=0 && *p!='#') /* missing name */
-		{
+		if (*p!=0 && *p!='#') { /* missing name */
 			i=0; /* read until end */
-			while(*p!=0 && *p!='#')
-			{
-				if (i+1 >= sizeof(value))
-				{
+			while(*p!=0 && *p!='#') {
+				if (i+1 >= sizeof(value)) {
 					SPRINT(interface_error, "Error in %s (line %d): value too long.\n", filename, line);
 					goto error;
 				}
@@ -1200,8 +1103,7 @@ struct interface *read_interfaces(void)
 			}
 
 			/* remove trailing spaces from value */
-			while(i)
-			{
+			while(i) {
 				if (value[i-1]==0 || value[i-1]>32)
 					break;
 				value[i-1] = '\0';
@@ -1210,18 +1112,15 @@ struct interface *read_interfaces(void)
 		}
 
 		/* check for interface name as first statement */
-		if (expecting && parameter[0]!='[')
-		{
+		if (expecting && parameter[0]!='[') {
 			SPRINT(interface_error, "Error in %s (line %d): expecting interface name inside [ and ], but got: '%s'.\n", filename, line, parameter);
 			goto error;
 		}
 		expecting = 0;
 
 		/* check for new interface */
-		if (parameter[0] == '[')
-		{
-			if (parameter[strlen(parameter)-1] != ']')
-			{
+		if (parameter[0] == '[') {
+			if (parameter[strlen(parameter)-1] != ']') {
 				SPRINT(interface_error, "Error in %s (line %d): expecting interface name inside [ and ], but got: '%s'.\n", filename, line, parameter);
 				goto error;
 			}
@@ -1229,10 +1128,8 @@ struct interface *read_interfaces(void)
 
 			/* check if interface name already exists */
 			interface = interface_newlist;
-			while(interface)
-			{
-				if (!strcasecmp(interface->name, parameter+1))
-				{
+			while(interface) {
+				if (!strcasecmp(interface->name, parameter+1)) {
 					SPRINT(interface_error, "Error in %s (line %d): interface name '%s' already defined above.\n", filename, line, parameter+1);
 					goto error;
 				}
@@ -1254,10 +1151,8 @@ struct interface *read_interfaces(void)
 		}
 
 		ifparam = interface_param;
-		while(ifparam->name)
-		{
-			if (!strcasecmp(parameter, ifparam->name))
-			{
+		while(ifparam->name) {
+			if (!strcasecmp(parameter, ifparam->name)) {
 				if (ifparam->func(interface, filename, line, parameter, value))
 					goto error;
 				break;
@@ -1293,22 +1188,18 @@ void free_interfaces(struct interface *interface)
 	struct interface_msn *ifmsn;
 	struct interface_screen *ifscreen;
 
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
+		while(ifport) {
 			selchannel = ifport->in_channel;
-			while(selchannel)
-			{
+			while(selchannel) {
 				temp = selchannel;
 				selchannel = selchannel->next;
 				FREE(temp, sizeof(struct select_channel));
 				memuse--;
 			}
 			selchannel = ifport->out_channel;
-			while(selchannel)
-			{
+			while(selchannel) {
 				temp = selchannel;
 				selchannel = selchannel->next;
 				FREE(temp, sizeof(struct select_channel));
@@ -1320,24 +1211,21 @@ void free_interfaces(struct interface *interface)
 			memuse--;
 		}
 		ifmsn = interface->ifmsn;
-		while(ifmsn)
-		{
+		while(ifmsn) {
 			temp = ifmsn;
 			ifmsn = ifmsn->next;
 			FREE(temp, sizeof(struct interface_msn));
 			memuse--;
 		}
 		ifscreen = interface->ifscreen_in;
-		while(ifscreen)
-		{
+		while(ifscreen) {
 			temp = ifscreen;
 			ifscreen = ifscreen->next;
 			FREE(temp, sizeof(struct interface_screen));
 			memuse--;
 		}
 		ifscreen = interface->ifscreen_out;
-		while(ifscreen)
-		{
+		while(ifscreen) {
 			temp = ifscreen;
 			ifscreen = ifscreen->next;
 			FREE(temp, sizeof(struct interface_screen));
@@ -1391,26 +1279,21 @@ void relink_interfaces(void)
 
 	/* unlink all mISDNports */
 	mISDNport = mISDNport_first;
-	while(mISDNport)
-	{
+	while(mISDNport) {
 		mISDNport->ifport = NULL;
 		mISDNport = mISDNport->next;
 	}
 
 	/* relink existing mISDNports */
 	interface = interface_newlist;
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
+		while(ifport) {
 			mISDNport = mISDNport_first;
-			while(mISDNport)
-			{
+			while(mISDNport) {
 				if (!strcmp(mISDNport->name, ifport->portname))
 					ifport->portnum = mISDNport->portnum; /* same name, so we use same number */
-				if (mISDNport->portnum == ifport->portnum)
-				{
+				if (mISDNport->portnum == ifport->portnum) {
 					PDEBUG(DEBUG_ISDN, "Port %d:%s relinking!\n", mISDNport->portnum);
 					ifport->mISDNport = mISDNport;
 					mISDNport->ifport = ifport;
@@ -1426,10 +1309,8 @@ void relink_interfaces(void)
 	/* close unused mISDNports */
 	closeagain:
 	mISDNport = mISDNport_first;
-	while(mISDNport)
-	{
-		if (mISDNport->ifport == NULL)
-		{
+	while(mISDNport) {
+		if (mISDNport->ifport == NULL) {
 			PDEBUG(DEBUG_ISDN, "Port %d is not used anymore and will be closed\n", mISDNport->portnum);
 			/* remove all port objects and destroy port */
 			mISDNport_close(mISDNport);
@@ -1440,13 +1321,10 @@ void relink_interfaces(void)
 
 	/* open and link new mISDNports */
 	interface = interface_newlist;
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
-			if (!ifport->mISDNport)
-			{
+		while(ifport) {
+			if (!ifport->mISDNport) {
 				load_port(ifport);
 			}
 			ifport = ifport->next;
@@ -1466,8 +1344,7 @@ void load_port(struct interface_port *ifport)
 
 	/* open new port */
 	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface, ifport->gsm);
-	if (mISDNport)
-	{
+	if (mISDNport) {
 		/* link port */
 		ifport->mISDNport = mISDNport;
 		mISDNport->ifport = ifport;
@@ -1476,8 +1353,7 @@ void load_port(struct interface_port *ifport)
 		SCPY(ifport->portname, mISDNport->name);
 		/* set defaults */
 		set_defaults(ifport);
-	} else
-	{
+	} else {
 		ifport->block = 2; /* not available */
 	}
 }
@@ -1494,18 +1370,15 @@ void doc_interface(void)
 
 	printf("[<name>]\n");
 	ifparam = interface_param;
-	while(ifparam->name)
-	{
+	while(ifparam->name) {
 		if (ifparam->name[0])
 			printf("%s %s\n", ifparam->name, ifparam->usage);
 		ifparam++;
 	}
 
 	ifparam = interface_param;
-	while(ifparam->name)
-	{
-		if (ifparam->name[0])
-		{
+	while(ifparam->name) {
+		if (ifparam->name[0]) {
 			printf("\nParameter: %s %s\n", ifparam->name, ifparam->usage);
 			printf("%s\n", ifparam->help);
 		}
@@ -1525,29 +1398,24 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 	char suffix[64];
 
 	/* screen incoming caller id */
-	if (!out)
-	{
+	if (!out) {
 		/* check for MSN numbers, use first MSN if no match */
 		msn1 = NULL;
 		ifmsn = interface->ifmsn;
-		while(ifmsn)
-		{
+		while(ifmsn) {
 			if (!msn1)
 				msn1 = ifmsn->msn;
-			if (!strcmp(ifmsn->msn, id))
-			{
+			if (!strcmp(ifmsn->msn, id)) {
 				break;
 			}
 			ifmsn = ifmsn->next;
 		}
-		if (ifmsn)
-		{
+		if (ifmsn) {
 			start_trace(-1, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, DIRECTION_IN, 0, 0, "SCREEN (found in MSN list)");
 			add_trace("msn", NULL, "%s", id);
 			end_trace();
 		}
-		if (!ifmsn && msn1) // not in list, first msn given
-		{
+		if (!ifmsn && msn1) { // not in list, first msn given
 			start_trace(-1, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, DIRECTION_IN, 0, 0, "SCREEN (not found in MSN list)");
 			add_trace("msn", "given", "%s", id);
 			add_trace("msn", "used", "%s", msn1);
@@ -1562,28 +1430,22 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 		ifscreen = interface->ifscreen_out;
 	else
 		ifscreen = interface->ifscreen_in;
-	while (ifscreen)
-	{
+	while (ifscreen) {
 		if (ifscreen->match_type==-1 || ifscreen->match_type==*type)
-		if (ifscreen->match_present==-1 || ifscreen->match_present==*present)
-		{
-			if (strchr(ifscreen->match,'%'))
-			{
+		if (ifscreen->match_present==-1 || ifscreen->match_present==*present) {
+			if (strchr(ifscreen->match,'%')) {
 				if (!strncmp(ifscreen->match, id, strchr(ifscreen->match,'%')-ifscreen->match))
 					break;
-			} else
-			{
+			} else {
 				if (!strcmp(ifscreen->match, id))
 					break;
 			}
 		}
 		ifscreen = ifscreen->next;
 	}
-	if (ifscreen) // match
-	{
+	if (ifscreen) { // match
 		start_trace(-1, interface, numberrize_callerinfo(id, *type, options.national, options.international), NULL, out?DIRECTION_OUT:DIRECTION_IN, 0, 0, "SCREEN (found in screen list)");
-		switch(*type)
-		{
+		switch(*type) {
 			case INFO_NTYPE_UNKNOWN:
 			add_trace("given", "type", "unknown");
 			break;
@@ -1597,8 +1459,7 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 			add_trace("given", "type", "international");
 			break;
 		}
-		switch(*present)
-		{
+		switch(*present) {
 			case INFO_PRESENT_ALLOWED:
 			add_trace("given", "present", "allowed");
 			break;
@@ -1610,11 +1471,9 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 			break;
 		}
 		add_trace("given", "id", "%s", id[0]?id:"<empty>");
-		if (ifscreen->result_type != -1)
-		{
+		if (ifscreen->result_type != -1) {
 			*type = ifscreen->result_type;
-			switch(*type)
-			{
+			switch(*type) {
 				case INFO_NTYPE_UNKNOWN:
 				add_trace("used", "type", "unknown");
 				break;
@@ -1629,11 +1488,9 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 				break;
 			}
 		}
-		if (ifscreen->result_present != -1)
-		{
+		if (ifscreen->result_present != -1) {
 			*present = ifscreen->result_present;
-			switch(*present)
-			{
+			switch(*present) {
 				case INFO_PRESENT_ALLOWED:
 				add_trace("used", "present", "allowed");
 				break;
@@ -1645,19 +1502,16 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, struct in
 				break;
 			}
 		}
-		if (strchr(ifscreen->match,'%'))
-		{
+		if (strchr(ifscreen->match,'%')) {
 			SCPY(suffix, strchr(ifscreen->match,'%') - ifscreen->match + id);
 			UNCPY(id, ifscreen->result, idsize);
 			id[idsize-1] = '\0';
-			if (strchr(id,'%'))
-			{
+			if (strchr(id,'%')) {
 				*strchr(id,'%') = '\0';
 				UNCAT(id, suffix, idsize);
 				id[idsize-1] = '\0';
 			}
-		} else
-		{
+		} else {
 			UNCPY(id, ifscreen->result, idsize);
 			id[idsize-1] = '\0';
 		}

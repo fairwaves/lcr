@@ -53,8 +53,7 @@ int read_extension(struct extension *ext, char *num)
 
 	SPRINT(filename, "%s/%s/settings", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "r")))
-	{
+	if (!(fp = fopen(filename, "r"))) {
 		printf("the given extension doesn't exist: \"%s\"\n", filename);
 		PDEBUG(DEBUG_CONFIG, "the given extension doesn't exist: \"%s\"\n", filename);
 		return(0);
@@ -69,15 +68,13 @@ int read_extension(struct extension *ext, char *num)
 	ext->vbox_codec = CODEC_MONO;
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp)))
-	{
+	while((fgets(buffer, sizeof(buffer), fp))) {
 		line++;
 		buffer[sizeof(buffer)-1] = '\0';
 		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -87,10 +84,8 @@ int read_extension(struct extension *ext, char *num)
 
 		option[0]=0;
 		i=0; /* read option */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(option))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(option)) {
 				PERROR_RUNTIME("Error in %s (line %d): option too long.\n",filename,line);
 				break;
 			}
@@ -98,8 +93,7 @@ int read_extension(struct extension *ext, char *num)
 			option[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -107,13 +101,10 @@ int read_extension(struct extension *ext, char *num)
 
 		param[0]=0;
 		param2[0]=0;
-		if (*p!=0 && *p!='#') /* param */
-		{
+		if (*p!=0 && *p!='#') { /* param */
 			i=0; /* read param */
-			while(*p > 32)
-			{
-				if (i+1 >= sizeof(param))
-				{
+			while(*p > 32) {
+				if (i+1 >= sizeof(param)) {
 					PERROR_RUNTIME("Error in %s (line %d): param too long.\n",filename,line);
 					break;
 				}
@@ -121,20 +112,16 @@ int read_extension(struct extension *ext, char *num)
 				param[i++] = *p++;
 			}
 
-			while(*p <= 32) /* skip spaces */
-			{
+			while(*p <= 32) { /* skip spaces */
 				if (*p == 0)
 					break;
 				p++;
 			}
 
-			if (*p!=0 && *p!='#') /* param2 */
-			{
+			if (*p!=0 && *p!='#') { /* param2 */
 				i=0; /* read param2 */
-				while(*p >= 32)
-				{
-					if (i+1 >= sizeof(param2))
-					{
+				while(*p >= 32) {
+					if (i+1 >= sizeof(param2)) {
 						PERROR_RUNTIME("Error in %s (line %d): param too long.\n",filename,line);
 						break;
 					}
@@ -147,105 +134,87 @@ int read_extension(struct extension *ext, char *num)
 		/* at this point we have option and param */
 
 		/* check option */
-		if (!strcmp(option,"name"))
-		{
+		if (!strcmp(option,"name")) {
 			SCPY(ext->name, param);
-			if (param2[0])
-			{
+			if (param2[0]) {
 				SCAT(ext->name, (char *)" ");
 				SCAT(ext->name, param2);
 			}
 
 			PDEBUG(DEBUG_CONFIG, "name of extension: %s\n",param);
 		} else
-		if (!strcmp(option,"prefix"))
-		{
+		if (!strcmp(option,"prefix")) {
 			SCPY(ext->prefix, param);
 
 			PDEBUG(DEBUG_CONFIG, "dial prefix on pickup: %s\n",param);
 		} else
-		if (!strcmp(option,"next"))
-		{
+		if (!strcmp(option,"next")) {
 			SCPY(ext->next, param);
 
 			PDEBUG(DEBUG_CONFIG, "dial next on pickup: %s\n",param);
 		} else
-		if (!strcmp(option,"alarm"))
-		{
+		if (!strcmp(option,"alarm")) {
 			SCPY(ext->alarm, param);
 
 			PDEBUG(DEBUG_CONFIG, "alarm message (if prefix): %s\n",param);
 		} else
-		if (!strcmp(option,"cfu"))
-		{
+		if (!strcmp(option,"cfu")) {
 			SCPY(ext->cfu, param);
 
 			PDEBUG(DEBUG_CONFIG, "call forward unconditional: %s\n",param);
 		} else
-		if (!strcmp(option,"cfb"))
-		{
+		if (!strcmp(option,"cfb")) {
 			SCPY(ext->cfb, param);
 
 			PDEBUG(DEBUG_CONFIG, "call forward when busy: %s\n",param);
 		} else
-		if (!strcmp(option,"cfnr"))
-		{
+		if (!strcmp(option,"cfnr")) {
 			SCPY(ext->cfnr, param);
 
 			PDEBUG(DEBUG_CONFIG, "call forward on no response: %s\n",param);
 		} else
-		if (!strcmp(option,"cfnr_delay"))
-		{
+		if (!strcmp(option,"cfnr_delay")) {
 			ext->cfnr_delay = atoi(param);
 			if (ext->cfnr_delay < 0)
 				ext->cfnr_delay = 1;
 
 			PDEBUG(DEBUG_CONFIG, "call forward no response delay: %d\n",ext->cfnr_delay);
 		} else
-		if (!strcmp(option,"cfp"))
-		{
+		if (!strcmp(option,"cfp")) {
 			SCPY(ext->cfp, param);
 
 			PDEBUG(DEBUG_CONFIG, "call forward parallel: %s\n",param);
 		} else
-		if (!strcmp(option,"change_forward"))
-		{
+		if (!strcmp(option,"change_forward")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->change_forward = i;
 				PDEBUG(DEBUG_CONFIG, "allow the change of forwarding: %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown parameter for change_forward: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"interfaces"))
-		{
+		if (!strcmp(option,"interfaces")) {
 			SCPY(ext->interfaces, param);
 
 			PDEBUG(DEBUG_CONFIG, "interfaces to ring calls to extension: %s %s\n",param,param2);
 		} else
-		if (!strcmp(option,"callerid"))
-		{
+		if (!strcmp(option,"callerid")) {
 			ext->callerid_present = INFO_PRESENT_ALLOWED;
 			if (!strncasecmp(param2, "anonymous", 9))
 				ext->callerid_present = INFO_PRESENT_RESTRICTED;
-			if (!strncasecmp(param, "non", 3))
-			{
+			if (!strncasecmp(param, "non", 3)) {
 				ext->callerid[0] = '\0';
 				ext->callerid_present = INFO_PRESENT_NOTAVAIL;
 				ext->callerid_type = INFO_NTYPE_UNKNOWN;
 				PDEBUG(DEBUG_CONFIG, "caller id: ID NOT AVAILABLE\n");
 			} else
-			switch(param[0])
-			{
+			switch(param[0]) {
 				case 'i':
 				case 'I':
 				ext->callerid_type = INFO_NTYPE_INTERNATIONAL;
@@ -271,25 +240,21 @@ int read_extension(struct extension *ext, char *num)
 			}
 			ext->callerid[sizeof(ext->callerid)-1] = 0;
 		} else
-		if (!strcmp(option,"id_next_call"))
-		{
+		if (!strcmp(option,"id_next_call")) {
 			ext->id_next_call_present = INFO_PRESENT_ALLOWED;
 			if (!strncasecmp(param2, "anonymous", 9))
 				ext->id_next_call_present = INFO_PRESENT_RESTRICTED;
-			if (param[0] == '\0')
-			{
+			if (param[0] == '\0') {
 				ext->id_next_call_present = -1;
 				PDEBUG(DEBUG_CONFIG, "id next call: no id for next call\n");
 			} else
-			if (!strncasecmp(param, "none", 3))
-			{
+			if (!strncasecmp(param, "none", 3)) {
 				ext->id_next_call[0] = '\0';
 				ext->id_next_call_present = INFO_PRESENT_NOTAVAIL;
 				ext->id_next_call_type = INFO_NTYPE_UNKNOWN;
 				PDEBUG(DEBUG_CONFIG, "id next call: ID NOT AVAILABLE\n");
 			} else
-			switch(param[0])
-			{
+			switch(param[0]) {
 				case 'i':
 				case 'I':
 				ext->id_next_call_type = INFO_NTYPE_INTERNATIONAL;
@@ -317,44 +282,35 @@ int read_extension(struct extension *ext, char *num)
 
 
 		} else
-		if (!strcmp(option,"change_callerid"))
-		{
+		if (!strcmp(option,"change_callerid")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->change_callerid = i;
 				PDEBUG(DEBUG_CONFIG, "allow the change of caller id: %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown parameter for change_callerid: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"anon-ignore"))
-		{
+		if (!strcmp(option,"anon-ignore")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->anon_ignore = i;
 				PDEBUG(DEBUG_CONFIG, "ignore restriction of CLIP & COLP %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown parameter given anon-ignore: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"clip"))
-		{
+		if (!strcmp(option,"clip")) {
 			if (!strcasecmp(param, "hide"))
 				ext->clip = CLIP_HIDE;
 			else
@@ -362,8 +318,7 @@ int read_extension(struct extension *ext, char *num)
 
 			PDEBUG(DEBUG_CONFIG, "clip: %d\n",ext->clip);
 		} else
-		if (!strcmp(option,"colp"))
-		{
+		if (!strcmp(option,"colp")) {
 			if (!strcasecmp(param, "hide"))
 				ext->colp = COLP_HIDE;
 			else if (!strcasecmp(param, "force"))
@@ -373,87 +328,69 @@ int read_extension(struct extension *ext, char *num)
 
 			PDEBUG(DEBUG_CONFIG, "colp: %d\n",ext->colp);
 		} else
-		if (!strcmp(option,"clip_prefix"))
-		{
+		if (!strcmp(option,"clip_prefix")) {
 			SCPY(ext->clip_prefix, param);
 
 			PDEBUG(DEBUG_CONFIG, "clip prefix: %s\n",param);
 		} else
-		if (!strcmp(option,"keypad"))
-		{
+		if (!strcmp(option,"keypad")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->keypad = i;
 				PDEBUG(DEBUG_CONFIG, "use keypad to do call control %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown parameter given keypad: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"rights"))
-		{
+		if (!strcmp(option,"rights")) {
 			i=0;
-			while(ext_rights[i])
-			{
+			while(ext_rights[i]) {
 				if (!strcasecmp(param,ext_rights[i]))
 					break;
 				i++;
 			}
-			if (ext_rights[i])
-			{
+			if (ext_rights[i]) {
 				ext->rights = i;
 				PDEBUG(DEBUG_CONFIG, "rights to dial: %s\n", ext_rights[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given rights unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"delete_ext"))
-		{
+		if (!strcmp(option,"delete_ext")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->delete_ext = i;
 				PDEBUG(DEBUG_CONFIG, "enables the delete key function for external calls: %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown parameter given delete: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"noknocking"))
-		{
+		if (!strcmp(option,"noknocking")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->noknocking = i;
 				PDEBUG(DEBUG_CONFIG, "noknocking %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given noknocking param unknown: %s\n", param);
 			}
 		} else
 		if (!strcmp(option,"rx_gain")
-		 || !strcmp(option,"rxvol"))
-		{
+		 || !strcmp(option,"rxvol")) {
 			ext->rx_gain = atoi(param);
 			if (ext->rx_gain<-8 || ext->rx_gain>8)
 				ext->rx_gain = 0;
@@ -461,106 +398,84 @@ int read_extension(struct extension *ext, char *num)
 			PDEBUG(DEBUG_CONFIG, "receive volume: %d\n",ext->rx_gain);
 		} else
 		if (!strcmp(option,"tx_gain")
-		 || !strcmp(option,"txvol"))
-		{
+		 || !strcmp(option,"txvol")) {
 			ext->tx_gain = atoi(param);
 			if (ext->tx_gain<-8 || ext->tx_gain>8)
 				ext->tx_gain = 0;
 
 			PDEBUG(DEBUG_CONFIG, "transmit volume: %d\n",ext->tx_gain);
 		} else
-		if (!strcmp(option,"own_setup"))
-		{
+		if (!strcmp(option,"own_setup")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->own_setup = i;
 				PDEBUG(DEBUG_CONFIG, "own_setup %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given own_setup param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"own_proceeding"))
-		{
+		if (!strcmp(option,"own_proceeding")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->own_proceeding = i;
 				PDEBUG(DEBUG_CONFIG, "own_proceeding %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given own_proceeding param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"own_alerting"))
-		{
+		if (!strcmp(option,"own_alerting")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->own_alerting = i;
 				PDEBUG(DEBUG_CONFIG, "own_alerting %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given own_alerting param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"own_cause"))
-		{
+		if (!strcmp(option,"own_cause")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->own_cause = i;
 				PDEBUG(DEBUG_CONFIG, "own_cause %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given own_cause param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"facility"))
-		{
+		if (!strcmp(option,"facility")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->facility = i;
 				PDEBUG(DEBUG_CONFIG, "facility %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given facility param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_cause"))
-		{
+		if (!strcmp(option,"display_cause")) {
 			if (!strcasecmp(param, "german"))
 				ext->display_cause = DISPLAY_CAUSE_GERMAN;
 			else if (!strcasecmp(param, "english"))
@@ -577,8 +492,7 @@ int read_extension(struct extension *ext, char *num)
 			PDEBUG(DEBUG_CONFIG, "display cause: %d\n",ext->display_cause);
 		} else
 #if 0
-		if (!strcmp(option,"display_ext"))
-		{
+		if (!strcmp(option,"display_ext")) {
 			if (!strcasecmp(param, "number"))
 				ext->display_ext = DISPLAY_CID_NUMBER;
 			else if (!strcasecmp(param, "abbrev"))
@@ -603,142 +517,112 @@ int read_extension(struct extension *ext, char *num)
 			PDEBUG(DEBUG_CONFIG, "display ext: %d\n",ext->display_ext);
 		} else
 #endif
-		if (!strcmp(option,"display_ext"))
-		{
+		if (!strcmp(option,"display_ext")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_ext = i;
 				PDEBUG(DEBUG_CONFIG, "display ext %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_ext param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_int"))
-		{
+		if (!strcmp(option,"display_int")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_int = i;
 				PDEBUG(DEBUG_CONFIG, "display int %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_int param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_fake"))
-		{
+		if (!strcmp(option,"display_fake")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_fake = i;
 				PDEBUG(DEBUG_CONFIG, "display fake caller ids %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_fake param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_anon"))
-		{
+		if (!strcmp(option,"display_anon")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_anon = i;
 				PDEBUG(DEBUG_CONFIG, "display anonymouse ids %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_anon param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_menu"))
-		{
+		if (!strcmp(option,"display_menu")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_menu = i;
 				PDEBUG(DEBUG_CONFIG, "display menu %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_menu param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_dialing"))
-		{
+		if (!strcmp(option,"display_dialing")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_dialing = i;
 				PDEBUG(DEBUG_CONFIG, "display dialing %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_dialing param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"display_name"))
-		{
+		if (!strcmp(option,"display_name")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->display_name = i;
 				PDEBUG(DEBUG_CONFIG, "display name %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given display_name param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"tones_dir"))
-		{
+		if (!strcmp(option,"tones_dir")) {
 			if (param[strlen(param)-1] == '/')
 				param[strlen(param)-1]=0;
 			SCPY(ext->tones_dir, param);
 
 			PDEBUG(DEBUG_CONFIG, "directory of tones: %s\n",param);
 		} else
-		if (!strcmp(option,"record"))
-		{
+		if (!strcmp(option,"record")) {
 			if (!strcasecmp(param, "mono"))
 				ext->record = CODEC_MONO;
 			else if (!strcasecmp(param, "stereo"))
@@ -751,14 +635,12 @@ int read_extension(struct extension *ext, char *num)
 				ext->record = CODEC_OFF;
 			PDEBUG(DEBUG_CONFIG, "given record param: %s\n", param);
 		} else
-		if (!strcmp(option,"password"))
-		{
+		if (!strcmp(option,"password")) {
 			SCPY(ext->password, param);
 
 			PDEBUG(DEBUG_CONFIG, "password: %s\n",param);
 		} else
-		if (!strcmp(option,"vbox_mode"))
-		{
+		if (!strcmp(option,"vbox_mode")) {
 			if (!strcasecmp(param, "parallel"))
 				ext->vbox_mode = VBOX_MODE_PARALLEL;
 			else if (!strcasecmp(param, "announcement"))
@@ -767,8 +649,7 @@ int read_extension(struct extension *ext, char *num)
 				ext->vbox_mode = VBOX_MODE_NORMAL;
 			PDEBUG(DEBUG_CONFIG, "given vbox mode: %s\n", param);
 		} else
-		if (!strcmp(option,"vbox_codec"))
-		{
+		if (!strcmp(option,"vbox_codec")) {
 			if (!strcasecmp(param, "stereo"))
 				ext->vbox_codec = CODEC_STEREO;
 			else if (!strcasecmp(param, "8bit"))
@@ -779,16 +660,14 @@ int read_extension(struct extension *ext, char *num)
 				ext->vbox_codec = CODEC_MONO;
 			PDEBUG(DEBUG_CONFIG, "given record param: %s\n", param);
 		} else
-		if (!strcmp(option,"vbox_time"))
-		{
+		if (!strcmp(option,"vbox_time")) {
 			ext->vbox_time = atoi(param);
 			if (ext->vbox_time < 0)
 				ext->vbox_time = 0;
 
 			PDEBUG(DEBUG_CONFIG, "vbox time to record: %d\n",ext->vbox_time);
 		} else
-		if (!strcmp(option,"vbox_display"))
-		{
+		if (!strcmp(option,"vbox_display")) {
 			if (!strcasecmp(param, "detailed")
 			 || !strcasecmp(param, "detailled"))
 				ext->vbox_display = VBOX_DISPLAY_DETAILED;
@@ -798,110 +677,87 @@ int read_extension(struct extension *ext, char *num)
 				ext->vbox_display = VBOX_DISPLAY_BRIEF;
 			PDEBUG(DEBUG_CONFIG, "given vbox mode: %s\n", param);
 		} else
-		if (!strcmp(option,"vbox_language"))
-		{
+		if (!strcmp(option,"vbox_language")) {
 			if (!strcasecmp(param, "german"))
 				ext->vbox_language = VBOX_LANGUAGE_GERMAN;
 			else
 				ext->vbox_language = VBOX_LANGUAGE_ENGLISH;
 			PDEBUG(DEBUG_CONFIG, "given vbox mode: %s\n", param);
 		} else
-		if (!strcmp(option,"vbox_email"))
-		{
+		if (!strcmp(option,"vbox_email")) {
 			SCPY(ext->vbox_email, param);
 			PDEBUG(DEBUG_CONFIG, "given vbox email: %s\n", param);
 		} else
-		if (!strcmp(option,"vbox_email_file"))
-		{
+		if (!strcmp(option,"vbox_email_file")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->vbox_email_file = i;
 				PDEBUG(DEBUG_CONFIG, "attach audio file %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given vbox_email_file param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"vbox_free"))
-		{
+		if (!strcmp(option,"vbox_free")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->vbox_free = i;
 				PDEBUG(DEBUG_CONFIG, "vbox_free %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given vbox_free param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"last_in"))
-		{
-			if (param[0] && last_in_count<MAX_REMEMBER)
-			{
+		if (!strcmp(option,"last_in")) {
+			if (param[0] && last_in_count<MAX_REMEMBER) {
 				SCPY(ext->last_in[last_in_count], param);
 				last_in_count++;
 			}
 			PDEBUG(DEBUG_CONFIG, "last_in dialed number: %s\n",param);
 		} else
-		if (!strcmp(option,"last_out"))
-		{
-			if (param[0] && last_out_count<MAX_REMEMBER)
-			{
+		if (!strcmp(option,"last_out")) {
+			if (param[0] && last_out_count<MAX_REMEMBER) {
 				SCPY(ext->last_out[last_out_count], param);
 				last_out_count++;
 			}
 			PDEBUG(DEBUG_CONFIG, "last_out dialed number: %s\n",param);
 		} else
-		if (!strcmp(option,"datacall"))
-		{
+		if (!strcmp(option,"datacall")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->datacall = i;
 				PDEBUG(DEBUG_CONFIG, "datacall %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "given datacall param unknown: %s\n", param);
 			}
 		} else
-		if (!strcmp(option,"seconds"))
-		{
+		if (!strcmp(option,"seconds")) {
 			i=0;
-			while(ext_yesno[i])
-			{
+			while(ext_yesno[i]) {
 				if (!strcasecmp(param,ext_yesno[i]))
 					break;
 				i++;
 			}
-			if (ext_yesno[i])
-			{
+			if (ext_yesno[i]) {
 				ext->no_seconds = 1-i;
 				PDEBUG(DEBUG_CONFIG, "seconds %s\n", ext_yesno[i]);
-			} else
-			{
+			} else {
 				PDEBUG(DEBUG_CONFIG, "unknown param for seconds: %s\n", param);
 			}
-		} else
-		{
+		} else {
 			PERROR_RUNTIME("Error in %s (line %d): wrong option keyword %s.\n",filename,line,option);
 		}
 	}
@@ -926,8 +782,7 @@ int write_extension(struct extension *ext, char *number)
 
 	SPRINT(filename, "%s/%s/settings", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "w")))
-	{
+	if (!(fp = fopen(filename, "w"))) {
 		PERROR("Cannot open settings: \"%s\"\n", filename);
 		return(0);
 	}
@@ -989,10 +844,8 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# use prefix 's' for TYPE SUBSCRIBER (s<local number>)\n");
 	if (ext->callerid_present == INFO_PRESENT_NOTAVAIL)
 		fprintf(fp,"callerid        none\n\n");
-	else
-	{
-		switch(ext->callerid_type)
-		{
+	else {
+		switch(ext->callerid_type) {
 			case INFO_NTYPE_INTERNATIONAL:
 			fprintf(fp,"callerid        i%s%s\n\n",ext->callerid, (ext->callerid_present==INFO_PRESENT_RESTRICTED)?" anonymous":"");
 			break;
@@ -1012,10 +865,8 @@ int write_extension(struct extension *ext, char *number)
 		fprintf(fp,"id_next_call    \n\n");
 	else if (ext->id_next_call_present == INFO_PRESENT_NOTAVAIL)
 		fprintf(fp,"id_next_call    none\n\n");
-	else
-	{
-		switch(ext->id_next_call_type)
-		{
+	else {
+		switch(ext->id_next_call_type) {
 			case INFO_NTYPE_INTERNATIONAL:
 			fprintf(fp,"id_next_call    i%s%s\n\n",ext->id_next_call, (ext->id_next_call_present==INFO_PRESENT_RESTRICTED)?" anonymous":"");
 			break;
@@ -1037,8 +888,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# clip (asis|hide)\n");
 	fprintf(fp,"# asis: On forwarded calls the CLIP is used as presented by the calling party.\n");
 	fprintf(fp,"# hide: Always use extension's caller id, even on forwared calls.\n");
-	switch(ext->clip)
-	{
+	switch(ext->clip) {
 		case CLIP_HIDE:
 		fprintf(fp,"clip            hide\n\n");
 		break;
@@ -1052,8 +902,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"#       On forwarded calls the COLP is used as presented by the called party.\n");
 	fprintf(fp,"# hide: Always use extension's caller id, even on forwared calls.\n");
 	fprintf(fp,"# force: If COLP is not presented by forwarded calls the dialed number is used.\n");
-	switch(ext->colp)
-	{
+	switch(ext->colp) {
 		case COLP_HIDE:
 		fprintf(fp,"colp            hide\n\n");
 		break;
@@ -1130,8 +979,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# number (display cause number only)\n");
 	fprintf(fp,"# english-location (display cause text in english and location)\n");
 	fprintf(fp,"# german-location (display cause text in german and location)\n");
-	switch(ext->display_cause)
-	{
+	switch(ext->display_cause) {
 		case DISPLAY_CAUSE_ENGLISH:
 		fprintf(fp,"display_cause   english\n\n");
 		break;
@@ -1183,7 +1031,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"display_dialing %s\n\n",(ext->display_dialing)?"yes":"no");
 
 	fprintf(fp,"# Tones directory for announcements and patterns\n");
-	fprintf(fp,"# Enter nothing for default tones as selected by options.conf.\n");
+	fprintf(fp,"# Enter nothing for default tones as selected by options.conf or interface.conf.\n");
 	fprintf(fp,"tones_dir       %s\n\n",ext->tones_dir);
 
 	fprintf(fp,"# Record calls to extension's directory. The file is written as wave.\n");
@@ -1193,8 +1041,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# stereo (records wave 32 bit stereo, 256kbits/s)\n");
 	fprintf(fp,"# 8bit (records wave 8 bit mono, 64kbits/s)\n");
 	fprintf(fp,"# law (records xLaw encoded, as specified in options.conf, 64kbps/s)\n");
-	switch(ext->record)
-	{
+	switch(ext->record) {
 		case CODEC_MONO:
 		fprintf(fp,"record          mono\n\n");
 		break;
@@ -1220,8 +1067,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# normal (plays announcement and records after that)\n");
 	fprintf(fp,"# parallel (plays announcement and records also DURING announcement.)\n");
 	fprintf(fp,"# announcement (just plays announcement and hangs up)\n");
-	switch(ext->vbox_mode)
-	{
+	switch(ext->vbox_mode) {
 		case VBOX_MODE_PARALLEL:
 		fprintf(fp,"vbox_mode       parallel\n\n");
 		break;
@@ -1238,8 +1084,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# mono (16 bit mono wave file)\n");
 	fprintf(fp,"# stereo (16 bit stereo wave file)\n");
 	fprintf(fp,"# 8bit (8 bit mono wave file)\n");
-	switch(ext->vbox_codec)
-	{
+	switch(ext->vbox_codec) {
 		case CODEC_LAW:
 		fprintf(fp,"vbox_codec      law\n\n");
 		break;
@@ -1266,8 +1111,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"# brief (displays brief information, for small displays)\n");
 	fprintf(fp,"# detailed (displays detailed information, for larger displays)\n");
 	fprintf(fp,"# off (don't display anything)\n");
-	switch(ext->vbox_display)
-	{
+	switch(ext->vbox_display) {
 		case VBOX_DISPLAY_OFF:
 		fprintf(fp,"vbox_display    off\n\n");
 		break;
@@ -1304,15 +1148,13 @@ int write_extension(struct extension *ext, char *number)
 
 	fprintf(fp,"# Last outgoing and incoming numbers (including prefix)\n");
 	i = 0;
-	while(i < MAX_REMEMBER)
-	{
+	while(i < MAX_REMEMBER) {
 		if (ext->last_out[i][0])
 			fprintf(fp,"last_out        %s\n",ext->last_out[i]);
 		i++;
 	}
 	i = 0;
-	while(i < MAX_REMEMBER)
-	{
+	while(i < MAX_REMEMBER) {
 		if (ext->last_in[i][0])
 			fprintf(fp,"last_in         %s\n",ext->last_in[i]);
 		i++;
@@ -1340,8 +1182,7 @@ int write_log(char *number, char *callerid, char *calledid, time_t start, time_t
 
 	SPRINT(filename, "%s/%s/log", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "a")))
-	{
+	if (!(fp = fopen(filename, "a"))) {
 		PERROR("Cannot open log: \"%s\"\n", filename);
 		return(0);
 	}
@@ -1381,22 +1222,19 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 
 	SPRINT(filename, "%s/%s/phonebook", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "r")))
-	{
+	if (!(fp = fopen(filename, "r"))) {
 		PERROR("Cannot open phonebook: \"%s\"\n", filename);
 		return(0);
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp)))
-	{
+	while((fgets(buffer, sizeof(buffer), fp))) {
 		line++;
 		buffer[sizeof(buffer)-1] = '\0';
 		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -1409,10 +1247,8 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 		name[0]=0;
 
 		i=0; /* read abbrev */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(abbrev))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(abbrev)) {
 				PERROR_RUNTIME("Error in %s (line %d): abbrev too long.\n",filename,line);
 				break;
 			}
@@ -1420,41 +1256,33 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 			abbrev[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
 		}
 
-		if (*p!=0 && *p!='#') /* phone */
-		{
+		if (*p!=0 && *p!='#') { /* phone */
 			i=0; /* read phone */
-			while(*p > 32)
-			{
-				if (i+1 >= sizeof(phone))
-				{
+			while(*p > 32) {
+				if (i+1 >= sizeof(phone)) {
 					PERROR_RUNTIME("Error in %s (line %d): phone too long.\n",filename,line);
 					break;
 				}
 				phone[i+1] = '\0';
 				phone[i++] = *p++;
 			}
-			while(*p <= 32) /* skip spaces */
-			{
+			while(*p <= 32) { /* skip spaces */
 				if (*p == 0)
 					break;
 				p++;
 			}
 		}
 
-		if (*p!=0 && *p!='#') /* name */
-		{
+		if (*p!=0 && *p!='#') { /* name */
 			i=0; /* read name */
-			while(*p > 0)
-			{
-				if (i+1 >= sizeof(name))
-				{
+			while(*p > 0) {
+				if (i+1 >= sizeof(name)) {
 					PERROR_RUNTIME("Error in %s (line %d): name too long.\n",filename,line);
 					break;
 				}
@@ -1463,10 +1291,8 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 			}
 		}
 
-		if (*abbrev_pointer)
-		{
-			if (!strncmp(*abbrev_pointer, abbrev, strlen(*abbrev_pointer)))
-			{
+		if (*abbrev_pointer) {
+			if (!strncmp(*abbrev_pointer, abbrev, strlen(*abbrev_pointer))) {
 				/* may match if abbreviation is longer */
 				found_if_more_digits = 1;
 			}
@@ -1486,15 +1312,13 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 
 	if (fp) fclose(fp);
 
-	if (found)
-	{
+	if (found) {
 		*abbrev_pointer = abbrev;
 		*phone_pointer = phone;
 		*name_pointer = name;
 	}
 
-	if (found == 0)
-	{
+	if (found == 0) {
 		if (found_if_more_digits)
 			found = -1;
 	}
@@ -1521,22 +1345,19 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 
 	SPRINT(filename, "%s/%s/secrets", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "r")))
-	{
+	if (!(fp = fopen(filename, "r"))) {
 		PERROR("Cannot open secrets: \"%s\"\n", filename);
 		return(0);
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp)))
-	{
+	while((fgets(buffer, sizeof(buffer), fp))) {
 		line++;
 		buffer[sizeof(buffer)-1] = '\0';
 		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -1550,10 +1371,8 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 		key[0]=0;
 
 		i=0; /* read auth */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(remote))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(remote)) {
 				PERROR_RUNTIME("Error in %s (line %d): remote too long.\n",filename,line);
 				break;
 			}
@@ -1561,62 +1380,50 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 			remote[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
 		}
 
-		if (*p!=0 && *p!='#') /* auth */
-		{
+		if (*p!=0 && *p!='#') { /* auth */
 			i=0; /* read auth */
-			while(*p > 32)
-			{
-				if (i+1 >= sizeof(auth))
-				{
+			while(*p > 32) {
+				if (i+1 >= sizeof(auth)) {
 					PERROR_RUNTIME("Error in %s (line %d): auth too long.\n",filename,line);
 					break;
 				}
 				auth[i+1] = '\0';
 				auth[i++] = *p++;
 			}
-			while(*p <= 32) /* skip spaces */
-			{
+			while(*p <= 32) { /* skip spaces */
 				if (*p == 0)
 					break;
 				p++;
 			}
 		}
 
-		if (*p!=0 && *p!='#') /* crypt */
-		{
+		if (*p!=0 && *p!='#') { /* crypt */
 			i=0; /* read crypt */
-			while(*p > 32)
-			{
-				if (i+1 >= sizeof(crypt))
-				{
+			while(*p > 32) {
+				if (i+1 >= sizeof(crypt)) {
 					PERROR_RUNTIME("Error in %s (line %d): crypt too long.\n",filename,line);
 					break;
 				}
 				crypt[i+1] = '\0';
 				crypt[i++] = *p++;
 			}
-			while(*p <= 32) /* skip spaces */
-			{
+			while(*p <= 32) { /* skip spaces */
 				if (*p == 0)
 					break;
 				p++;
 			}
 		}
 
-		if (*p!=0 && *p!='#') /* key */
-		{
+		if (*p!=0 && *p!='#') { /* key */
 			i=0; /* read key */
-			while(*p > 0)
-			{
-				if (i+1 >= sizeof(key))
-				{
+			while(*p > 0) {
+				if (i+1 >= sizeof(key)) {
 					PERROR_RUNTIME("Error in %s (line %d): key too long.\n",filename,line);
 					break;
 				}
@@ -1635,8 +1442,7 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 
 	if (fp) fclose(fp);
 
-	if (found)
-	{
+	if (found) {
 		*auth_pointer = auth;
 		*crypt_pointer = crypt;
 		*key_pointer = key;
@@ -1664,22 +1470,19 @@ char *parse_directory(char *number, int type)
 
 	SPRINT(filename, "%s/directory.list", CONFIG_DATA);
 
-	if (!(fp = fopen(filename, "r")))
-	{
+	if (!(fp = fopen(filename, "r"))) {
 		PERROR("Cannot open directory: \"%s\"\n", filename);
 		return(NULL);
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp)))
-	{
+	while((fgets(buffer, sizeof(buffer), fp))) {
 		line++;
 		buffer[sizeof(buffer)-1] = '\0';
 		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -1691,10 +1494,8 @@ char *parse_directory(char *number, int type)
 		name[0]=0;
 
 		i=0; /* read number */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(phone))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(phone)) {
 				PERROR_RUNTIME("Error in %s (line %d): number too long.\n",filename,line);
 				break;
 			}
@@ -1702,18 +1503,15 @@ char *parse_directory(char *number, int type)
 			phone[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
 		}
 
 		i=0; /* read name */
-		while(*p >= 32)
-		{
-			if (i+1 >= sizeof(name))
-			{
+		while(*p >= 32) {
+			if (i+1 >= sizeof(name)) {
 				PERROR_RUNTIME("Error in %s (line %d): name too long.\n",filename,line);
 				break;
 			}
@@ -1721,67 +1519,55 @@ char *parse_directory(char *number, int type)
 			name[i++] = *p++;
 		}
 
-		if (phone[0] == 'i')
-		{
+		if (phone[0] == 'i') {
 			if (type != INFO_NTYPE_INTERNATIONAL)
 				continue;
-			if (!strcmp(number, phone+1))
-			{
+			if (!strcmp(number, phone+1)) {
 				found = 1;
 				break;
 			}
 			continue;
 		}
-		if (phone[0] == 'n')
-		{
+		if (phone[0] == 'n') {
 			if (type != INFO_NTYPE_NATIONAL)
 				continue;
-			if (!strcmp(number, phone+1))
-			{
+			if (!strcmp(number, phone+1)) {
 				found = 1;
 				break;
 			}
 			continue;
 		}
-		if (phone[0] == 's')
-		{
+		if (phone[0] == 's') {
 			if (type==INFO_NTYPE_NATIONAL || type==INFO_NTYPE_INTERNATIONAL)
 				continue;
-			if (!strcmp(number, phone+1))
-			{
+			if (!strcmp(number, phone+1)) {
 				found = 1;
 				break;
 			}
 			continue;
 		}
-		if (!strncmp(phone, options.international, strlen(options.international)))
-		{
+		if (!strncmp(phone, options.international, strlen(options.international))) {
 			if (type != INFO_NTYPE_INTERNATIONAL)
 				continue;
-			if (!strcmp(number, phone+strlen(options.international)))
-			{
+			if (!strcmp(number, phone+strlen(options.international))) {
 				found = 1;
 				break;
 			}
 			continue;
 		}
-		if (!options.national[0]) /* no national prefix */
-		{
+		if (!options.national[0]) { /* no national prefix */
 			if (type == INFO_NTYPE_INTERNATIONAL)
 				continue;
-			if (!strcmp(number, phone))
-			{
+			if (!strcmp(number, phone)) {
 				found = 1;
 				break;
 			}
 			continue;
 		}
-		if (!strncmp(phone, options.national, strlen(options.national)))
-		{
+		if (!strncmp(phone, options.national, strlen(options.national))) {
 			if (type != INFO_NTYPE_NATIONAL)
 				continue;
-			if (!strcmp(number, phone+strlen(options.national)))
-			{
+			if (!strcmp(number, phone+strlen(options.national))) {
 				found = 1;
 				break;
 			}
@@ -1789,8 +1575,7 @@ char *parse_directory(char *number, int type)
 		}
 		if (type==INFO_NTYPE_NATIONAL || type==INFO_NTYPE_INTERNATIONAL)
 			continue;
-		if (!strcmp(number, phone))
-		{
+		if (!strcmp(number, phone)) {
 			found = 1;
 			break;
 		}
@@ -1820,22 +1605,19 @@ int parse_callbackauth(char *number, struct caller_info *callerinfo)
 
 	SPRINT(filename, "%s/%s/callbackauth", EXTENSION_DATA, number);
 
-	if (!(fp = fopen(filename, "r")))
-	{
+	if (!(fp = fopen(filename, "r"))) {
 		PDEBUG(DEBUG_EPOINT, "Cannot open callbackauth: \"%s\"\n", filename);
 		return(0);
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp)))
-	{
+	while((fgets(buffer, sizeof(buffer), fp))) {
 		line++;
 		buffer[sizeof(buffer)-1] = '\0';
 		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
@@ -1847,10 +1629,8 @@ int parse_callbackauth(char *number, struct caller_info *callerinfo)
 		caller_id[0]=0;
 
 		i=0; /* read caller_type */
-		while(*p > 32)
-		{
-			if (i+1 >= sizeof(caller_type))
-			{
+		while(*p > 32) {
+			if (i+1 >= sizeof(caller_type)) {
 				PERROR_RUNTIME("Error in %s (line %d): caller_type too long.\n",filename,line);
 				break;
 			}
@@ -1858,20 +1638,16 @@ int parse_callbackauth(char *number, struct caller_info *callerinfo)
 			caller_type[i++] = *p++;
 		}
 
-		while(*p <= 32) /* skip spaces */
-		{
+		while(*p <= 32) { /* skip spaces */
 			if (*p == 0)
 				break;
 			p++;
 		}
 
-		if (*p!=0 && *p!='#') /* caller_id */
-		{
+		if (*p!=0 && *p!='#') { /* caller_id */
 			i=0; /* read caller_id */
-			while(*p > 32)
-			{
-				if (i+1 >= sizeof(caller_id))
-				{
+			while(*p > 32) {
+				if (i+1 >= sizeof(caller_id)) {
 					PERROR_RUNTIME("Error in %s (line %d): caller_id too long.\n",filename,line);
 					break;
 				}
@@ -1912,13 +1688,11 @@ void append_callbackauth(char *number, struct caller_info *callerinfo)
 
 	SPRINT(filename, "%s/%s/callbackauth", EXTENSION_DATA, number);
 
-	if (callerinfo->id[0]=='\0')
-	{
+	if (callerinfo->id[0]=='\0') {
 		PERROR("caller has no id.\n");
 		return;
 	}
-	if (!(fp = fopen(filename, "a")))
-	{
+	if (!(fp = fopen(filename, "a"))) {
 		PERROR("Cannot open callbackauth: \"%s\"\n", filename);
 		return;
 	}

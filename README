@@ -492,3 +492,10 @@ New release Version 1.5
   -> Requires OpenBSC, GSM codec, and a BS11 base station.
   -> For more refer to www.linux-call-router.de.
 
+Changes after Version 1.5
+- Tones are restructured:
+ -> mISDN_dsp.ko tones must now be specified via 'tones_dir' parameter.
+ -> interface.conf has a tones_dir options for individual interfaces.
+ -> interface.conf has priority over tones_dir in options.conf.
+ -> exnsion's settings has pritority over other tones_dir setting.
+

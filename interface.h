@@ -65,6 +65,7 @@ struct interface_port {
 //	int			tout_hold;
 //	int			tout_park;
 	int			dialmax; /* maximum number of digits to dial */
+	char			tones_dir[128];
 };
 
 struct interface_msn {
