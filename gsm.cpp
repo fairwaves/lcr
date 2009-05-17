@@ -391,15 +391,17 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
-		add_trace("cause", "location", "1");
-		add_trace("cause", "value", "47");
-		add_trace("reason", NULL, "callref already in use");
-		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, callref);
+		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->cause = 1;
+		mncc->cause_coding = 3;
 		mncc->cause_location = 1;
 		mncc->cause_value = 47;
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
+		add_trace("cause", "location", "%d", mncc->cause_location);
+		add_trace("cause", "value", "%d", mncc->cause_value);
+		add_trace("reason", NULL, "callref already in use");
+		end_trace();
 		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
@@ -410,15 +412,17 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 
 	/* if blocked, release call with MT_RELEASE_COMPLETE */
 	if (p_m_mISDNport->ifport->block) {
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
-		add_trace("cause", "location", "1");
-		add_trace("cause", "value", "27");
-		add_trace("reason", NULL, "port blocked");
-		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, p_m_g_callref);
+		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->cause = 1;
+		mncc->cause_coding = 3;
 		mncc->cause_location = 1;
 		mncc->cause_value = 27;
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
+		add_trace("cause", "location", "%d", mncc->cause_location);
+		add_trace("cause", "value", "%d", mncc->cause_value);
+		add_trace("reason", NULL, "port is blocked");
+		end_trace();
 		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
@@ -479,15 +483,17 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	ret = seize_bchannel(channel, 1);
 	if (ret < 0) {
 		no_channel:
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
-		add_trace("cause", "location", "1");
-		add_trace("cause", "value", "34");
-		add_trace("reason", NULL, "no channel");
-		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, p_m_g_callref);
+		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->cause = 1;
+		mncc->cause_coding = 3;
 		mncc->cause_location = 1;
 		mncc->cause_value = 34;
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
+		add_trace("cause", "location", "%d", mncc->cause_location);
+		add_trace("cause", "value", "%d", mncc->cause_value);
+		add_trace("reason", NULL, "no channel");
+		end_trace();
 		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
@@ -514,10 +520,10 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 
 	/* modify lchan to GSM codec V1 */
 	gsm_trace_header(p_m_mISDNport, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
-	end_trace();
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_m_g_callref);
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
+	end_trace();
 	send_and_free_mncc(gsm->network, mode->msg_type, mode);
 
 	/* send call proceeding */
@@ -532,8 +538,8 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		add_trace("progress", "location", "%d", proceeding->progress_location);
 		add_trace("progress", "descr", "%d", proceeding->progress_descr);
 	}
-	send_and_free_mncc(gsm->network, proceeding->msg_type, proceeding);
 	end_trace();
+	send_and_free_mncc(gsm->network, proceeding->msg_type, proceeding);
 
 	new_state(PORT_STATE_IN_PROCEEDING);
 
@@ -608,6 +614,7 @@ void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
 	if (mncc->cause) {
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
 		add_trace("cause", "location", "%", mncc->cause_location);
 		add_trace("cause", "value", "%", mncc->cause_value);
 	}
@@ -618,8 +625,8 @@ void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_m_g_callref);
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
-	send_and_free_mncc(gsm->network, mode->msg_type, mode);
 	end_trace();
+	send_and_free_mncc(gsm->network, mode->msg_type, mode);
 
 }
 
@@ -697,20 +704,25 @@ void Pgsm::disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 	if (mncc->cause) {
 		location = mncc->cause_location;
 		cause = mncc->cause_value;
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
 		add_trace("cause", "location", "%d", location);
 		add_trace("cause", "value", "%d", cause);
 	}
 	end_trace();
 
 	/* send release */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_REL_REQ, DIRECTION_OUT);
-	add_trace("cause", "location", "%d", 1);
-	add_trace("cause", "value", "%d", cause);
-	end_trace();
 	resp = create_mncc(MNCC_REL_REQ, p_m_g_callref);
+	gsm_trace_header(p_m_mISDNport, this, MNCC_REL_REQ, DIRECTION_OUT);
+#if 0
 	resp->cause = 1;
+	resp->cause_coding = 3;
 	resp->cause_location = 1;
 	resp->cause_value = cause;
+	add_trace("cause", "coding", "%d", resp->cause_coding);
+	add_trace("cause", "location", "%d", resp->cause_location);
+	add_trace("cause", "value", "%d", resp->cause_value);
+#endif
+	end_trace();
 	send_and_free_mncc(gsm->network, resp->msg_type, resp);
 
 	/* sending release to endpoint */
@@ -736,8 +748,9 @@ void Pgsm::rel_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc 
 	if (mncc->cause) {
 		location = mncc->cause_location;
 		cause = mncc->cause_value;
-		add_trace("cause", "location", "%d", location);
-		add_trace("cause", "value", "%d", cause);
+		add_trace("cause", "coding", "%d", mncc->cause_coding);
+		add_trace("cause", "location", "%d", mncc->cause_location);
+		add_trace("cause", "value", "%d", mncc->cause_value);
 	}
 	end_trace();
 
@@ -873,15 +886,16 @@ static int message_bcs(void *net, int msg_type, void *arg)
 		if (!mISDNport) {
 			struct gsm_mncc *rej;
 
-			gsm_trace_header(NULL, NULL, MNCC_REJ_REQ, DIRECTION_OUT);
-			add_trace("cause", "location", "1");
-			add_trace("cause", "value", "27");
-			add_trace("reason", NULL, "GSM port not loaded");
-			end_trace();
 			rej = create_mncc(MNCC_REJ_REQ, callref);
 			rej->cause = 1;
+			rej->cause_coding = 3;
 			rej->cause_location = 1;
 			rej->cause_value = 27;
+			gsm_trace_header(NULL, NULL, MNCC_REJ_REQ, DIRECTION_OUT);
+			add_trace("cause", "coding", "%d", rej->cause_coding);
+			add_trace("cause", "location", "%d", rej->cause_location);
+			add_trace("cause", "value", "%d", rej->cause_value);
+			end_trace();
 			send_and_free_mncc(gsm->network, rej->msg_type, rej);
 			return 0;
 		}
@@ -1018,7 +1032,6 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
 	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
-	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface);
 
 	/* attach only if not already */
 	epointlist = p_epointlist;
@@ -1088,7 +1101,7 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 	/* dialing information */
 	mncc->called = 1;
 	SCPY(mncc->called_number, p_dialinginfo.id);
-	add_trace("dialing", "number", "%s", mncc->calling_number);
+	add_trace("dialing", "number", "%s", mncc->called_number);
 	
 	/* sending user-user */
 
@@ -1143,8 +1156,8 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 	/* bearer capability */
 	//todo
 
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 	end_trace();
+	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_OUT_SETUP);
 
@@ -1198,8 +1211,8 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 		add_trace("progress", "location", "%d", mncc->progress_location);
 		add_trace("progress", "descr", "%d", mncc->progress_descr);
 	}
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 	end_trace();
+	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_IN_ALERTING);
 
@@ -1296,8 +1309,10 @@ void Pgsm::message_disconnect(unsigned int epoint_id, int message_id, union para
 		add_trace("progress", "descr", "%d", mncc->progress_descr);
 	}
 	mncc->cause = 1;
+	mncc->cause_coding = 3;
 	mncc->cause_location = param->disconnectinfo.location;
 	mncc->cause_value = param->disconnectinfo.cause;
+	add_trace("cause", "coding", "%d", mncc->cause_coding);
 	add_trace("cause", "location", "%d", mncc->cause_location);
 	add_trace("cause", "value", "%d", mncc->cause_value);
 	end_trace();
@@ -1324,8 +1339,10 @@ void Pgsm::message_release(unsigned int epoint_id, int message_id, union paramet
 	mncc = create_mncc(MNCC_REL_REQ, p_m_g_callref);
 	gsm_trace_header(p_m_mISDNport, this, MNCC_REL_REQ, DIRECTION_OUT);
 	mncc->cause = 1;
+	mncc->cause_coding = 3;
 	mncc->cause_location = param->disconnectinfo.location;
 	mncc->cause_value = param->disconnectinfo.cause;
+	add_trace("cause", "coding", "%d", mncc->cause_coding);
 	add_trace("cause", "location", "%d", mncc->cause_location);
 	add_trace("cause", "value", "%d", mncc->cause_value);
 	end_trace();
@@ -1587,6 +1604,9 @@ int gsm_init(void)
 		PERROR("%s", gsm_conf_error);
 		return gsm_exit(-EINVAL);
 	}
+
+	/* set debug */
+	debug_parse_category_mask(gsm->conf.debug);
 
 	/* init database */
 	if (gsm->conf.hlr[0] == '/')

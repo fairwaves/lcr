@@ -498,4 +498,7 @@ Changes after Version 1.5
  -> interface.conf has a tones_dir options for individual interfaces.
  -> interface.conf has priority over tones_dir in options.conf.
  -> exnsion's settings has pritority over other tones_dir setting.
+- Debug option now works for GSM.
+- Fixed some GSM information elements.
+
 
