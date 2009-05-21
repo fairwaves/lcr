@@ -414,7 +414,11 @@ void apply_opt(struct chan_call *call, char *data)
 				break;
 			}
 			CDEBUG(call, call->ast, "Option 'n' (no DTMF).\n");
-			call->no_dtmf = 1;
+			if (call->dsp_dtmf) {
+				call->dsp_dtmf = 0;
+				if (call->bchannel)
+					bchannel_dtmf(call->bchannel, 0);
+			}
 			break;
 		case 'c':
 			if (opt[1] == '\0') {
@@ -1158,6 +1162,11 @@ void lcr_in_dtmf(struct chan_call *call, int val)
 	if (!call->pbx_started)
 		return;
 
+	if (!call->dsp_dtmf) {
+		CDEBUG(call, call->ast, "Recognised DTMF digit '%c', but ignoring. This is fixed in later mISDN driver.\n", val);
+		return;
+	}
+
 	CDEBUG(call, call->ast, "Recognised DTMF digit '%c'.\n", val);
 	digit[0] = val;
 	digit[1] = '\0';
@@ -1205,7 +1214,6 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 				memcpy(bchannel->b_bf_key, param->bchannel.crypt, param->bchannel.crypt_len);
 			}
 			bchannel->b_txdata = 0;
-			bchannel->b_dtmf = 1;
 			bchannel->b_tx_dejitter = 1;
 
 			/* in case, ref is not set, this bchannel instance must
@@ -1216,7 +1224,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			{
 				bchannel->call = call;
 				call->bchannel = bchannel;
-				if (call->dtmf)
+				if (call->dsp_dtmf)
 					bchannel_dtmf(bchannel, 1);
 				if (call->bf_len)
 					bchannel_blowfish(bchannel, call->bf_key, call->bf_len);
@@ -1289,6 +1297,8 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			/* set ref */
 			call->ref = ref;
 			call->ref_was_assigned = 1;
+			/* set dtmf (default, use option 'n' to disable */
+			call->dsp_dtmf = 1;
 			/* wait for setup (or release from asterisk) */
 		} else
 		{
@@ -2065,11 +2075,6 @@ static int lcr_answer(struct ast_channel *ast)
 	/* enable keypad */
 //	memset(&newparam, 0, sizeof(union parameter));
 //	send_message(MESSAGE_ENABLEKEYPAD, call->ref, &newparam);
-	/* enable dtmf */
-	if (call->no_dtmf)
-		CDEBUG(call, ast, "DTMF is disabled by option.\n");
-	else
-		call->dtmf = 1;
 	
    	ast_mutex_unlock(&chan_lock);
         return 0;

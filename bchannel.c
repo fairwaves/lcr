@@ -483,7 +483,7 @@ void bchannel_dtmf(struct bchannel *bchannel, int on)
 	int sock;
 
 	sock = bchannel->b_sock;
-	bchannel->b_dtmf = 1;
+	bchannel->b_dtmf = on;
 	if (bchannel->b_state == BSTATE_ACTIVE && bchannel->b_mode == 0)
 		ph_control(sock, on?DTMF_TONE_START:DTMF_TONE_STOP, 0, "DSP-DTMF", 1, bchannel->b_mode);
 }

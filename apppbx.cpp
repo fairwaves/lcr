@@ -3268,7 +3268,7 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 		join_notify(portlist, message_type, param);
 		break;
 
-		/* JOIN wants keypad / dtml */
+		/* JOIN wants keypad / dtmf */
 		case MESSAGE_ENABLEKEYPAD:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received keypad enable request.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		e_enablekeypad = 1;

@@ -501,5 +501,6 @@ Changes after Version 1.5
 - Debug option now works for GSM.
 - Fixed some GSM information elements.
 - OpenBSC api changes.
+- Fixed disabling of DTMF using 'n' option of chan_lcr.
 
 

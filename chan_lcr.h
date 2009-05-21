@@ -50,10 +50,8 @@ struct chan_call {
 	char                    cid_rdnis[64]; /* cached cid for setup */
 	char			display[128];
 					/* display for setup */
-	int			dtmf;
-					/* shall dtmf be enabled */
-	int			no_dtmf;
-					/* dtmf disabled by option */
+	int			dsp_dtmf;
+					/* decode dtmf by dsp */
 	int                     inband_dtmf; /* generate dtmf tones, if
 					      requested by asterisk */
         int                     rebuffer; /* send only 160 bytes frames
