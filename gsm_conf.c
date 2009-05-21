@@ -10,7 +10,7 @@
 \*****************************************************************************/ 
 
 #include "main.h"
-#include "openbsc/openbsc.h"
+#include "openbsc/gsm_data.h"
 
 
 char *gsm_conf_error = "";

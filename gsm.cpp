@@ -11,9 +11,11 @@
 
 #include "main.h"
 extern "C" {
-#include "openbsc/openbsc.h"
+#include "openbsc/gsm_data.h"
 #include "openbsc/mncc.h"
 #include "openbsc/trau_frame.h"
+#include "openbsc/select.h"
+#include "openbsc/debug.h"
 #include "bootstrap.h"
 #include "gsm_audio.h"
 
@@ -40,7 +42,7 @@ static struct gsm_mncc *create_mncc(int msg_type, unsigned int callref)
 	mncc->callref = callref;
 	return (mncc);
 }
-static int send_and_free_mncc(void *net, unsigned int msg_type, void *data)
+static int send_and_free_mncc(struct gsm_network *net, unsigned int msg_type, void *data)
 {
 	int ret;
 
@@ -243,7 +245,7 @@ void Pgsm::trau_send(void *_tf)
 	frame->msg_type = GSM_TRAU_FRAME;
 	frame->callref = p_m_g_callref;
 	memcpy(frame->data, tf, sizeof(struct decoded_trau_frame));
-	mncc_send(gsm->network, frame->msg_type, frame);
+	mncc_send((struct gsm_network *)gsm->network, frame->msg_type, frame);
 }
 
 
@@ -402,7 +404,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		add_trace("cause", "value", "%d", mncc->cause_value);
 		add_trace("reason", NULL, "callref already in use");
 		end_trace();
-		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
 		return;
@@ -423,7 +425,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		add_trace("cause", "value", "%d", mncc->cause_value);
 		add_trace("reason", NULL, "port is blocked");
 		end_trace();
-		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
 		return;
@@ -494,7 +496,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		add_trace("cause", "value", "%d", mncc->cause_value);
 		add_trace("reason", NULL, "no channel");
 		end_trace();
-		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		p_m_delete = 1;
 		return;
@@ -524,7 +526,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
-	send_and_free_mncc(gsm->network, mode->msg_type, mode);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mode->msg_type, mode);
 
 	/* send call proceeding */
 	gsm_trace_header(p_m_mISDNport, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
@@ -539,7 +541,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		add_trace("progress", "descr", "%d", proceeding->progress_descr);
 	}
 	end_trace();
-	send_and_free_mncc(gsm->network, proceeding->msg_type, proceeding);
+	send_and_free_mncc((struct gsm_network *)gsm->network, proceeding->msg_type, proceeding);
 
 	new_state(PORT_STATE_IN_PROCEEDING);
 
@@ -547,7 +549,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, frame->msg_type, frame);
+		send_and_free_mncc((struct gsm_network *)gsm->network, frame->msg_type, frame);
 		p_m_g_tch_connected = 1;
 	}
 
@@ -583,7 +585,7 @@ void Pgsm::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gs
 	end_trace();
 	resp = create_mncc(MNCC_START_DTMF_RSP, p_m_g_callref);
 	resp->keypad = mncc->keypad;
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	/* send dialing information */
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
@@ -604,7 +606,7 @@ void Pgsm::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 	end_trace();
 	resp = create_mncc(MNCC_STOP_DTMF_RSP, p_m_g_callref);
 	resp->keypad = mncc->keypad;
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 }
 
 /* PROCEEDING INDICATION */
@@ -626,7 +628,7 @@ void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
-	send_and_free_mncc(gsm->network, mode->msg_type, mode);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mode->msg_type, mode);
 
 }
 
@@ -658,7 +660,7 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_COMPL_REQ, DIRECTION_OUT);
 	resp = create_mncc(MNCC_SETUP_COMPL_REQ, p_m_g_callref);
 	end_trace();
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 	message_put(message);
@@ -669,7 +671,7 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, frame->msg_type, frame);
+		send_and_free_mncc((struct gsm_network *)gsm->network, frame->msg_type, frame);
 		p_m_g_tch_connected = 1;
 	}
 }
@@ -688,7 +690,7 @@ void Pgsm::setup_compl_ind(unsigned int msg_type, unsigned int callref, struct g
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, frame->msg_type, frame);
+		send_and_free_mncc((struct gsm_network *)gsm->network, frame->msg_type, frame);
 		p_m_g_tch_connected = 1;
 	}
 }
@@ -723,7 +725,7 @@ void Pgsm::disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 	add_trace("cause", "value", "%d", resp->cause_value);
 #endif
 	end_trace();
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	/* sending release to endpoint */
 	while(p_epointlist) {
@@ -794,14 +796,14 @@ void Pgsm::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 	gsm_trace_header(p_m_mISDNport, this, MNCC_HOLD_CNF, DIRECTION_OUT);
 	end_trace();
 	resp = create_mncc(MNCC_HOLD_CNF, p_m_g_callref);
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	/* disable audio */
 	if (p_m_g_tch_connected) { /* it should be true */
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_DROP, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_DROP, p_m_g_callref);
-		send_and_free_mncc(gsm->network, frame->msg_type, frame);
+		send_and_free_mncc((struct gsm_network *)gsm->network, frame->msg_type, frame);
 		p_m_g_tch_connected = 0;
 	}
 }
@@ -826,14 +828,14 @@ void Pgsm::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 	gsm_trace_header(p_m_mISDNport, this, MNCC_RETRIEVE_CNF, DIRECTION_OUT);
 	end_trace();
 	resp = create_mncc(MNCC_RETRIEVE_CNF, p_m_g_callref);
-	send_and_free_mncc(gsm->network, resp->msg_type, resp);
+	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	/* enable audio */
 	if (!p_m_g_tch_connected) { /* it should be true */
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, frame->msg_type, frame);
+		send_and_free_mncc((struct gsm_network *)gsm->network, frame->msg_type, frame);
 		p_m_g_tch_connected = 1;
 	}
 }
@@ -841,7 +843,7 @@ void Pgsm::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 /*
  * BSC sends message to port
  */
-static int message_bcs(void *net, int msg_type, void *arg)
+static int message_bcs(struct gsm_network *net, int msg_type, void *arg)
 {
 	struct gsm_mncc *mncc = (struct gsm_mncc *)arg;
 	unsigned int callref = mncc->callref;
@@ -896,7 +898,7 @@ static int message_bcs(void *net, int msg_type, void *arg)
 			add_trace("cause", "location", "%d", rej->cause_location);
 			add_trace("cause", "value", "%d", rej->cause_value);
 			end_trace();
-			send_and_free_mncc(gsm->network, rej->msg_type, rej);
+			send_and_free_mncc((struct gsm_network *)gsm->network, rej->msg_type, rej);
 			return 0;
 		}
 		/* creating port object, transparent until setup with hdlc */
@@ -1157,7 +1159,7 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 	//todo
 
 	end_trace();
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_OUT_SETUP);
 
@@ -1189,7 +1191,7 @@ void Pgsm::message_notify(unsigned int epoint_id, int message_id, union paramete
 			end_trace();
 			mncc = create_mncc(MNCC_NOTIFY_REQ, p_m_g_callref);
 			mncc->notify = notify;
-			send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+			send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		}
 	}
 }
@@ -1212,7 +1214,7 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 		add_trace("progress", "descr", "%d", mncc->progress_descr);
 	}
 	end_trace();
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_IN_ALERTING);
 
@@ -1220,7 +1222,7 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		mncc = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		p_m_g_tch_connected = 1;
 	}
 }
@@ -1286,7 +1288,7 @@ void Pgsm::message_connect(unsigned int epoint_id, int message_id, union paramet
 		add_trace("connected", "number", "%s", mncc->connected_number);
 	}
 	end_trace();
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_CONNECT_WAITING);
 }
@@ -1316,7 +1318,7 @@ void Pgsm::message_disconnect(unsigned int epoint_id, int message_id, union para
 	add_trace("cause", "location", "%d", mncc->cause_location);
 	add_trace("cause", "value", "%d", mncc->cause_value);
 	end_trace();
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_OUT_DISCONNECT);
 
@@ -1324,7 +1326,7 @@ void Pgsm::message_disconnect(unsigned int epoint_id, int message_id, union para
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		mncc = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		p_m_g_tch_connected = 1;
 	}
 }
@@ -1346,7 +1348,7 @@ void Pgsm::message_release(unsigned int epoint_id, int message_id, union paramet
 	add_trace("cause", "location", "%d", mncc->cause_location);
 	add_trace("cause", "value", "%d", mncc->cause_value);
 	end_trace();
-	send_and_free_mncc(gsm->network, mncc->msg_type, mncc);
+	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_RELEASE);
 	p_m_delete = 1;
@@ -1488,7 +1490,7 @@ int handle_gsm(void)
 {
 	int ret1, ret2;
 
-	ret1 = bsc_upqueue(gsm->network);
+	ret1 = bsc_upqueue((struct gsm_network *)gsm->network);
 	ret2 = bsc_select_main(1); /* polling */
 	if (ret1 || ret2)
 		return 1;
@@ -1579,10 +1581,10 @@ int gsm_exit(int rc)
 			gsm_sock_close();
 		/* shutdown network */
 		if (gsm->network)
-			shutdown_net(gsm->network);
+			shutdown_net((struct gsm_network *)gsm->network);
 		/* free network */
 		if (gsm->network) {
-			free(gsm->network); /* TBD */
+			free((struct gsm_network *)gsm->network); /* TBD */
 		}
 		free(gsm);
 		gsm = NULL;

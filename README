@@ -500,5 +500,6 @@ Changes after Version 1.5
  -> exnsion's settings has pritority over other tones_dir setting.
 - Debug option now works for GSM.
 - Fixed some GSM information elements.
+- OpenBSC api changes.
 
 

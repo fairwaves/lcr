@@ -38,7 +38,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <openbsc/openbsc.h>
 #include <openbsc/gsm_data.h>
 #include <openbsc/gsm_04_08.h>
 #include <openbsc/db.h>
@@ -786,12 +785,6 @@ static int set_system_infos(struct gsm_bts_trx *trx)
 }
 
 /*
- * Inform anyone...
- */
-static void bsc_hack_channel_allocated(struct gsm_lchan *lchan) {
-}
-
-/*
  * Patch the various SYSTEM INFORMATION tables to update
  * the LAI
  */
@@ -871,32 +864,8 @@ void input_event(int event, enum e1inp_sign_type type, struct gsm_bts_trx *trx)
 	}
 }
 
-void *bootstrap_network(int (*mncc_recv)(void *, int, void *),int bts_type, int mcc, int mnc, int lac, int arfcn, int cardnr, int release_l2, char *name_short, char *name_long, char *hlr, int allow_all)
+static int bootstrap_bts(struct gsm_bts *bts, int lac, int arfcn)
 {
-	struct gsm_bts *bts;
-	struct gsm_network *gsmnet;
-
-	/* open database */
-	if (db_init(hlr)) {
-		fprintf(stderr, "DB: Failed to init HLR database '%s'. Please check the option settings.\n", hlr);
-		return NULL;
-	}	 
-	if (db_prepare()) {
-		fprintf(stderr, "DB: Failed to prepare database.\n");
-		return NULL;
-	}
-
-	/* seed the PRNG for TMSI */
-	srand(time(NULL));
-
-	/* initialize our data structures */
-	gsmnet = gsm_network_init(1, (gsm_bts_type)bts_type, mcc, mnc, mncc_recv);
-	if (!gsmnet)
-		return 0;
-
-	gsmnet->name_long = name_long;
-	gsmnet->name_short = name_short;
-	bts = &gsmnet->bts[0];
 	bts->location_area_code = lac;
 	bts->trx[0].arfcn = arfcn;
 
@@ -910,17 +879,67 @@ void *bootstrap_network(int (*mncc_recv)(void *, int, void *),int bts_type, int 
 	patch_tables(bts);
 
 	paging_init(bts);
-	bts->paging.channel_allocated = bsc_hack_channel_allocated;
+
+	return 0;
+}
+
+
+struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int, void *), int bts_type, int mcc, int mnc, int lac, int arfcn, int cardnr, int release_l2, char *name_short, char *name_long, char *hlr, int allow_all)
+{
+	struct gsm_bts *bts;
+	struct gsm_network *gsmnet;
+
+	/* seed the PRNG for TMSI */
+	srand(time(NULL));
+
+	/* initialize our data structures */
+	gsmnet = gsm_network_init(2, (gsm_bts_type)bts_type, mcc, mnc, mncc_recv);
+	if (!gsmnet)
+		return 0;
+
+	/* open database */
+	if (db_init(hlr, gsmnet)) {
+		fprintf(stderr, "DB: Failed to init HLR database '%s'. Please check the option settings.\n", hlr);
+		return NULL;
+	}	 
+	if (db_prepare()) {
+		fprintf(stderr, "DB: Failed to prepare database.\n");
+		return NULL;
+	}
+
+	gsmnet->name_long = name_long;
+	gsmnet->name_short = name_short;
+	bts = &gsmnet->bts[0];
+	bootstrap_bts(bts, lac, arfcn);
+
+	/* Control Channel Description */
+	memset(&bts->chan_desc, 0, sizeof(struct gsm48_control_channel_descr));
+	bts->chan_desc.att = 1;
+	bts->chan_desc.ccch_conf = RSL_BCCH_CCCH_CONF_1_C;
+	bts->chan_desc.bs_pa_mfrms = RSL_BS_PA_MFRMS_5;
+	bts->chan_desc.t3212 = 0;
+
+	patch_tables(bts);
+
+	paging_init(bts);
 
 	telnet_init(gsmnet, 4242);
 
 	/* E1 mISDN input setup */
 	if (bts_type == GSM_BTS_TYPE_BS11) {
+		gsmnet->num_bts = 1;
 		if (e1_config(bts, cardnr, release_l2))
 			return NULL;
 	} else {
-		if (ia_config(bts))
+		bts->ip_access.site_id = 1801;
+		bts->ip_access.bts_id = 0;
+		bts = &gsmnet->bts[1];
+		bootstrap_bts(bts, lac, arfcn);
+		bts->ip_access.site_id = 1800;
+		bts->ip_access.bts_id = 0;
+		if (ipaccess_setup(gsmnet))
 			return NULL;
+
 	}
 
 	if (allow_all)
@@ -929,7 +948,7 @@ void *bootstrap_network(int (*mncc_recv)(void *, int, void *),int bts_type, int 
 	return gsmnet;
 }
 
-int shutdown_net(void *network)
+int shutdown_net(struct gsm_network *network)
 {
 	struct gsm_network *net = (struct gsm_network *)network;
 	unsigned int i;
