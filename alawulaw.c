@@ -228,8 +228,7 @@ void generate_tables(char law)
 {
 	int i, j;
 
-	if (law == 'a')
-	{
+	if (law == 'a') {
 		audio_law_to_s32=audio_alaw_to_s32;
 		/* generating alaw-table */
 		i = j = 0;
@@ -242,8 +241,7 @@ void generate_tables(char law)
 				 = audio_alaw_relations[(j<<1)|1];
 			i++;
 		}
-	} else
-	{
+	} else {
 		audio_law_to_s32=audio_ulaw_to_s32;
 		/* generating ulaw-table */
 		i = j = 0;

@@ -30,8 +30,7 @@ void EndpointAppPBX::action_init_efi(void)
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 
 	/* if no caller id */
-	if (e_callerinfo.id[0] == '\0')
-	{
+	if (e_callerinfo.id[0] == '\0') {
 		/* facility rejected */
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DISCONNECT);
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -68,23 +67,20 @@ void EndpointAppPBX::efi_message_eof(void)
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 
-	switch(e_efi_state)
-	{
+	switch(e_efi_state) {
 		case EFI_STATE_HELLO:
 		e_efi_state = EFI_STATE_DIE;
 		set_tone_efi("die");
 		break;
 		case EFI_STATE_DIE:
-		if (e_callerinfo.screen==INFO_SCREEN_USER)
-		{
+		if (e_callerinfo.screen==INFO_SCREEN_USER) {
 			e_efi_state = EFI_STATE_BENUTZERDEFINIERTE;
 			set_tone_efi("benutzerdefinierte");
 			break;
 		}
 		// fall through
 		case EFI_STATE_BENUTZERDEFINIERTE:
-		if (e_callerinfo.present==INFO_PRESENT_RESTRICTED)
-		{
+		if (e_callerinfo.present==INFO_PRESENT_RESTRICTED) {
 			e_efi_state = EFI_STATE_UNTERDRUECKTE;
 			set_tone_efi("unterdrueckte");
 			break;
@@ -101,12 +97,10 @@ void EndpointAppPBX::efi_message_eof(void)
 		// fall through
 		case EFI_STATE_DIGIT:
 		digit[8] = numberrize_callerinfo(e_callerinfo.id,e_callerinfo.ntype, options.national, options.international)[e_efi_digit];
-		if (digit[8])
-		{
+		if (digit[8]) {
 			set_tone_efi(digit);
 			e_efi_digit++;
-		} else
-		{
+		} else {
 //			e_efi_state = EFI_STATE_STOP;
 			e_efi_state = EFI_STATE_ICH_WIEDERHOLE;
 //			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DISCONNECT);
@@ -146,8 +140,7 @@ void EndpointAppPBX::set_tone_efi(const char *tone)
 	if (tone == NULL)
 		tone = "";
 
-	if (!ea_endpoint->ep_portlist)
-	{
+	if (!ea_endpoint->ep_portlist) {
 		PERROR("EPOINT(%d) no portlist\n", ea_endpoint->ep_serial);
 	}
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_VBOX_TONE);

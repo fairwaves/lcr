@@ -383,37 +383,30 @@ char *get_isdn_cause(int cause, int location, int type)
  */
 void collect_cause(int *multicause, int *multilocation, int newcause, int newlocation)
 {
-	if (newcause == CAUSE_REJECTED) /* call rejected */
-	{
+	if (newcause == CAUSE_REJECTED) { /* call rejected */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause==CAUSE_NORMAL && *multicause!=CAUSE_REJECTED) /* reject via hangup */
-	{
+	if (newcause==CAUSE_NORMAL && *multicause!=CAUSE_REJECTED) { /* reject via hangup */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause==CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) /* busy */
-	{
+	if (newcause==CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) { /* busy */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause==CAUSE_OUTOFORDER && *multicause!=CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) /* no L1 */
-	{
+	if (newcause==CAUSE_OUTOFORDER && *multicause!=CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) { /* no L1 */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause!=CAUSE_NOUSER && *multicause!=CAUSE_OUTOFORDER && *multicause!=CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) /* anything but not 18 */
-	{
+	if (newcause!=CAUSE_NOUSER && *multicause!=CAUSE_OUTOFORDER && *multicause!=CAUSE_BUSY && *multicause!=CAUSE_REJECTED && *multicause!=CAUSE_NORMAL) { /* anything but not 18 */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	} else
-	if (newcause==CAUSE_NOUSER && *multicause==CAUSE_NOUSER) /* cause 18, use the location */
-	{
+	if (newcause==CAUSE_NOUSER && *multicause==CAUSE_NOUSER) { /* cause 18, use the location */
 		*multilocation = newlocation;
 	} else
-	if (*multicause==0) /* no cause yet, use newcause (should be 18) */
-	{
+	if (*multicause==0) { /* no cause yet, use newcause (should be 18) */
 		*multicause = newcause;
 		*multilocation = newlocation;
 	}

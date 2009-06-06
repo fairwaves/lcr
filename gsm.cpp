@@ -16,6 +16,7 @@ extern "C" {
 #include "openbsc/trau_frame.h"
 #include "openbsc/select.h"
 #include "openbsc/debug.h"
+#include "openbsc/e1_input.h"
 #include "bootstrap.h"
 #include "gsm_audio.h"
 
@@ -440,6 +441,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		SCPY(p_callerinfo.id, mncc->calling_number);
 	else
 		p_callerinfo.present = INFO_PRESENT_NOTAVAIL;
+	SCPY(p_callerinfo.imsi, mncc->imsi);
 	p_callerinfo.screen = INFO_SCREEN_NETWORK;
 	p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	p_callerinfo.isdn_port = p_m_portnum;
@@ -507,7 +509,11 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 
 	/* what infos did we got ... */
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
-	add_trace("subscr", "number", "%s", p_callerinfo.id);
+	if (p_callerinfo.id[0])
+		add_trace("calling", "number", "%s", p_callerinfo.id);
+	else
+		SPRINT(p_callerinfo.id, "imsi-%s", p_callerinfo.imsi);
+	add_trace("calling", "imsi", "%s", p_callerinfo.imsi);
 	add_trace("dialing", "number", "%s", p_dialinginfo.id);
 	end_trace();
 
@@ -656,13 +662,26 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
 	end_trace();
 
+	SCPY(p_connectinfo.id, mncc->calling_number);
+	SCPY(p_connectinfo.imsi, mncc->imsi);
+	p_connectinfo.present = INFO_PRESENT_ALLOWED;
+	p_connectinfo.screen = INFO_SCREEN_NETWORK;
+	p_connectinfo.ntype = INFO_NTYPE_UNKNOWN;
+	p_connectinfo.isdn_port = p_m_portnum;
+	SCPY(p_connectinfo.interface, p_m_mISDNport->ifport->interface->name);
 	/* send resp */
 	gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_COMPL_REQ, DIRECTION_OUT);
+	if (p_connectinfo.id[0])
+		add_trace("connect", "number", "%s", p_connectinfo.id);
+	else
+		SPRINT(p_connectinfo.id, "imsi-%s", p_connectinfo.imsi);
+	add_trace("connect", "imsi", "%s", p_connectinfo.imsi);
 	resp = create_mncc(MNCC_SETUP_COMPL_REQ, p_m_g_callref);
 	end_trace();
 	send_and_free_mncc((struct gsm_network *)gsm->network, resp->msg_type, resp);
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
+	memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
 	message_put(message);
 
 	new_state(PORT_STATE_CONNECT);
@@ -1102,8 +1121,13 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 	}
 	/* dialing information */
 	mncc->called = 1;
-	SCPY(mncc->called_number, p_dialinginfo.id);
-	add_trace("dialing", "number", "%s", mncc->called_number);
+	if (!strncmp(p_dialinginfo.id, "imsi-", 5)) {
+		SCPY(mncc->imsi, p_dialinginfo.id+5);
+		add_trace("dialing", "imsi", "%s", mncc->imsi);
+	} else {
+		SCPY(mncc->called_number, p_dialinginfo.id);
+		add_trace("dialing", "number", "%s", mncc->called_number);
+	}
 	
 	/* sending user-user */
 
@@ -1595,7 +1619,9 @@ int gsm_exit(int rc)
 
 int gsm_init(void)
 {
-	char hlr[128];
+	char hlr[128], filename[128];
+        mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	int pcapfd;
 
 	/* create gsm instance */
 	gsm = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
@@ -1621,15 +1647,31 @@ int gsm_init(void)
 		PERROR("Expecting exactly one BTS. You defined %d.\n", gsm->conf.numbts);
 		return gsm_exit(-1);
 	}
+
 	/* bootstrap network */
 	gsm->network = bootstrap_network(&message_bcs, gsm->conf.bts[0].type, gsm->conf.mcc, gsm->conf.mnc, gsm->conf.lac, gsm->conf.bts[0].frequency[0], gsm->conf.bts[0].card, !gsm->conf.keep_l2, gsm->conf.short_name, gsm->conf.long_name, hlr, gsm->conf.allow_all);
 	if (!gsm->network) {
 		PERROR("Failed to bootstrap GSM network.\n");
 		return gsm_exit(-1);
 	}
+
 	/* open gsm loop interface */
 	if (gsm_sock_open(gsm->conf.interface_bsc)) {
 		return gsm_exit(-1);
+	}
+
+	/* open pcap file */
+	if (gsm->conf.pcapfile[0]) {
+		if (gsm->conf.pcapfile[0] == '/')
+			SCPY(filename, gsm->conf.pcapfile);
+		else
+			SPRINT(filename, "%s/%s", CONFIG_DATA, gsm->conf.pcapfile);
+		pcapfd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, mode);
+		if (pcapfd < 0) {
+			PERROR("Failed to open file for pcap\n");
+			return gsm_exit(-1);
+		}
+		e1_set_pcap_fd(pcapfd);
 	}
 
 	return 0;

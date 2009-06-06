@@ -133,16 +133,14 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 
-	if (bchannel->b_sock > -1)
-	{
+	if (bchannel->b_sock > -1) {
 		CERROR(bchannel->call, NULL, "Socket already created for handle 0x%x\n", bchannel->handle);
 		return(0);
 	}
 
 	/* open socket */
 	bchannel->b_mode = mode;
-	switch(bchannel->b_mode)
-	{
+	switch(bchannel->b_mode) {
 		case 0:
 		CDEBUG(bchannel->call, NULL, "Open DSP audio\n");
 		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_L2DSP);
@@ -160,16 +158,14 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 		bchannel->b_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_B_HDLC);
 		break;
 	}
-	if (bchannel->b_sock < 0)
-	{
+	if (bchannel->b_sock < 0) {
 		CERROR(bchannel->call, NULL, "Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDN_dsp.ko?\n", bchannel->handle);
 		return(0);
 	}
 	
 	/* set nonblocking io */
 	ret = ioctl(bchannel->b_sock, FIONBIO, &on);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		CERROR(bchannel->call, NULL, "Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
@@ -181,8 +177,7 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	addr.dev = (bchannel->handle>>8);
 	addr.channel = bchannel->handle & 0xff;
 	ret = bind(bchannel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		CERROR(bchannel->call, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. (port %d, channel %d) Did you load mISDN_dsp.ko?\n", bchannel->handle, addr.dev, addr.channel);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
@@ -202,8 +197,7 @@ void bchannel_activate(struct bchannel *bchannel, int activate)
 
 	/* activate bchannel */
 	CDEBUG(bchannel->call, NULL, "%sActivating B-channel.\n", activate?"":"De-");
-	switch(bchannel->b_mode)
-	{
+	switch(bchannel->b_mode) {
 		case 0:
 		case 2:
 		act.prim = (activate)?DL_ESTABLISH_REQ:DL_RELEASE_REQ; 
@@ -269,8 +263,7 @@ static void bchannel_activated(struct bchannel *bchannel)
  */
 void bchannel_destroy(struct bchannel *bchannel)
 {
-	if (bchannel->b_sock > -1)
-	{
+	if (bchannel->b_sock > -1) {
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
 	}
@@ -291,24 +284,20 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, i
 	struct bchannel *remote_bchannel;
 	int ret;
 
-	if (hh->prim == PH_CONTROL_IND)
-	{
+	if (hh->prim == PH_CONTROL_IND) {
 		/* non dsp -> ignore ph_control */
 		if (bchannel->b_mode == 1 || bchannel->b_mode == 3)
 			return;
-		if (len < 4)
-		{
+		if (len < 4) {
 			CERROR(bchannel->call, NULL, "SHORT READ OF PH_CONTROL INDICATION\n");
 			return;
 		}
-		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL)
-		{
+		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL) {
 			if (bchannel->call)
 				lcr_in_dtmf(bchannel->call, cont & DTMF_TONE_MASK);
 			return;
 		}
-		switch(cont)
-		{
+		switch(cont) {
 			case DSP_BF_REJECT:
 			CERROR(bchannel->call, NULL, "Blowfish crypt rejected.\n");
 			break;
@@ -322,18 +311,15 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, i
 		}
 		return;
 	}
-	if (hh->prim == PH_DATA_REQ)
-	{
-		if (!bchannel->b_txdata)
-		{
+	if (hh->prim == PH_DATA_REQ) {
+		if (!bchannel->b_txdata) {
 			/* if tx is off, it may happen that fifos send us pending informations, we just ignore them */
 			CDEBUG(bchannel->call, NULL, "ignoring tx data, because 'txdata' is turned off\n");
 			return;
 		}
 		return;
 	}
-	if (hh->prim != PH_DATA_IND && hh->prim != DL_DATA_IND)
-	{
+	if (hh->prim != PH_DATA_IND && hh->prim != DL_DATA_IND) {
 		CERROR(bchannel->call, NULL, "Bchannel received unknown primitve: 0x%lx\n", hh->prim);
 		return;
 	}
@@ -364,32 +350,27 @@ static void bchannel_receive(struct bchannel *bchannel, unsigned char *buffer, i
 	 */
 
 	/* if rx is off, it may happen that fifos send us pending informations, we just ignore them */
-	if (bchannel->b_rxoff)
-	{
+	if (bchannel->b_rxoff) {
 		CDEBUG(bchannel->call, NULL, "ignoring data, because rx is turned off\n");
 		return;
 	}
 
-	if (!bchannel->call)
-	{
+	if (!bchannel->call) {
 		CDEBUG(bchannel->call, NULL, "ignoring data, because no call associated with bchannel\n");
 		return;
 	}
-	if (!bchannel->call->audiopath)
-	{
+	if (!bchannel->call->audiopath) {
 		/* return, because we have no audio from port */
 		return;
 	}
 
-	if (bchannel->call->pipe[1] < 0)
-	{
+	if (bchannel->call->pipe[1] < 0) {
 		/* nobody there */
 		return;
 	}
 
 	/* if no hdlc */
-	if (bchannel->b_mode == 0 || bchannel->b_mode == 1)
-	{
+	if (bchannel->b_mode == 0 || bchannel->b_mode == 1) {
 		d = data;
 		for (i = 0; i < len; i++) {
 			*d = flip_bits[*d];
@@ -424,8 +405,7 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 		return;
 	if (len > 1024 || len < 1)
 		return;
-	switch(bchannel->b_mode)
-	{
+	switch(bchannel->b_mode) {
 	case 0:
 		for (i = 0; i < len; i++)
 			*p++ = flip_bits[*data++];
@@ -467,8 +447,7 @@ void bchannel_join(struct bchannel *bchannel, unsigned short id)
 		bchannel->b_conf = 0;
 		bchannel->b_rxoff = 0;
 	}
-	if (bchannel->b_state == BSTATE_ACTIVE)
-	{
+	if (bchannel->b_state == BSTATE_ACTIVE) {
 		ph_control(sock, DSP_RECEIVE_OFF, bchannel->b_rxoff, "DSP-RX_OFF", bchannel->b_conf, bchannel->b_mode);
 		ph_control(sock, DSP_CONF_JOIN, bchannel->b_conf, "DSP-CONF", bchannel->b_conf, bchannel->b_mode);
 	}
@@ -547,17 +526,13 @@ int bchannel_handle(void)
 
 	/* process all bchannels */
 	bchannel = bchannel_first;
-	while(bchannel)
-	{
+	while(bchannel) {
 		/* handle message from bchannel */
-		if (bchannel->b_sock > -1)
-		{
+		if (bchannel->b_sock > -1) {
 			ret = recv(bchannel->b_sock, buffer, sizeof(buffer), 0);
-			if (ret >= (int)MISDN_HEADER_LEN)
-			{
+			if (ret >= (int)MISDN_HEADER_LEN) {
 				work = 1;
-				switch(hh->prim)
-				{
+				switch(hh->prim) {
 					/* we don't care about confirms, we use rx data to sync tx */
 					case PH_DATA_CNF:
 					break;
@@ -589,8 +564,7 @@ int bchannel_handle(void)
 					default:
 					CERROR(bchannel->call, NULL, "child message not handled: prim(0x%x) socket(%d) data len(%d)\n", hh->prim, bchannel->b_sock, ret - MISDN_HEADER_LEN);
 				}
-			} else
-			{
+			} else {
 				if (ret < 0 && errno != EWOULDBLOCK)
 					CERROR(bchannel->call, NULL, "Read from socket %d failed with return code %d\n", bchannel->b_sock, ret);
 			}
@@ -611,8 +585,7 @@ struct bchannel *find_bchannel_handle(unsigned int handle)
 {
 	struct bchannel *bchannel = bchannel_first;
 
-	while(bchannel)
-	{
+	while(bchannel) {
 		if (bchannel->handle == handle)
 			break;
 		bchannel = bchannel->next;
@@ -625,8 +598,7 @@ struct bchannel *find_bchannel_ref(unsigned int ref)
 {
 	struct bchannel *bchannel = bchannel_first;
 
-	while(bchannel)
-	{
+	while(bchannel) {
 		if (bchannel->ref == ref)
 			break;
 		bchannel = bchannel->next;
@@ -656,15 +628,12 @@ void free_bchannel(struct bchannel *bchannel)
 {
 	struct bchannel **temp = &bchannel_first;
 
-	while(*temp)
-	{
-		if (*temp == bchannel)
-		{
+	while(*temp) {
+		if (*temp == bchannel) {
 			*temp = (*temp)->next;
 			if (bchannel->b_sock > -1)
 				bchannel_destroy(bchannel);
-			if (bchannel->call)
-			{
+			if (bchannel->call) {
 				if (bchannel->call->bchannel)
 					bchannel->call->bchannel = NULL;
 			}

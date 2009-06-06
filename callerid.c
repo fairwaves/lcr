@@ -20,13 +20,11 @@
  */
 const char *nationalize_callerinfo(const char *string, int *ntype, const char *national, const char *international)
 {
-	if (!strncmp(international, string, strlen(international)))
-	{
+	if (!strncmp(international, string, strlen(international))) {
 		*ntype = INFO_NTYPE_INTERNATIONAL;
 		return(string+strlen(international)); 
 	}
-	if (!strncmp(national, string, strlen(national)))
-	{
+	if (!strncmp(national, string, strlen(national))) {
 		*ntype = INFO_NTYPE_NATIONAL;
 		return(string+strlen(national)); 
 	}
@@ -41,8 +39,7 @@ const char *numberrize_callerinfo(const char *string, int ntype, const char *nat
 {
 	static char result[256];
 
-	switch(ntype)
-	{
+	switch(ntype) {
 		case INFO_NTYPE_NOTPRESENT:
 		return("");
 

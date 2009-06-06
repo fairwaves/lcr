@@ -1064,8 +1064,10 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	end_trace();
 
-	if (cause < 0)
+	if (cause < 0) {
 		cause = 16;
+		location = LOCATION_PRIVATE_LOCAL;
+	}
 
 	/* release if remote sends us no tones */
 	if (!p_m_mISDNport->earlyb) {
@@ -1152,8 +1154,10 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_display(l3m, (unsigned char *)display, sizeof(display));
 	end_trace();
 
-	if (cause < 0)
+	if (cause < 0) {
 		cause = 16;
+		location = LOCATION_PRIVATE_LOCAL;
+	}
 
 	/* sending release to endpoint */
 	if (location == LOCATION_PRIVATE_LOCAL)
@@ -1203,8 +1207,10 @@ void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_m
 	if (location == LOCATION_PRIVATE_LOCAL)
 		location = LOCATION_PRIVATE_REMOTE;
 
-	if (cause < 0)
+	if (cause < 0) {
 		cause = 16;
+		location = LOCATION_PRIVATE_LOCAL;
+	}
 
 	/* sending release to endpoint */
 	while(p_epointlist) {

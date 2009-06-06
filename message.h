@@ -165,6 +165,7 @@ struct caller_info {
 	int ntype2;			/* second type of number */
 	int present2;			/* second presentation */
 	int screen2;			/* second who provided the number */
+	char imsi[16];			/* IMSI for gsm originated calls */
 };
 
 /* call-info structure DIALING */
@@ -189,6 +190,7 @@ struct connect_info {
 	int present;			/* presentation */
 	int screen;			/* who provided the number */
 	char display[84];		/* display information */
+	char imsi[16];			/* IMSI for gsm terminated calls */
 };
 
 /* call-info structure DISCONNECT */

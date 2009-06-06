@@ -21,6 +21,7 @@ struct gsm_conf {
 	int numbts;			/* number of BTS' */
 	struct bts_conf bts[8];		/* configure BTS' */
 	int noemergshut;		/* don't shut down on emergency */
+	char pcapfile[128];		/* open capture file for BS11 links */
 };
 
 struct lcr_gsm {

@@ -460,7 +460,6 @@ static void bootstrap_om_bs11(struct gsm_bts *bts)
 
 	/* Connect signalling of bts0/trx0 to e1_0/ts1/64kbps */
 	abis_nm_conn_terr_sign(trx, 0, 1, 0xff);
-	set_ts_e1link(&trx->ts[0], 0, 1, 0xff);
 	abis_nm_raw_msg(bts, sizeof(msg_6), msg_6); /* SET TRX ATTRIBUTES */
 
 	/* Use TEI 1 for signalling */
@@ -477,43 +476,36 @@ static void bootstrap_om_bs11(struct gsm_bts *bts)
 	/* SET CHANNEL ATTRIBUTE TS1 */
 	abis_nm_set_channel_attr(&trx->ts[1], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts1 to e1_0/ts2/b */
-	set_ts_e1link(&trx->ts[1], 0, 2, 1);
 	abis_nm_conn_terr_traf(&trx->ts[1], 0, 2, 1);
 	
 	/* SET CHANNEL ATTRIBUTE TS2 */
 	abis_nm_set_channel_attr(&trx->ts[2], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts2 to e1_0/ts2/c */
-	set_ts_e1link(&trx->ts[2], 0, 2, 2);
 	abis_nm_conn_terr_traf(&trx->ts[2], 0, 2, 2);
 
 	/* SET CHANNEL ATTRIBUTE TS3 */
 	abis_nm_set_channel_attr(&trx->ts[3], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts3 to e1_0/ts2/d */
-	set_ts_e1link(&trx->ts[3], 0, 2, 3);
 	abis_nm_conn_terr_traf(&trx->ts[3], 0, 2, 3);
 
 	/* SET CHANNEL ATTRIBUTE TS4 */
 	abis_nm_set_channel_attr(&trx->ts[4], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts4 to e1_0/ts3/a */
-	set_ts_e1link(&trx->ts[4], 0, 3, 0);
 	abis_nm_conn_terr_traf(&trx->ts[4], 0, 3, 0);
 
 	/* SET CHANNEL ATTRIBUTE TS5 */
 	abis_nm_set_channel_attr(&trx->ts[5], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts5 to e1_0/ts3/b */
-	set_ts_e1link(&trx->ts[5], 0, 3, 1);
 	abis_nm_conn_terr_traf(&trx->ts[5], 0, 3, 1);
 
 	/* SET CHANNEL ATTRIBUTE TS6 */
 	abis_nm_set_channel_attr(&trx->ts[6], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts6 to e1_0/ts3/c */
-	set_ts_e1link(&trx->ts[6], 0, 3, 2);
 	abis_nm_conn_terr_traf(&trx->ts[6], 0, 3, 2);
 
 	/* SET CHANNEL ATTRIBUTE TS7 */
 	abis_nm_set_channel_attr(&trx->ts[7], NM_CHANC_TCHFull);
 	/* Connect traffic of bts0/trx0/ts7 to e1_0/ts3/d */
-	set_ts_e1link(&trx->ts[7], 0, 3, 3);
 	abis_nm_conn_terr_traf(&trx->ts[7], 0, 3, 3);
 
 	/* end DB transmission */
@@ -586,6 +578,48 @@ static u_int8_t si1[] = {
 	/* s1 reset*/0x2B
 };
 
+static u_int8_t *gsm48_si1(u_int8_t *arfcn_list, int arfcn_len, int max_trans, int tx_integer, int cell_barr, int re, int ec, u_int8_t *ac_list, int ac_len)
+{
+	static u_int8_t si[23];
+	int i, bit, octet;
+
+	memset(&si, 0, sizeof(si));
+
+	/* header */
+	si[0] = 0x55;
+	si[1] = 0x06;
+	si[2] = 0x19;
+	/* ccdesc */
+	for (i = 0; i < arfcn_len; i++) {
+		if (arfcn_list[i] <= 124 && arfcn_list[i] > 0) {
+			bit = (arfcn_list[i] - 1) & 7;
+			octet = (arfcn_list[i] -1) / 8;
+			si[18 - octet] |= (1 << bit);
+		}
+	}
+	/* rach */
+	si[19] = (max_trans << 6);
+	si[19] |= (tx_integer << 2);
+	si[19] |= (cell_barr << 1);
+	si[19] |= re;
+	si[20] = (ec << 2);
+	for (i = 0; i < ac_len; i++) {
+		if (ac_list[i] <= 15 && ac_list[i] != 10) {
+			bit = ac_list[i] & 7;
+			octet = ac_list[i] / 8;
+			si[21 - octet] |= (1 << bit);
+		}
+	}
+	/* s1 rest */
+	si[22] = 0x2B;
+
+	/* testig */
+	if (memcmp(&si1, &si, sizeof(si)))
+		printf("SI1 does not match default template.\n");
+
+	return si;
+}
+
 /*
  SYSTEM INFORMATION TYPE 2
   Neighbour Cells Description
@@ -608,6 +642,49 @@ static u_int8_t si2[] = {
 	/* ncc */0xFF,
 	/* rach*/0xD5, 0x00, 0x00
 };
+
+static u_int8_t *gsm48_si2(int ba, u_int8_t *arfcn_list, int arfcn_len, u_int8_t ncc, int max_trans, int tx_integer, int cell_barr, int re, int ec, u_int8_t *ac_list, int ac_len)
+{
+	static u_int8_t si[23];
+	int i, bit, octet;
+
+	memset(&si, 0, sizeof(si));
+
+	/* header */
+	si[0] = 0x59;
+	si[1] = 0x06;
+	si[2] = 0x1A;
+	/* ncdesc */
+	si[3] = (ba << 4);
+	for (i = 0; i < arfcn_len; i++) {
+		if (arfcn_list[i] <= 124 && arfcn_list[i] > 0) {
+			bit = (arfcn_list[i] - 1) & 7;
+			octet = (arfcn_list[i] -1) / 8;
+			si[18 - octet] |= (1 << bit);
+		}
+	}
+	/* ncc */
+	si[19] = ncc;
+	/* rach */
+	si[20] = (max_trans << 6);
+	si[20] |= (tx_integer << 2);
+	si[20] |= (cell_barr << 1);
+	si[20] |= re;
+	si[21] = (ec << 2);
+	for (i = 0; i < ac_len; i++) {
+		if (ac_list[i] <= 15 && ac_list[i] != 10) {
+			bit = ac_list[i] & 7;
+			octet = ac_list[i] / 8;
+			si[22 - octet] |= (1 << bit);
+		}
+	}
+
+	/* testig */
+	if (memcmp(&si2, &si, sizeof(si)))
+		printf("SI2 does not match default template.\n");
+
+	return si;
+}
 
 /*
 SYSTEM INFORMATION TYPE 3
@@ -711,6 +788,33 @@ static u_int8_t si5[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
+static u_int8_t *gsm48_si5(int ba, u_int8_t *arfcn_list, int arfcn_len)
+{
+	static u_int8_t si[18];
+	int i, bit, octet;
+
+	memset(&si, 0, sizeof(si));
+
+	/* header */
+	si[0] = 0x06;
+	si[1] = 0x1D;
+	/* ncdesc */
+	si[2] = (ba << 4);
+	for (i = 0; i < arfcn_len; i++) {
+		if (arfcn_list[i] <= 124 && arfcn_list[i] > 0) {
+			bit = (arfcn_list[i] - 1) & 7;
+			octet = (arfcn_list[i] -1) / 8;
+			si[17 - octet] |= (1 << bit);
+		}
+	}
+
+	/* testig */
+	if (memcmp(&si3, &si, sizeof(si)))
+		printf("SI3 does not match default template.\n");
+
+	return si;
+}
+
 // SYSTEM INFORMATION TYPE 6
 
 /*
@@ -772,13 +876,37 @@ static_assert(sizeof(si6) >= sizeof(struct gsm48_system_information_type_6), typ
 static int set_system_infos(struct gsm_bts_trx *trx)
 {
 	unsigned int i;
+	u_int8_t *_si1;
+	u_int8_t *_si2;
+	u_int8_t *_si5;
+	u_int8_t arfcn_list[8];
 
-	for (i = 0; i < ARRAY_SIZE(bcch_infos); i++) {
+	arfcn_list[0] = trx->arfcn;
+	_si1 = gsm48_si1(arfcn_list, 1, 3, 5, 0, 1, 0, NULL, 0);
+
+	memset(arfcn_list, 0, sizeof(arfcn_list));
+	arfcn_list[0] = trx->arfcn;
+	arfcn_list[1] = 112;
+	arfcn_list[2] = 62;
+	arfcn_list[3] = 99;
+	arfcn_list[4] = 77;
+	arfcn_list[5] = 64;
+	arfcn_list[6] = 54;
+	arfcn_list[7] = 51;
+	_si2 = gsm48_si2(0, arfcn_list, 8, 0xff, 3, 5, 0, 1, 0, NULL, 0);
+	_si5 = gsm48_si5(0, arfcn_list, 8);
+
+	rsl_bcch_info(trx, RSL_SYSTEM_INFO_1, _si1, 23);
+	rsl_bcch_info(trx, RSL_SYSTEM_INFO_2, _si2, 23);
+//	rsl_bcch_info(trx, RSL_SYSTEM_INFO_3, _si3, );
+//	rsl_bcch_info(trx, RSL_SYSTEM_INFO_4, _si4, );
+
+	for (i = 2; i < ARRAY_SIZE(bcch_infos); i++) {
 		rsl_bcch_info(trx, bcch_infos[i].type,
 			      bcch_infos[i].data,
 			      bcch_infos[i].len);
 	}
-	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_5, si5, sizeof(si5));
+	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_5, _si5, 18);
 	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_6, si6, sizeof(si6));
 
 	return 0;
@@ -790,6 +918,7 @@ static int set_system_infos(struct gsm_bts_trx *trx)
  */
 static void patch_tables(struct gsm_bts *bts)
 {
+#warning todo
 	u_int8_t arfcn_low = bts->trx[0].arfcn & 0xff;
 	u_int8_t arfcn_high = (bts->trx[0].arfcn >> 8) & 0x0f;
 	/* covert the raw packet to the struct */
@@ -879,6 +1008,30 @@ static int bootstrap_bts(struct gsm_bts *bts, int lac, int arfcn)
 	patch_tables(bts);
 
 	paging_init(bts);
+
+	if (bts->type == GSM_BTS_TYPE_BS11) {
+		struct gsm_bts_trx *trx = &bts->trx[0];
+		set_ts_e1link(&trx->ts[0], 0, 1, 0xff);
+		set_ts_e1link(&trx->ts[1], 0, 2, 1);
+		set_ts_e1link(&trx->ts[2], 0, 2, 2);
+		set_ts_e1link(&trx->ts[3], 0, 2, 3);
+		set_ts_e1link(&trx->ts[4], 0, 3, 0);
+		set_ts_e1link(&trx->ts[5], 0, 3, 1);
+		set_ts_e1link(&trx->ts[6], 0, 3, 2);
+		set_ts_e1link(&trx->ts[7], 0, 3, 3);
+#ifdef HAVE_TRX1
+		/* TRX 1 */
+		trx = &bts->trx[1];
+		set_ts_e1link(&trx->ts[0], 0, 1, 0xff);
+		set_ts_e1link(&trx->ts[1], 0, 2, 1);
+		set_ts_e1link(&trx->ts[2], 0, 2, 2);
+		set_ts_e1link(&trx->ts[3], 0, 2, 3);
+		set_ts_e1link(&trx->ts[4], 0, 3, 0);
+		set_ts_e1link(&trx->ts[5], 0, 3, 1);
+		set_ts_e1link(&trx->ts[6], 0, 3, 2);
+		set_ts_e1link(&trx->ts[7], 0, 3, 3);
+#endif
+	}
 
 	return 0;
 }
