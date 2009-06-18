@@ -13,7 +13,7 @@
 #include "openbsc/gsm_data.h"
 
 
-char *gsm_conf_error = "";
+char *gsm_conf_error = (char *)"";
 
 /* read options
  *

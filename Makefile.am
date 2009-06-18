@@ -49,7 +49,7 @@ GSM_INCLUDE = -DWITH_GSM
 
 GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c
 
-GSM_LIB = /usr/local/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
+GSM_LIB = /usr/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
@@ -124,9 +124,11 @@ install-data-hook:
 	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
+if ENABLE_GSM
 	@if test -a $(CONFIGdir)/gsm.conf ; then \
 		echo "NOTE: gsm.conf already exists, not changed." ; else \
 		cp -v default/gsm.conf $(CONFIGdir) ; fi
+endif
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \

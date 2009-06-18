@@ -1051,7 +1051,7 @@ struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int
 		return 0;
 
 	/* open database */
-	if (db_init(hlr, gsmnet)) {
+	if (db_init(hlr)) {
 		fprintf(stderr, "DB: Failed to init HLR database '%s'. Please check the option settings.\n", hlr);
 		return NULL;
 	}	 

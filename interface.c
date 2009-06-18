@@ -310,11 +310,11 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 				SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
 				return(-1);
 			}
-			/* check for use as GSM */
-			if (ifport->gsm) {
-				SPRINT(interface_error, "Error in %s (line %d): Interface already used for GSM.\n", filename, line);
-				return(-1);
-			}
+//			/* check for use as GSM */
+//			if (ifport->gsm) {
+//				SPRINT(interface_error, "Error in %s (line %d): Interface already used for GSM.\n", filename, line);
+//				return(-1);
+//			}
 			ifport = ifport->next;
 		}
 		searchif = searchif->next;
@@ -889,7 +889,7 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	}
 
 	/* set portname */
-	if (inter_portname(interface, filename, line, "portname", gsm->conf.interface_lcr))
+	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
 		return(-1);
 	/* goto end of chain again to set gsmflag*/
 	ifport = interface->ifport;

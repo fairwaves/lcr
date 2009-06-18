@@ -95,7 +95,7 @@ am_lcr_OBJECTS = $(am__objects_1) action.$(OBJEXT) mISDN.$(OBJEXT) \
 	socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_GSM_TRUE@am__DEPENDENCIES_2 = /usr/local/lib/libgsm.a \
+@ENABLE_GSM_TRUE@am__DEPENDENCIES_2 = /usr/lib/libgsm.a \
 @ENABLE_GSM_TRUE@	/usr/local/lib/libbsc.a \
 @ENABLE_GSM_TRUE@	/usr/local/lib/libvty.a
 lcr_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
@@ -241,7 +241,7 @@ INSTALLATION_DEFINES = \
 
 @ENABLE_GSM_TRUE@GSM_INCLUDE = -DWITH_GSM
 @ENABLE_GSM_TRUE@GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c
-@ENABLE_GSM_TRUE@GSM_LIB = /usr/local/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
+@ENABLE_GSM_TRUE@GSM_LIB = /usr/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
@@ -786,9 +786,9 @@ install-data-hook:
 	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
-	@if test -a $(CONFIGdir)/gsm.conf ; then \
-		echo "NOTE: gsm.conf already exists, not changed." ; else \
-		cp -v default/gsm.conf $(CONFIGdir) ; fi
+@ENABLE_GSM_TRUE@	@if test -a $(CONFIGdir)/gsm.conf ; then \
+@ENABLE_GSM_TRUE@		echo "NOTE: gsm.conf already exists, not changed." ; else \
+@ENABLE_GSM_TRUE@		cp -v default/gsm.conf $(CONFIGdir) ; fi
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \

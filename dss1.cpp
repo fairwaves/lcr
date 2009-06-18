@@ -1866,7 +1866,7 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)number, max);
  	 	if ((p_m_d_ntmode || p_m_d_tespecial) && display[0]) {
 			enc_ie_display(l3m, (unsigned char *)display);
-			display = "";
+			display = (char *)"";
 		}
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_INFORMATION, p_m_d_l3id, l3m);
