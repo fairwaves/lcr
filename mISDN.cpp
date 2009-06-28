@@ -25,9 +25,11 @@ extern "C" {
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
 
+#ifndef container_of
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
+#endif
 
 // timeouts if activating/deactivating response from mISDN got lost
 #define B_TIMER_ACTIVATING 1 // seconds

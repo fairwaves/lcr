@@ -10,8 +10,8 @@
 \*****************************************************************************/ 
 
 #include "main.h"
+
 extern "C" {
-#include "openbsc/gsm_data.h"
 #include "openbsc/mncc.h"
 #include "openbsc/trau_frame.h"
 #include "openbsc/select.h"
@@ -25,6 +25,7 @@ extern "C" {
 extern  int     AF_ISDN;
 #define PF_ISDN AF_ISDN
 }
+
 
 struct lcr_gsm *gsm = NULL;
 
@@ -1609,9 +1610,9 @@ int gsm_exit(int rc)
 		if (gsm->network)
 			shutdown_net((struct gsm_network *)gsm->network);
 		/* free network */
-		if (gsm->network) {
-			free((struct gsm_network *)gsm->network); /* TBD */
-		}
+//		if (gsm->network) {
+//			free((struct gsm_network *)gsm->network); /* TBD */
+//		}
 		free(gsm);
 		gsm = NULL;
 	}

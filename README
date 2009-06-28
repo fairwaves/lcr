@@ -504,5 +504,8 @@ Changes after Version 1.5
 - Fixed disabling of DTMF using 'n' option of chan_lcr.
 - Added GSM IMSI dialing by using dialing "imsi-<number>".
 - Applied API change of OpenBSC.
+- Applied changes of OpenBSC main branch. LCR now works with OpenBSC main
+  branch.
+
 
 

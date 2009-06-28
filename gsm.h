@@ -1,6 +1,9 @@
+extern "C" {
+#include <openbsc/gsm_data.h>
+}
 
 struct bts_conf {
-	int type;			/* type of BTS */
+	gsm_bts_type type;		/* type of BTS */
 	int card;			/* E1 card number of BS11 BTS */
 	int numtrx;			/* up to 8 TRXs */
 	int frequency[8];		/* up to 8 frequencies for TRXs */

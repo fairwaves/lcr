@@ -50,6 +50,10 @@ extern "C" {
 #include <openbsc/telnet_interface.h>
 #include <openbsc/paging.h>
 #include <openbsc/e1_input.h>
+#include <openbsc/signal.h>
+
+
+static enum gsm_band BAND = GSM_BAND_900;
 
 /* The following definitions are for OM and NM packets that we cannot yet
  * generate by code but we just pass on */
@@ -71,10 +75,13 @@ SET ATTRIBUTES
 
 unsigned char msg_1[] = 
 {
-	0xD0, 0x00, 0xFF, 0xFF, 0xFF, 
-		NM_ATT_BS11_ABIS_EXT_TIME, 0x07, 0xD7, 0x09, 0x08, 0x0E, 0x24, 0x0B, 0xCE, 
-		0x02, 0x00, 0x1E, 
-		0xE8, 0x01, 0x05,
+	NM_MT_BS11_SET_ATTR, NM_OC_SITE_MANAGER, 0xFF, 0xFF, 0xFF, 
+		NM_ATT_BS11_ABIS_EXT_TIME, 0x07, 
+			0xD7, 0x09, 0x08, 0x0E, 0x24, 0x0B, 0xCE, 
+		0x02, 
+			0x00, 0x1E, 
+		NM_ATT_BS11_SH_LAPD_INT_TIMER, 
+			0x01, 0x05,
 		0x42, 0x02, 0x00, 0x0A, 
 		0x44, 0x02, 0x00, 0x00
 };
@@ -136,17 +143,17 @@ SET BTS ATTRIBUTES
   BCCH ARFCN / bCCHFrequency: 1
 */
 
-unsigned char msg_2[] = 
+static unsigned char bs11_attr_bts[] = 
 {
-	0x41, 0x01, 0x00, 0xFF, 0xFF,
-		NM_ATT_BSIC, 0x3F,
+		NM_ATT_BSIC, HARDCODED_BSIC,
 		NM_ATT_BTS_AIR_TIMER, 0x04,
 		NM_ATT_BS11_BTSLS_HOPPING, 0x00,
 		NM_ATT_CCCH_L_I_P, 0x01,
 		NM_ATT_CCCH_L_T, 0x00,
-		NM_ATT_BS11_CELL_ALLOC_NR, 0x00,
-		NM_ATT_BS11_ENA_INTERF_CLASS, 0x00,
+		NM_ATT_BS11_CELL_ALLOC_NR, NM_BS11_CANR_GSM,
+		NM_ATT_BS11_ENA_INTERF_CLASS, 0x01,
 		NM_ATT_BS11_FACCH_QUAL, 0x06,
+		/* interference avg. period in numbers of SACCH multifr */
 		NM_ATT_INTAVE_PARAM, 0x1F, 
 		NM_ATT_INTERF_BOUND, 0x0A, 0x0F, 0x14, 0x19, 0x1E, 0x7B,
 		NM_ATT_CCCH_L_T, 0x23,
@@ -203,7 +210,7 @@ SET ATTRIBUTES
 
 unsigned char msg_3[] = 
 {
-	0xD0, 0xA1, 0x00, 0xFF, 0xFF, 
+	NM_MT_BS11_SET_ATTR, NM_OC_BS11_HANDOVER, 0x00, 0xFF, 0xFF, 
 		0xD0, 0x00,
 		0x64, 0x00,
 		0x67, 0x00,
@@ -273,7 +280,7 @@ SET ATTRIBUTES
 
 unsigned char msg_4[] = 
 {
-	0xD0, 0xA2, 0x00, 0xFF, 0xFF, 
+	NM_MT_BS11_SET_ATTR, NM_OC_BS11_PWR_CTRL, 0x00, 0xFF, 0xFF, 
 		NM_ATT_BS11_ENA_MS_PWR_CTRL, 0x00,
 		NM_ATT_BS11_ENA_PWR_CTRL_RLFW, 0x00,
 		0x7E, 0x04, 0x01,
@@ -312,12 +319,11 @@ SET TRX ATTRIBUTES
   trxArea: 00h = TRX doesn't belong to a concentric cell
 */
 
-unsigned char msg_6[] = 
+static unsigned char bs11_attr_radio[] = 
 {
-	0x44, 0x02, 0x00, 0x00, 0xFF, 
 		NM_ATT_ARFCN_LIST, 0x01, 0x00, HARDCODED_ARFCN /*0x01*/,
 		NM_ATT_RF_MAXPOWR_R, 0x00,
-		NM_ATT_BS11_RADIO_MEAS_GRAN, 0x01, 0xFE, 
+		NM_ATT_BS11_RADIO_MEAS_GRAN, 0x01, 0x05, 
 		NM_ATT_BS11_RADIO_MEAS_REP, 0x01, 0x01,
 		NM_ATT_BS11_EMRG_CFG_MEMBER, 0x01, 0x01,
 		NM_ATT_BS11_TRX_AREA, 0x01, 0x00, 
@@ -325,23 +331,25 @@ unsigned char msg_6[] =
 
 static unsigned char nanobts_attr_bts[] = {
 	NM_ATT_INTERF_BOUND, 0x55, 0x5b, 0x61, 0x67, 0x6d, 0x73,
+	/* interference avg. period in numbers of SACCH multifr */
 	NM_ATT_INTAVE_PARAM, 0x06,
+	/* conn fail based on SACCH error rate */
 	NM_ATT_CONN_FAIL_CRIT, 0x00, 0x02, 0x01, 0x10, 
 	NM_ATT_T200, 0x1e, 0x24, 0x24, 0xa8, 0x34, 0x21, 0xa8,
 	NM_ATT_MAX_TA, 0x3f,
 	NM_ATT_OVERL_PERIOD, 0x00, 0x01, 10, /* seconds */
 	NM_ATT_CCCH_L_T, 10, /* percent */
 	NM_ATT_CCCH_L_I_P, 1, /* seconds */
-	NM_ATT_RACH_B_THRESH, 0x0a,
-	NM_ATT_LDAVG_SLOTS, 0x03, 0xe8,
-	NM_ATT_BTS_AIR_TIMER, 0x80,
-	NM_ATT_NY1, 0x0a,
+	NM_ATT_RACH_B_THRESH, 10, /* busy threshold in - dBm */
+	NM_ATT_LDAVG_SLOTS, 0x03, 0xe8, /* rach load averaging 1000 slots */
+	NM_ATT_BTS_AIR_TIMER, 128, /* miliseconds */
+	NM_ATT_NY1, 10, /* 10 retransmissions of physical config */
 	NM_ATT_BCCH_ARFCN, HARDCODED_ARFCN >> 8, HARDCODED_ARFCN & 0xff,
-	NM_ATT_BSIC, 0x20,
+	NM_ATT_BSIC, HARDCODED_BSIC,
 };
 
 static unsigned char nanobts_attr_radio[] = {
-	NM_ATT_RF_MAXPOWR_R, 0x0c,
+	NM_ATT_RF_MAXPOWR_R, 0x0c, /* number of -2dB reduction steps / Pn */
 	NM_ATT_ARFCN_LIST, 0x00, 0x02, HARDCODED_ARFCN >> 8, HARDCODED_ARFCN & 0xff,
 };
 
@@ -350,6 +358,7 @@ static unsigned char nanobts_attr_e0[] = {
 	0x81, 0x0b, 0xbb,	/* TCP PORT for RSL */
 };
 
+/* Callback function to be called whenever we get a GSM 12.21 state change event */
 int nm_state_event(enum nm_evt evt, u_int8_t obj_class, void *obj,
 		   struct gsm_nm_state *old_state, struct gsm_nm_state *new_state)
 {
@@ -374,56 +383,91 @@ int nm_state_event(enum nm_evt evt, u_int8_t obj_class, void *obj,
 				abis_nm_set_bts_attr(bts, nanobts_attr_bts,
 							sizeof(nanobts_attr_bts));
 				abis_nm_opstart(bts, NM_OC_BTS,
-						bts->nr, 0xff, 0xff);
+						bts->bts_nr, 0xff, 0xff);
 				abis_nm_chg_adm_state(bts, NM_OC_BTS,
-						      bts->nr, 0xff, 0xff,
-						      NM_STATE_UNLOCKED);
-			}
-			break;
-		case NM_OC_RADIO_CARRIER:
-			trx = (struct gsm_bts_trx *)obj;
-			if (new_state->availability == 3) {
-				abis_nm_set_radio_attr(trx, nanobts_attr_radio,
-							sizeof(nanobts_attr_radio));
-				abis_nm_opstart(trx->bts, NM_OC_RADIO_CARRIER,
-						trx->bts->nr, trx->nr, 0xff);
-				abis_nm_chg_adm_state(trx->bts, NM_OC_RADIO_CARRIER,
-						      trx->bts->nr, trx->nr, 0xff,
+						      bts->bts_nr, 0xff, 0xff,
 						      NM_STATE_UNLOCKED);
 			}
 			break;
 		case NM_OC_CHANNEL:
 			ts = (struct gsm_bts_trx_ts *)obj;
-			trx = (struct gsm_bts_trx *)ts->trx;
+			trx = ts->trx;
 			if (new_state->availability == 5) {
 				if (ts->nr == 0 && trx == trx->bts->c0)
 					abis_nm_set_channel_attr(ts, NM_CHANC_BCCH_CBCH);
 				else
 					abis_nm_set_channel_attr(ts, NM_CHANC_TCHFull);
 				abis_nm_opstart(trx->bts, NM_OC_CHANNEL,
-						trx->bts->nr, trx->nr, ts->nr);
+						trx->bts->bts_nr, trx->nr, ts->nr);
 				abis_nm_chg_adm_state(trx->bts, NM_OC_CHANNEL,
-						      trx->bts->nr, trx->nr, ts->nr,
+						      trx->bts->bts_nr, trx->nr, ts->nr,
 						      NM_STATE_UNLOCKED);
 			}
 			break;
-		case NM_OC_BASEB_TRANSC:
-			trx = container_of(obj, struct gsm_bts_trx, bb_transc);
-			if (new_state->availability == 5) {
-				abis_nm_ipaccess_msg(trx->bts, 0xe0, NM_OC_BASEB_TRANSC,
-						     trx->bts->nr, trx->nr, 0xff,
-						     nanobts_attr_e0, sizeof(nanobts_attr_e0));
-				abis_nm_opstart(trx->bts, NM_OC_BASEB_TRANSC, 
-						trx->bts->nr, trx->nr, 0xff);
-				abis_nm_chg_adm_state(trx->bts, NM_OC_BASEB_TRANSC, 
-							trx->bts->nr, trx->nr, 0xff,
-							NM_STATE_UNLOCKED);
-			}
+		default:
 			break;
 		}
 		break;
-	case EVT_STATECHG_ADM:
-		DEBUGP(DMM, "Unhandled state change in %s:%d\n", __func__, __LINE__);
+	default:
+		//DEBUGP(DMM, "Unhandled state change in %s:%d\n", __func__, __LINE__);
+		break;
+	}
+	return 0;
+}
+
+/* Callback function to be called every time we receive a 12.21 SW activated report */
+static int sw_activ_rep(struct msgb *mb)
+{
+	struct abis_om_fom_hdr *foh = (struct abis_om_fom_hdr *)msgb_l3(mb);
+	struct gsm_bts_trx *trx = mb->trx;
+
+	switch (foh->obj_class) {
+	case NM_OC_BASEB_TRANSC:
+		/* TRX software is active, tell it to initiate RSL Link */
+		abis_nm_ipaccess_msg(trx->bts, 0xe0, NM_OC_BASEB_TRANSC,
+				     trx->bts->bts_nr, trx->nr, 0xff,
+				     nanobts_attr_e0, sizeof(nanobts_attr_e0));
+		abis_nm_opstart(trx->bts, NM_OC_BASEB_TRANSC, 
+				trx->bts->bts_nr, trx->nr, 0xff);
+		abis_nm_chg_adm_state(trx->bts, NM_OC_BASEB_TRANSC, 
+					trx->bts->bts_nr, trx->nr, 0xff,
+					NM_STATE_UNLOCKED);
+		break;
+	case NM_OC_RADIO_CARRIER:
+		abis_nm_set_radio_attr(trx, nanobts_attr_radio,
+					sizeof(nanobts_attr_radio));
+		abis_nm_opstart(trx->bts, NM_OC_RADIO_CARRIER,
+				trx->bts->bts_nr, trx->nr, 0xff);
+		abis_nm_chg_adm_state(trx->bts, NM_OC_RADIO_CARRIER,
+				      trx->bts->bts_nr, trx->nr, 0xff,
+				      NM_STATE_UNLOCKED);
+		break;
+	}
+	return 0;
+}
+
+/* Callback function for NACK on the OML NM */
+static int oml_msg_nack(int mt)
+{
+	if (mt == NM_MT_SET_BTS_ATTR_NACK) {
+		fprintf(stderr, "Failed to set BTS attributes. That is fatal. "
+				"Was the bts type and frequency properly specified?\n");
+		exit(-1);
+	}
+
+	return 0;
+}
+
+/* Callback function to be called every time we receive a signal from NM */
+static int nm_sig_cb(unsigned int subsys, unsigned int signal,
+		     void *handler_data, void *signal_data)
+{
+	switch (signal) {
+	case S_NM_SW_ACTIV_REP:
+		return sw_activ_rep((struct msgb *)signal_data);
+	case S_NM_NACK:
+		return oml_msg_nack((int)signal_data);
+	default:
 		break;
 	}
 	return 0;
@@ -436,7 +480,7 @@ static void bootstrap_om_nanobts(struct gsm_bts *bts)
 
 static void bootstrap_om_bs11(struct gsm_bts *bts)
 {
-	struct gsm_bts_trx *trx = &bts->trx[0];
+	struct gsm_bts_trx *trx = bts->c0;
 
 	/* stop sending event reports */
 	abis_nm_event_reports(bts, 0);
@@ -454,13 +498,13 @@ static void bootstrap_om_bs11(struct gsm_bts *bts)
 	abis_nm_bs11_db_transmission(bts, 1);
 
 	abis_nm_raw_msg(bts, sizeof(msg_1), msg_1); /* set BTS SiteMgr attr*/
-	abis_nm_raw_msg(bts, sizeof(msg_2), msg_2); /* set BTS attr */
+	abis_nm_set_bts_attr(bts, bs11_attr_bts, sizeof(bs11_attr_bts));
 	abis_nm_raw_msg(bts, sizeof(msg_3), msg_3); /* set BTS handover attr */
 	abis_nm_raw_msg(bts, sizeof(msg_4), msg_4); /* set BTS power control attr */
 
 	/* Connect signalling of bts0/trx0 to e1_0/ts1/64kbps */
 	abis_nm_conn_terr_sign(trx, 0, 1, 0xff);
-	abis_nm_raw_msg(bts, sizeof(msg_6), msg_6); /* SET TRX ATTRIBUTES */
+	abis_nm_set_radio_attr(trx, bs11_attr_radio, sizeof(bs11_attr_radio));
 
 	/* Use TEI 1 for signalling */
 	abis_nm_establish_tei(bts, 0, 0, 1, 0xff, 0x01);
@@ -520,7 +564,7 @@ static void bootstrap_om_bs11(struct gsm_bts *bts)
 
 static void bootstrap_om(struct gsm_bts *bts)
 {
-	fprintf(stdout, "bootstrapping OML\n");
+	fprintf(stdout, "bootstrapping OML for BTS %u\n", bts->nr);
 
 	switch (bts->type) {
 	case GSM_BTS_TYPE_BS11:
@@ -548,6 +592,20 @@ static int shutdown_om(struct gsm_bts *bts)
 
 	/* Reset BTS Site manager resource */
 	abis_nm_bs11_reset_resource(bts);
+
+	return 0;
+}
+
+int shutdown_net(struct gsm_network *net)
+{
+	struct gsm_bts *bts;
+
+	llist_for_each_entry(bts, &net->bts_list, list) {
+		int rc;
+		rc = shutdown_om(bts);
+		if (rc < 0)
+			return rc;
+	}
 
 	return 0;
 }
@@ -686,6 +744,7 @@ static u_int8_t *gsm48_si2(int ba, u_int8_t *arfcn_list, int arfcn_len, u_int8_t
 	return si;
 }
 
+
 /*
 SYSTEM INFORMATION TYPE 3
   Cell identity = 00001 (1h)
@@ -815,6 +874,7 @@ static u_int8_t *gsm48_si5(int ba, u_int8_t *arfcn_list, int arfcn_len)
 	return si;
 }
 
+
 // SYSTEM INFORMATION TYPE 6
 
 /*
@@ -876,6 +936,8 @@ static_assert(sizeof(si6) >= sizeof(struct gsm48_system_information_type_6), typ
 static int set_system_infos(struct gsm_bts_trx *trx)
 {
 	unsigned int i;
+
+#if 0
 	u_int8_t *_si1;
 	u_int8_t *_si2;
 	u_int8_t *_si5;
@@ -908,6 +970,15 @@ static int set_system_infos(struct gsm_bts_trx *trx)
 	}
 	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_5, _si5, 18);
 	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_6, si6, sizeof(si6));
+#endif
+
+	for (i = 0; i < ARRAY_SIZE(bcch_infos); i++) {
+		rsl_bcch_info(trx, bcch_infos[i].type,
+			      bcch_infos[i].data,
+			      bcch_infos[i].len);
+	}
+	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_5, si5, sizeof(si5));
+	rsl_sacch_filling(trx, RSL_SYSTEM_INFO_6, si6, sizeof(si6));
 
 	return 0;
 }
@@ -918,9 +989,8 @@ static int set_system_infos(struct gsm_bts_trx *trx)
  */
 static void patch_tables(struct gsm_bts *bts)
 {
-#warning todo
-	u_int8_t arfcn_low = bts->trx[0].arfcn & 0xff;
-	u_int8_t arfcn_high = (bts->trx[0].arfcn >> 8) & 0x0f;
+	u_int8_t arfcn_low = bts->c0->arfcn & 0xff;
+	u_int8_t arfcn_high = (bts->c0->arfcn >> 8) & 0x0f;
 	/* covert the raw packet to the struct */
 	struct gsm48_system_information_type_3 *type_3 =
 		(struct gsm48_system_information_type_3*)&si3;
@@ -931,7 +1001,8 @@ static void patch_tables(struct gsm_bts *bts)
 	struct gsm48_loc_area_id lai;
 
 	gsm0408_generate_lai(&lai, bts->network->country_code,
-				bts->network->network_code, bts->location_area_code);
+			     bts->network->network_code,
+			     bts->location_area_code);
 
 	/* assign the MCC and MNC */
 	type_3->lai = lai;
@@ -939,17 +1010,17 @@ static void patch_tables(struct gsm_bts *bts)
 	type_6->lai = lai;
 
 	/* patch ARFCN into BTS Attributes */
-	msg_2[74] &= 0xf0;
-	msg_2[74] |= arfcn_high;
-	msg_2[75] = arfcn_low;
+	bs11_attr_bts[69] &= 0xf0;
+	bs11_attr_bts[69] |= arfcn_high;
+	bs11_attr_bts[70] = arfcn_low;
 	nanobts_attr_bts[42] &= 0xf0;
 	nanobts_attr_bts[42] |= arfcn_high;
 	nanobts_attr_bts[43] = arfcn_low;
 
 	/* patch ARFCN into TRX Attributes */
-	msg_6[7] &= 0xf0;
-	msg_6[7] |= arfcn_high;
-	msg_6[8] = arfcn_low;
+	bs11_attr_radio[2] &= 0xf0;
+	bs11_attr_radio[2] |= arfcn_high;
+	bs11_attr_radio[3] = arfcn_low;
 	nanobts_attr_radio[5] &= 0xf0;
 	nanobts_attr_radio[5] |= arfcn_high;
 	nanobts_attr_radio[6] = arfcn_low;
@@ -960,12 +1031,17 @@ static void patch_tables(struct gsm_bts *bts)
 
 	/* patch Control Channel Description 10.5.2.11 */
 	type_3->control_channel_desc = bts->chan_desc;
+
+	/* patch BSIC */
+	bs11_attr_bts[1] = bts->bsic;
+	nanobts_attr_bts[sizeof(nanobts_attr_bts)-1] = bts->bsic;
 }
 
 
 static void bootstrap_rsl(struct gsm_bts_trx *trx)
 {
-	fprintf(stdout, "bootstrapping RSL MCC=%u MNC=%u\n", trx->bts->network->country_code, trx->bts->network->network_code);
+	fprintf(stdout, "bootstrapping RSL for BTS/TRX (%u/%u) "
+		"using MCC=%u MNC=%u\n", trx->nr, trx->bts->nr, trx->bts->network->country_code, trx->bts->network->network_code);
 	set_system_infos(trx);
 }
 
@@ -995,8 +1071,9 @@ void input_event(int event, enum e1inp_sign_type type, struct gsm_bts_trx *trx)
 
 static int bootstrap_bts(struct gsm_bts *bts, int lac, int arfcn)
 {
+	bts->band = BAND;
 	bts->location_area_code = lac;
-	bts->trx[0].arfcn = arfcn;
+	bts->c0->arfcn = arfcn;
 
 	/* Control Channel Description */
 	memset(&bts->chan_desc, 0, sizeof(struct gsm48_control_channel_descr));
@@ -1010,7 +1087,7 @@ static int bootstrap_bts(struct gsm_bts *bts, int lac, int arfcn)
 	paging_init(bts);
 
 	if (bts->type == GSM_BTS_TYPE_BS11) {
-		struct gsm_bts_trx *trx = &bts->trx[0];
+		struct gsm_bts_trx *trx = bts->c0;
 		set_ts_e1link(&trx->ts[0], 0, 1, 0xff);
 		set_ts_e1link(&trx->ts[1], 0, 2, 1);
 		set_ts_e1link(&trx->ts[2], 0, 2, 2);
@@ -1036,47 +1113,57 @@ static int bootstrap_bts(struct gsm_bts *bts, int lac, int arfcn)
 	return 0;
 }
 
-
-struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int, void *), int bts_type, int mcc, int mnc, int lac, int arfcn, int cardnr, int release_l2, char *name_short, char *name_long, char *hlr, int allow_all)
+struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int, void *), gsm_bts_type bts_type, int mcc, int mnc, int lac, int arfcn, int cardnr, int release_l2, char *name_short, char *name_long, char *database_name, int allow_all)
 {
-	struct gsm_bts *bts;
 	struct gsm_network *gsmnet;
+	struct gsm_bts *bts;
 
-	/* seed the PRNG for TMSI */
-	srand(time(NULL));
-
-	/* initialize our data structures */
-	gsmnet = gsm_network_init(2, (gsm_bts_type)bts_type, mcc, mnc, mncc_recv);
-	if (!gsmnet)
-		return 0;
-
-	/* open database */
-	if (db_init(hlr)) {
-		fprintf(stderr, "DB: Failed to init HLR database '%s'. Please check the option settings.\n", hlr);
-		return NULL;
-	}	 
-	if (db_prepare()) {
-		fprintf(stderr, "DB: Failed to prepare database.\n");
+	switch(bts_type) {
+	case GSM_BTS_TYPE_NANOBTS_1800:
+		if (arfcn < 512 || arfcn > 885) {
+			fprintf(stderr, "GSM1800 channel must be between 512-885.\n");
+			return NULL;
+		}
+		break;
+	case GSM_BTS_TYPE_BS11:
+	case GSM_BTS_TYPE_NANOBTS_900:
+		/* Assume we have a P-GSM900 here */
+		if (arfcn < 1 || arfcn > 124) {
+			fprintf(stderr, "GSM900 channel must be between 1-124.\n");
+			return NULL;
+		}
+		break;
+	case GSM_BTS_TYPE_UNKNOWN:
+		fprintf(stderr, "Unknown BTS. Please use the --bts-type switch\n");
 		return NULL;
 	}
 
+	/* initialize our data structures */
+	gsmnet = gsm_network_init(mcc, mnc, mncc_recv);
+	if (!gsmnet)
+		return NULL;
+
 	gsmnet->name_long = name_long;
 	gsmnet->name_short = name_short;
-	bts = &gsmnet->bts[0];
+
+	bts = gsm_bts_alloc(gsmnet, bts_type, HARDCODED_TSC, HARDCODED_BSIC);
 	bootstrap_bts(bts, lac, arfcn);
 
-	/* Control Channel Description */
-	memset(&bts->chan_desc, 0, sizeof(struct gsm48_control_channel_descr));
-	bts->chan_desc.att = 1;
-	bts->chan_desc.ccch_conf = RSL_BCCH_CCCH_CONF_1_C;
-	bts->chan_desc.bs_pa_mfrms = RSL_BS_PA_MFRMS_5;
-	bts->chan_desc.t3212 = 0;
+	if (db_init(database_name)) {
+		printf("DB: Failed to init database. Please check the option settings.\n");
+		return NULL;
+	}	 
+	printf("DB: Database initialized.\n");
 
-	patch_tables(bts);
-
-	paging_init(bts);
+	if (db_prepare()) {
+		printf("DB: Failed to prepare database.\n");
+		return NULL;
+	}
+	printf("DB: Database prepared.\n");
 
 	telnet_init(gsmnet, 4242);
+
+	register_signal_handler(SS_NM, nm_sig_cb, NULL);
 
 	/* E1 mISDN input setup */
 	if (bts_type == GSM_BTS_TYPE_BS11) {
@@ -1084,15 +1171,16 @@ struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int
 		if (e1_config(bts, cardnr, release_l2))
 			return NULL;
 	} else {
+		/* FIXME: do this dynamic */
 		bts->ip_access.site_id = 1801;
 		bts->ip_access.bts_id = 0;
-		bts = &gsmnet->bts[1];
+
+		bts = gsm_bts_alloc(gsmnet, bts_type, HARDCODED_TSC, HARDCODED_BSIC);
 		bootstrap_bts(bts, lac, arfcn);
 		bts->ip_access.site_id = 1800;
 		bts->ip_access.bts_id = 0;
 		if (ipaccess_setup(gsmnet))
 			return NULL;
-
 	}
 
 	if (allow_all)
@@ -1101,18 +1189,17 @@ struct gsm_network *bootstrap_network(int (*mncc_recv)(struct gsm_network *, int
 	return gsmnet;
 }
 
-int shutdown_net(struct gsm_network *network)
+static void create_pcap_file(char *file)
 {
-	struct gsm_network *net = (struct gsm_network *)network;
-	unsigned int i;
-	for (i = 0; i < net->num_bts; i++) {
-		int rc;
-		rc = shutdown_om(&net->bts[i]);
-		if (rc < 0)
-			return rc;
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	int fd = open(file, O_WRONLY|O_TRUNC|O_CREAT, mode);
+
+	if (fd < 0) {
+		perror("Failed to open file for pcap");
+		return;
 	}
 
-	return 0;
+	e1_set_pcap_fd(fd);
 }
 
 #ifdef __cplusplus
