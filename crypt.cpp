@@ -160,11 +160,9 @@ unsigned char *crypt_key(unsigned char *key, int *binary_len)
 		return(NULL);
 
 	/* check for 0xXXXX... type of key */
-	if (!strncmp((char *)key, "0x", 2))
-	{
+	if (!strncmp((char *)key, "0x", 2)) {
 		key+=2;
-		while(*key)
-		{
+		while(*key) {
 			if (i == (int)sizeof(binary_key))
 				return(NULL);
 
@@ -212,15 +210,13 @@ static unsigned int get_bogomips(void)
 	char buffer[64], *p;
 
 	fp = fopen("/proc/cpuinfo", "r");
-	if (!fp)
-	{
+	if (!fp) {
 		PERROR("Cannot access /proc/cpuinfo. Will not use cpuinfo for identification of pear\n");
 		return(0);
 	}
 	fduse++;
 	buffer[sizeof(buffer-1)] = '\0';
-	while(fgets(buffer, sizeof(buffer)-1, fp))
-	{
+	while(fgets(buffer, sizeof(buffer)-1, fp)) {
 		if (!!strncmp(buffer, "bogomips", 8))
 			continue;
 		if (!strchr(buffer, ':'))
@@ -250,8 +246,7 @@ static unsigned int crc_reflect(unsigned int ref, char ch)
 	int i;
 
 	i = 1;
-	while(i < ch+1)
-	{
+	while(i < ch+1) {
 		if(ref & 1)
 			value |= 1 << (ch - i);
 		ref >>= 1;
@@ -269,12 +264,10 @@ void crc_init(void)
 	int i, j;
 
 	i = 0;
-	while(i < 256)
-	{
+	while(i < 256) {
 		crc32_table[i] = crc_reflect(i, 8) << 24;
 		j = 0;
-		while(j < 8)
-		{
+		while(j < 8) {
 			crc32_table[i] = (crc32_table[i] << 1) ^ (crc32_table[i] & (1 << 31) ? ulPolynomial : 0);
 			j++;
 		}
@@ -332,20 +325,17 @@ static void *keyengine_child(void *arg)
 	PDEBUG((DEBUG_EPOINT | DEBUG_CRYPT), "EPOINT(%d) child process started for using libcrypto\n", apppbx->ea_endpoint->ep_serial);
 
 	/* lower priority to keep pbx running fluently */
-	if (options.schedule > 0)
-	{
+	if (options.schedule > 0) {
 		memset(&schedp, 0, sizeof(schedp));
 		schedp.sched_priority = 0;
 		ret = sched_setscheduler(0, SCHED_OTHER, &schedp);
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			PERROR("Scheduling to normal priority failed (errno = %d).\nExitting child process...\n", errno);
 			goto done;
 		}
 	}
 
-	switch(job)
-	{
+	switch(job) {
 		/* generate rsa key pair */
 		case CK_GENRSA_REQ:
 #ifndef CRYPTO
@@ -357,16 +347,14 @@ static void *keyengine_child(void *arg)
 		exponent = 65537;
 //		if (exponent < 3) exponent = 3; /* >= 3 */
 		rsa = RSA_generate_key(RSA_BITS, exponent, NULL, NULL);
-		if (!rsa)
-		{
+		if (!rsa) {
 			PERROR("Failed to generate rsa key pair.\n");
 			apppbx->e_crypt_keyengine_return = -1;
 			break;
 		}
 		ememuse++;
 		apppbx->e_crypt_rsa_n_len = BN_num_bytes(rsa->n);
-		if (apppbx->e_crypt_rsa_n_len > (int)sizeof(apppbx->e_crypt_rsa_n))
-		{
+		if (apppbx->e_crypt_rsa_n_len > (int)sizeof(apppbx->e_crypt_rsa_n)) {
 			kerror_buffer:
 			PERROR("e_crypt_rsa_* too small for bignum.\n");
 			apppbx->e_crypt_keyengine_return = -1;
@@ -426,8 +414,7 @@ static void *keyengine_child(void *arg)
 		/* generating session key */
 		srandom(*((unsigned int *)mISDN_rand) ^ random());
 		i = 0;
-		while(i < 56)
-		{
+		while(i < 56) {
 			apppbx->e_crypt_key[i] = random();
 			apppbx->e_crypt_key[i] ^= mISDN_rand[random() & 0xff];
 			i++;
@@ -435,8 +422,7 @@ static void *keyengine_child(void *arg)
 		apppbx->e_crypt_key_len = i;
 		/* encrypt via rsa */
 		rsa = RSA_new();
-		if (!rsa)
-		{
+		if (!rsa) {
 			PERROR("Failed to allocate rsa structure.\n");
 			apppbx->e_crypt_keyengine_return = 1;
 			break;
@@ -444,16 +430,14 @@ static void *keyengine_child(void *arg)
 		ememuse++;
 		rsa->n = BN_new();
 		rsa->e = BN_new();
-		if (!rsa->n || !rsa->e)
-		{
+		if (!rsa->n || !rsa->e) {
 			PERROR("Failed to generate rsa structure.\n");
 			apppbx->e_crypt_keyengine_return = -1;
 			RSA_free(rsa);
 			ememuse--;
 			break;
 		}
-		if (!BN_bin2bn(apppbx->e_crypt_rsa_n, apppbx->e_crypt_rsa_n_len, rsa->n))
-		{
+		if (!BN_bin2bn(apppbx->e_crypt_rsa_n, apppbx->e_crypt_rsa_n_len, rsa->n)) {
 			eerror_bin2bn:
 			PERROR("Failed to convert binary to bignum.\n");
 			apppbx->e_crypt_keyengine_return = -1;
@@ -461,8 +445,7 @@ static void *keyengine_child(void *arg)
 			ememuse--;
 			break;
 		}
-		if ((apppbx->e_crypt_rsa_n_len*8) != BN_num_bits(rsa->n))
-		{
+		if ((apppbx->e_crypt_rsa_n_len*8) != BN_num_bits(rsa->n)) {
 			PERROR("SOFTWARE API ERROR: length not equal stored data. (%d != %d)\n", apppbx->e_crypt_rsa_n_len*8, BN_num_bits(rsa->n));
 			apppbx->e_crypt_keyengine_return = -1;
 			RSA_free(rsa);
@@ -497,8 +480,7 @@ static void *keyengine_child(void *arg)
 		apppbx->e_crypt_keyengine_return = -1;
 #else
 		rsa = RSA_new();
-		if (!rsa)
-		{
+		if (!rsa) {
 			PERROR("Failed to allocate rsa structure.\n");
 			apppbx->e_crypt_keyengine_return = 1;
 			break;
@@ -515,16 +497,14 @@ static void *keyengine_child(void *arg)
 		if (!rsa->n || !rsa->e
 		 || !rsa->d || !rsa->p
 		 || !rsa->q || !rsa->dmp1
-		 || !rsa->dmq1 || !rsa->iqmp)
-		{
+		 || !rsa->dmq1 || !rsa->iqmp) {
 			PERROR("Failed to generate rsa structure.\n");
 			apppbx->e_crypt_keyengine_return = 1;
 			RSA_free(rsa);
 			ememuse--;
 			break;
 		}
-		if (!BN_bin2bn(apppbx->e_crypt_rsa_n, apppbx->e_crypt_rsa_n_len, rsa->n))
-		{
+		if (!BN_bin2bn(apppbx->e_crypt_rsa_n, apppbx->e_crypt_rsa_n_len, rsa->n)) {
 			derror_bin2bn:
 			PERROR("Failed to convert binary to bignum.\n");
 			apppbx->e_crypt_keyengine_return = -1;
@@ -580,8 +560,7 @@ void EndpointAppPBX::cryptman_keyengine(int job)
 	struct auth_args *arg;
 	pthread_t tid;
 
-	if (e_crypt_keyengine_busy)
-	{
+	if (e_crypt_keyengine_busy) {
 		e_crypt_keyengine_return = -1;
 		PERROR("engine currently busy.\n");
 		return;
@@ -594,8 +573,7 @@ void EndpointAppPBX::cryptman_keyengine(int job)
 	e_crypt_keyengine_busy = job;
 
 	ea_endpoint->ep_use++;
-	if ((pthread_create(&tid, NULL, keyengine_child, arg)<0))
-	{
+	if ((pthread_create(&tid, NULL, keyengine_child, arg)<0)) {
 		ea_endpoint->ep_use--;
 		PERROR("failed to create keyengine-thread.\n");
 		e_crypt_keyengine_return = -1;
@@ -612,17 +590,13 @@ void EndpointAppPBX::cryptman_keyengine(int job)
  */
 void EndpointAppPBX::cryptman_handler(void)
 {
-	if (e_crypt_keyengine_busy)
-	{
-		if (e_crypt_keyengine_return < 0)
-		{
+	if (e_crypt_keyengine_busy) {
+		if (e_crypt_keyengine_return < 0) {
 			e_crypt_keyengine_busy = 0;
 			cryptman_message(CK_ERROR_IND, NULL, 0);
 		} else
-		if (e_crypt_keyengine_return > 0)
-		{
-			switch(e_crypt_keyengine_busy)
-			{
+		if (e_crypt_keyengine_return > 0) {
+			switch(e_crypt_keyengine_busy) {
 				case CK_GENRSA_REQ:
 				e_crypt_keyengine_busy = 0;
 				cryptman_message(CK_GENRSA_CONF, NULL, 0);
@@ -640,8 +614,7 @@ void EndpointAppPBX::cryptman_handler(void)
 	}
 
 	/* check for event, make next event */
-	if (e_crypt_timeout_sec) if (e_crypt_timeout_sec<now_tv.tv_sec || (e_crypt_timeout_sec==now_tv.tv_sec && e_crypt_timeout_usec<now_tv.tv_usec))
-	{
+	if (e_crypt_timeout_sec) if (e_crypt_timeout_sec<now_tv.tv_sec || (e_crypt_timeout_sec==now_tv.tv_sec && e_crypt_timeout_usec<now_tv.tv_usec)) {
 		e_crypt_timeout_sec = 0;
 		e_crypt_timeout_usec = 0;
 		cryptman_message(CT_TIMEOUT, NULL, 0);
@@ -660,29 +633,25 @@ void EndpointAppPBX::cr_ident(int message, unsigned char *param, int len)
 	int l;
 
 	l = CM_SIZEOFINF(CM_INFO_RANDOM);
-	if (l != 4)
-	{
+	if (l != 4) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) missing (or corrupt) random number, ignoring (len = %d)\n", ea_endpoint->ep_serial, l);
 		return;
 	}
 	p = CM_GETINF(CM_INFO_RANDOM, buf);
 	ran = (p[0]<<24) + (p[1]<<16) + (p[2]<<8) + p[3];
 	l = CM_SIZEOFINF(CM_INFO_BOGOMIPS);
-	if (l != 4)
-	{
+	if (l != 4) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) missing (or corrupt) random bogomips, just comparing random (len = %d)\n", ea_endpoint->ep_serial, l);
 		goto compare_random;
 	}
 	p = CM_GETINF(CM_INFO_BOGOMIPS, buf);
 	bogomips = (p[0]<<24) + (p[1]<<16) + (p[2]<<8) + p[3];
-	if (e_crypt_bogomips > bogomips)
-	{
+	if (e_crypt_bogomips > bogomips) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) our cpu is faster, so we are master (%d > %d)\n", ea_endpoint->ep_serial, e_crypt_bogomips, bogomips);
 		cr_master(message, NULL, 0);
 		return;
 	}
-	if (e_crypt_bogomips < bogomips)
-	{
+	if (e_crypt_bogomips < bogomips) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) our cpu is slower, so we are slave (%d < %d)\n", ea_endpoint->ep_serial, e_crypt_bogomips, bogomips);
 		cr_slave(message, NULL, 0);
 		return;
@@ -690,14 +659,12 @@ void EndpointAppPBX::cr_ident(int message, unsigned char *param, int len)
 	PDEBUG(DEBUG_CRYPT, "EPOINT(%d) our cpu is equal speed, so we check for random value (%d == %d)\n", ea_endpoint->ep_serial, e_crypt_bogomips, bogomips);
 	compare_random:
 	/* bogomips are equal, so we compare */
-	if (e_crypt_random > ran)
-	{
+	if (e_crypt_random > ran) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) our random value is greater, so we are master (%d > %d)\n", ea_endpoint->ep_serial, e_crypt_random, ran);
 		cr_master(message, NULL, 0);
 		return;
 	}
-	if (e_crypt_random < ran)
-	{
+	if (e_crypt_random < ran) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) our random value is smaller, so we are slave (%d < %d)\n", ea_endpoint->ep_serial, e_crypt_random, ran);
 		cr_slave(message, NULL, 0);
 		return;
@@ -728,8 +695,7 @@ void EndpointAppPBX::cr_activate(int message, unsigned char *param, int len)
 	CM_ADDINF(CM_INFO_RANDOM, 4, ran);
 	/* cpu speed element */
 	e_crypt_bogomips = get_bogomips();
-	if (e_crypt_bogomips > 0)
-	{
+	if (e_crypt_bogomips > 0) {
 		bogomips[0] = e_crypt_bogomips >> 24;
 		bogomips[1] = e_crypt_bogomips >> 16;
 		bogomips[2] = e_crypt_bogomips >> 8;
@@ -772,8 +738,7 @@ void EndpointAppPBX::cr_master(int message, unsigned char *param, int len)
 
 	/* change to master state */
 	cryptman_state(CM_ST_KEYGEN);
-	if (message == CP_IDENT)
-	{
+	if (message == CP_IDENT) {
 		/* send you-are-slave-message */
 		msg = CMSG_SLAVE;
 		CM_ADDINF(CM_INFO_MESSAGE, 1, &msg);
@@ -795,8 +760,7 @@ void EndpointAppPBX::cr_slave(int message, unsigned char *param, int len)
 
 	/* change to slave state */
 	cryptman_state(CM_ST_KEYWAIT);
-	if (message == CP_IDENT)
-	{
+	if (message == CP_IDENT) {
 		/* send you-are-slave-message */
 		msg = CMSG_MASTER;
 		/* message */
@@ -819,8 +783,7 @@ void EndpointAppPBX::cr_looped(int message, unsigned char *param, int len)
 	cryptman_state(CM_ST_NULL);
 	/* deactivate listener */
 	cryptman_msg2crengine(CR_UNLISTEN_REQ, NULL, 0);
-	if (message == CP_IDENT)
-	{
+	if (message == CP_IDENT) {
 		/* send looped */
 		msg = CMSG_LOOPED;
 		/* message */
@@ -839,8 +802,7 @@ void EndpointAppPBX::cr_abort(int message, unsigned char *param, int len)
 	/* if already encrypting */
 	if (e_crypt_state==CM_ST_WAIT_CRYPT
 	 || e_crypt_state==CM_ST_SWAIT
-	 || e_crypt_state==CM_ST_ACTIVE)
-	{
+	 || e_crypt_state==CM_ST_ACTIVE) {
 		/* deactivate blowfish */
 		cryptman_msg2crengine(CC_DACT_REQ, NULL, 0);
 	}
@@ -941,8 +903,7 @@ void EndpointAppPBX::cr_pubkey(int message, unsigned char *param, int len)
 	int l;
 
 	l = CM_SIZEOFINF(CM_INFO_PUBKEY);
-	if (l<1 || l>(int)sizeof(e_crypt_rsa_n))
-	{
+	if (l<1 || l>(int)sizeof(e_crypt_rsa_n)) {
 		size_error:
 		/* change to idle state */
 		cryptman_state(CM_ST_NULL);
@@ -1009,8 +970,7 @@ void EndpointAppPBX::cr_cskey(int message, unsigned char *param, int len)
 	/* disable timeout */
 	cryptman_timeout(0);
 	l = CM_SIZEOFINF(CM_INFO_CSKEY);
-	if (l<1 || l>(int)sizeof(e_crypt_ckey))
-	{
+	if (l<1 || l>(int)sizeof(e_crypt_ckey)) {
 		/* change to idle state */
 		cryptman_state(CM_ST_NULL);
 		/* deactivate listener */
@@ -1152,8 +1112,7 @@ void EndpointAppPBX::cryptman_message(int message, unsigned char *param, int len
 	if (message == CU_INFO_REQ)
 		{ cr_info(message, param, len); return; }
 
-	switch(e_crypt_state)
-	{
+	switch(e_crypt_state) {
 		/* in idle state */
 		case CM_ST_NULL:
 		if (message == CU_ACTK_REQ) /* request key-exchange encryption */
@@ -1307,49 +1266,41 @@ void EndpointAppPBX::cryptman_msg2man(unsigned char *param, int len)
 
 	/* check if frame is correct */
 	PDEBUG(DEBUG_CRYPT, "EPOINT(%d) message from peer to crypt_manager.\n", ea_endpoint->ep_serial);
-	if (len == 0)
-	{
+	if (len == 0) {
 		PDEBUG(DEBUG_CRYPT, "ignoring message with 0-length.\n");
 		return;
 	}
 	i = 0;
 	p = param;
-	while(*p)
-	{
-		if (i == len)
-		{
+	while(*p) {
+		if (i == len) {
 			PDEBUG(DEBUG_CRYPT, "end of message without 0-termination.\n");
 			return;
 		}
-		if (i+3 > len)
-		{
+		if (i+3 > len) {
 			PDEBUG(DEBUG_CRYPT, "message with element size, outside the frame length.\n");
 			return;
 		}
 		l = (p[1]<<8) + p[2];
 //		PDEBUG(DEBUG_CRYPT, "   inf %d (len = %d)\n", *p, l);
-		if (i+3+l > len)
-		{
+		if (i+3+l > len) {
 			PDEBUG(DEBUG_CRYPT, "message with element data, outside the frame length.\n");
 			return;
 		}
 		i += l + 3;
 		p += l + 3;
 	}
-	if (i+1 != len)
-	{
+	if (i+1 != len) {
 		PDEBUG(DEBUG_CRYPT, "warning: received null-element before end of frame.\n");
 	}
 
 	l = CM_SIZEOFINF(CM_INFO_MESSAGE);
-	if (l != 1)
-	{
+	if (l != 1) {
 		PDEBUG(DEBUG_CRYPT, "received message without (valid) message element (len = %d)\n", len);
 		return;
 	}
 	CM_GETINF(CM_INFO_MESSAGE, &msg);
-	switch (msg)
-	{
+	switch (msg) {
 		case CMSG_IDENT:
 		cryptman_message(CP_IDENT, param, len);
 		break;
@@ -1380,11 +1331,9 @@ void EndpointAppPBX::cryptman_addinf(unsigned char *buf, int buf_size, int eleme
 	int l;
 
 	/* skip what we already have in the buffer */
-	while (buf[0])
-	{
+	while (buf[0]) {
 		l = (buf[1]<<8) + buf[2];
-		if (l >= buf_size-3)
-		{
+		if (l >= buf_size-3) {
 			PERROR("EPOINT(%d) buffer overflow while adding information to peer message.\n", ea_endpoint->ep_serial);
 			return;
 		}
@@ -1392,8 +1341,7 @@ void EndpointAppPBX::cryptman_addinf(unsigned char *buf, int buf_size, int eleme
 		buf += l + 3;
 	}
 	/* check if we have not enough space to add element including id, len, data, and the null-termination */
-	if (len+4 > buf_size)
-	{
+	if (len+4 > buf_size) {
 		PERROR("EPOINT(%d) cannot add element to message, because buffer would overflow.\n", ea_endpoint->ep_serial);
 		return;
 	}
@@ -1411,8 +1359,7 @@ int EndpointAppPBX::cryptman_sizeofinf(unsigned char *buf, int element)
 	int l;
 
 	/* skip what we already have in the buffer */
-	while (buf[0])
-	{
+	while (buf[0]) {
 		l = (buf[1]<<8) + buf[2];
 		if (buf[0] == element)
 			return(l);
@@ -1429,11 +1376,9 @@ unsigned char *EndpointAppPBX::cryptman_getinf(unsigned char *buf, int element, 
 	int l;
 
 	/* skip what we already have in the buffer */
-	while (buf[0])
-	{
+	while (buf[0]) {
 		l = (buf[1]<<8) + buf[2];
-		if (buf[0] == element)
-		{
+		if (buf[0] == element) {
 			memcpy(to, buf+3, l);
 			return(to);
 		}
@@ -1453,14 +1398,12 @@ void EndpointAppPBX::cryptman_msg2peer(unsigned char *buf)
 	int l;
 
 	/* get len */
-	while(p[0])
-	{
+	while(p[0]) {
 		l = (p[1]<<8) + p[2];
 		len += l + 3;
 		p += l + 3;
 	}
-	if (len+1 > (int)sizeof(message->param.crypt.data))
-	{
+	if (len+1 > (int)sizeof(message->param.crypt.data)) {
 		PERROR("EPOINT(%d) message larger than allowed in param->crypt.data.\n", ea_endpoint->ep_serial);
 		return;
 	}
@@ -1471,12 +1414,10 @@ void EndpointAppPBX::cryptman_msg2peer(unsigned char *buf)
 	memcpy(message->param.crypt.data, buf, len+1);
 	message_put(message);
 
-	if (options.deb & DEBUG_CRYPT)
-	{
+	if (options.deb & DEBUG_CRYPT) {
 		PDEBUG(DEBUG_CRYPT, "EPOINT(%d) sending message\n", ea_endpoint->ep_serial);
 		p = buf;
-		while(p[0])
-		{
+		while(p[0]) {
 			l = (p[1]<<8) + p[2];
 			PDEBUG(DEBUG_CRYPT, "   inf %d (len = %d)\n", p[0], l);
 			len += l + 3;
@@ -1491,8 +1432,7 @@ void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
 {
 	struct lcr_msg *message;
 
-	if (len > (int)sizeof(message->param.crypt.data))
-	{
+	if (len > (int)sizeof(message->param.crypt.data)) {
 		PERROR("EPOINT(%d) message larger than allowed in param->crypt.data.\n", ea_endpoint->ep_serial);
 		return;
 	}
@@ -1504,8 +1444,7 @@ void EndpointAppPBX::cryptman_msg2crengine(int msg, unsigned char *buf, int len)
 		memcpy(message->param.crypt.data, buf, len);
 	message_put(message);
 
-	if (options.deb & DEBUG_CRYPT)
-	{
+	if (options.deb & DEBUG_CRYPT) {
 		const char *msgtext = "<<UNKNOWN MESSAGE>>";
 
 		if (msg>=0 && msg<cm_msg_num)
@@ -1525,15 +1464,13 @@ void EndpointAppPBX::cryptman_msg2user(int msg, const char *text)
 	if (!text)
 		text = "";
 	SCPY(e_crypt_info, text);
-	if (text[0])
-	{
+	if (text[0]) {
 		UNCPY((char *)message->param.crypt.data, e_crypt_info, sizeof(message->param.crypt.data)-1);
 		message->param.crypt.len = strlen((char *)message->param.crypt.data)+1;
 	}
 	message_put(message);
 
-	if (options.deb & DEBUG_CRYPT)
-	{
+	if (options.deb & DEBUG_CRYPT) {
 		const char *msgtext = "<<UNKNOWN MESSAGE>>";
 
 		if (msg>=0 && msg<cm_msg_num)
@@ -1555,13 +1492,11 @@ void EndpointAppPBX::cryptman_state(int state)
  */
 void EndpointAppPBX::cryptman_timeout(int secs)
 {
-	if (secs)
-	{
+	if (secs) {
 		e_crypt_timeout_sec = now_tv.tv_sec+secs;
 		e_crypt_timeout_usec = now_tv.tv_usec;
 		PDEBUG(DEBUG_CRYPT, "Changing timeout to %d seconds\n", secs);
-	} else
-	{
+	} else {
 		e_crypt_timeout_sec = 0;
 		e_crypt_timeout_usec = 0;
 		PDEBUG(DEBUG_CRYPT, "turning timeout off\n", secs);
@@ -1576,8 +1511,7 @@ int cryptman_encode_bch(unsigned char *data, int len, unsigned char *buf, int bu
 	int overhead = 18;
 
 	len--; /* without null-termination */
-	if (buf_len < len+overhead)
-	{
+	if (buf_len < len+overhead) {
 		PERROR("frame too long for buffer");
 		return(0);
 	}
@@ -1620,8 +1554,7 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 		return;
 
 	/* check for the keyword */
-	if (p_m_crypt_listen_state == 0)
-	{
+	if (p_m_crypt_listen_state == 0) {
 		while((*p++)!='C' && l)
 			l--;
 		if (!l)
@@ -1631,14 +1564,11 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 		if (!l)
 			return;
 	}
-	if (p_m_crypt_listen_state < 8)
-	{
+	if (p_m_crypt_listen_state < 8) {
 		i = p_m_crypt_listen_state;
-		while(i < 8)
-		{
+		while(i < 8) {
 			l--;
-			if (*p++ != "CRYPTMAN"[i])
-			{
+			if (*p++ != "CRYPTMAN"[i]) {
 				p_m_crypt_listen_state = 0;
 				goto retry;
 			}
@@ -1651,64 +1581,55 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 			return;
 	}
 	/* high byte of length */
-	if (p_m_crypt_listen_state == 8)
-	{
+	if (p_m_crypt_listen_state == 8) {
 		p_m_crypt_listen_len = (*p++) << 8;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
 	/* low byte of length */
-	if (p_m_crypt_listen_state == 9)
-	{
+	if (p_m_crypt_listen_state == 9) {
 		p_m_crypt_listen_len += *p++;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
 	/* crc */
-	if (p_m_crypt_listen_state == 10)
-	{
+	if (p_m_crypt_listen_state == 10) {
 		p_m_crypt_listen_crc = (*p++) << 24;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 11)
-	{
+	if (p_m_crypt_listen_state == 11) {
 		p_m_crypt_listen_crc += (*p++) << 16;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 12)
-	{
+	if (p_m_crypt_listen_state == 12) {
 		p_m_crypt_listen_crc += (*p++) << 8;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 13)
-	{
+	if (p_m_crypt_listen_state == 13) {
 		unsigned char lencheck[2];
 		p_m_crypt_listen_crc += *p++;
 		/* check for CRC */
 		lencheck[0] = p_m_crypt_listen_len >> 8;
 		lencheck[1] = p_m_crypt_listen_len & 0xff;
-		if (crc32(lencheck, 2) != p_m_crypt_listen_crc)
-		{
+		if (crc32(lencheck, 2) != p_m_crypt_listen_crc) {
 			PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of %d bytes, but checksumme of length is incorrect (must %08x is %08x\n", p_name, p_m_crypt_listen_len, crc32(lencheck, 2), p_m_crypt_listen_crc);
 			p_m_crypt_listen_state = 0;
 			goto retry;
 		}
-		if (p_m_crypt_listen_len > (int)sizeof(p_m_crypt_listen_msg))
-		{
+		if (p_m_crypt_listen_len > (int)sizeof(p_m_crypt_listen_msg)) {
 			PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of %d bytes, but too big for buffer (%d bytes)\n", p_name, p_m_crypt_listen_len, sizeof(p_m_crypt_listen_msg));
 			p_m_crypt_listen_state = 0;
 			goto retry;
 		}
-		if (!p_m_crypt_listen_len)
-		{
+		if (!p_m_crypt_listen_len) {
 			PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of 0 bytes\n", p_name);
 			p_m_crypt_listen_state = 0;
 			goto retry;
@@ -1718,42 +1639,36 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 			return;
 	}
 	/* read message */
-	while (p_m_crypt_listen_state>=14 && p_m_crypt_listen_state<(p_m_crypt_listen_len+14))
-	{
+	while (p_m_crypt_listen_state>=14 && p_m_crypt_listen_state<(p_m_crypt_listen_len+14)) {
 		p_m_crypt_listen_msg[p_m_crypt_listen_state-14] = *p++;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
 	/* crc */
-	if (p_m_crypt_listen_state == 14+p_m_crypt_listen_len)
-	{
+	if (p_m_crypt_listen_state == 14+p_m_crypt_listen_len) {
 		p_m_crypt_listen_crc = (*p++) << 24;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 15+p_m_crypt_listen_len)
-	{
+	if (p_m_crypt_listen_state == 15+p_m_crypt_listen_len) {
 		p_m_crypt_listen_crc += (*p++) << 16;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 16+p_m_crypt_listen_len)
-	{
+	if (p_m_crypt_listen_state == 16+p_m_crypt_listen_len) {
 		p_m_crypt_listen_crc += (*p++) << 8;
 		p_m_crypt_listen_state++;
 		if (!(--l))
 			return;
 	}
-	if (p_m_crypt_listen_state == 17+p_m_crypt_listen_len)
-	{
+	if (p_m_crypt_listen_state == 17+p_m_crypt_listen_len) {
 		l--;
 		p_m_crypt_listen_crc += *p++;
 		/* check for CRC */
-		if (crc32(p_m_crypt_listen_msg, p_m_crypt_listen_len) != p_m_crypt_listen_crc)
-		{
+		if (crc32(p_m_crypt_listen_msg, p_m_crypt_listen_len) != p_m_crypt_listen_crc) {
 			PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of %d bytes, but checksumme of data block is incorrect\n", p_name, p_m_crypt_listen_len);
 			p_m_crypt_listen_state = 0;
 			if (!l)
@@ -1763,8 +1678,7 @@ void PmISDN::cryptman_listen_bch(unsigned char *p, int l)
 		/* now send message */
 		p_m_crypt_listen_state = 0;
 		PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of %d bytes sending to crypt manager\n", p_name, p_m_crypt_listen_len);
-		if ((int)sizeof(message->param.crypt.data) < p_m_crypt_listen_len+1) /* null-terminated */
-		{
+		if ((int)sizeof(message->param.crypt.data) < p_m_crypt_listen_len+1) /* null-terminated */ {
 			PDEBUG(DEBUG_CRYPT, "PmISDN(%s) received a block of %d bytes that is too large for message buffer\n", p_name, p_m_crypt_listen_len);
 			if (!l)
 				return;
@@ -1796,8 +1710,7 @@ void EndpointAppPBX::encrypt_shared(void)
 	int ret;
 
 	/* redisplay current crypt display */
-	if (e_crypt != CRYPT_OFF)
-	{
+	if (e_crypt != CRYPT_OFF) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption in progress, so we request the current message.\n", ea_endpoint->ep_serial);
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 		message->param.crypt.type = CU_INFO_REQ;
@@ -1805,8 +1718,7 @@ void EndpointAppPBX::encrypt_shared(void)
 		return;
 	}
 
-	if (check_external(&errstr, &port))
-	{
+	if (check_external(&errstr, &port)) {
 		reject:
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SCPY(message->param.notifyinfo.display, errstr);
@@ -1819,58 +1731,48 @@ void EndpointAppPBX::encrypt_shared(void)
 	/* check the key for the call */
 	if (port->p_type==PORT_TYPE_DSS1_TE_OUT || port->p_type==PORT_TYPE_DSS1_NT_OUT)
 		ret = parse_secrets((char *)e_ext.number, (char *)port->p_dialinginfo.id, &auth_pointer, &crypt_pointer, &key_pointer);
-	else
-	{
-		if (!port->p_callerinfo.id[0])
-		{
+	else {
+		if (!port->p_callerinfo.id[0]) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming remote call has no caller ID.\n", ea_endpoint->ep_serial);
 			errstr = "No Remote ID";
 			goto reject;
 		}
 		ret = parse_secrets((char *)e_ext.number, (char *)numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international), &auth_pointer, &crypt_pointer, &key_pointer);
 	}
-	if (!ret)
-	{
+	if (!ret) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Key was not found.\n", ea_endpoint->ep_serial);
 		errstr = "No Key";
 		goto reject;
 	}
 	key = crypt_key((unsigned char *)key_pointer, &key_len);
-	if (!key)
-	{
+	if (!key) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Key invalid.\n", ea_endpoint->ep_serial);
 		errstr = "Invalid Key";
 		goto reject;
 	}
-	if (key_len > 128)
-	{
+	if (key_len > 128) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Key too long.\n", ea_endpoint->ep_serial);
 		errstr = "Key Too Long";
 		goto reject;
 	}
-	if (!!strcasecmp(auth_pointer, "manual"))
-	{
+	if (!!strcasecmp(auth_pointer, "manual")) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Wrong authentication method.\n", ea_endpoint->ep_serial);
 		errstr = "Wrong Auth Type";
 		goto reject;
 	}
-	if (!strcasecmp(crypt_pointer, "blowfish"))
-	{
+	if (!strcasecmp(crypt_pointer, "blowfish")) {
 		type = CC_ACTBF_REQ;
-		if (key_len < 4)
-		{
+		if (key_len < 4) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Key too short.\n", ea_endpoint->ep_serial);
 			errstr = "Key Too Short";
 			goto reject;
 		}
-		if (key_len > 56)
-		{
+		if (key_len > 56) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Key too long.\n", ea_endpoint->ep_serial);
 			errstr = "Key Too Long";
 			goto reject;
 		}
-	} else
-	{
+	} else {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) Wrong crypt method.\n", ea_endpoint->ep_serial);
 		errstr = "Wrong Crypt Type";
 		goto reject;
@@ -1898,8 +1800,7 @@ void EndpointAppPBX::encrypt_keyex(void)
 	class Port *port;
 
 	/* redisplay current crypt display */
-	if (e_crypt != CRYPT_OFF)
-	{
+	if (e_crypt != CRYPT_OFF) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption in progress, so we request the current message.\n", ea_endpoint->ep_serial);
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_CRYPT);
 		message->param.crypt.type = CU_INFO_REQ;
@@ -1908,8 +1809,7 @@ void EndpointAppPBX::encrypt_keyex(void)
 	}
 
 
-	if (check_external(&errstr, &port))
-	{
+	if (check_external(&errstr, &port)) {
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SCPY(message->param.notifyinfo.display, errstr);
 		message_put(message);
@@ -1946,15 +1846,13 @@ void EndpointAppPBX::encrypt_off(void)
 {
 	struct lcr_msg *message;
 
-	if (e_crypt!=CRYPT_ON && e_crypt!=CRYPT_OFF)
-	{
+	if (e_crypt!=CRYPT_ON && e_crypt!=CRYPT_OFF) {
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SCPY(message->param.notifyinfo.display, "Please Wait");
 		message_put(message);
 		return;
 	}
-	if (e_crypt == CRYPT_OFF)
-	{
+	if (e_crypt == CRYPT_OFF) {
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 		SCPY(message->param.notifyinfo.display, "No Encryption");
 		message_put(message);
@@ -1983,8 +1881,7 @@ void EndpointAppPBX::encrypt_result(int msg, char *text)
 {
 	struct lcr_msg *message;
 
-	switch(msg)
-	{
+	switch(msg) {
 		case CU_ACTK_CONF:
 		case CU_ACTS_CONF:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption now active.\n", ea_endpoint->ep_serial);
@@ -1992,8 +1889,7 @@ void EndpointAppPBX::encrypt_result(int msg, char *text)
 		e_tone[0] = '\0';
 		e_crypt = CRYPT_ON;
 		display:
-		if (text) if (text[0])
-		{
+		if (text) if (text[0]) {
 			SCPY(e_crypt_info, text);
 			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
 			SCPY(message->param.notifyinfo.display, e_crypt_info);

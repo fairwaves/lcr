@@ -636,7 +636,7 @@ static u_int8_t si1[] = {
 	/* s1 reset*/0x2B
 };
 
-static u_int8_t *gsm48_si1(struct gsm_bts_conf *conf)
+static u_int8_t *gsm48_si1(u_int8_t *arfcn_list, int arfcn_len, int max_trans, int tx_integer, int cell_barr, int re, int ec, u_int8_t *ac_list, int ac_len)
 {
 	static u_int8_t si[23];
 	int i, bit, octet;
@@ -647,24 +647,24 @@ static u_int8_t *gsm48_si1(struct gsm_bts_conf *conf)
 	si[0] = 0x55;
 	si[1] = 0x06;
 	si[2] = 0x19;
-	/* ccdesc 10.5.2.1b.2 (bit map 0 format) */
-	for (i = 0; i < conf->arfcn_len; i++) {
-		if (conf->arfcn_list[i] <= 124 && conf->arfcn_list[i] > 0) {
-			bit = (conf->arfcn_list[i] - 1) & 7;
-			octet = (conf->arfcn_list[i] -1) / 8;
+	/* ccdesc */
+	for (i = 0; i < arfcn_len; i++) {
+		if (arfcn_list[i] <= 124 && arfcn_list[i] > 0) {
+			bit = (arfcn_list[i] - 1) & 7;
+			octet = (arfcn_list[i] -1) / 8;
 			si[18 - octet] |= (1 << bit);
 		}
 	}
-	/* rach 10.5.2.29 */
-	si[19] = (conf->max_trans << 6);
-	si[19] |= (conf->tx_integer << 2);
-	si[19] |= (conf->cell_barr << 1);
-	si[19] |= conf->re;
-	si[20] = (conf->ec << 2);
-	for (i = 0; i < conf->ac_len; i++) {
-		if (conf->ac_list[i] <= 15 && conf->ac_list[i] != 10) {
-			bit = conf->ac_list[i] & 7;
-			octet = conf->ac_list[i] / 8;
+	/* rach */
+	si[19] = (max_trans << 6);
+	si[19] |= (tx_integer << 2);
+	si[19] |= (cell_barr << 1);
+	si[19] |= re;
+	si[20] = (ec << 2);
+	for (i = 0; i < ac_len; i++) {
+		if (ac_list[i] <= 15 && ac_list[i] != 10) {
+			bit = ac_list[i] & 7;
+			octet = ac_list[i] / 8;
 			si[21 - octet] |= (1 << bit);
 		}
 	}
@@ -701,7 +701,7 @@ static u_int8_t si2[] = {
 	/* rach*/0xD5, 0x00, 0x00
 };
 
-static u_int8_t *gsm48_si2(struct gsm_bts_conf *conf)
+static u_int8_t *gsm48_si2(int ba, u_int8_t *arfcn_list, int arfcn_len, u_int8_t ncc, int max_trans, int tx_integer, int cell_barr, int re, int ec, u_int8_t *ac_list, int ac_len)
 {
 	static u_int8_t si[23];
 	int i, bit, octet;
@@ -712,27 +712,27 @@ static u_int8_t *gsm48_si2(struct gsm_bts_conf *conf)
 	si[0] = 0x59;
 	si[1] = 0x06;
 	si[2] = 0x1A;
-	/* ncdesc 10.5.2.22 */
-	si[3] = (ba_ind << 4);
-	for (i = 0; i < conf->ncell_arfcn_len; i++) {
-		if (conf->ncell_arfcn_list[i] <= 124 && conf->ncell_arfcn_list[i] > 0) {
-			bit = (conf->ncell_arfcn_list[i] - 1) & 7;
-			octet = (conf->ncell_arfcn_list[i] -1) / 8;
+	/* ncdesc */
+	si[3] = (ba << 4);
+	for (i = 0; i < arfcn_len; i++) {
+		if (arfcn_list[i] <= 124 && arfcn_list[i] > 0) {
+			bit = (arfcn_list[i] - 1) & 7;
+			octet = (arfcn_list[i] -1) / 8;
 			si[18 - octet] |= (1 << bit);
 		}
 	}
-	/* ncc 10.5.2.27 */
-	si[19] = conf->ncc;
-	/* rach 10.5.2.29 */
-	si[20] = (conf->max_trans << 6);
-	si[20] |= (conf->tx_integer << 2);
-	si[20] |= (conf->cell_barr << 1);
-	si[20] |= conf->re;
-	si[21] = (conf->ec << 2);
-	for (i = 0; i < conf->ac_len; i++) {
-		if (conf->ac_list[i] <= 15 && conf->ac_list[i] != 10) {
-			bit = conf->ac_list[i] & 7;
-			octet = data->ac_list[i] / 8;
+	/* ncc */
+	si[19] = ncc;
+	/* rach */
+	si[20] = (max_trans << 6);
+	si[20] |= (tx_integer << 2);
+	si[20] |= (cell_barr << 1);
+	si[20] |= re;
+	si[21] = (ec << 2);
+	for (i = 0; i < ac_len; i++) {
+		if (ac_list[i] <= 15 && ac_list[i] != 10) {
+			bit = ac_list[i] & 7;
+			octet = ac_list[i] / 8;
 			si[22 - octet] |= (1 << bit);
 		}
 	}
@@ -784,7 +784,6 @@ SYSTEM INFORMATION TYPE 3
     Scheduling Information is not sent in SYSTEM INFORMATION TYPE 9 on the BCCH
 */
 static u_int8_t si3[] = {
-#warning nicht 0x59 == 22 octets + length
 	/* header */0x49, 0x06, 0x1B,
 	/* cell */0x00, 0x01,
 	/* lai  */0x00, 0xF1, 0x10, 0x00, 0x01,
@@ -792,59 +791,8 @@ static u_int8_t si3[] = {
 	/* option*/0x28,
 	/* selection*/0x62, 0x00,
 	/* rach */0xD5, 0x00, 0x00,
-	/* rest */0x80, 0x00, 0x00, 0x2B
+	/* reset*/0x80, 0x00, 0x00, 0x2B
 };
-
-static u_int8_t *gsm48_si3(struct gsm_net *net, struct gsm_bts_conf *conf)
-{
-	static u_int8_t si[23];
-	int i, bit, octet;
-
-	memset(&si, 0, sizeof(si));
-
-	/* header */
-#warning testing
-	si[0] = 0x59;
-	si[1] = 0x06;
-	si[2] = 0x1B;
-	/* cell 10.5.1.1 */
-	si[3] = ci >> 8;
-	si[4] = ci;
-	/* lai 10.5.1.3 */
-	gsm0408_generate_lai(&si[5], network->country_code,
-			     network->network_code,
-			     conf->location_area_code);
-	/* desc 10.5.2.11 */
-	si[10] = conf->att << 6;
-	si[10] |= conf->bs_ag_blks_res << 3;
-	si[10] |= conf->ccch_conf;
-	si[11] = conf->bs_pa_mfrms;
-	si[12] = conf->t3212_decihours;
-	/* option 10.5.2.3 */
-	si[13] = conf->pwrc << 6;
-	si[13] |= conf->dtx << 4;
-	si[13] |= conf->rl_timeout;
-	/* selection 10.5.2.4 */
-	si[14] = conf->csel_hyst << 5;
-	si[14] |= conf->ms_txpwr_max_cch;
-	si[15] = conf->acs << 7;
-	si[15] |= conf->neci << 6;
-	si[15] |= conf->rxlev_access_min;
-	/* rach 10.5.2.29 */
-	si[16] = (conf->max_trans << 6);
-	si[16] |= (conf->tx_integer << 2);
-	si[16] |= (conf->cell_barr << 1);
-	si[16] |= conf->re;
-	si[17] = (conf->ec << 2);
-	for (i = 0; i < conf->ac_len; i++) {
-		if (conf->ac_list[i] <= 15 && conf->ac_list[i] != 10) {
-			bit = conf->ac_list[i] & 7;
-			octet = data->ac_list[i] / 8;
-			si[18 - octet] |= (1 << bit);
-		}
-	}
-	/* rest 10.5.2.34 */
-}
 
 /*
 SYSTEM INFORMATION TYPE 4
@@ -920,8 +868,8 @@ static u_int8_t *gsm48_si5(int ba, u_int8_t *arfcn_list, int arfcn_len)
 	}
 
 	/* testig */
-	if (memcmp(&si5, &si, sizeof(si)))
-		printf("SI5 does not match default template.\n");
+	if (memcmp(&si3, &si, sizeof(si)))
+		printf("SI3 does not match default template.\n");
 
 	return si;
 }

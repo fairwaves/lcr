@@ -37,8 +37,7 @@ struct lcr_msg *message_create(int id_from, int id_to, int flow, int type)
 /* attaches a message to the end of the message chain */
 void message_put(struct lcr_msg *message)
 {
-	if (message->id_to == 0)
-	{
+	if (message->id_to == 0) {
 		PDEBUG(DEBUG_MSG, "message %s not written, because destination is 0.\n", messages_txt[message->type]);
 		message_free(message);
 		return;
@@ -77,9 +76,7 @@ struct lcr_msg *message_get(void)
 	struct lcr_msg *message;
 
 	if (!message_first)
-	{
 		return(0);
-	}
 
 	message = message_first;
 	message_first = message->next;

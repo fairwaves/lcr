@@ -29,8 +29,7 @@ int admin_init(void)
 	unsigned int on = 1;
 
 	/* open and bind socket */
-	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
-	{
+	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
 		PERROR("Failed to create admin socket. (errno=%d)\n", errno);
 		return(-1);
 	}
@@ -40,8 +39,7 @@ int admin_init(void)
 	sock_address.sun_family = AF_UNIX;
 	UCPY(sock_address.sun_path, socket_name);
 	unlink(socket_name);
-	if (bind(sock, (struct sockaddr *)(&sock_address), SUN_LEN(&sock_address)) < 0)
-	{
+	if (bind(sock, (struct sockaddr *)(&sock_address), SUN_LEN(&sock_address)) < 0) {
 		close(sock);
 		unlink(socket_name);
 		fhuse--;
@@ -49,8 +47,7 @@ int admin_init(void)
 		PERROR("Failed to bind admin socket to \"%s\". (errno=%d)\n", sock_address.sun_path, errno);
 		return(-1);
 	}
-	if (listen(sock, 5) < 0)
-	{
+	if (listen(sock, 5) < 0) {
 		close(sock);
 		unlink(socket_name);
 		fhuse--;
@@ -58,8 +55,7 @@ int admin_init(void)
 		PERROR("Failed to listen to socket \"%s\". (errno=%d)\n", sock_address.sun_path, errno);
 		return(-1);
 	}
-	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0)
-	{
+	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0) {
 		close(sock);
 		unlink(socket_name);
 		fhuse--;
@@ -67,8 +63,7 @@ int admin_init(void)
 		PERROR("Failed to set socket \"%s\" into non-blocking mode. (errno=%d)\n", sock_address.sun_path, errno);
 		return(-1);
 	}
-	if (chmod(socket_name, options.socketrights) < 0)
-	{
+	if (chmod(socket_name, options.socketrights) < 0) {
 		PERROR("Failed to change socket rigts to %d. (errno=%d)\n", options.socketrights, errno);
 	}
 	return(0);
@@ -89,8 +84,7 @@ void free_connection(struct admin_list *admin)
 	int i, ii;
 
 	/* free remote joins */
-	if (admin->remote_name[0])
-	{
+	if (admin->remote_name[0]) {
 		start_trace(-1,
 			NULL,
 			NULL,
@@ -103,14 +97,11 @@ void free_connection(struct admin_list *admin)
 		end_trace();
 		/* release all exported channels */
 		mISDNport = mISDNport_first;
-		while(mISDNport)
-		{
+		while(mISDNport) {
 			i = 0;
 			ii = mISDNport->b_num;
-			while(i < ii)
-			{
-				if (mISDNport->b_remote_id[i] == admin->sock)
-				{
+			while(i < ii) {
+				if (mISDNport->b_remote_id[i] == admin->sock) {
 					mISDNport->b_state[i] = B_STATE_IDLE;
 					mISDNport->b_timer[i] = 0;
 					mISDNport->b_remote_id[i] = 0;
@@ -122,11 +113,9 @@ void free_connection(struct admin_list *admin)
 		}
 		/* release join */
 		join = join_first;
-		while(join)
-		{
+		while(join) {
 			joinnext = join->next;
-			if (join->j_type==JOIN_TYPE_REMOTE) if (((class JoinRemote *)join)->j_remote_id == admin->sock)
-			{
+			if (join->j_type==JOIN_TYPE_REMOTE) if (((class JoinRemote *)join)->j_remote_id == admin->sock) {
 				memset(&param, 0, sizeof(param));
 				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
 				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -137,15 +126,13 @@ void free_connection(struct admin_list *admin)
 		}
 	}
 
-	if (admin->sock >= 0)
-	{
+	if (admin->sock >= 0) {
 		close(admin->sock);
 		fhuse--;
 	}
 //	printf("new\n", response);
 	response = admin->response;
-	while (response)
-	{
+	while (response) {
 //#warning
 //	printf("%x\n", response);
 		temp = response->next;
@@ -168,16 +155,14 @@ void admin_cleanup(void)
 	struct admin_list *admin, *next;;
 
 	admin = admin_first;
-	while(admin)
-	{
+	while(admin) {
 //printf("clean\n");
 		next = admin->next;
 		free_connection(admin);
 		admin = next;
 	}
 
-	if (sock >= 0)
-	{
+	if (sock >= 0) {
 		close(sock);
 		fhuse--;
 	}
@@ -195,14 +180,12 @@ int admin_interface(struct admin_queue **responsep)
 	const char		*err_txt = "";
 	int			err = 0;
 
-        if (read_interfaces())
-	{
+        if (read_interfaces()) {
        		relink_interfaces();
 		free_interfaces(interface_first);
 		interface_first = interface_newlist;
 		interface_newlist = NULL;
-	} else
-	{
+	} else {
 		err_txt = interface_error;
 		err = -1;
 	}
@@ -241,20 +224,17 @@ int admin_route(struct admin_queue **responsep)
 #if 0
 	n = 0;
 	apppbx = apppbx_first;
-	while(apppbx)
-	{
+	while(apppbx) {
 		n++;
 		apppbx = apppbx->next;
 	}
-	if (apppbx_first)
-	{
+	if (apppbx_first) {
 		SPRINT(err_txt, "Cannot reload routing, because %d endpoints active\n", n);
 		err = -1;
 		goto response;
 	}
 #endif
-        if (!(ruleset_new = ruleset_parse()))
-	{
+        if (!(ruleset_new = ruleset_parse())) {
 		SPRINT(err_txt, ruleset_error);
 		err = -1;
 		goto response;
@@ -262,18 +242,14 @@ int admin_route(struct admin_queue **responsep)
 	ruleset_free(ruleset_first);
 	ruleset_first = ruleset_new;
 	ruleset_main = getrulesetbyname("main");
-	if (!ruleset_main)
-	{
+	if (!ruleset_main) {
 		SPRINT(err_txt, "Ruleset reloaded, but rule 'main' not found.\n");
 		err = -1;
 	}
 	apppbx = apppbx_first;
-	while(apppbx)
-	{
-		if (apppbx->e_action)
-		{
-			switch(apppbx->e_action->index)
-			{
+	while(apppbx) {
+		if (apppbx->e_action) {
+			switch(apppbx->e_action->index) {
 				case ACTION_INTERNAL:
 				apppbx->e_action = &action_internal;
 				break;
@@ -292,8 +268,7 @@ int admin_route(struct admin_queue **responsep)
 				default:
 				goto release;
 			}
-		} else if (apppbx->e_state != EPOINT_STATE_CONNECT)
-		{
+		} else if (apppbx->e_state != EPOINT_STATE_CONNECT) {
 			release:
 			apppbx->e_callback = 0;
 			apppbx->e_action = NULL;
@@ -352,8 +327,7 @@ int admin_dial(struct admin_queue **responsep, char *message)
 	response->am[0].message = ADMIN_RESPONSE_CMD_DIAL;
 
 	/* process request */
-	if (!(p = strchr(message,':')))
-	{
+	if (!(p = strchr(message,':'))) {
 		response->am[0].u.x.error = -EINVAL;
 		SPRINT(response->am[0].u.x.message, "no seperator ':' in message to seperate number from extension");
 		goto out;
@@ -361,8 +335,7 @@ int admin_dial(struct admin_queue **responsep, char *message)
 	*p++ = 0;
 
 	/* modify extension */
-	if (!read_extension(&ext, message))
-	{
+	if (!read_extension(&ext, message)) {
 		response->am[0].u.x.error = -EINVAL;
 		SPRINT(response->am[0].u.x.message, "extension doesn't exist");
 		goto out;
@@ -417,11 +390,9 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 	/* search for port */
 	ifport = NULL;
 	interface = interface_first;
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
+		while(ifport) {
 			if (ifport->portnum == portnum)
 				break;
 			ifport = ifport->next;
@@ -431,8 +402,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 		interface = interface->next;
 	}
 	/* not found, we return -1 */
-	if (!ifport)
-	{
+	if (!ifport) {
 		response->am[0].u.x.block = -1;
 		response->am[0].u.x.error = 1;
 		SPRINT(response->am[0].u.x.message, "Port %d does not exist.", portnum);
@@ -440,11 +410,9 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 	}
 
 	/* no interface */
-	if (!ifport->mISDNport)
-	{
+	if (!ifport->mISDNport) {
 		/* not loaded anyway */
-		if (block >= 2)
-		{
+		if (block >= 2) {
 			response->am[0].u.x.block = 2;
 			goto out;
 		}
@@ -454,8 +422,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 		load_port(ifport);
 
 		/* port cannot load */
-		if (ifport->block >= 2)
-		{
+		if (ifport->block >= 2) {
 			response->am[0].u.x.block = 2;
 			response->am[0].u.x.error = 1;
 			SPRINT(response->am[0].u.x.message, "Port %d will not load.", portnum);
@@ -468,8 +435,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 	}
 
 	/* if we shall unload interface */
-	if (block >= 2)
-	{
+	if (block >= 2) {
 		mISDNport_close(ifport->mISDNport);
 		ifport->mISDNport = 0;
 		ifport->block = 2;
@@ -505,14 +471,12 @@ int admin_release(struct admin_queue **responsep, char *message)
 
 	id = atoi(message);
 	apppbx = apppbx_first;
-	while(apppbx)
-	{
+	while(apppbx) {
 		if (apppbx->ea_endpoint->ep_serial == id)
 			break;
 		apppbx = apppbx->next;
 	}
-	if (!apppbx)
-	{
+	if (!apppbx) {
 		response->am[0].u.x.error = -EINVAL;
 		SPRINT(response->am[0].u.x.message, "Given endpoint %d doesn't exist.", id);
 		goto out;
@@ -579,8 +543,7 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
 	 * maybe there is no admin instance, because the calling port was not
 	 * initiated by admin_call */
 	admin = admin_first;
-	while(admin)
-	{
+	while(admin) {
 		if (adminid == admin->sockserial)
 			break;
 		admin = admin->next;
@@ -591,8 +554,7 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
 	/* seek to end of response list */
 	response = admin->response;
 	responsep = &admin->response;
-	while(response)
-	{
+	while(response) {
 		responsep = &response->next;
 		response = response->next;
 	}
@@ -625,23 +587,19 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 	struct admin_list		*temp;
 
 	/* hello message */
-	if (msg->type == MESSAGE_HELLO)
-	{
-		if (admin->remote_name[0])
-		{
+	if (msg->type == MESSAGE_HELLO) {
+		if (admin->remote_name[0]) {
 			PERROR("Remote application repeats hello message.\n");
 			return(-1);
 		}
 		/* look for second application */
 		temp = admin_first;
-		while(temp)
-		{
+		while(temp) {
 			if (!strcmp(temp->remote_name, msg->param.hello.application))
 				break;
 			temp = temp->next;
 		}
-		if (temp)
-		{
+		if (temp) {
 			PERROR("Remote application connects twice??? (ignoring)\n");
 			return(-1);
 		}
@@ -661,19 +619,16 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 	}
 
 	/* check we have no application name */
-	if (!admin->remote_name[0])
-	{
+	if (!admin->remote_name[0]) {
 		PERROR("Remote application did not send us a hello message.\n");
 		return(-1);
 	}
 
 	/* new join */
-	if (msg->type == MESSAGE_NEWREF)
-	{
+	if (msg->type == MESSAGE_NEWREF) {
 		/* create new join instance */
 		join = new JoinRemote(0, admin->remote_name, admin->sock); // must have no serial, because no endpoint is connected
-		if (!join)
-		{
+		if (!join) {
 			FATAL("No memory for remote join instance\n");
 			return(-1);
 		}
@@ -685,42 +640,36 @@ int admin_message_to_join(struct admin_msg *msg, struct admin_list *admin)
 	if (msg->type == MESSAGE_BCHANNEL)
 	if (msg->param.bchannel.type == BCHANNEL_ASSIGN_ACK
 	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK
-	 || msg->param.bchannel.type == BCHANNEL_RELEASE)
-	{
+	 || msg->param.bchannel.type == BCHANNEL_RELEASE) {
 		/* no ref, but address */
 		message_bchannel_from_remote(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
 		return(0);
 	}
 	
 	/* check for ref */
-	if (!msg->ref)
-	{
+	if (!msg->ref) {
 		PERROR("Remote application did not send us a valid ref with a message.\n");
 		return(-1);
 	}
 
 	/* find join instance */
 	join = join_first;
-	while(join)
-	{
+	while(join) {
 		if (join->j_serial == msg->ref)
 			break;
 		join = join->next;
 	}
-	if (!join)
-	{
+	if (!join) {
 		PDEBUG(DEBUG_LOG, "No join found with serial %d. (May have been already released.)\n", msg->ref);
 		return(0);
 	}
 
 	/* check application */
-	if (join->j_type != JOIN_TYPE_REMOTE)
-	{
+	if (join->j_type != JOIN_TYPE_REMOTE) {
 		PERROR("Ref %d does not belong to a remote join instance.\n", msg->ref);
 		return(-1);
 	}
-	if (admin->sock != ((class JoinRemote *)join)->j_remote_id)
-	{
+	if (admin->sock != ((class JoinRemote *)join)->j_remote_id) {
 		PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, ((class JoinRemote *)join)->j_remote_name, admin->remote_name);
 		return(-1);
 	}
@@ -744,8 +693,7 @@ int admin_message_from_join(int remote_id, unsigned int ref, int message_type, u
 	 * maybe there is no given remote application
 	 */
 	admin = admin_first;
-	while(admin)
-	{
+	while(admin) {
 		if (admin->remote_name[0] && admin->sock==remote_id)
 			break;
 		admin = admin->next;
@@ -756,8 +704,7 @@ int admin_message_from_join(int remote_id, unsigned int ref, int message_type, u
 
 	/* seek to end of response list */
 	responsep = &admin->response;
-	while(*responsep)
-	{
+	while(*responsep) {
 		responsep = &(*responsep)->next;
 	}
 
@@ -810,11 +757,9 @@ int admin_state(struct admin_queue **responsep)
 	/* interface count */
 	i = 0;
 	interface = interface_first;
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
+		while(ifport) {
 			i++;
 			ifport = ifport->next;
 		}
@@ -824,8 +769,7 @@ int admin_state(struct admin_queue **responsep)
 	/* remote connection count */
 	i = 0;
 	admin = admin_first;
-	while(admin)
-	{
+	while(admin) {
 		if (admin->remote_name[0])
 			i++;
 		admin = admin->next;
@@ -834,8 +778,7 @@ int admin_state(struct admin_queue **responsep)
 	/* join count */
 	join = join_first;
 	i = 0;
-	while(join)
-	{
+	while(join) {
 		i++;
 		join = join->next;
 	}
@@ -843,8 +786,7 @@ int admin_state(struct admin_queue **responsep)
 	/* apppbx count */
 	apppbx = apppbx_first;
 	i = 0;
-	while(apppbx)
-	{
+	while(apppbx) {
 		i++;
 		apppbx = apppbx->next;
 	}
@@ -852,8 +794,7 @@ int admin_state(struct admin_queue **responsep)
 	/* port count */
 	i = 0;
 	port = port_first;
-	while(port)
-	{
+	while(port) {
 		i++;
 		port = port->next;
 	}
@@ -877,11 +818,9 @@ int admin_state(struct admin_queue **responsep)
 	responsep = &response->next;
 	interface = interface_first;
 	num = 0;
-	while(interface)
-	{
+	while(interface) {
 		ifport = interface->ifport;
-		while(ifport)
-		{
+		while(ifport) {
 			/* message */
 			response->am[num].message = ADMIN_RESPONSE_S_INTERFACE;
 			/* interface */
@@ -894,8 +833,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.i.extension = interface->extension;
 			/* block */
 			response->am[num].u.i.block = ifport->block;
-			if (ifport->mISDNport)
-			{
+			if (ifport->mISDNport) {
 				mISDNport = ifport->mISDNport;
 
 				/* ptp */
@@ -929,8 +867,7 @@ int admin_state(struct admin_queue **responsep)
 				/* channel info */
 				i = 0;
 				anybusy = 0;
-				while(i < mISDNport->b_num)
-				{
+				while(i < mISDNport->b_num) {
 					response->am[num].u.i.busy[i] = mISDNport->b_state[i];
 					if (mISDNport->b_port[i])
 						response->am[num].u.i.port[i] = mISDNport->b_port[i]->p_serial;
@@ -947,10 +884,8 @@ int admin_state(struct admin_queue **responsep)
 
 	/* create response for all remotes */
 	admin = admin_first;
-	while(admin)
-	{
-		if (admin->remote_name[0])
-		{
+	while(admin) {
+		if (admin->remote_name[0]) {
 			/* message */
 			response->am[num].message = ADMIN_RESPONSE_S_REMOTE;
 			/* name */
@@ -963,8 +898,7 @@ int admin_state(struct admin_queue **responsep)
 
 	/* create response for all joins */
 	join = join_first;
-	while(join)
-	{
+	while(join) {
 		/* message */
 		response->am[num].message = ADMIN_RESPONSE_S_JOIN;
 		/* serial */
@@ -982,8 +916,7 @@ int admin_state(struct admin_queue **responsep)
 
 	/* create response for all endpoint */
 	apppbx = apppbx_first;
-	while(apppbx)
-	{
+	while(apppbx) {
 		/* message */
 		response->am[num].message = ADMIN_RESPONSE_S_EPOINT;
 		/* serial */
@@ -995,8 +928,7 @@ int admin_state(struct admin_queue **responsep)
 		/* tx notification */
 		response->am[num].u.e.tx_state = apppbx->e_tx_state;
 		/* state */
-		switch(apppbx->e_state)
-		{
+		switch(apppbx->e_state) {
 			case EPOINT_STATE_IN_SETUP:
 			response->am[num].u.e.state = ADMIN_STATE_IN_SETUP;
 			break;
@@ -1059,8 +991,7 @@ int admin_state(struct admin_queue **responsep)
 
 	/* create response for all ports */
 	port = port_first;
-	while(port)
-	{
+	while(port) {
 		/* message */
 		response->am[num].message = ADMIN_RESPONSE_S_PORT;
 		/* serial */
@@ -1070,8 +1001,7 @@ int admin_state(struct admin_queue **responsep)
 		/* epoint */
 		response->am[num].u.p.epoint = ACTIVE_EPOINT(port->p_epointlist);
 		/* state */
-		switch(port->p_state)
-		{
+		switch(port->p_state) {
 			case PORT_STATE_IN_SETUP:
 			response->am[num].u.p.state = ADMIN_STATE_IN_SETUP;
 			break;
@@ -1109,8 +1039,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.p.state = ADMIN_STATE_IDLE;
 		}
 		/* isdn */
-		if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1)
-		{
+		if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1) {
 			response->am[num].u.p.isdn = 1;
 			pdss1 = (class Pdss1 *)port;
 			response->am[num].u.p.isdn_chan = pdss1->p_m_b_channel;
@@ -1144,13 +1073,11 @@ int admin_handle(void)
 		return(0);
 
 	/* check for new incoming connections */
-	if ((new_sock = accept(sock, (struct sockaddr *)&sock_address, &sock_len)) >= 0)
-	{
+	if ((new_sock = accept(sock, (struct sockaddr *)&sock_address, &sock_len)) >= 0) {
 		work = 1;
 		/* insert new socket */
 		admin = (struct admin_list *)MALLOC(sizeof(struct admin_list));
-		if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0)
-		{
+		if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0) {
 //#warning
 //	PERROR("DEBUG incoming socket %d, serial=%d\n", new_sock, sockserial);
 			memuse++;
@@ -1163,10 +1090,8 @@ int admin_handle(void)
 			close(new_sock);
 			FREE(admin, sizeof(struct admin_list));
 		}
-	} else
-	{
-		if (errno != EWOULDBLOCK)
-		{
+	} else {
+		if (errno != EWOULDBLOCK) {
 			PERROR("Failed to accept connection from socket \"%s\". (errno=%d) Closing socket.\n", sock_address.sun_path, errno);
 			admin_cleanup();
 			return(1);
@@ -1176,14 +1101,11 @@ int admin_handle(void)
 	/* loop all current socket connections */
 	admin = admin_first;
 	adminp = &admin_first;
-	while(admin)
-	{
+	while(admin) {
 		/* read command */
 		len = read(admin->sock, &msg, sizeof(msg));
-		if (len < 0)
-		{
-			if (errno != EWOULDBLOCK)
-			{
+		if (len < 0) {
+			if (errno != EWOULDBLOCK) {
 				work = 1;
 				brokenpipe:
 				PDEBUG(DEBUG_LOG, "Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
@@ -1197,16 +1119,13 @@ int admin_handle(void)
 		work = 1;
 //#warning
 //PERROR("DEBUG socket %d got data. serial=%d\n", admin->sock, admin->sockserial);
-		if (len == 0)
-		{
+		if (len == 0) {
 			end:
 
 			/*release endpoint if exists */
-			if (admin->epointid)
-			{
+			if (admin->epointid) {
 				epoint = find_epoint_id(admin->epointid);
-				if (epoint)
-				{
+				if (epoint) {
 					((class DEFAULT_ENDPOINT_APP *)epoint->ep_app)->
 						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 				}
@@ -1220,8 +1139,7 @@ int admin_handle(void)
 //PERROR("DEBUG (admin_first=%x)\n", admin_first);
 			continue;
 		}
-		if (len != sizeof(msg))
-		{
+		if (len != sizeof(msg)) {
 			PERROR("Short/long read on socket %d. (len=%d != size=%d).\n", admin->sock, len, sizeof(msg));
 			*adminp = admin->next;
 			free_connection(admin);
@@ -1229,75 +1147,65 @@ int admin_handle(void)
 			continue;
 		}
 		/* process socket command */
-		if (admin->response && msg.message != ADMIN_MESSAGE)
-		{
+		if (admin->response && msg.message != ADMIN_MESSAGE) {
 			PERROR("Data from socket %d while sending response.\n", admin->sock);
 			*adminp = admin->next;
 			free_connection(admin);
 			admin = *adminp;
 			continue;
 		}
-		switch (msg.message)
-		{
+		switch (msg.message) {
 			case ADMIN_REQUEST_CMD_INTERFACE:
-			if (admin_interface(&admin->response) < 0)
-			{
+			if (admin_interface(&admin->response) < 0) {
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_REQUEST_CMD_ROUTE:
-			if (admin_route(&admin->response) < 0)
-			{
+			if (admin_route(&admin->response) < 0) {
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_REQUEST_CMD_DIAL:
-			if (admin_dial(&admin->response, msg.u.x.message) < 0)
-			{
+			if (admin_dial(&admin->response, msg.u.x.message) < 0) {
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_REQUEST_CMD_RELEASE:
-			if (admin_release(&admin->response, msg.u.x.message) < 0)
-			{
+			if (admin_release(&admin->response, msg.u.x.message) < 0) {
 				PERROR("Failed to create release response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_REQUEST_STATE:
-			if (admin_state(&admin->response) < 0)
-			{
+			if (admin_state(&admin->response) < 0) {
 				PERROR("Failed to create state response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_TRACE_REQUEST:
-			if (admin_trace(admin, &msg.u.trace_req) < 0)
-			{
+			if (admin_trace(admin, &msg.u.trace_req) < 0) {
 				PERROR("Failed to create trace response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_REQUEST_CMD_BLOCK:
-			if (admin_block(&admin->response, msg.u.x.portnum, msg.u.x.block) < 0)
-			{
+			if (admin_block(&admin->response, msg.u.x.portnum, msg.u.x.block) < 0) {
 				PERROR("Failed to create block response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
 			break;
 
 			case ADMIN_MESSAGE:
-			if (admin_message_to_join(&msg.u.msg, admin) < 0)
-			{
+			if (admin_message_to_join(&msg.u.msg, admin) < 0) {
 				PERROR("Failed to deliver message for socket %d.\n", admin->sock);
 				goto response_error;
 			}
@@ -1307,8 +1215,7 @@ int admin_handle(void)
 	struct admin_queue	*response;
 	printf("Chain: ");
 	response = admin->response;
-	while(response)
-	{
+	while(response) {
 		printf("%c", '0'+response->am[0].message);
 		response=response->next;
 	}
@@ -1318,8 +1225,7 @@ int admin_handle(void)
 			break;
 
 			case ADMIN_CALL_SETUP:
-			if (admin_call(admin, &msg) < 0)
-			{
+			if (admin_call(admin, &msg) < 0) {
 				PERROR("Failed to create call for socket %d.\n", admin->sock);
 				response_error:
 				*adminp = admin->next;
@@ -1338,15 +1244,12 @@ int admin_handle(void)
 		}
 		/* write queue */
 		send_data:
-		if (admin->response)
-		{
+		if (admin->response) {
 //#warning
 //PERROR("DEBUG socket %d sending data.\n", admin->sock);
 			len = write(admin->sock, ((unsigned char *)(admin->response->am))+admin->response->offset, sizeof(struct admin_message)*(admin->response->num)-admin->response->offset);
-			if (len < 0)
-			{
-				if (errno != EWOULDBLOCK)
-				{
+			if (len < 0) {
+				if (errno != EWOULDBLOCK) {
 					work = 1;
 					goto brokenpipe;
 				}
@@ -1355,12 +1258,10 @@ int admin_handle(void)
 			work = 1;
 			if (len == 0)
 				goto end;
-			if (len < (int)(sizeof(struct admin_message)*(admin->response->num) - admin->response->offset))
-			{
+			if (len < (int)(sizeof(struct admin_message)*(admin->response->num) - admin->response->offset)) {
 				admin->response->offset+=len;
 				goto next;
-			} else
-			{
+			} else {
 				temp = admin->response;
 				admin->response = admin->response->next;
 				FREE(temp, 0);

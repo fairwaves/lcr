@@ -340,8 +340,7 @@ char *get_isdn_cause(int cause, int location, int type)
 	if (cause<0 || cause>127)
 		cause = 0;
 
-	switch(type)
-	{
+	switch(type) {
 		case DISPLAY_CAUSE_NUMBER:
 		SPRINT(result, "Cause %d", cause);
 		break;

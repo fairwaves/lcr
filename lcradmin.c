@@ -130,8 +130,7 @@ int debug_port(struct admin_message *msg, struct admin_message *m, int line, int
 	addstr(buffer);
 	color(cyan);
 	addstr(" state=");
-	switch (m[i].u.p.state)
-	{
+	switch (m[i].u.p.state) {
 		case ADMIN_STATE_IDLE:
 		color(red);
 		addstr("'idle'");
@@ -185,23 +184,20 @@ int debug_port(struct admin_message *msg, struct admin_message *m, int line, int
 		addstr("'--NONE--'");
 	}
 
-	if (m[i].u.p.isdn)
-	{	
+	if (m[i].u.p.isdn) {	
 		color(cyan);
 		addstr(" bchannel=");
 		color(white);
 		SPRINT(buffer,"%d", m[i].u.p.isdn_chan);
 		addstr(buffer);
-		if (m[i].u.p.isdn_ces >= 0)
-		{
+		if (m[i].u.p.isdn_ces >= 0) {
 			color(cyan);
 			addstr(" ces=");
 			color(yellow);
 			SPRINT(buffer, "%d", m[i].u.p.isdn_ces);
 			addstr(buffer);
 		}
-		if (m[i].u.p.isdn_hold)
-		{
+		if (m[i].u.p.isdn_hold) {
 			color(red);
 			addstr(" hold");
 		}
@@ -222,8 +218,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 	addstr(buffer);
 	color(cyan);
 	addstr(" state=");
-	switch (m[i].u.e.state)
-	{
+	switch (m[i].u.e.state) {
 		case ADMIN_STATE_IDLE:
 		color(red);
 		addstr("'idle'");
@@ -276,8 +271,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 		color(blue);
 		addstr("'--NONE--'");
 	}
-	if (m[i].u.e.terminal[0])
-	{
+	if (m[i].u.e.terminal[0]) {
 		color(cyan);
 		addstr(" terminal=");
 		color(green);
@@ -290,26 +284,22 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 	addstr("->");
 	color(white);
 	addstr(m[i].u.e.dialing);
-	if (m[i].u.e.action[0])
-	{
+	if (m[i].u.e.action[0]) {
 		color(cyan);
 		addstr(" action=");
 		color(yellow);
 		addstr(m[i].u.e.action);
 	}
-	if (m[i].u.e.park)
-	{
+	if (m[i].u.e.park) {
 		color(cyan);
 		addstr(" park="); /* 9 digits */
 		color(green);
 		UCPY(buffer, "\""); /* 9 digits */
 		j = 0;
 		jj = m[i].u.e.park_len;
-		while(j < jj)
-		{
+		while(j < jj) {
 			c = m[i].u.e.park_callid[j];
-			if (c >= 32 && c < 127 && c != '[')
-			{
+			if (c >= 32 && c < 127 && c != '[') {
 				SCCAT(buffer, c);
 			} else
 				UPRINT(buffer+strlen(buffer), "[%02x]", c);
@@ -317,11 +307,9 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 		}
 		SCAT(buffer, "\"");
 		addstr(buffer);
-	} else
-	{
+	} else {
 		color(red);
-		switch(m[i].u.e.rx_state)
-		{
+		switch(m[i].u.e.rx_state) {
 			case NOTIFY_STATE_SUSPEND:
 			addstr(" in=suspend");
 			break;
@@ -332,8 +320,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 			addstr(" in=conference");
 			break;
 		}
-		switch(m[i].u.e.tx_state)
-		{
+		switch(m[i].u.e.tx_state) {
 			case NOTIFY_STATE_SUSPEND:
 			addstr(" out=suspend");
 			break;
@@ -345,16 +332,13 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 			break;
 		}
 	}
-	if (m[i].u.e.crypt)
-	{
+	if (m[i].u.e.crypt) {
 		color(cyan);
 		addstr(" crypt=");
-		if (m[i].u.e.crypt) /* crypt on */
-		{
+		if (m[i].u.e.crypt) { /* crypt on */
 			color(green);
 			addstr("active");
-		} else
-		{
+		} else {
 			color(yellow);
 			addstr("pending");
 		}
@@ -363,10 +347,8 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 	ltee = 0;
 	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins+msg->u.s.epoints;
 	jj = j + msg->u.s.ports;
-	while(j < jj)
-	{
-		if (m[j].u.p.epoint == epoint)
-		{
+	while(j < jj) {
+		if (m[j].u.p.epoint == epoint) {
 			color(cyan);
 			move(++line>1?line:1, 1);
 			if (vline)
@@ -383,8 +365,7 @@ int debug_epoint(struct admin_message *msg, struct admin_message *m, int line, i
 		}
 		j++;
 	}
-	if (ltee)
-	{
+	if (ltee) {
 		color(cyan);
 		move(ltee>1?line:1, 5);
 		LLCORNER
@@ -401,16 +382,14 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 	color(white);
 	SPRINT(buffer,"JOIN(%d)", join);
 	addstr(buffer);
-	if (m[i].u.j.partyline)
-	{
+	if (m[i].u.j.partyline) {
 		color(cyan);
 		addstr(" partyline=");
 		color(white);
 		SPRINT(buffer, "%d\n", m[i].u.j.partyline);
 		addstr(buffer);
 	}
-	if (m[i].u.j.remote[0])
-	{
+	if (m[i].u.j.remote[0]) {
 		color(cyan);
 		addstr(" remote=");
 		color(white);
@@ -421,8 +400,7 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
 	i = 0;
-	while(j < jj)
-	{
+	while(j < jj) {
 		if (m[j].u.e.join == join)
 			i++;
 		j++;
@@ -430,10 +408,8 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 	/* loop all related endpoints */
 	j = msg->u.s.interfaces+msg->u.s.remotes+msg->u.s.joins;
 	jj = j + msg->u.s.epoints;
-	while(j < jj)
-	{
-		if (m[j].u.e.join == join)
-		{
+	while(j < jj) {
+		if (m[j].u.e.join == join) {
 			i--;
 			move(++line>1?line:1, 1);
 			color(cyan);
@@ -482,40 +458,34 @@ const char *admin_state(int sock, char *argv[])
 	memset(&msg, 0, sizeof(msg));
 	msg.message = ADMIN_REQUEST_STATE;
 //	printf("sizeof=%d\n",sizeof(msg));fflush(stdout);
-	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
-	{
+	if (write(sock, &msg, sizeof(msg)) != sizeof(msg)) {
 		cleanup_curses();
 		return("Broken pipe while sending command.");
 	}
 
 	/* receive response */
-	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
-	{
+	if (read(sock, &msg, sizeof(msg)) != sizeof(msg)) {
 		cleanup_curses();
 		return("Broken pipe while receiving response.");
 	}
 
-	if (msg.message != ADMIN_RESPONSE_STATE)
-	{
+	if (msg.message != ADMIN_RESPONSE_STATE) {
 		cleanup_curses();
 		return("Response not valid. Expecting state response.");
 	}
 	num = msg.u.s.interfaces + msg.u.s.remotes + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
 	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
 	off=0;
-	if (num)
-	{
+	if (num) {
 		readagain:
-		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
-		{
+		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off) {
 			if (len <= 0) {
 				FREE(m, 0);
 	//			fprintf(stderr, "got=%d expected=%d\n", i, num*sizeof(struct admin_message));
 				cleanup_curses();
 				return("Broken pipe while receiving state infos.");
 			}
-			if (len < num*(int)sizeof(struct admin_message))
-			{
+			if (len < num*(int)sizeof(struct admin_message)) {
 				off+=len;
 				goto readagain;
 			}
@@ -524,11 +494,9 @@ const char *admin_state(int sock, char *argv[])
 	j = 0;
 	i = 0;
 //	fprintf("getting =%d interfaces\n", msg.u.s.interfaces);
-	while(i < msg.u.s.interfaces)
-	{
+	while(i < msg.u.s.interfaces) {
 //		fprintf(stderr, "j=%d message=%d\n", j, m[j].message);
-		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE)
-		{
+		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting interface information.");
@@ -537,10 +505,8 @@ const char *admin_state(int sock, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.remotes)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_REMOTE)
-		{
+	while(i < msg.u.s.remotes) {
+		if (m[j].message != ADMIN_RESPONSE_S_REMOTE) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting remote application information.");
@@ -549,10 +515,8 @@ const char *admin_state(int sock, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.joins)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_JOIN)
-		{
+	while(i < msg.u.s.joins) {
+		if (m[j].message != ADMIN_RESPONSE_S_JOIN) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting join information.");
@@ -561,10 +525,8 @@ const char *admin_state(int sock, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.epoints)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_EPOINT)
-		{
+	while(i < msg.u.s.epoints) {
+		if (m[j].message != ADMIN_RESPONSE_S_EPOINT) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting endpoint information.");
@@ -573,10 +535,8 @@ const char *admin_state(int sock, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.ports)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_PORT)
-		{
+	while(i < msg.u.s.ports) {
+		if (m[j].message != ADMIN_RESPONSE_S_PORT) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting port information.");
@@ -592,34 +552,29 @@ const char *admin_state(int sock, char *argv[])
 	line = 1-offset; 
 
 	/* change log */
-	if (!!strcmp(logfile, msg.u.s.logfile))
-	{
+	if (!!strcmp(logfile, msg.u.s.logfile)) {
 		SCPY(logfile, msg.u.s.logfile);
 		if (logfh >= 0)
 			close(logfh);
 		i = 0;
 		ii = LOGLINES;
-		while(i < ii)
-		{
+		while(i < ii) {
 			logline[i][0] = '~';
 			logline[i][1] = '\0';
 			i++;
 		}
 		logcur = 0;
 		logfh = open(logfile, O_RDONLY|O_NONBLOCK);
-		if (logfh >= 0)
-		{
+		if (logfh >= 0) {
 			/* seek at the end -8000 chars */
 			lseek(logfh, -8000, SEEK_END);
 			/* if not at the beginning, read until endofline */
 			logline[logcur % LOGLINES][0] = '\0';
 			l = read(logfh, logline[logcur % LOGLINES], sizeof(logline[logcur % LOGLINES])-1);
-			if (l > 0)
-			{
+			if (l > 0) {
 				/* read first line and skip junk */
 				logline[logcur % LOGLINES][l] = '\0';
-				if ((p = strchr(logline[logcur % LOGLINES],'\n')))
-				{
+				if ((p = strchr(logline[logcur % LOGLINES],'\n'))) {
 					logcur++;
 					SCPY(logline[logcur % LOGLINES], p+1);
 					SCPY(logline[(logcur-1) % LOGLINES], "...");
@@ -630,10 +585,8 @@ const char *admin_state(int sock, char *argv[])
 	}
 
 	/* read log */
-	if (logfh >= 0)
-	{
-		while(42)
-		{
+	if (logfh >= 0) {
+		while(42) {
 			ll = strlen(logline[logcur % LOGLINES]);
 			l = read(logfh, logline[logcur % LOGLINES]+ll, sizeof(logline[logcur % LOGLINES])-ll-1);
 			if (l<=0)
@@ -641,15 +594,13 @@ const char *admin_state(int sock, char *argv[])
 			logline[logcur % LOGLINES][ll+l] = '\0';
 			finish_line:
 			/* put data to lines */
-			while ((p = strchr(logline[logcur % LOGLINES],'\n')))
-			{
+			while ((p = strchr(logline[logcur % LOGLINES],'\n'))) {
 				*p = '\0';
 				logcur++;
 				SCPY(logline[logcur % LOGLINES], p+1);
 			}
 			/* if line is full without return, go next line */
-			if (strlen(logline[logcur % LOGLINES]) == sizeof(logline[logcur % LOGLINES])-1)
-			{
+			if (strlen(logline[logcur % LOGLINES]) == sizeof(logline[logcur % LOGLINES])-1) {
 				logcur++;
 				logline[logcur % LOGLINES][0] = '\0';
 			}
@@ -657,18 +608,15 @@ const char *admin_state(int sock, char *argv[])
 	}
 
 	/* display interfaces */
-	if (show_interfaces > 0)
-	{
+	if (show_interfaces > 0) {
 		anything = 0;
 		i = 0;
 		ii = i + msg.u.s.interfaces;
-		while(i < ii)
-		{
+		while(i < ii) {
 			/* show interface summary */
 			move(++line>1?line:1, 0);
 			color(white);
-			if (m[i].u.i.block >= 2)
-			{
+			if (m[i].u.i.block >= 2) {
 				if (m[i].u.i.portnum < 0)
 					SPRINT(buffer, "%s (port ?: %s)%s", m[i].u.i.interface_name, m[i].u.i.portname, (m[i].u.i.extension)?" exten":"");
 				else
@@ -676,8 +624,7 @@ const char *admin_state(int sock, char *argv[])
 				addstr(buffer);
 				color(red);
 				addstr("  not loaded");
-			} else
-			{
+			} else {
 				SPRINT(buffer, "%s", m[i].u.i.interface_name);
 				addstr(buffer);
 				color(yellow);
@@ -692,22 +639,18 @@ const char *admin_state(int sock, char *argv[])
 					color(blue);
 				SPRINT(buffer, " use:%d", m[i].u.i.use);
 				addstr(buffer);
-				if (m[i].u.i.ptp || !m[i].u.i.ntmode)
-				{
+				if (m[i].u.i.ptp || !m[i].u.i.ntmode) {
 					color((m[i].u.i.l2link > 0)?green:red);
 					if (m[i].u.i.l2link < 0)
 						addstr("  L2 unkn");
 					else
 						addstr((m[i].u.i.l2link)?"  L2 UP":"  L2 down");
-				} else
-				{
+				} else {
 					k = 0;
 					color(green);
 					j = 0;
-					while(j < 128)
-					{
-						if (m[i].u.i.l2mask[j>>3] & (1 << (j&7)))
-						{
+					while(j < 128) {
+						if (m[i].u.i.l2mask[j>>3] & (1 << (j&7))) {
 							SPRINT(buffer, "%s%d", k?",":"  TEI(", j);
 							addstr(buffer);
 							k = 1;
@@ -722,51 +665,41 @@ const char *admin_state(int sock, char *argv[])
 					addstr("  L1 unkn");
 				else
 					addstr((m[i].u.i.l1link)?"  L1 UP":"  L1 down");
-				if (m[i].u.i.los)
-				{
+				if (m[i].u.i.los) {
 					color(red);
 					addstr(" LOS");
 				}
-				if (m[i].u.i.ais)
-				{
+				if (m[i].u.i.ais) {
 					color(red);
 					addstr(" AIS");
 				}
-				if (m[i].u.i.rdi)
-				{
+				if (m[i].u.i.rdi) {
 					color(red);
 					addstr(" RDI");
 				}
-				if (m[i].u.i.slip_tx || m[i].u.i.slip_rx)
-				{
+				if (m[i].u.i.slip_tx || m[i].u.i.slip_rx) {
 					color(red);
 					SPRINT(buffer, " SLIP(tx:%d rx:%d)", m[i].u.i.slip_tx, m[i].u.i.slip_rx);
 					addstr(buffer);
 				}
-				if (m[i].u.i.block)
-				{
+				if (m[i].u.i.block) {
 					color(red);
 					addstr("  blocked");
 				}
 				if (line+2 >= LINES) goto end;
 				/* show channels */
-				if (show_interfaces > 1)
-				{
+				if (show_interfaces > 1) {
 					ltee = 0;
 					j = k =0;
 					jj = m[i].u.i.channels;
-					while(j < jj)
-					{
+					while(j < jj) {
 						/* show all channels */
-						if (show_interfaces>2 || m[i].u.i.busy[j]>0)
-						{
+						if (show_interfaces>2 || m[i].u.i.busy[j]>0) {
 							color(cyan);
 							/* show left side / right side */
-							if ((k & 1) && (COLS > 70))
-							{
+							if ((k & 1) && (COLS > 70)) {
 								move(line>1?line:1,4+((COLS-4)/2));
-							} else
-							{
+							} else {
 								move(++line>1?line:1, 1);
 								LTEE
 								ltee = 1;
@@ -780,15 +713,12 @@ const char *admin_state(int sock, char *argv[])
 							if (m[i].u.i.mode[j] == B_MODE_HDLC)
 								SCAT(buffer,"HDLC ");
 							addstr(buffer);
-							switch(m[i].u.i.busy[j])
-							{
+							switch(m[i].u.i.busy[j]) {
 								case B_STATE_IDLE:
-								if ((!m[i].u.i.l2link && m[i].u.i.ptp) || m[i].u.i.block)
-								{
+								if ((!m[i].u.i.l2link && m[i].u.i.ptp) || m[i].u.i.block) {
 									color(red);
 									addstr("blocked ");
-								} else
-								{
+								} else {
 									color(blue);
 									addstr("idle    ");
 								}
@@ -818,25 +748,20 @@ const char *admin_state(int sock, char *argv[])
 								addstr("imp'ing ");
 								break;
 							}
-							if (m[i].u.i.port[j])
-							{
+							if (m[i].u.i.port[j]) {
 								/* search for port */
 								l = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins+msg.u.s.epoints;
 								ll = l+msg.u.s.ports;
-								while(l < ll)
-								{
-									if (m[l].u.p.serial == m[i].u.i.port[j])
-									{
+								while(l < ll) {
+									if (m[l].u.p.serial == m[i].u.i.port[j]) {
 										SPRINT(buffer, " %s(%ld)", m[l].u.p.name, m[l].u.p.serial);
 										addstr(buffer);
 									}
 									l++;
 								}
 							}
-							if (line+2 >= LINES)
-							{
-								if (ltee)
-								{
+							if (line+2 >= LINES) {
+								if (ltee) {
 									color(cyan);
 									move(line>1?line:1, 1);
 									LLCORNER
@@ -846,26 +771,22 @@ const char *admin_state(int sock, char *argv[])
 						}
 						j++;
 					}
-					if (ltee)
-					{
+					if (ltee) {
 						color(cyan);
 						move(line>1?line:1, 1);
 						LLCORNER
 					}
 					if (line+2 >= LINES) goto end;
 					/* show summary if no channels were shown */
-					if (show_interfaces<2 && ltee==0)
-					{
+					if (show_interfaces<2 && ltee==0) {
 						color(cyan);
 						move(++line>1?line:1, 1);
 						LLCORNER
 							
-						if (m[i].u.i.l2link && m[i].u.i.block==0)
-						{
+						if (m[i].u.i.l2link && m[i].u.i.block==0) {
 							color(green);
 							SPRINT(buffer,"all %d channels free", m[i].u.i.channels);
-						} else
-						{
+						} else {
 							color(red);
 							SPRINT(buffer,"all %d channels blocked", m[i].u.i.channels);
 						}
@@ -879,8 +800,7 @@ const char *admin_state(int sock, char *argv[])
 		}
 		i = msg.u.s.interfaces;
 		ii = i + msg.u.s.remotes;
-		while(i < ii)
-		{
+		while(i < ii) {
 			/* show remote summary */
 			move(++line>1?line:1, 0);
 			color(white);
@@ -893,23 +813,19 @@ const char *admin_state(int sock, char *argv[])
 		if (line+2 >= LINES) goto end;
 	}		
 	/* display calls (brief) */
-	if (show_calls == 1)
-	{
+	if (show_calls == 1) {
 		anything = 0;
 		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
-		while(i < ii)
-		{
+		while(i < ii) {
 			/* for each endpoint... */
-			if (!m[i].u.e.join)
-			{
+			if (!m[i].u.e.join) {
 				move(++line>1?line:1, 0);
 				color(white);
 				SPRINT(buffer, "(%d): ", m[i].u.e.serial);
 				addstr(buffer);
 				color(cyan);
-				if (m[i].u.e.terminal[0])
-				{
+				if (m[i].u.e.terminal[0]) {
 					addstr("intern=");
 					color(green);
 					addstr(m[i].u.e.terminal);
@@ -923,8 +839,7 @@ const char *admin_state(int sock, char *argv[])
 				color(white);
 				SPRINT(buffer, "%s", m[i].u.e.dialing);
 				addstr(buffer);
-				if (m[i].u.e.action[0])
-				{
+				if (m[i].u.e.action[0]) {
 					color(cyan);
 					addstr(" action=");
 					color(yellow);
@@ -937,8 +852,7 @@ const char *admin_state(int sock, char *argv[])
 		}
 		j = msg.u.s.interfaces+msg.u.s.remotes;
 		jj = j+msg.u.s.joins;
-		while(j < jj)
-		{
+		while(j < jj) {
 			/* for each call... */
 			move(++line>1?line:1, 0);
 			color(white);
@@ -946,17 +860,14 @@ const char *admin_state(int sock, char *argv[])
 			addstr(buffer);
 			i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 			ii = i+msg.u.s.epoints;
-			while(i < ii)
-			{
+			while(i < ii) {
 				/* for each endpoint... */
-				if (m[i].u.e.join == m[j].u.j.serial)
-				{
+				if (m[i].u.e.join == m[j].u.j.serial) {
 					color(white);
 					SPRINT(buffer, " (%d)", m[i].u.e.serial);
 					addstr(buffer);
 					color(cyan);
-					if (m[i].u.e.terminal[0])
-					{
+					if (m[i].u.e.terminal[0]) {
 						addstr("int=");
 						color(green);
 						addstr(m[i].u.e.terminal);
@@ -982,16 +893,13 @@ const char *admin_state(int sock, char *argv[])
 		if (line+2 >= LINES) goto end;
 	}
 	/* display calls (structurd) */
-	if (show_calls == 2)
-	{
+	if (show_calls == 2) {
 		/* show all ports with no epoint */
 		anything = 0;
 		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins+msg.u.s.epoints;
 		ii = i+msg.u.s.ports;
-		while(i < ii)
-		{
-			if (!m[i].u.p.epoint)
-			{
+		while(i < ii) {
+			if (!m[i].u.p.epoint) {
 				move(++line>1?line:1, 8);
 				if (line+2 >= LINES) goto end;
 				line = debug_port(&msg, m, line, i, 0);
@@ -1008,10 +916,8 @@ const char *admin_state(int sock, char *argv[])
 		anything = 0;
 		i = msg.u.s.interfaces+msg.u.s.remotes+msg.u.s.joins;
 		ii = i+msg.u.s.epoints;
-		while(i < ii)
-		{
-			if (!m[i].u.e.join)
-			{
+		while(i < ii) {
+			if (!m[i].u.e.join) {
 				move(++line>1?line:1, 4);
 				if (line+2 >= LINES) goto end;
 				line = debug_epoint(&msg, m, line, i, 0);
@@ -1028,8 +934,7 @@ const char *admin_state(int sock, char *argv[])
 		anything = 0;
 		i = msg.u.s.interfaces+msg.u.s.remotes;
 		ii = i+msg.u.s.joins;
-		while(i < ii)
-		{
+		while(i < ii) {
 			move(++line>1?line:1, 0);
 			if (line+2 >= LINES) goto end;
 			line = debug_join(&msg, m, line, i);
@@ -1044,10 +949,8 @@ const char *admin_state(int sock, char *argv[])
 	}
 
 	/* show log */
-	if (show_log)
-	{
-		if (line+2 < LINES)
-		{
+	if (show_log) {
+		if (line+2 < LINES) {
 			move(line++>1?line-1:1, 0);
 			color(blue);
 			hline(ACS_HLINE, COLS);
@@ -1057,15 +960,13 @@ const char *admin_state(int sock, char *argv[])
 			ll = logcur;
 			if (ll-l >= LOGLINES)
 				l = ll-LOGLINES+1;
-			while(l!=ll)
-			{
+			while(l!=ll) {
 				move(line++>1?line-1:1, 0);
 				if ((int)strlen(logline[l % LOGLINES]) > hoffset)
 					SCPY(buffer, logline[l % LOGLINES] + hoffset);
 				else
 					buffer[0] = '\0';
-				if (COLS < (int)strlen(buffer))
-				{
+				if (COLS < (int)strlen(buffer)) {
 					buffer[COLS-1] = '\0';
 					addstr(buffer);
 					color(mangenta);
@@ -1089,8 +990,7 @@ const char *admin_state(int sock, char *argv[])
 	msg.u.s.version_string[sizeof(msg.u.s.version_string)-1] = '\0';
 	SPRINT(buffer, "LCR %s", msg.u.s.version_string);
 	addstr(buffer);
-	if (COLS>50)
-	{
+	if (COLS>50) {
 		move(0, COLS-19);
 		SPRINT(buffer, "%04d-%02d-%02d %02d:%02d:%02d",
 			msg.u.s.tm.tm_year+1900, msg.u.s.tm.tm_mon+1, msg.u.s.tm.tm_mday,
@@ -1101,15 +1001,13 @@ const char *admin_state(int sock, char *argv[])
 	move(1, 0);
 	color(blue);
 	hline(ACS_HLINE, COLS);
-	if (offset)
-	{
+	if (offset) {
 		move(1, 1);
 		SPRINT(buffer, "Offset +%d", offset);
 		color(red);
 		addstr(buffer);
 	}
-	if (hoffset)
-	{
+	if (hoffset) {
 		move(1, 13);
 		SPRINT(buffer, "H-Offset +%d", hoffset);
 		color(red);
@@ -1120,12 +1018,10 @@ const char *admin_state(int sock, char *argv[])
 	color(blue);
 	hline(ACS_HLINE, COLS);
 	move(LINES-1, 0);
-	if (enter)
-	{
+	if (enter) {
 		color(white);
 		SPRINT(buffer, "-> %s", enter_string);
-	} else
-	{
+	} else {
 		color(cyan);
 		SPRINT(buffer, "i=interfaces '%s'  c=calls '%s'  l=log  q=quit  +-*/=scroll  enter", text_interfaces[show_interfaces], text_calls[show_calls]);
 	}
@@ -1133,20 +1029,17 @@ const char *admin_state(int sock, char *argv[])
 	refresh();
 
 	/* resize */
-	if (lastlines!=LINES || lastcols!=COLS)
-	{
+	if (lastlines!=LINES || lastcols!=COLS) {
 		cleanup_curses();
 		init_curses();
 		goto again;
 	}
 
-	if (enter)
-	{
+	if (enter) {
 		/* user input in enter mode */
 		ch = getch();
 		enter_again:
-		if (ch == 10)
-		{
+		if (ch == 10) {
 			FILE *fp;
 
 			enter = 0;
@@ -1160,8 +1053,7 @@ const char *admin_state(int sock, char *argv[])
 			    !!strncmp(enter_string, "block ", 6) &&
 			    !!strncmp(enter_string, "unblock ", 8) &&
 			    !!strncmp(enter_string, "load ", 5) &&
-			    !!strncmp(enter_string, "unload ", 7))
-			{
+			    !!strncmp(enter_string, "unload ", 7)) {
 				SPRINT(logline[logcur++ % LOGLINES], "usage:");
 				SPRINT(logline[logcur++ % LOGLINES], "interface (reload interface.conf)");
 				SPRINT(logline[logcur++ % LOGLINES], "route (reload routing.conf)");
@@ -1169,18 +1061,15 @@ const char *admin_state(int sock, char *argv[])
 				SPRINT(logline[logcur++ % LOGLINES], "block <port> (block port for further calls)");
 				SPRINT(logline[logcur++ % LOGLINES], "unblock/load <port> (unblock port for further calls, load if not loaded)");
 				SPRINT(logline[logcur++ % LOGLINES], "unload <port> (unload mISDN stack, release call calls)");
-			} else
-			{
+			} else {
 				/* applend output to log window */
 				SPRINT(buffer, "%s %s", argv[0], enter_string);
 				fp = popen(buffer, "r");
-				if (fp)
-				{
+				if (fp) {
 					while(fgets(logline[logcur % LOGLINES], sizeof(logline[0]), fp))
 						logline[logcur++ % LOGLINES][sizeof(logline[0])-1] = '\0';
 					pclose(fp);
-				} else
-				{
+				} else {
 					SPRINT(logline[logcur++ % LOGLINES], "failed to execute '%s'", buffer);
 				}
 			}
@@ -1188,16 +1077,14 @@ const char *admin_state(int sock, char *argv[])
 			enter_string[0] = '\0';
 			goto again;
 		}
-		if (ch>=32 && ch<=126)
-		{
+		if (ch>=32 && ch<=126) {
 			SCCAT(enter_string, ch);
 			ch = getch();
 			if (ch > 0)
 				goto enter_again;
 			goto again;
 		} else
-		if (ch==8 || ch==127)
-		{
+		if (ch==8 || ch==127) {
 			if (enter_string[0])
 				enter_string[strlen(enter_string)-1] = '\0';
 			ch = getch();
@@ -1205,8 +1092,7 @@ const char *admin_state(int sock, char *argv[])
 				goto enter_again;
 			goto again;
 		} else
-		if (ch != 3)
-		{
+		if (ch != 3) {
 			ch = getch();
 			if (ch > 0)
 				goto enter_again;
@@ -1217,11 +1103,9 @@ const char *admin_state(int sock, char *argv[])
 			select(1, &select_rfds, NULL, NULL, &select_tv);
 			goto again;
 		}
-	} else
-	{
+	} else {
 		/* user input in normal mode */
-		switch(getch())
-		{
+		switch(getch()) {
 			case 12: /* refresh */
 			cleanup_curses();
 			init_curses();
@@ -1303,39 +1187,33 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 	/* send state request command */
 	memset(&msg, 0, sizeof(msg));
 	msg.message = ADMIN_REQUEST_STATE;
-	if (write(sock, &msg, sizeof(msg)) != sizeof(msg))
-	{
+	if (write(sock, &msg, sizeof(msg)) != sizeof(msg)) {
 		cleanup_curses();
 		return("Broken pipe while sending command.");
 	}
 
 	/* receive response */
-	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
-	{
+	if (read(sock, &msg, sizeof(msg)) != sizeof(msg)) {
 		cleanup_curses();
 		return("Broken pipe while receiving response.");
 	}
 
-	if (msg.message != ADMIN_RESPONSE_STATE)
-	{
+	if (msg.message != ADMIN_RESPONSE_STATE) {
 		cleanup_curses();
 		return("Response not valid. Expecting state response.");
 	}
 	num = msg.u.s.interfaces + msg.u.s.remotes + msg.u.s.joins + msg.u.s.epoints + msg.u.s.ports;
 	m = (struct admin_message *)MALLOC(num*sizeof(struct admin_message));
 	off=0;
-	if (num)
-	{
+	if (num) {
 		readagain:
-		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off)
-		{
+		if ((len = read(sock, ((unsigned char *)(m))+off, num*sizeof(struct admin_message)-off)) != num*(int)sizeof(struct admin_message)-off) {
 			if (len <= 0) {
 				FREE(m, 0);
 				cleanup_curses();
 				return("Broken pipe while receiving state infos.");
 			}
-			if (len < num*(int)sizeof(struct admin_message))
-			{
+			if (len < num*(int)sizeof(struct admin_message)) {
 				off+=len;
 				goto readagain;
 			}
@@ -1343,10 +1221,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 	}
 	j = 0;
 	i = 0;
-	while(i < msg.u.s.interfaces)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE)
-		{
+	while(i < msg.u.s.interfaces) {
+		if (m[j].message != ADMIN_RESPONSE_S_INTERFACE) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting interface information.");
@@ -1355,10 +1231,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.remotes)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_REMOTE)
-		{
+	while(i < msg.u.s.remotes) {
+		if (m[j].message != ADMIN_RESPONSE_S_REMOTE) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting remote application information.");
@@ -1367,10 +1241,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.joins)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_JOIN)
-		{
+	while(i < msg.u.s.joins) {
+		if (m[j].message != ADMIN_RESPONSE_S_JOIN) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting join information.");
@@ -1379,10 +1251,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.epoints)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_EPOINT)
-		{
+	while(i < msg.u.s.epoints) {
+		if (m[j].message != ADMIN_RESPONSE_S_EPOINT) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting endpoint information.");
@@ -1391,10 +1261,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 		j++;
 	}
 	i = 0;
-	while(i < msg.u.s.ports)
-	{
-		if (m[j].message != ADMIN_RESPONSE_S_PORT)
-		{
+	while(i < msg.u.s.ports) {
+		if (m[j].message != ADMIN_RESPONSE_S_PORT) {
 			FREE(m, 0);
 			cleanup_curses();
 			return("Response not valid. Expecting port information.");
@@ -1407,12 +1275,9 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 	/* output interfaces */
 	i = 0;
 	ii = i + msg.u.s.interfaces;
-	while(i < ii)
-	{
-		if (argc > 2)
-		{
-			if (!!strcmp(argv[2], m[i].u.i.interface_name))
-			{
+	while(i < ii) {
+		if (argc > 2) {
+			if (!!strcmp(argv[2], m[i].u.i.interface_name)) {
 				i++;
 				continue;
 			}
@@ -1423,11 +1288,9 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 		else
 			printf("\t port = %d \"%s\"\n",m[i].u.i.portnum, m[i].u.i.portname);
 		printf("\t extension = %s\n", (m[i].u.i.extension)?"yes":"no");
-		if (m[i].u.i.block >= 2)
-		{
+		if (m[i].u.i.block >= 2) {
 			printf("\t status = not loaded\n");
-		} else
-		{
+		} else {
 			if (m[i].u.i.block)
 				printf("\t status = blocked\n");
 			else
@@ -1437,8 +1300,7 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 				printf("\t l1 link = unknown\n");
 			else
 				printf("\t l1 link = %s\n", (m[i].u.i.l1link)?"up":"down");
-			if (m[i].u.i.ptp || !m[i].u.i.ntmode)
-			{
+			if (m[i].u.i.ptp || !m[i].u.i.ntmode) {
 				if (m[i].u.i.l2link < 0)
 					printf("\t l2 link = unknown\n");
 				else
@@ -1465,8 +1327,7 @@ const char *admin_cmd(int sock, int mode, char *extension, char *number)
 
 	/* send reload command */
 	memset(&msg, 0, sizeof(msg));
-	switch(mode)
-	{
+	switch(mode) {
 		case MODE_INTERFACE:
 		msg.message = ADMIN_REQUEST_CMD_INTERFACE;
 		break;
@@ -1504,8 +1365,7 @@ const char *admin_cmd(int sock, int mode, char *extension, char *number)
 	/* receive response */
 	if (read(sock, &msg, sizeof(msg)) != sizeof(msg))
 		return("Broken pipe while receiving response.");
-	switch(mode)
-	{
+	switch(mode) {
 		case MODE_INTERFACE:
 		if (msg.message != ADMIN_RESPONSE_CMD_INTERFACE)
 			return("Response not valid.");
@@ -1531,8 +1391,7 @@ const char *admin_cmd(int sock, int mode, char *extension, char *number)
 	}
 
 	/* process response */
-	if (msg.u.x.error)
-	{
+	if (msg.u.x.error) {
 		return(msg.u.x.message);
 	}
 	printf("Command successfull.\n");
@@ -1560,41 +1419,35 @@ const char *admin_testcall(int sock, int argc, char *argv[])
 
 	printf("pid=%d\n", getpid()); fflush(stdout);
 
-	while (argc > ar)
-	{
-		if (!strcmp(argv[ar], "--setup-timeout"))
-		{
+	while (argc > ar) {
+		if (!strcmp(argv[ar], "--setup-timeout")) {
 			ar++;
 			if (argc == ar)
 				return("Missing setup timeout value.\n");
 			stimeout = atoi(argv[ar]);
 			ar++;
 		} else
-		if (!strcmp(argv[ar], "--proceeding-timeout"))
-		{
+		if (!strcmp(argv[ar], "--proceeding-timeout")) {
 			ar++;
 			if (argc == ar)
 				return("Missing proceeding timeout value.\n");
 			ptimeout = atoi(argv[ar]);
 			ar++;
 		} else
-		if (!strcmp(argv[ar], "--alerting-timeout"))
-		{
+		if (!strcmp(argv[ar], "--alerting-timeout")) {
 			ar++;
 			if (argc == ar)
 				return("Missing alerting timeout value.\n");
 			atimeout = atoi(argv[ar]);
 			ar++;
 		} else
-		if (!strcmp(argv[ar], "--connect-timeout"))
-		{
+		if (!strcmp(argv[ar], "--connect-timeout")) {
 			ar++;
 			if (argc == ar)
 				return("Missing connect timeout value.\n");
 			ctimeout = atoi(argv[ar]);
 			ar++;
-		} else
-		{
+		} else {
 			break;
 		}
 	}
@@ -1604,23 +1457,19 @@ const char *admin_testcall(int sock, int argc, char *argv[])
 	msg.message = ADMIN_CALL_SETUP;
 	msg.u.call.present = 1;
 
-	if (argc > ar)
-	{
+	if (argc > ar) {
 		SCPY(msg.u.call.interface, argv[ar]);
 	}
 	ar++;
-	if (argc > ar)
-	{
+	if (argc > ar) {
 		SCPY(msg.u.call.callerid, argv[ar]);
 	}
 	ar++;
-	if (argc > ar)
-	{
+	if (argc > ar) {
 		SCPY(msg.u.call.dialing, argv[ar]);
 	}
 	ar++;
-	if (argc > ar)
-	{
+	if (argc > ar) {
 		if (argv[ar][0] == 'r')
 			msg.u.call.present = 0;
 	}
@@ -1671,8 +1520,7 @@ const char *admin_testcall(int sock, int argc, char *argv[])
 	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0)
 		return("Failed to set socket into non-blocking IO.");
 
-	if (stimeout)
-	{
+	if (stimeout) {
 		GET_NOW();
 		timer = now_d + (double)stimeout;
 	}
@@ -1680,15 +1528,11 @@ const char *admin_testcall(int sock, int argc, char *argv[])
 	/* receive response */
 next:
 	l = read(sock, &msg, sizeof(msg));
-	if (l < 0)
-	{
-		if (errno == EWOULDBLOCK)
-		{
-			if (timer)
-			{
+	if (l < 0) {
+		if (errno == EWOULDBLOCK) {
+			if (timer) {
 				GET_NOW();
-				if (timer <= now_d)
-				{
+				if (timer <= now_d) {
 					printf("Timeout\n"); fflush(stdout);
 					return(NULL);
 				}
@@ -1700,16 +1544,14 @@ next:
 	}
 	if (l != sizeof(msg))
 		return("Response has unexpected message size.");
-	switch(msg.message)
-	{
+	switch(msg.message) {
 		case ADMIN_CALL_SETUP_ACK:
 		printf("SETUP ACKNOWLEDGE\n"); fflush(stdout);
 		goto next;
 
 		case ADMIN_CALL_PROCEEDING:
 		printf("PROCEEDING\n"); fflush(stdout);
-		if (ptimeout)
-		{
+		if (ptimeout) {
 			GET_NOW();
 			timer = now_d + (double)ptimeout;
 		}
@@ -1717,8 +1559,7 @@ next:
 
 		case ADMIN_CALL_ALERTING:
 		printf("ALERTING\n"); fflush(stdout);
-		if (atimeout)
-		{
+		if (atimeout) {
 			GET_NOW();
 			timer = now_d + (double)atimeout;
 		}
@@ -1726,8 +1567,7 @@ next:
 
 		case ADMIN_CALL_CONNECT:
 		printf("CONNECT\n number=%s\n", msg.u.call.callerid); fflush(stdout);
-		if (ctimeout)
-		{
+		if (ctimeout) {
 			GET_NOW();
 			timer = now_d + (double)ctimeout;
 		}
@@ -1763,8 +1603,7 @@ const char *admin_trace(int sock, int argc, char *argv[])
 	int i;
 
 	/* show help */
-	if (argc > 2) if (!strcasecmp(argv[2], "help"))
-	{
+	if (argc > 2) if (!strcasecmp(argv[2], "help")) {
 		printf("Trace Help\n----------\n");
 		printf("%s trace [brief|short] [<filter>=<value> [...]]\n\n", argv[0]);
 		printf("By default a complete trace is shown in detailed format.\n");
@@ -1790,8 +1629,7 @@ const char *admin_trace(int sock, int argc, char *argv[])
 
 	/* parse args */
 	i = 2;
-	while(i < argc)
-	{
+	while(i < argc) {
 		if (!strcasecmp(argv[i], "brief"))
 			msg.u.trace_req.detail = 1;
 		else if (!strcasecmp(argv[i], "short"))
@@ -1840,8 +1678,7 @@ int main(int argc, char *argv[])
 
 
 	/* show options */
-	if (argc <= 1)
-	{
+	if (argc <= 1) {
 		usage:
 		printf("\n");
 		printf("Usage: %s state | interface | route | dial ...\n", argv[0]);
@@ -1865,64 +1702,52 @@ int main(int argc, char *argv[])
 	}
 
 	/* check mode */
-	if (!(strcasecmp(argv[1],"state")))
-	{
+	if (!(strcasecmp(argv[1],"state"))) {
 		mode = MODE_STATE;
 	} else
-	if (!(strcasecmp(argv[1],"portinfo")))
-	{
+	if (!(strcasecmp(argv[1],"portinfo"))) {
 		mode = MODE_PORTINFO;
 	} else
-	if (!(strcasecmp(argv[1],"interface")))
-	{
+	if (!(strcasecmp(argv[1],"interface"))) {
 		mode = MODE_INTERFACE;
 	} else
-	if (!(strcasecmp(argv[1],"route")))
-	{
+	if (!(strcasecmp(argv[1],"route"))) {
 		mode = MODE_ROUTE;
 	} else
-	if (!(strcasecmp(argv[1],"dial")))
-	{
+	if (!(strcasecmp(argv[1],"dial"))) {
 		if (argc <= 3)
 			goto usage;
 		mode = MODE_DIAL;
 	} else
-	if (!(strcasecmp(argv[1],"release")))
-	{
+	if (!(strcasecmp(argv[1],"release"))) {
 		if (argc <= 2)
 			goto usage;
 		mode = MODE_RELEASE;
 	} else
 	if (!(strcasecmp(argv[1],"unblock"))
-	 || !(strcasecmp(argv[1],"load")))
-	{
+	 || !(strcasecmp(argv[1],"load"))) {
 		if (argc <= 2)
 			goto usage;
 		mode = MODE_UNBLOCK;
 	} else
-	if (!(strcasecmp(argv[1],"block")))
-	{
+	if (!(strcasecmp(argv[1],"block"))) {
 		if (argc <= 2)
 			goto usage;
 		mode = MODE_BLOCK;
 	} else
-	if (!(strcasecmp(argv[1],"unload")))
-	{
+	if (!(strcasecmp(argv[1],"unload"))) {
 		if (argc <= 2)
 			goto usage;
 		mode = MODE_UNLOAD;
 	} else
-	if (!(strcasecmp(argv[1],"testcall")))
-	{
+	if (!(strcasecmp(argv[1],"testcall"))) {
 		if (argc <= 4)
 			goto usage;
 		mode = MODE_TESTCALL;
 	} else
-	if (!(strcasecmp(argv[1],"trace")))
-	{
+	if (!(strcasecmp(argv[1],"trace"))) {
 		mode = MODE_TRACE;
-	} else
-	{
+	} else {
 		goto usage;
 	}
 
@@ -1932,24 +1757,21 @@ int main(int argc, char *argv[])
 
 //pipeagain:
 	/* open socket */
-	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
-	{
+	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
 		fprintf(stderr, "Failed to create socket.\n");
 		exit(EXIT_FAILURE);
 	}
 	memset(&sock_address, 0, sizeof(sock_address));
 	SPRINT(sock_address.sun_path, SOCKET_NAME, options.lock);
 	sock_address.sun_family = PF_UNIX;
-	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0)
-	{
+	if ((conn = connect(sock, (struct sockaddr *)&sock_address, SUN_LEN(&sock_address))) < 0) {
 		close(sock);
 		fprintf(stderr, "Failed to connect to socket \"%s\".\nIs LCR running?\n", sock_address.sun_path);
 		exit(EXIT_FAILURE);
 	}
 
 	/* process mode */
-	switch(mode)
-	{
+	switch(mode) {
 		case MODE_STATE:
 		ret = admin_state(sock, argv);
 		break;
@@ -1985,8 +1807,7 @@ int main(int argc, char *argv[])
 
 	close(sock);
 	/* now we say good bye */
-	if (ret)
-	{
+	if (ret) {
 //		if (!strncasecmp(ret, "Broken Pipe", 11))
 //			goto pipeagain;
 		printf("%s\n", ret);

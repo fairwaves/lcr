@@ -64,13 +64,11 @@ static void *mail_child(void *arg)
 	PDEBUG(DEBUG_EPOINT, "child process started for sending a mail\n");
 
 	/* lower priority to keep pbx running fluently */
-	if (options.schedule > 0)
-	{
+	if (options.schedule > 0) {
 		memset(&schedp, 0, sizeof(schedp));
 		schedp.sched_priority = 0;
 		ret = sched_setscheduler(0, SCHED_OTHER, &schedp);
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			PERROR("Scheduling to normal priority failed (errno = %d).\nExitting child process...\n", errno);
 			goto done;
 		}
@@ -78,8 +76,7 @@ static void *mail_child(void *arg)
 
 	/* open process */
 	SPRINT(command, "%s -f%s %s", SENDMAIL, options.email, email);
-	if ((ph = popen(command, "w")) < 0)
-	{
+	if ((ph = popen(command, "w")) < 0) {
 		PERROR("Cannot send mail using command '%s'\n", command);
 		goto done;
 	}
@@ -102,8 +99,7 @@ static void *mail_child(void *arg)
  	fprintf(ph, "\n * date: %s %d %d %d:%02d\n\n", months[mon], mday, year+1900, hour, min);
 
 	/* attach audio file */
-	if ((filename[0]) && ((fh = open(filename, O_RDONLY))))
-	{
+	if ((filename[0]) && ((fh = open(filename, O_RDONLY)))) {
 		while(strchr(filename, '/'))
 			filename = strchr(filename, '/')+1;
 		fprintf(ph, "--next_part\n");
@@ -113,23 +109,20 @@ static void *mail_child(void *arg)
 		fprintf(ph, "Content-Transfer-Encoding: base64\nContent-Disposition: inline;\n\tfilename=\"%s\"\n\n", filename);
 
 		/* stream from disk and encode */
-		while(42)
-		{
+		while(42) {
 			/* read exactly one line */
 			cnt = read(fh, rbuf, 54);
 			if (cnt <= 0)
 				break;
 			/* encode */
 			n = cnt;
-			while (n%3)
-			{
+			while (n%3) {
 				rbuf[n] = 0;
 				n++;
 			}
 			n = n/3;
 			i = 0;
-			while(i<n)
-			{
+			while(i<n) {
 				e1 = rbuf[i+i+i];
 				e2 = rbuf[i+i+i+1];
 				e3 = rbuf[i+i+i+2];
@@ -151,8 +144,7 @@ static void *mail_child(void *arg)
 
 		fprintf(ph, "\n\n");
 		close(fh);
-	} else
-	{
+	} else {
 		SPRINT(buffer, "-Error- Failed to read audio file: '%s'.\n\n", filename);
 		fprintf(ph, "%s", buffer);
 		PERROR("%s", buffer);
@@ -193,8 +185,7 @@ void send_mail(char *filename, char *callerid, char *callerintern, char *callern
 	SCPY(arg->callername, callername);
 	SCPY(arg->terminal, terminal);
 
-	if ((pthread_create(&tid, NULL, mail_child, arg)<0))
-	{
+	if ((pthread_create(&tid, NULL, mail_child, arg)<0)) {
 		PERROR("failed to create mail-thread.\n");
 		return;
 	}

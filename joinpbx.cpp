@@ -24,11 +24,9 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 	if (old_state == new_state)
 		return(old_state);
 
-	switch(old_state)
-	{
+	switch(old_state) {
 		case NOTIFY_STATE_ACTIVE:
-		switch(new_state)
-		{
+		switch(new_state) {
 			case NOTIFY_STATE_HOLD:
 			notify_on = INFO_NOTIFY_REMOTE_HOLD;
 			break;
@@ -42,8 +40,7 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 		break;
 
 		case NOTIFY_STATE_HOLD:
-		switch(new_state)
-		{
+		switch(new_state) {
 			case NOTIFY_STATE_ACTIVE:
 			notify_off = INFO_NOTIFY_REMOTE_RETRIEVAL;
 			break;
@@ -59,8 +56,7 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 		break;
 
 		case NOTIFY_STATE_SUSPEND:
-		switch(new_state)
-		{
+		switch(new_state) {
 			case NOTIFY_STATE_ACTIVE:
 			notify_off = INFO_NOTIFY_USER_RESUMED;
 			break;
@@ -76,8 +72,7 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 		break;
 
 		case NOTIFY_STATE_CONFERENCE:
-		switch(new_state)
-		{
+		switch(new_state) {
 			case NOTIFY_STATE_ACTIVE:
 			notify_off = INFO_NOTIFY_CONFERENCE_DISCONNECTED;
 			break;
@@ -93,15 +88,13 @@ static int notify_state_change(int join_id, int epoint_id, int old_state, int ne
 		break;
 	}
 
-	if (join_id && notify_off)
-	{
+	if (join_id && notify_off) {
 		message = message_create(join_id, epoint_id, JOIN_TO_EPOINT, MESSAGE_NOTIFY);
 		message->param.notifyinfo.notify = notify_off;
 		message_put(message);
 	}
 
-	if (join_id && notify_on)
-	{
+	if (join_id && notify_on) {
 		message = message_create(join_id, epoint_id, JOIN_TO_EPOINT, MESSAGE_NOTIFY);
 		message->param.notifyinfo.notify = notify_on;
 		message_put(message);
@@ -129,11 +122,9 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 
 	if (!relation)
 		PDEBUG(DEBUG_JOIN, "join has no relations\n");
-	while(relation)
-	{
+	while(relation) {
 		epoint = find_epoint_id(relation->epoint_id);
-		if (!epoint)
-		{
+		if (!epoint) {
 			PDEBUG(DEBUG_JOIN, "warning: relations epoint id=%d doesn't exists!\n", relation->epoint_id);
 			relation = relation->next;
 			continue;
@@ -142,8 +133,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 		UPRINT(strchr(buffer,0), "*** ep%d", relation->epoint_id);
 		UPRINT(strchr(buffer,0), " ifs=");
 		portlist = epoint->ep_portlist;
-		while(portlist)
-		{
+		while(portlist) {
 			port = find_port_id(portlist->port_id);
 			if (port)
 				UPRINT(strchr(buffer,0), "%s,", port->p_name);
@@ -153,8 +143,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 		}
 //		UPRINT(strchr(buffer,0), " endpoint=%d on=%s hold=%s", epoint->ep_serial, (epoint->ep_join_id==joinpbx->j_serial)?"yes":"no", (epoint->get_hold_id()==joinpbx->j_serial)?"yes":"no");
 		UPRINT(strchr(buffer,0), " endpoint=%d on=%s", epoint->ep_serial, (epoint->ep_join_id==joinpbx->j_serial)?"yes":"no");
-		switch(relation->type)
-		{
+		switch(relation->type) {
 			case RELATION_TYPE_CALLING:
 			UPRINT(strchr(buffer,0), " type=CALLING");
 			break;
@@ -172,8 +161,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 			UPRINT(strchr(buffer,0), " channel=CONNECT");
 		else
 			UPRINT(strchr(buffer,0), " channel=HOLD");
-		switch(relation->tx_state)
-		{
+		switch(relation->tx_state) {
 			case NOTIFY_STATE_ACTIVE:
 			UPRINT(strchr(buffer,0), " tx_state=ACTIVE");
 			break;
@@ -190,8 +178,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 			UPRINT(strchr(buffer,0), " tx_state=unknown");
 			break;
 		}
-		switch(relation->rx_state)
-		{
+		switch(relation->rx_state) {
 			case NOTIFY_STATE_ACTIVE:
 			UPRINT(strchr(buffer,0), " rx_state=ACTIVE");
 			break;
@@ -265,8 +252,7 @@ JoinPBX::~JoinPBX()
 	struct join_relation *relation, *rtemp;
 
 	relation = j_relation;
-	while(relation)
-	{
+	while(relation) {
 		rtemp = relation->next;
 		FREE(relation, sizeof(struct join_relation));
 		cmemuse--;
@@ -293,30 +279,26 @@ void JoinPBX::bridge(void)
 #endif
 
 	relation = j_relation;
-	while(relation)
-	{
+	while(relation) {
 		/* count all relations */
 		relations++;
 
 		/* check for relation's objects */
 		epoint = find_epoint_id(relation->epoint_id);
-		if (!epoint)
-		{
+		if (!epoint) {
 			PERROR("software error: relation without existing endpoints.\n");
 			relation = relation->next;
 			continue;
 		}
 		portlist = epoint->ep_portlist;
-		if (!portlist)
-		{
+		if (!portlist) {
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation without port object.\n", j_serial);
 //#warning testing: keep on hold until single audio stream available
 			relation->channel_state = 0;
 			relation = relation->next;
 			continue;
 		}
-		if (portlist->next)
-		{
+		if (portlist->next) {
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation with ep%d due to port_list.\n", j_serial, epoint->ep_serial);
 //#warning testing: keep on hold until single audio stream available
 			relation->channel_state = 0;
@@ -324,17 +306,14 @@ void JoinPBX::bridge(void)
 			continue;
 		}
 		port = find_port_id(portlist->port_id);
-		if (!port)
-		{
+		if (!port) {
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation without existing port object.\n", j_serial);
 			relation = relation->next;
 			continue;
 		}
-		if ((port->p_type&PORT_CLASS_MASK)!=PORT_CLASS_mISDN)
-		{
+		if ((port->p_type&PORT_CLASS_MASK)!=PORT_CLASS_mISDN) {
 			PDEBUG(DEBUG_JOIN, "join%d ignoring relation ep%d because it's port is not mISDN.\n", j_serial, epoint->ep_serial);
-			if (allmISDN)
-			{
+			if (allmISDN) {
 				PDEBUG(DEBUG_JOIN, "join%d not all endpoints are mISDN.\n", j_serial);
 				allmISDN = 0;
 			}
@@ -348,8 +327,7 @@ void JoinPBX::bridge(void)
 	PDEBUG(DEBUG_JOIN, "join%d members=%d %s\n", j_serial, relations, (allmISDN)?"(all are mISDN-members)":"(not all are mISDN-members)");
 	/* we notify all relations about rxdata. */
 	relation = j_relation;
-	while(relation)
-	{
+	while(relation) {
 		/* count connected relations */
 		if ((relation->channel_state == 1)
 		 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
@@ -361,15 +339,13 @@ void JoinPBX::bridge(void)
 		 && relation->rx_state != NOTIFY_STATE_HOLD
 		 && relation->rx_state != NOTIFY_STATE_SUSPEND
 		 && relations>1 // no conf with one member
-		 && allmISDN) // no conf if any member is not mISDN
-		{
+		 && allmISDN) { // no conf if any member is not mISDN
 			message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
 			message->param.mISDNsignal.conf = j_serial<<16 | j_pid;
 			PDEBUG(DEBUG_JOIN, "join%d EP%d +on+ id: 0x%08x\n", j_serial, relation->epoint_id, message->param.mISDNsignal.conf);
 			message_put(message);
-		} else
-		{
+		} else {
 			message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
 			message->param.mISDNsignal.conf = 0;
@@ -393,33 +369,28 @@ void JoinPBX::bridge(void)
 	}
 
 	/* two people just exchange their states */
-	if (relations==2 && !j_partyline)
-	{
+	if (relations==2 && !j_partyline) {
 		PDEBUG(DEBUG_JOIN, "join%d 2 relations / no partyline\n", j_serial);
 		relation = j_relation;
 		relation->tx_state = notify_state_change(j_serial, relation->epoint_id, relation->tx_state, relation->next->rx_state);
 		relation->next->tx_state = notify_state_change(j_serial, relation->next->epoint_id, relation->next->tx_state, relation->rx_state);
 	} else
 	/* one member in a join, so we put her on hold */
-	if ((relations==1 || numconnect==1)/* && !j_partyline_jingle*/)
-	{
+	if ((relations==1 || numconnect==1)/* && !j_partyline_jingle*/) {
 		PDEBUG(DEBUG_JOIN, "join%d 1 member or only 1 connected, put on hold\n", j_serial);
 		relation = j_relation;
-		while(relation)
-		{
+		while(relation) {
 			if ((relation->channel_state == 1)
 			 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
 			 && (relation->rx_state != NOTIFY_STATE_HOLD))
 				relation->tx_state = notify_state_change(j_serial, relation->epoint_id, relation->tx_state, NOTIFY_STATE_HOLD);
 			relation = relation->next;
 		}
-	} else
+	} else {
 	/* if conference/partyline (or more than two members and more than one is connected), so we set conference state */ 
-	{
 		PDEBUG(DEBUG_JOIN, "join%d %d members, %d connected, signal conference\n", j_serial, relations, numconnect);
 		relation = j_relation;
-		while(relation)
-		{
+		while(relation) {
 			if ((relation->channel_state == 1)
 			 && (relation->rx_state != NOTIFY_STATE_SUSPEND)
 			 && (relation->rx_state != NOTIFY_STATE_HOLD))
@@ -450,8 +421,7 @@ void JoinPBX::bridge_data(unsigned int epoint_from, struct join_relation *relati
 
 	/* get destination relation */
 	relation_to = j_relation;
-	if (relation_to == relation_from)
-	{
+	if (relation_to == relation_from) {
 		/* oops, we are the first, so destination is: */
 		relation_to = relation_to->next;
 	}
@@ -481,8 +451,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	int destroy = 0;
 
 	/* remove from bridge */
-	if (relation->channel_state != 0)
-	{
+	if (relation->channel_state != 0) {
 		relation->channel_state = 0;
 		j_updatebridge = 1; /* update bridge flag */
 		// note: if join is not released, bridge must be updated
@@ -491,8 +460,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	/* detach given interface */
 	reltemp = j_relation;
 	relationpointer = &j_relation;
-	while(reltemp)
-	{
+	while(reltemp) {
 		/* endpoint of function call */
 		if (relation == reltemp)
 			break;
@@ -508,8 +476,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	relation = reltemp = NULL; // just in case of reuse fault;
 
 	/* if no more relation */
-	if (!j_relation)
-	{
+	if (!j_relation) {
 		PDEBUG(DEBUG_JOIN, "join is completely removed.\n");
 		/* there is no more endpoint related to the join */
 		destroy = 1;
@@ -518,13 +485,11 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 		PDEBUG(DEBUG_JOIN, "join completely removed!\n");
 	} else
 	/* if join is a party line */
-	if (j_partyline)
-	{
+	if (j_partyline) {
 		PDEBUG(DEBUG_JOIN, "join is a conference room, so we keep it alive until the last party left.\n");
 	} else
 	/* if only one relation left */
-	if (!j_relation->next)
-	{
+	if (!j_relation->next) {
 		PDEBUG(DEBUG_JOIN, "join has one relation left, so we send it a release with the given cause %d.\n", cause);
 		message = message_create(j_serial, j_relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
 		message->param.disconnectinfo.cause = cause;
@@ -537,8 +502,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	}
 
 	join = join_first;
-	while(join)
-	{
+	while(join) {
 		if (options.deb & DEBUG_JOIN && join->j_type==JOIN_TYPE_PBX)
 			joinpbx_debug((class JoinPBX *)join, "join_release{all joins left}");
 		join = join->next;
@@ -570,8 +534,7 @@ int joinpbx_countrelations(unsigned int join_id)
 
 	i = 0;
 	relation = joinpbx->j_relation;
-	while(relation)
-	{
+	while(relation) {
 		i++;
 		relation = relation->next;
 	}
@@ -588,15 +551,13 @@ void JoinPBX::remove_relation(struct join_relation *relation)
 
 	temp = j_relation;
 	tempp = &j_relation;
-	while(temp)
-	{
+	while(temp) {
 		if (temp == relation)
 			break;
 		tempp = &temp->next;
 		temp = temp->next;
 	}
-	if (!temp)
-	{
+	if (!temp) {
 		PERROR("relation not in join.\n");
 		return;
 	}
@@ -612,8 +573,7 @@ struct join_relation *JoinPBX::add_relation(void)
 {
 	struct join_relation *relation;
 
-	if (!j_relation)
-	{
+	if (!j_relation) {
 		PERROR("there is no first relation to this join\n");
 		return(NULL);
 	}
@@ -643,24 +603,19 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 //	int size, writesize, oldpointer;
 	char *number, *numbers;
 
-	if (!epoint_id)
-	{
+	if (!epoint_id) {
 		PERROR("software error, epoint == NULL\n");
 		return;
 	}
 
-//	if (options.deb & DEBUG_JOIN)
-//	{
+//	if (options.deb & DEBUG_JOIN) {
 //		PDEBUG(DEBUG_JOIN, "message %d received from ep%d.\n", message, epoint->ep_serial);
 //		joinpbx_debug(join,"Join::message_epoint");
 //	}
-	if (options.deb & DEBUG_JOIN)
-	{
-		if (message_type != MESSAGE_DATA)
-		{
+	if (options.deb & DEBUG_JOIN) {
+		if (message_type != MESSAGE_DATA) {
 			cl = join_first;
-			while(cl)
-			{
+			while(cl) {
 				if (cl->j_type == JOIN_TYPE_PBX)
 					joinpbx_debug((class JoinPBX *)cl, "Join::message_epoint{all joins before processing}");
 				cl = cl->next;
@@ -670,28 +625,23 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 
 	/* check relation */
 	relation = j_relation;
-	while(relation)
-	{
+	while(relation) {
 		if (relation->epoint_id == epoint_id)
 			break;
 		relation = relation->next;
 	}
-	if (!relation)
-	{
+	if (!relation) {
 		PDEBUG(DEBUG_JOIN, "no relation back to the endpoint found, ignoring (join=%d, endpoint=%d)\n", j_serial, epoint_id);
 		return;
 	}
 
 	/* process party line */
-	if (message_type == MESSAGE_SETUP) if (param->setup.partyline && !j_partyline)
-	{
+	if (message_type == MESSAGE_SETUP) if (param->setup.partyline && !j_partyline) {
 		j_partyline = param->setup.partyline;
 		j_partyline_jingle = param->setup.partyline_jingle;
 	}
-	if (j_partyline)
-	{
-		switch(message_type)
-		{
+	if (j_partyline) {
+		switch(message_type) {
 			case MESSAGE_SETUP:
 			PDEBUG(DEBUG_JOIN, "respsone with connect in partyline mode.\n");
 			relation->type = RELATION_TYPE_CONNECT;
@@ -706,8 +656,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			
 			case MESSAGE_AUDIOPATH:
 			PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
-			if (relation->channel_state != param->audiopath)
-			{
+			if (relation->channel_state != param->audiopath) {
 				relation->channel_state = param->audiopath;
 				j_updatebridge = 1; /* update bridge flag */
 				if (options.deb & DEBUG_JOIN)
@@ -738,13 +687,11 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 
 
 	/* process messages */
-	switch(message_type)
-	{
+	switch(message_type) {
 		/* process audio path message */
 		case MESSAGE_AUDIOPATH:
 		PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
-		if (relation->channel_state != param->audiopath)
-		{
+		if (relation->channel_state != param->audiopath) {
 			relation->channel_state = param->audiopath;
 			j_updatebridge = 1; /* update bridge flag */
 			if (options.deb & DEBUG_JOIN)
@@ -754,8 +701,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 
 		/* track notify */
 		case MESSAGE_NOTIFY:
-		switch(param->notifyinfo.notify)
-		{
+		switch(param->notifyinfo.notify) {
 			case INFO_NOTIFY_USER_SUSPENDED:
 			case INFO_NOTIFY_USER_RESUMED:
 			case INFO_NOTIFY_REMOTE_HOLD:
@@ -763,8 +709,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			case INFO_NOTIFY_CONFERENCE_ESTABLISHED:
 			case INFO_NOTIFY_CONFERENCE_DISCONNECTED:
 			new_state = track_notify(relation->rx_state, param->notifyinfo.notify);
-			if (new_state != relation->rx_state)
-			{
+			if (new_state != relation->rx_state) {
 				relation->rx_state = new_state;
 				j_updatebridge = 1;
 				if (options.deb & DEBUG_JOIN)
@@ -775,10 +720,8 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			default:
 			/* send notification to all other endpoints */
 			reltemp = j_relation;
-			while(reltemp)
-			{
-				if (reltemp->epoint_id!=epoint_id && reltemp->epoint_id)
-				{
+			while(reltemp) {
+				if (reltemp->epoint_id!=epoint_id && reltemp->epoint_id) {
 					message = message_create(j_serial, reltemp->epoint_id, JOIN_TO_EPOINT, MESSAGE_NOTIFY);
 					memcpy(&message->param, param, sizeof(union parameter));
 					message_put(message);
@@ -802,11 +745,9 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 		/* release other relations in setup state */
 		release_again:
 		reltemp = j_relation;
-		while(reltemp)
-		{
+		while(reltemp) {
 //printf("connect, checking relation %d\n", reltemp->epoint_id);
-			if (reltemp->type == RELATION_TYPE_SETUP)
-			{
+			if (reltemp->type == RELATION_TYPE_SETUP) {
 //printf("relation %d is of type setup, releasing\n", reltemp->epoint_id);
 				/* send release to endpoint */
 				message = message_create(j_serial, reltemp->epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
@@ -826,8 +767,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 
 		/* release is sent by endpoint */
 		case MESSAGE_RELEASE:
-		switch(relation->type)
-		{
+		switch(relation->type) {
 			case RELATION_TYPE_SETUP: /* by called */
 			/* collect cause and send collected cause */
 			collect_cause(&j_multicause, &j_multilocation, param->disconnectinfo.cause, param->disconnectinfo.location);
@@ -839,18 +779,15 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 
 			case RELATION_TYPE_CALLING: /* by calling */
 			/* remove us, if we don't have a called releation yet */
-			if (!j_relation->next)
-			{
+			if (!j_relation->next) {
 				release(j_relation, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 				return; // must return, because join IS destroyed
 			}
 			/* remove all relations that are in called */
 			release_again2:
 			reltemp = j_relation;
-			while(reltemp)
-			{
-				if (reltemp->type == RELATION_TYPE_SETUP)
-				{
+			while(reltemp) {
+				if (reltemp->type == RELATION_TYPE_SETUP) {
 					/* send release to endpoint */
 					message = message_create(j_serial, reltemp->epoint_id, JOIN_TO_EPOINT, message_type);
 					memcpy(&message->param, param, sizeof(union parameter));
@@ -876,30 +813,24 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 	num=joinpbx_countrelations(j_serial);
 
 	/* check number of relations */
-	if (num > 2)
-	{
+	if (num > 2) {
 		PDEBUG(DEBUG_JOIN, "join has more than two relations so there is no need to send a message.\n");
 		return;
 	}
 
 	/* find interfaces not related to calling epoint */
 	relation = j_relation;
-	while(relation)
-	{
+	while(relation) {
 		if (relation->epoint_id != epoint_id)
 			break;
 		relation = relation->next;
 	}
-	if (!relation)
-	{
-		switch(message_type)
-		{
+	if (!relation) {
+		switch(message_type) {
 			case MESSAGE_SETUP:
-			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION)
-			{
+			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION) {
 				numbers = param->setup.dialinginfo.id;
-				while((number = strsep(&numbers, ",")))
-				{
+				while((number = strsep(&numbers, ","))) {
 					if (out_setup(epoint_id, message_type, param, number))
 						return; // join destroyed
 				}
@@ -912,8 +843,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			default:
 			PDEBUG(DEBUG_JOIN, "no need to send a message because there is no other endpoint than the calling one.\n");
 		}
-	} else
-	{
+	} else {
 		PDEBUG(DEBUG_JOIN, "sending message ep%ld -> ep%ld.\n", epoint_id, relation->epoint_id);
 		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, message_type);
 		memcpy(&message->param, param, sizeof(union parameter));
@@ -937,8 +867,7 @@ int JoinPBX::handler(void)
 //	char *p;
 
 	/* the bridge must be updated */
-	if (j_updatebridge)
-	{
+	if (j_updatebridge) {
 		bridge();
 		j_updatebridge = 0;
 		return(1);
@@ -952,8 +881,7 @@ int track_notify(int oldstate, int notify)
 {
 	int newstate = oldstate;
 
-	switch(notify)
-	{
+	switch(notify) {
 		case INFO_NOTIFY_USER_RESUMED:
 		case INFO_NOTIFY_REMOTE_RETRIEVAL:
 		case INFO_NOTIFY_CONFERENCE_DISCONNECTED:
@@ -1033,8 +961,7 @@ void JoinPBX::play_jingle(int in)
 		return;
 	if (!relation->next)
 		return;
-	while(relation)
-	{
+	while(relation) {
 		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_TONE);
 		SCPY(message->param.tone.name, (char *)((in)?"joined":"left"));
 		message_put(message);

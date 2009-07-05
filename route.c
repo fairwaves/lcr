@@ -388,17 +388,14 @@ void doc_rules(const char *name)
 {
 	int i, j;
 
-	if (name)
-	{
+	if (name) {
 		i = 0;
-		while(action_defs[i].name)
-		{
+		while(action_defs[i].name) {
 			if (!strcasecmp(action_defs[i].name, name))
 				break;
 			i++;
 		}
-		if (!action_defs[i].name)
-		{
+		if (!action_defs[i].name) {
 			fprintf(stderr, "Given action '%s' unknown.\n", name);
 			return;
 		}
@@ -412,13 +409,11 @@ void doc_rules(const char *name)
 	printf("...\n");
 	printf("Please refer to the documentation for description on rule format.\n\n");
 
-	if (!name)
-	{
+	if (!name) {
 		printf("Available conditions to match:\n");
 		printf("------------------------------\n\n");
 		i = 0;
-		while(cond_defs[i].name)
-		{
+		while(cond_defs[i].name) {
 			printf("Usage: %s\n", cond_defs[i].doc);
 			printf("%s\n\n", cond_defs[i].help);
 			i++;
@@ -426,38 +421,31 @@ void doc_rules(const char *name)
 
 		printf("Available actions with their parameters:\n");
 		printf("----------------------------------------\n\n");
-	} else
-	{
+	} else {
 		printf("Detailes parameter description of action:\n");
 		printf("-----------------------------------------\n\n");
 	}
 	i = 0;
-	while(action_defs[i].name)
-	{
-		if (name && !!strcmp(action_defs[i].name,name)) /* not selected */
-		{
+	while(action_defs[i].name) {
+		if (name && !!strcmp(action_defs[i].name,name)) { /* not selected */
 			i++;
 			continue;
 		}
-		if (!action_defs[i].help) /* not internal actions */
-		{
+		if (!action_defs[i].help) { /* not internal actions */
 			i++;
 			continue;
 		}
 		printf("Usage: %s", action_defs[i].name);
 		j = 0;
-		while(j < 64)
-		{
+		while(j < 64) {
 			if ((1LL<<j) & action_defs[i].params)
 				printf(" [%s]", param_defs[j].doc);
 			j++;
 		}
 		printf("\n%s\n\n", action_defs[i].help);
-		if (name) /* only show parameter help for specific action */
-		{
+		if (name) { /* only show parameter help for specific action */
 			j = 0;
-			while(j < 64)
-			{
+			while(j < 64) {
 				if ((1LL<<j) & action_defs[i].params)
 					printf("%s:\n\t%s\n", param_defs[j].doc, param_defs[j].help);
 				j++;
@@ -476,24 +464,19 @@ void ruleset_free(struct route_ruleset *ruleset_start)
 	struct route_action *action;
 	struct route_param *param;
 
-	while(ruleset_start)
-	{
+	while(ruleset_start) {
 		ruleset = ruleset_start;
 		ruleset_start = ruleset->next;
-		while(ruleset->rule_first)
-		{
+		while(ruleset->rule_first) {
 			rule = ruleset->rule_first;
 			ruleset->rule_first = rule->next;
-			while(rule->cond_first)
-			{
+			while(rule->cond_first) {
 				cond = rule->cond_first;
-				if (cond->string_value)
-				{
+				if (cond->string_value) {
 					FREE(cond->string_value, 0);
 					rmemuse--;
 				}
-				if (cond->string_value_to)
-				{
+				if (cond->string_value_to) {
 					FREE(cond->string_value_to, 0);
 					rmemuse--;
 				}
@@ -501,16 +484,13 @@ void ruleset_free(struct route_ruleset *ruleset_start)
 				FREE(cond, sizeof(struct route_cond));
 				rmemuse--;
 			}
-			while(rule->action_first)
-			{
+			while(rule->action_first) {
 				action = rule->action_first;
 				rule->action_first = action->next;
-				while(action->param_first)
-				{
+				while(action->param_first) {
 					param = action->param_first;
 					action->param_first = param->next;
-					if (param->string_value)
-					{
+					if (param->string_value) {
 						FREE(param->string_value, 0);
 						rmemuse--;
 					}
@@ -538,17 +518,14 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 	int			first;
 
 	ruleset = ruleset_start;
-	while(ruleset)
-	{
+	while(ruleset) {
 		printf("Ruleset: '%s'\n", ruleset->name);
 		rule = ruleset->rule_first;
-		while(rule)
-		{
+		while(rule) {
 			/* CONDITION */
 			first = 1;
 			cond = rule->cond_first;
-			while(cond)
-			{
+			while(cond) {
 				if (first)
 					printf("    Condition:");
 				else
@@ -558,8 +535,7 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 				if (cond->value_type != VALUE_TYPE_NULL)
 					printf(" = ");
 				next_cond_value:
-				switch(cond->value_type)
-				{
+				switch(cond->value_type) {
 					case VALUE_TYPE_NULL:
 					break;
 
@@ -582,8 +558,7 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 					default:
 					printf("Software error: VALUE_TYPE_* %d not known in function '%s' line=%d", cond->value_type, __FUNCTION__, __LINE__);
 				}
-				if (cond->value_extension && cond->next)
-				{
+				if (cond->value_extension && cond->next) {
 					cond = cond->next;
 					printf(" or ");
 					goto next_cond_value;
@@ -595,14 +570,12 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 
 			/* ACTION */
 			action = rule->action_first;
-			while(action)
-			{
+			while(action) {
 				printf("    Action: %s\n", action_defs[action->index].name);
 				/* PARAM */
 				first = 1;
 				param = action->param_first;
-				while(param)
-				{
+				while(param) {
 					if (first)
 						printf("    Param:");
 					else
@@ -611,16 +584,13 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 					printf(" %s", param_defs[param->index].name);
 					if (param->value_type != VALUE_TYPE_NULL)
 						printf(" = ");
-					switch(param->value_type)
-					{
+					switch(param->value_type) {
 						case VALUE_TYPE_NULL:
 						break;
 
 						case VALUE_TYPE_INTEGER:
-						if (param_defs[param->index].type == PARAM_TYPE_CALLERIDTYPE)
-						{
-							switch(param->integer_value)
-							{
+						if (param_defs[param->index].type == PARAM_TYPE_CALLERIDTYPE) {
+							switch(param->integer_value) {
 								case INFO_NTYPE_UNKNOWN:
 								printf("unknown");
 								break;
@@ -638,10 +608,8 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 							}
 							break;
 						}
-						if (param_defs[param->index].type == PARAM_TYPE_CAPABILITY)
-						{
-							switch(param->integer_value)
-							{
+						if (param_defs[param->index].type == PARAM_TYPE_CAPABILITY) {
+							switch(param->integer_value) {
 								case INFO_BC_SPEECH:
 								printf("speech");
 								break;
@@ -665,10 +633,8 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 							}
 							break;
 						}
-						if (param_defs[param->index].type == PARAM_TYPE_DIVERSION)
-						{
-							switch(param->integer_value)
-							{
+						if (param_defs[param->index].type == PARAM_TYPE_DIVERSION) {
+							switch(param->integer_value) {
 								case INFO_DIVERSION_CFU:
 								printf("cfu");
 								break;
@@ -686,10 +652,8 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 							}
 							break;
 						}
-						if (param_defs[param->index].type == PARAM_TYPE_TYPE)
-						{
-							switch(param->integer_value)
-							{
+						if (param_defs[param->index].type == PARAM_TYPE_TYPE) {
+							switch(param->integer_value) {
 								case INFO_NTYPE_UNKNOWN:
 								printf("unknown");
 								break;
@@ -707,10 +671,8 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 							}
 							break;
 						}
-						if (param_defs[param->index].type == PARAM_TYPE_YESNO)
-						{
-							switch(param->integer_value)
-							{
+						if (param_defs[param->index].type == PARAM_TYPE_YESNO) {
+							switch(param->integer_value) {
 								case 1:
 								printf("yes");
 								break;
@@ -722,8 +684,7 @@ void ruleset_debug(struct route_ruleset *ruleset_start)
 							}
 							break;
 						}
-						if (param_defs[param->index].type == PARAM_TYPE_NULL)
-						{
+						if (param_defs[param->index].type == PARAM_TYPE_NULL) {
 							break;
 						}
 						printf("%d", param->integer_value);
@@ -760,28 +721,22 @@ static char *read_string(char *p, char *key, int key_size, const char *special)
 {
 	key[0] = 0;
 
-	if (*p == '\"')
-	{
+	if (*p == '\"') {
 		p++;
 		/* quote */
-		while(*p)
-		{
-			if (*p == '\"')
-			{
+		while(*p) {
+			if (*p == '\"') {
 				p++;
 				*key = '\0';
 				return(p);
 			}
-			if (*p == '\\')
-			{
+			if (*p == '\\') {
 				p++;
-				if (*p == '\0')
-				{
+				if (*p == '\0') {
 					break;
 				}
 			}
-			if (--key_size == 0)
-			{
+			if (--key_size == 0) {
 				UPRINT(key, "\001String too long.");
 				return(p);
 			}
@@ -792,24 +747,19 @@ static char *read_string(char *p, char *key, int key_size, const char *special)
 	}
 
 	/* no quote */
-	while(*p)
-	{
-		if (strchr(special, *p))
-		{
+	while(*p) {
+		if (strchr(special, *p)) {
 			*key = '\0';
 			return(p);
 		}
-		if (*p == '\\')
-		{
+		if (*p == '\\') {
 			p++;
-			if (*p == '\0')
-			{
+			if (*p == '\0') {
 				UPRINT(key, "\001Unexpected end of line.");
 				return(p);
 			}
 		}
-		if (--key_size == 0)
-		{
+		if (--key_size == 0) {
 			UPRINT(key, "\001String too long.");
 			return(p);
 		}
@@ -857,10 +807,8 @@ struct route_ruleset *ruleset_parse(void)
 
 	/* check the integrity of IDs for ACTION_* and PARAM_* */
 	i = 0;
-	while(action_defs[i].name)
-	{
-		if (action_defs[i].id != i)
-		{
+	while(action_defs[i].name) {
+		if (action_defs[i].id != i) {
 			PERROR("Software Error action '%s' must have id of %d, but has %d.\n",
 				action_defs[i].name, i, action_defs[i].id);
 			goto openerror;
@@ -868,10 +816,8 @@ struct route_ruleset *ruleset_parse(void)
 		i++;
 	}
 	i = 0; j = 1;
-	while(param_defs[i].name)
-	{
-		if (param_defs[i].id != j)
-		{
+	while(param_defs[i].name) {
+		if (param_defs[i].id != j) {
 			PERROR("Software Error param '%s' must have id of 0x%llx, but has 0x%llx.\n",
 				param_defs[i].name, j, param_defs[i].id);
 			goto openerror;
@@ -917,8 +863,7 @@ struct route_ruleset *ruleset_parse(void)
 		}
 
 		/* skip comments */
-		if (*p == '#')
-		{
+		if (*p == '#') {
 			p++;
 			/* don't skip "define" */
 			if (!!strncmp(p, "define", 6))
@@ -927,21 +872,18 @@ struct route_ruleset *ruleset_parse(void)
 			if (*p != 32)
 				continue;
 			/* skip spaces */
-			while(*p == 32)
-			{
+			while(*p == 32) {
 				if (*p == 0)
 					break;
 				p++;
 			}
 			p++;
 			p = read_string(p, key, sizeof(key), " ");
-			if (key[0] == 1) /* error */
-			{
+			if (key[0] == 1) { /* error */
 				SPRINT(failure, "Parsing Filename failed: %s", key+1);
 				goto parse_error;
 			}
-			if (nesting == MAXNESTING-1)
-			{
+			if (nesting == MAXNESTING-1) {
 				SPRINT(failure, "'include' is nesting too deep.\n");
 				goto parse_error;
 			}
@@ -949,8 +891,7 @@ struct route_ruleset *ruleset_parse(void)
 				SCPY(filename[nesting+1], key);
 			else
 	        		SPRINT(filename[nesting+1], "%s/%s", CONFIG_DATA, key);
-		        if (!(fp[nesting+1]=fopen(filename[nesting+1],"r")))
-			{
+		        if (!(fp[nesting+1]=fopen(filename[nesting+1],"r"))) {
 				PERROR("Cannot open %s\n", filename[nesting+1]);
 				goto parse_error;
 			}
@@ -966,12 +907,10 @@ struct route_ruleset *ruleset_parse(void)
 			continue;
 
 		/* expecting ruleset */
-		if (expecting)
-		{
+		if (expecting) {
 			new_ruleset:
 			/* expecting [ */
-			if (*p != '[')
-			{
+			if (*p != '[') {
 				SPRINT(failure, "Expecting ruleset name starting with '['.");
 				goto parse_error;
 			}
@@ -979,8 +918,7 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* reading ruleset name text */
 			i = 0;
-			while(*p>' ' && *p<127 && *p!=']')
-			{
+			while(*p>' ' && *p<127 && *p!=']') {
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
 				if (i == sizeof(key)) i--; /* limit */
@@ -1004,10 +942,8 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* check for duplicate rulesets */
 			ruleset = ruleset_start;
-			while(ruleset)
-			{
-				if (!strcmp(ruleset->name, key))
-				{
+			while(ruleset) {
+				if (!strcmp(ruleset->name, key)) {
 					SPRINT(failure, "Duplicate ruleset '%s', already defined in file '%s' line %d.", key, ruleset->file, ruleset->line);
 					goto parse_error;
 				}
@@ -1028,8 +964,7 @@ struct route_ruleset *ruleset_parse(void)
 		}
 
 		/* for new ruleset [ */
-		if (*p == '[')
-		{
+		if (*p == '[') {
 			goto new_ruleset;
 		}
 
@@ -1044,65 +979,53 @@ struct route_ruleset *ruleset_parse(void)
 		rule->line = line[nesting];
 
 		/* loop CONDITIONS */
-		while(*p!=':' && *p!='\0')
-		{
+		while(*p!=':' && *p!='\0') {
 			/* read item text */
 			i = 0;
-			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9'))
-			{
+			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9')) {
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
 				if (i == sizeof(key)) i--; /* limit */
 			}
 			key[i] = 0;
-			if (key[0] == '\0')
-		       	{
+			if (key[0] == '\0') {
 				SPRINT(failure, "Expecting condition item name or ':' for end of condition list.");
 				goto parse_error;
 			}
-			if (*p!=' ' && *p!='=')
-			{
+			if (*p!=' ' && *p!='=') {
 				SPRINT(failure, "Illegal character '%c' after condition name '%s'. Expecting '=' for equation or ' ' to seperate condition items.", *p, key);
 				goto parse_error;
 			}
 
 			/* check if condition exists */
 			index = 0;
-			while(cond_defs[index].name)
-			{
+			while(cond_defs[index].name) {
 				if (!strcmp(cond_defs[index].name, key))
 					break;
 				index++;
 			}
-			if (cond_defs[index].name == NULL)
-			{
+			if (cond_defs[index].name == NULL) {
 				SPRINT(failure, "Unknown condition item name '%s'.", key);
 				goto parse_error;
 			}
 
 			/* items without values must not have any parameter */
-			if (cond_defs[index].type == COND_TYPE_NULL)
-			{
-				if (*p == '=')
-				{
+			if (cond_defs[index].type == COND_TYPE_NULL) {
+				if (*p == '=') {
 					SPRINT(failure, "Condition item '%s' must not have any value. Don't use '=' for this type of condition.", key);
 					goto parse_error;
 				}
-				if (*p != ' ')
-				{
+				if (*p != ' ') {
 					SPRINT(failure, "Condition item '%s' must not have any value. Expecting ' ' or tab after item name.", key);
 					goto parse_error;
 				}
 //				p++;
-			} else
-			{
-				if (*p == ' ')
-				{
+			} else {
+				if (*p == ' ') {
 					SPRINT(failure, "Condition item '%s' must have at least one value, '=' expected, and not a space.", key);
 					goto parse_error;
 				}
-				if (*p != '=')
-				{
+				if (*p != '=') {
 					SPRINT(failure, "Condition item '%s' must have at least one value, '=' expected.", key);
 					goto parse_error;
 				}
@@ -1111,10 +1034,8 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* check for duplicate condition */
 			cond = rule->cond_first;
-			while(cond)
-			{
-				if (cond->index == index)
-				{
+			while(cond) {
+				if (cond->index == index) {
 					SPRINT(failure, "Duplicate condition '%s', use ',' to give multiple values.", key);
 					goto parse_error;
 				}
@@ -1129,11 +1050,9 @@ struct route_ruleset *ruleset_parse(void)
 			cond_pointer = &(cond->next);
 			cond->index = index;
 			cond->match = cond_defs[index].match;
-			switch(cond_defs[index].type)
-			{
+			switch(cond_defs[index].type) {
 				case COND_TYPE_NULL:
-				if (*p=='=')
-				{
+				if (*p=='=') {
 					SPRINT(failure, "Expecting no value.");
 					goto parse_error;
 				}
@@ -1148,40 +1067,33 @@ struct route_ruleset *ruleset_parse(void)
 				case COND_TYPE_WDAY:
 				case COND_TYPE_YEAR:
 				integer = integer_to = 0;
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing integer value.");
 					goto parse_error;
 				}
-				while(*p>='0' && *p<='9')
-				{
+				while(*p>='0' && *p<='9') {
 					integer = integer*10 + *p-'0';
 					p++;
 				}
 				value_type = VALUE_TYPE_INTEGER;
-				if (*p == '-')
-				{
+				if (*p == '-') {
 					p++;
-					if (*p==',' || *p==' ' || *p=='\0')
-					{
+					if (*p==',' || *p==' ' || *p=='\0') {
 						SPRINT(failure, "Missing integer value.");
 						goto parse_error;
 					}
-					while(*p>='0' && *p<='9')
-					{
+					while(*p>='0' && *p<='9') {
 						integer_to = integer_to*10 + *p-'0';
 						p++;
 					}
 					value_type = VALUE_TYPE_INTEGER_RANGE;
 				}
-				if (cond_defs[index].type == COND_TYPE_TIME)
-				{
+				if (cond_defs[index].type == COND_TYPE_TIME) {
 					// Simon: i store the time as decimal, later i compare it correctly:
 					// hours * 100 + minutes
 					if (integer == 2400)
 						integer = 0;
-					if (integer >= 2400)
-					{
+					if (integer >= 2400) {
 						timeoutofrange1:
 						SPRINT(failure, "Given time '%d' not in range 0000..2359 (or 2400 for 0000)", integer);
 						goto parse_error;
@@ -1192,8 +1104,7 @@ struct route_ruleset *ruleset_parse(void)
 						goto integer_done;
 					if (integer_to == 2400)
 						integer_to = 0;
-					if (integer_to >= 2400)
-					{
+					if (integer_to >= 2400) {
 						timeoutofrange2:
 						SPRINT(failure, "Given time '%d' not in range 0000..2359 (or 2400 for 0000)", integer_to);
 						goto parse_error;
@@ -1201,62 +1112,50 @@ struct route_ruleset *ruleset_parse(void)
 					if (integer_to%100 >= 60)
 						goto timeoutofrange2;
 				}
-				if (cond_defs[index].type == COND_TYPE_MDAY)
-				{
-					if (integer<1 || integer>31)
-					{
+				if (cond_defs[index].type == COND_TYPE_MDAY) {
+					if (integer<1 || integer>31) {
 						SPRINT(failure, "Given day-of-month '%d' not in range 1..31", integer);
 						goto parse_error;
 					} 
 					if (value_type == VALUE_TYPE_INTEGER)
 						goto integer_done;
-					if (integer_to<1 || integer_to>31)
-					{
+					if (integer_to<1 || integer_to>31) {
 						SPRINT(failure, "Given day-of-month '%d' not in range 1..31", integer_to);
 						goto parse_error;
 					} 
 				}
-				if (cond_defs[index].type == COND_TYPE_WDAY)
-				{
-					if (integer<1 || integer>7)
-					{
+				if (cond_defs[index].type == COND_TYPE_WDAY) {
+					if (integer<1 || integer>7) {
 						SPRINT(failure, "Given day-of-week '%d' not in range 1..7", integer);
 						goto parse_error;
 					} 
 					if (value_type == VALUE_TYPE_INTEGER)
 						goto integer_done;
-					if (integer_to<1 || integer_to>7)
-					{
+					if (integer_to<1 || integer_to>7) {
 						SPRINT(failure, "Given day-of-week '%d' not in range 1..7", integer_to);
 						goto parse_error;
 					} 
 				}
-				if (cond_defs[index].type == COND_TYPE_MONTH)
-				{
-					if (integer<1 || integer>12)
-					{
+				if (cond_defs[index].type == COND_TYPE_MONTH) {
+					if (integer<1 || integer>12) {
 						SPRINT(failure, "Given month '%d' not in range 1..12", integer);
 						goto parse_error;
 					} 
 					if (value_type == VALUE_TYPE_INTEGER)
 						goto integer_done;
-					if (integer_to<1 || integer_to>12)
-					{
+					if (integer_to<1 || integer_to>12) {
 						SPRINT(failure, "Given month '%d' not in range 1..12", integer_to);
 						goto parse_error;
 					} 
 				}
-				if (cond_defs[index].type == COND_TYPE_YEAR)
-				{
-					if (integer<1970 || integer>2106)
-					{
+				if (cond_defs[index].type == COND_TYPE_YEAR) {
+					if (integer<1970 || integer>2106) {
 						SPRINT(failure, "Given year '%d' not in range 1970..2106", integer);
 						goto parse_error;
 					} 
 					if (value_type == VALUE_TYPE_INTEGER)
 						goto integer_done;
-					if (integer_to<1970 || integer_to>2106)
-					{
+					if (integer_to<1970 || integer_to>2106) {
 						SPRINT(failure, "Given year '%d' not in range 1970..2106", integer_to);
 						goto parse_error;
 					} 
@@ -1270,40 +1169,33 @@ struct route_ruleset *ruleset_parse(void)
 				/* parse all string values/ranges */
 				case COND_TYPE_STRING:
 				key[0] = key_to[0] = '\0';
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing string value, use \"\" for empty string.");
 					goto parse_error;
 				}
 				p = read_string(p, key, sizeof(key), "-, ");
-				if (key[0] == 1) /* error */
-				{
+				if (key[0] == 1) { /* error */
 					SPRINT(failure, "Parsing String failed: %s", key+1);
 					goto parse_error;
 				}
 				value_type = VALUE_TYPE_STRING;
-				if (*p == '-')
-				{
+				if (*p == '-') {
 					p++;
-					if (*p==',' || *p==' ' || *p=='\0')
-					{
+					if (*p==',' || *p==' ' || *p=='\0') {
 						SPRINT(failure, "Missing string value, use \"\" for empty string.");
 						goto parse_error;
 					}
 					p = read_string(p, key_to, sizeof(key_to), "-, ");
-					if (key_to[0] == 1) /* error */
-					{
+					if (key_to[0] == 1) { /* error */
 						SPRINT(failure, "Parsing string failed: %s", key_to+1);
 						goto parse_error;
 					}
 					value_type = VALUE_TYPE_STRING_RANGE;
-					if (strlen(key) != strlen(key_to))
-					{
+					if (strlen(key) != strlen(key_to)) {
 						SPRINT(failure, "Given range of strings \"%s\"-\"%s\" have unequal length.", key, key_to);
 						goto parse_error;
 					}
-					if (key[0] == '\0')
-					{
+					if (key[0] == '\0') {
 						SPRINT(failure, "Given range has no length.");
 						goto parse_error;
 					}
@@ -1312,8 +1204,7 @@ struct route_ruleset *ruleset_parse(void)
 				cond->string_value = (char *)MALLOC(strlen(key)+1);
 				rmemuse++;
 				UCPY(cond->string_value, key);
-				if (value_type == VALUE_TYPE_STRING_RANGE)
-				{
+				if (value_type == VALUE_TYPE_STRING_RANGE) {
 					cond->string_value_to = (char *)MALLOC(strlen(key_to)+1);
 					rmemuse++;
 					UCPY(cond->string_value_to, key_to);
@@ -1336,8 +1227,7 @@ struct route_ruleset *ruleset_parse(void)
 					cond->integer_value = INFO_BC_DATAUNRESTRICTED;
 				else if (!strncasecmp("digital-unrestricted-tones", p, 26))
 					cond->integer_value = INFO_BC_DATAUNRESTRICTED_TONES;
-				else
-				{
+				else {
 					SPRINT(failure, "Given service type is invalid or misspelled.");
 					goto parse_error;
 				}
@@ -1350,8 +1240,7 @@ struct route_ruleset *ruleset_parse(void)
 					cond->integer_value = INFO_BMODE_CIRCUIT;
 				else if (!strncasecmp("hdlc", p, 4))
 					cond->integer_value = INFO_BMODE_PACKET;
-				else
-				{
+				else {
 					SPRINT(failure, "Given bchannel mode is invalid or misspelled.");
 					goto parse_error;
 				}
@@ -1361,29 +1250,24 @@ struct route_ruleset *ruleset_parse(void)
 				/* parse interface attribute <if>:<value> */
 				case COND_TYPE_IFATTR:
 				key[0] = key_to[0] = '\0';
-				if (*p==':' || *p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==':' || *p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing interface name.");
 					goto parse_error;
 				}
 				p = read_string(p, key, sizeof(key), ":-, ");
-				if (key[0] == 1) /* error */
-				{
+				if (key[0] == 1) { /* error */
 					SPRINT(failure, "Parsing interface failed: %s", key+1);
 					goto parse_error;
 				}
-				if (*p != ':')
-				{
+				if (*p != ':') {
 					SPRINT(failure, "Expeciting kolon to seperate value behind interface name.");
 					goto parse_error;
 				}
 				SCCAT(key, *p++);
-				while(*p>='0' && *p<='9')
-				{
+				while(*p>='0' && *p<='9') {
 					SCCAT(key, *p++);
 				}
-				if (*p!=',' && *p!=' ' && *p!='\0')
-				{
+				if (*p!=',' && *p!=' ' && *p!='\0') {
 					SPRINT(failure, "Invalid characters behind value.");
 					goto parse_error;
 				}
@@ -1396,16 +1280,14 @@ struct route_ruleset *ruleset_parse(void)
 				goto parse_error;
 			}
 			/* if we have another value for that item, we attach it */
-			if (*p == ',')
-			{
+			if (*p == ',') {
 				p++;
 				/* next item */
 				cond->value_extension = 1;
 				goto nextcondvalue;
 			}
 			/* to seperate the items, a space is required */
-			if (*p != ' ')
-			{
+			if (*p != ' ') {
 				SPRINT(failure, "Character '%c' not expected here. Use ',' to seperate multiple possible values.", *p);
 				goto parse_error;
 			}
@@ -1419,8 +1301,7 @@ struct route_ruleset *ruleset_parse(void)
 		}
 
 		/* we are done with CONDITIONS, so we expect the ACTION */
-		if (*p != ':')
-		{
+		if (*p != ':') {
 			SPRINT(failure, "Expecting ':' after condition item(s).");
 			goto parse_error;
 		}
@@ -1437,8 +1318,7 @@ struct route_ruleset *ruleset_parse(void)
 
 		/* read action name */
 		i = 0;
-		while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9') || *p == '-')
-		{
+		while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9') || *p == '-') {
 			if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 			key[i++] = *p++;
 			if (i == sizeof(key)) i--; /* limit */
@@ -1451,10 +1331,8 @@ struct route_ruleset *ruleset_parse(void)
 
 		/* check if item exists */
 		index = 0;
-		while(action_defs[index].name)
-		{
-			if (!action_defs[index].help) /* not internal actions */
-			{
+		while(action_defs[index].name) {
+			if (!action_defs[index].help) { /* not internal actions */
 				index++;
 				continue;
 			}
@@ -1462,8 +1340,7 @@ struct route_ruleset *ruleset_parse(void)
 				break;
 			index++;
 		}
-		if (action_defs[index].name == NULL)
-		{
+		if (action_defs[index].name == NULL) {
 			SPRINT(failure, "Unknown action name '%s'.", key);
 			goto parse_error;
 		}
@@ -1487,12 +1364,10 @@ struct route_ruleset *ruleset_parse(void)
 		}
 
 		/* loop PARAMS */
-		while(*p != 0)
-		{
+		while(*p != 0) {
 			/* read param text */
 			i = 0;
-			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9'))
-			{
+			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9')) {
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
 				if (i == sizeof(key)) i--; /* limit */
@@ -1505,42 +1380,34 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* check if item exists */
 			index = 0;
-			while(param_defs[index].name)
-			{
+			while(param_defs[index].name) {
 				if (!strcmp(param_defs[index].name, key))
 					break;
 				index++;
 			}
-			if (param_defs[index].name == NULL)
-			{
+			if (param_defs[index].name == NULL) {
 				SPRINT(failure, "Unknown param name '%s'.", key);
 				goto parse_error;
 			}
 
 			/* check if item is allowed for the action */
-			if (!(param_defs[index].id & allowed_params))
-			{
+			if (!(param_defs[index].id & allowed_params)) {
 				SPRINT(failure, "Param name '%s' exists, but not for this action.", key);
 				goto parse_error;
 			}
 
 			/* params without values must not have any parameter */
-			if (param_defs[index].type == PARAM_TYPE_NULL)
-			{
-				if (*p!=' ' && *p!='\0')
-				{
+			if (param_defs[index].type == PARAM_TYPE_NULL) {
+				if (*p!=' ' && *p!='\0') {
 					SPRINT(failure, "Parameter '%s' must not have any value.", key);
 					goto parse_error;
 				}
-			} else
-			{
-				if (*p == ' ')
-				{
+			} else {
+				if (*p == ' ') {
 					SPRINT(failure, "Parameter '%s' must have at least one value, '=' expected and not a space.", key);
 					goto parse_error;
 				}
-				if (*p != '=')
-				{
+				if (*p != '=') {
 					SPRINT(failure, "Parameter '%s' must have at least one value, '=' expected.", key);
 					goto parse_error;
 				}
@@ -1548,45 +1415,37 @@ struct route_ruleset *ruleset_parse(void)
 			}
 
 			/* special timeout value */
-			if (!strcmp("timeout", key))
-			{
-				if (action->timeout)
-				{
+			if (!strcmp("timeout", key)) {
+				if (action->timeout) {
 					SPRINT(failure, "Duplicate timeout value.");
 					goto parse_error;
 				}
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing integer value.");
 					goto parse_error;
 				}
 				integer = 0;
-				while(*p>='0' && *p<='9')
-				{
+				while(*p>='0' && *p<='9') {
 					integer = integer*10 + *p-'0';
 					p++;
 				}
-				if (integer < 1)
-				{
+				if (integer < 1) {
 					SPRINT(failure, "Expecting timeout value greater 0.");
 					goto parse_error;
 				}
-				if (*p!=' ' && *p!='\0')
-				{
+				if (*p!=' ' && *p!='\0') {
 					SPRINT(failure, "Character '%c' not expected here. Use ' ' to seperate parameters.", *p);
 					goto parse_error;
 				}
 				/* skip spaces */
-				while(*p == 32)
-				{
+				while(*p == 32) {
 					if (*p == 0)
 						break;
 					p++;
 				}
 				action->timeout = integer;
 				/* check for next ACTION */
-				if (*p == ':')
-				{
+				if (*p == ':') {
 					p++;
 					goto nextaction;
 				}
@@ -1595,10 +1454,8 @@ struct route_ruleset *ruleset_parse(void)
 
 			/* check for duplicate parameters */
 			param = action->param_first;
-			while(param)
-			{
-				if (param->index == index)
-				{
+			while(param) {
+				if (param->index == index) {
 					SPRINT(failure, "Duplicate parameter '%s', use ',' to give multiple values.", key);
 					goto parse_error;
 				}
@@ -1614,8 +1471,7 @@ struct route_ruleset *ruleset_parse(void)
 			param->index = index;
 			param->id = param_defs[index].id;
 
-			switch(param_defs[index].type)
-			{
+			switch(param_defs[index].type) {
 				/* parse null value */
 				case PARAM_TYPE_NULL:
 				param->value_type = VALUE_TYPE_NULL;
@@ -1624,13 +1480,11 @@ struct route_ruleset *ruleset_parse(void)
 				/* parse integer value */
 				case PARAM_TYPE_INTEGER:
 				integer = 0;
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing integer value.");
 					goto parse_error;
 				}
-				while(*p>='0' && *p<='9')
-				{
+				while(*p>='0' && *p<='9') {
 					integer = integer*10 + *p-'0';
 					p++;
 				}
@@ -1642,33 +1496,27 @@ struct route_ruleset *ruleset_parse(void)
 				/* parse ports value */
 				case PARAM_TYPE_PORTS:
 				key[0] = '\0';
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing port number, omit parameter or give port number.");
 					goto parse_error;
 				}
 				i = 0;
 				nextport:
 				integer = 0;
-				while(*p>='0' && *p<='9')
-				{
-					if (i < (int)sizeof(key)-1)
-					{
+				while(*p>='0' && *p<='9') {
+					if (i < (int)sizeof(key)-1) {
 						key[i] = *p;
 						key[i++] = '\0';
 					}
 					integer = integer*10 + *p-'0';
 					p++;
 				}
-				if (integer > 255)
-				{
+				if (integer > 255) {
 					SPRINT(failure, "Port number too high.");
 					goto parse_error;
 				}
-				if (*p==',')
-				{
-					if (i < (int)sizeof(key)-1)
-					{
+				if (*p==',') {
+					if (i < (int)sizeof(key)-1) {
 						key[i] = *p;
 						key[i++] = '\0';
 					}
@@ -1689,173 +1537,140 @@ struct route_ruleset *ruleset_parse(void)
 				case PARAM_TYPE_YESNO:
 				case PARAM_TYPE_ON:
 				key[0] = '\0';
-				if (*p==',' || *p==' ' || *p=='\0')
-				{
+				if (*p==',' || *p==' ' || *p=='\0') {
 					SPRINT(failure, "Missing string value, use \"\" for empty string.");
 					goto parse_error;
 				}
 				p = read_string(p, key, sizeof(key), " ");
-				if (key[0] == 1) /* error */
-				{
+				if (key[0] == 1) { /* error */
 					SPRINT(failure, "Parsing string failed: %s", key+1);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_CALLERIDTYPE)
-				{
+				if (param_defs[index].type == PARAM_TYPE_CALLERIDTYPE) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "unknown"))
-					{
+					if (!strcasecmp(key, "unknown")) {
 						param->integer_value = INFO_NTYPE_UNKNOWN;
 						break;
 					}
-					if (!strcasecmp(key, "subscriber"))
-					{
+					if (!strcasecmp(key, "subscriber")) {
 						param->integer_value = INFO_NTYPE_SUBSCRIBER;
 						break;
 					}
-					if (!strcasecmp(key, "national"))
-					{
+					if (!strcasecmp(key, "national")) {
 						param->integer_value = INFO_NTYPE_NATIONAL;
 						break;
 					}
-					if (!strcasecmp(key, "international"))
-					{
+					if (!strcasecmp(key, "international")) {
 						param->integer_value = INFO_NTYPE_INTERNATIONAL;
 						break;
 					}
 					SPRINT(failure, "Caller ID type '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_ON)
-				{
+				if (param_defs[index].type == PARAM_TYPE_ON) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "init"))
-					{
+					if (!strcasecmp(key, "init")) {
 						param->integer_value = INFO_ON_INIT;
 						break;
 					}
-					if (!strcasecmp(key, "hangup"))
-					{
+					if (!strcasecmp(key, "hangup")) {
 						param->integer_value = INFO_ON_HANGUP;
 						break;
 					}
 					SPRINT(failure, "Execute on '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_CAPABILITY)
-				{
+				if (param_defs[index].type == PARAM_TYPE_CAPABILITY) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "speech"))
-					{
+					if (!strcasecmp(key, "speech")) {
 						param->integer_value = INFO_BC_SPEECH;
 						break;
 					}
-					if (!strcasecmp(key, "audio"))
-					{
+					if (!strcasecmp(key, "audio")) {
 						param->integer_value = INFO_BC_AUDIO;
 						break;
 					}
-					if (!strcasecmp(key, "video"))
-					{
+					if (!strcasecmp(key, "video")) {
 						param->integer_value = INFO_BC_VIDEO;
 						break;
 					}
-					if (!strcasecmp(key, "digital-restricted"))
-					{
+					if (!strcasecmp(key, "digital-restricted")) {
 						param->integer_value = INFO_BC_DATARESTRICTED;
 						break;
 					}
-					if (!strcasecmp(key, "digital-unrestricted"))
-					{
+					if (!strcasecmp(key, "digital-unrestricted")) {
 						param->integer_value = INFO_BC_DATAUNRESTRICTED;
 						break;
 					}
-					if (!strcasecmp(key, "digital-unrestricted-tones"))
-					{
+					if (!strcasecmp(key, "digital-unrestricted-tones")) {
 						param->integer_value = INFO_BC_DATAUNRESTRICTED_TONES;
 						break;
 					}
 					SPRINT(failure, "Service type '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_BMODE)
-				{
+				if (param_defs[index].type == PARAM_TYPE_BMODE) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "transparent"))
-					{
+					if (!strcasecmp(key, "transparent")) {
 						param->integer_value = INFO_BMODE_CIRCUIT;
 						break;
 					}
-					if (!strcasecmp(key, "hdlc"))
-					{
+					if (!strcasecmp(key, "hdlc")) {
 						param->integer_value = INFO_BMODE_PACKET;
 						break;
 					}
 					SPRINT(failure, "Bchannel mode '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_DIVERSION)
-				{
+				if (param_defs[index].type == PARAM_TYPE_DIVERSION) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "cfu"))
-					{
+					if (!strcasecmp(key, "cfu")) {
 						param->integer_value = INFO_DIVERSION_CFU;
 						break;
 					}
-					if (!strcasecmp(key, "cfb"))
-					{
+					if (!strcasecmp(key, "cfb")) {
 						param->integer_value = INFO_DIVERSION_CFB;
 						break;
 					}
-					if (!strcasecmp(key, "cfnr"))
-					{
+					if (!strcasecmp(key, "cfnr")) {
 						param->integer_value = INFO_DIVERSION_CFNR;
 						break;
 					}
-					if (!strcasecmp(key, "cfp"))
-					{
+					if (!strcasecmp(key, "cfp")) {
 						param->integer_value = INFO_DIVERSION_CFP;
 						break;
 					}
 					SPRINT(failure, "Diversion type '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_TYPE)
-				{
+				if (param_defs[index].type == PARAM_TYPE_TYPE) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "unknown"))
-					{
+					if (!strcasecmp(key, "unknown")) {
 						param->integer_value = INFO_NTYPE_UNKNOWN;
 						break;
 					}
-					if (!strcasecmp(key, "subscriber"))
-					{
+					if (!strcasecmp(key, "subscriber")) {
 						param->integer_value = INFO_NTYPE_SUBSCRIBER;
 						break;
 					}
-					if (!strcasecmp(key, "national"))
-					{
+					if (!strcasecmp(key, "national")) {
 						param->integer_value = INFO_NTYPE_NATIONAL;
 						break;
 					}
-					if (!strcasecmp(key, "international"))
-					{
+					if (!strcasecmp(key, "international")) {
 						param->integer_value = INFO_NTYPE_INTERNATIONAL;
 						break;
 					}
 					SPRINT(failure, "Number type '%s' unknown.", key);
 					goto parse_error;
 				}
-				if (param_defs[index].type == PARAM_TYPE_YESNO)
-				{
+				if (param_defs[index].type == PARAM_TYPE_YESNO) {
 					param->value_type = VALUE_TYPE_INTEGER;
-					if (!strcasecmp(key, "yes"))
-					{
+					if (!strcasecmp(key, "yes")) {
 						param->integer_value = 1;
 						break;
 					}
-					if (!strcasecmp(key, "no"))
-					{
+					if (!strcasecmp(key, "no")) {
 						param->integer_value = 0;
 						break;
 					}
@@ -1873,8 +1688,7 @@ struct route_ruleset *ruleset_parse(void)
 				goto parse_error;
 			}
 
-			if (*p == ',')
-			{
+			if (*p == ',') {
 				p++;
 				/* next item */
 				param->value_extension = 1;
@@ -1886,8 +1700,7 @@ struct route_ruleset *ruleset_parse(void)
 				break;
 
 			/* to seperate the items, a space is required */
-			if (*p != ' ')
-			{
+			if (*p != ' ') {
 				SPRINT(failure, "Character '%c' not expected here. Use ' ' to seperate parameters, or ',' for multiple values.", *p);
 				goto parse_error;
 			}
@@ -1900,8 +1713,7 @@ struct route_ruleset *ruleset_parse(void)
 			}
 
 			/* check for next ACTION */
-			if (*p == ':')
-			{
+			if (*p == ':') {
 				p++;
 				goto nextaction;
 			}
@@ -1914,8 +1726,7 @@ struct route_ruleset *ruleset_parse(void)
 	if (nesting >= 0)
 		goto go_root;
 
-	if (!ruleset_start)
-	{
+	if (!ruleset_start) {
 		SPRINT(failure, "No ruleset defined.");
 	}
 	return(ruleset_start);
@@ -1931,8 +1742,7 @@ struct route_ruleset *ruleset_parse(void)
 	SPRINT(ruleset_error, "Error in file %s, line %d: %s",  filename[nesting], line[nesting], failure);
 
 	openerror:
-	while(nesting >= 0)
-	{
+	while(nesting >= 0) {
 		fclose(fp[nesting--]);
 		fduse--;
 	}
@@ -1948,10 +1758,8 @@ struct route_ruleset *getrulesetbyname(const char *name)
 {
 	struct route_ruleset *ruleset = ruleset_first;
 
-	while(ruleset)
-	{
-		if (!strcasecmp(name, ruleset->name))
-		{
+	while(ruleset) {
+		if (!strcasecmp(name, ruleset->name)) {
 			break;
 		}
 		ruleset = ruleset->next;
@@ -1995,21 +1803,18 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	SCPY(redirid, numberrize_callerinfo(e_redirinfo.id, e_redirinfo.ntype, options.national, options.international));
 	
 	PDEBUG(DEBUG_ROUTE, "parsing ruleset '%s'\n", ruleset->name);
-	while(rule)
-	{
+	while(rule) {
 		PDEBUG(DEBUG_ROUTE, "checking rule in line %d\n", rule->line);
 		match = 1; /* this rule matches */
 		dialing_required = 0;
 		timeout = 0; /* timeout time */
 		cond = rule->cond_first;
-		while(cond)
-		{
+		while(cond) {
 			condition = 0; /* any condition element is true (1) or could be true (2) */
 			checkextension:
 			istrue = 0; /* this condition-element is true */
 			couldbetrue = 0; /* this conditions-element could be true */
-			switch(cond->match)
-			{
+			switch(cond->match) {
 				case MATCH_EXTERN:
 				if (!e_ext.number[0])
 					istrue = 1;	 
@@ -2138,8 +1943,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_FILE:
 				tfp = fopen(cond->string_value, "r");
-				if (!tfp)
-				{
+				if (!tfp) {
 					break;
 				}
 				if (fgetc(tfp) == '1')
@@ -2169,18 +1973,15 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				comp_len = comp_len-(unsigned long)cond->string_value;
 				avail = 0;
 				mISDNport = mISDNport_first;
-				while(mISDNport)
-				{
+				while(mISDNport) {
 					if (mISDNport->ifport)
 					if (strlen(mISDNport->ifport->interface->name) == comp_len)
 					if (!strncasecmp(mISDNport->ifport->interface->name, cond->string_value, comp_len)) 
-					if (!mISDNport->l2hold || mISDNport->l2link>0)
-					{
+					if (!mISDNport->l2hold || mISDNport->l2link>0) {
 						j = 0;
 						jj = mISDNport->b_num;
 						avail += jj;
-						while(j < jj)
-						{
+						while(j < jj) {
 							if (mISDNport->b_state[j])
 								avail--;
 							j++;
@@ -2188,12 +1989,10 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					}
 					mISDNport = mISDNport->next;
 				}
-				if (cond->match == MATCH_FREE)
-				{
+				if (cond->match == MATCH_FREE) {
 					if (avail >= atoi(cond->string_value + comp_len + 1))
 						istrue = 1;
-				} else
-				{
+				} else {
 					if (avail < atoi(cond->string_value + comp_len + 1))
 						istrue = 1;
 				}
@@ -2202,8 +2001,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_DOWN:
 				mISDNport = mISDNport_first;
-				while(mISDNport)
-				{
+				while(mISDNport) {
 					if (mISDNport->ifport)
 					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
 					if (!mISDNport->l2hold || mISDNport->l2link>0)
@@ -2216,8 +2014,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_UP:
 				mISDNport = mISDNport_first;
-				while(mISDNport)
-				{
+				while(mISDNport) {
 					if (mISDNport->ifport)
 					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
 					if (!mISDNport->l2hold || mISDNport->l2link>0)
@@ -2233,8 +2030,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				case MATCH_IDLE:
 				any = 0;
 				mISDNport = mISDNport_first;
-				while(mISDNport)
-				{
+				while(mISDNport) {
 					if (mISDNport->ifport)
 					if (!strcasecmp(mISDNport->ifport->interface->name, cond->string_value)) 
 					if (mISDNport->use) /* break if in use */
@@ -2250,8 +2046,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				case MATCH_REMOTE:
 				case MATCH_NOTREMOTE:
 				admin = admin_first;
-				while(admin)
-				{
+				while(admin) {
 					if (admin->remote_name[0] && !strcmp(cond->string_value, admin->remote_name))
 						break;
 					admin = admin->next;
@@ -2267,18 +2062,15 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				match_integer:
-				if (cond->value_type == VALUE_TYPE_INTEGER)
-				{
+				if (cond->value_type == VALUE_TYPE_INTEGER) {
 					if (integer != cond->integer_value)
 						break;
 					istrue = 1;
 					break;
 				}
-				if (cond->value_type == VALUE_TYPE_INTEGER_RANGE)
-				{
+				if (cond->value_type == VALUE_TYPE_INTEGER_RANGE) {
 					/* check if negative range (2100 - 700 o'clock) */
-					if (cond->integer_value > cond->integer_value_to)
-					{
+					if (cond->integer_value > cond->integer_value_to) {
 						if (integer>=cond->integer_value && integer<=cond->integer_value_to)
 							istrue = 1;
 						break;
@@ -2297,23 +2089,18 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				match_string_prefix:
 				comp_len = strlen(cond->string_value); /* because we must reach value's length */
 				/* we must have greater or equal length to values */
-				if ((unsigned long)strlen(string) < comp_len)
-				{
+				if ((unsigned long)strlen(string) < comp_len) {
 					/* special case for unfinished dialing */
-					if (cond->match == MATCH_DIALING)
-					{
+					if (cond->match == MATCH_DIALING) {
 						couldbetrue = 1; /* could match */
 						comp_len = strlen(string);
-					} else
-					{
+					} else {
 						break;
 					}
 				}
 				/* on single string match */
-				if (cond->value_type == VALUE_TYPE_STRING)
-				{
-					if (!strncmp(string, cond->string_value, comp_len))
-					{
+				if (cond->value_type == VALUE_TYPE_STRING) {
+					if (!strncmp(string, cond->string_value, comp_len)) {
 						istrue = 1;
 						/* must be set for changing 'e_extdialing' */
 						if (cond->match == MATCH_DIALING)
@@ -2323,21 +2110,17 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					break;
 				}
 				/* on range match */
-				if (cond->value_type == VALUE_TYPE_STRING_RANGE)
-				{
+				if (cond->value_type == VALUE_TYPE_STRING_RANGE) {
 					/* check if negative range ("55"-"22") */
-					if (cond->comp_string > 0)
-					{
-						if (strncmp(string, cond->string_value, comp_len) >= 0)
-						{
+					if (cond->comp_string > 0) {
+						if (strncmp(string, cond->string_value, comp_len) >= 0) {
 							istrue = 1;
 							/* must be set for changing 'e_extdialing' */
 							if (cond->match == MATCH_DIALING)
 								dialing_required = comp_len;
 							break;
 						}
-						if (strncmp(string, cond->string_value_to, comp_len) <= 0)
-						{
+						if (strncmp(string, cond->string_value_to, comp_len) <= 0) {
 							/* must be set for changing 'e_extdialing' */
 							istrue = 1;
 							if (cond->match == MATCH_DIALING)
@@ -2366,11 +2149,9 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				condition = 2; /* element could match and other elements don't match, so condition could match */
 
 			/* if not matching or could match */
-			if (condition != 1)
-			{
+			if (condition != 1) {
 				/* if we have more values to check */
-				if (cond->value_extension && cond->next)
-				{
+				if (cond->value_extension && cond->next) {
 					cond = cond->next;
 					goto checkextension;
 				}
@@ -2385,16 +2166,14 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			cond = cond->next;
 		}
 		if (timeout>now_d && match==1) /* the matching rule with timeout in the future */
-		if (e_match_timeout<1 || timeout<e_match_timeout) /* first timeout or lower */
-		{
+		if (e_match_timeout<1 || timeout<e_match_timeout) { /* first timeout or lower */
 			/* set timeout in the furture */
 			e_match_timeout = timeout;
 			e_match_to_action = rule->action_first;
 			e_match_to_extdialing = e_dialinginfo.id + dialing_required;
 			match = 0; /* matches in the future */
 		}
-		if (match == 1)
-		{
+		if (match == 1) {
 			/* matching, we return first action */
 			action = rule->action_first;
 			e_match_timeout = 0; /* no timeout */
@@ -2402,8 +2181,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			e_extdialing = e_dialinginfo.id + dialing_required;
 			break;
 		}
-		if (match == 2)
-		{
+		if (match == 2) {
 			/* rule could match if more is dialed */
 			couldmatch = 1;
 		}
@@ -2419,8 +2197,7 @@ struct route_param *EndpointAppPBX::routeparam(struct route_action *action, unsi
 {
 	struct route_param *param = action->param_first;
 
-	while(param)
-	{
+	while(param) {
 		if (param->id == id)
 			break;
 		param = param->next;

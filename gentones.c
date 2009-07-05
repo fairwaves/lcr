@@ -91,16 +91,14 @@ unsigned char encode_isdn(short sample, char law)
 	int best_diff = 9999;
 
 	i=0;
-	while(i<256)
-	{
+	while(i<256) {
 		diff = (law=='u')?isdn_audio_ulaw_to_s16[i]:isdn_audio_alaw_to_s16[i]-sample;
 //printf("s16=%d sample%d diff=%d\n",isdn_audio_to_s16[i],sample,diff);
 		if (diff<0)
 			diff=0-diff;
 //printf("diff=%d\n",diff);
 
-		if (diff<best_diff || best<0)
-		{
+		if (diff<best_diff || best<0) {
 //printf("better %d\n",i);
 			best_diff=diff;
 			best=i;
@@ -117,8 +115,7 @@ void write_tone(FILE *fp,double t1,double t2,int length,int fade_in,int fade_out
 	int i;
 
 	i=0;
-	while(i<length)
-	{
+	while(i<length) {
 		if (i < fade_in)
 			fade=(double)i / (double)fade_in;
 		else	fade=1.0;
@@ -154,12 +151,10 @@ void write_wav(FILE *fp, char *wav, char law)
 	signed int size, chunk;
 	int gotfmt = 0, gotdata = 0;
 
-	if ((wfp=fopen(wav,"r")))
-	{
+	if ((wfp=fopen(wav,"r"))) {
 		fread(buffer,8,1,wfp);
 		size=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
-		if (!!strncmp((char *)buffer, "RIFF", 4))
-		{
+		if (!!strncmp((char *)buffer, "RIFF", 4)) {
 			fclose(wfp);
 			fprintf(stderr, "Error: %s is no riff file!\n", wav);
 			return;
@@ -167,16 +162,13 @@ void write_wav(FILE *fp, char *wav, char law)
 		printf("%c%c%c%c size=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],size);
 		fread(buffer,4,1,wfp);
 		size -= 4;
-		if (!!strncmp((char *)buffer, "WAVE", 4))
-		{
+		if (!!strncmp((char *)buffer, "WAVE", 4)) {
 			fclose(wfp);
 			fprintf(stderr, "Error: %s is no wave file!\n", wav);
 			return;
 		}
-		while(size > 0)
-		{
-			if (size>0 && size<8)
-			{
+		while(size > 0) {
+			if (size>0 && size<8) {
 				fclose(wfp);
 				fprintf(stderr, "Error: Remaining file size %d not large enough for next chunk.\n",size);
 				return;
@@ -185,38 +177,32 @@ void write_wav(FILE *fp, char *wav, char law)
 			chunk=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 //printf("DEBUG: size(%d) - (8+chunk(%d) = size(%d)\n", size, chunk, size-chunk-8);
 			size -= (8+chunk);
-			if (size < 0)
-			{
+			if (size < 0) {
 				fclose(wfp);
 				fprintf(stderr, "Error: Chunk '%c%c%c%c' is larger than remainig file size (length=%d)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
 				return;
 			}
 //			printf("%c%c%c%c lenght=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],chunk);
-			if (!strncmp((char *)buffer, "fmt ", 4))
-			{
-				if (chunk != 16)
-				{
+			if (!strncmp((char *)buffer, "fmt ", 4)) {
+				if (chunk != 16) {
 					fclose(wfp);
 					fprintf(stderr, "Error: Fmt chunk illegal size.\n");
 					return;
 				}
 				fread(buffer, chunk, 1, wfp);
 				fmt = (struct fmt *)buffer;
-				if (fmt->channels<1 || fmt->channels>2)
-				{
+				if (fmt->channels<1 || fmt->channels>2) {
 					fclose(wfp);
 					fprintf(stderr, "Error: Only support one or two channels file.\n");
 					return;
 				}
 				channels = fmt->channels;
 				printf("Channels: %d\n", channels);
-				if (fmt->sample_rate != 8000)
-				{
+				if (fmt->sample_rate != 8000) {
 					fprintf(stderr, "Warning: File has sample rate of %d.\n", fmt->sample_rate);
 				}
 				printf("Sample Rate: %d\n", fmt->sample_rate);
-				if (fmt->bits_sample!=8 && fmt->bits_sample!=16)
-				{
+				if (fmt->bits_sample!=8 && fmt->bits_sample!=16) {
 					fclose(wfp);
 					fprintf(stderr, "Error: File has neigher 8 nor 16 bit samples.\n");
 					return;
@@ -225,30 +211,24 @@ void write_wav(FILE *fp, char *wav, char law)
 				printf("Bit-Resolution: %d\n", bytes*16-16);
 				gotfmt = 1;
 			} else
-			if (!strncmp((char *)buffer, "data", 4))
-			{
-				if (!gotfmt)
-				{
+			if (!strncmp((char *)buffer, "data", 4)) {
+				if (!gotfmt) {
 					fclose(wfp);
 					fprintf(stderr, "Error: No fmt chunk fount in file.\n");
 					return;
 				}
 				printf("Length: %d samples (%d.%03d seconds)\n", chunk/bytes/channels, chunk/bytes/channels/8000, ((chunk/bytes/channels)%8000)*1000/8000);
 				i=0;
-				if (bytes==2 && channels==1)
-				{
-					while(i<chunk)
-					{
+				if (bytes==2 && channels==1) {
+					while(i<chunk) {
 						fread(buffer, 2, 1, wfp);
 						sample=(buffer[1]<<8) + (buffer[0]);
 						fputc(encode_isdn(sample, law),fp);
 						i+=2;
 					}
 				}
-				if (bytes==2 && channels==2)
-				{
-					while(i<chunk)
-					{
+				if (bytes==2 && channels==2) {
+					while(i<chunk) {
 						fread(buffer, 4, 1, wfp);
 						sample=(buffer[1]<<8) + (buffer[0]);
 						sample2=(buffer[3]<<8) + (buffer[2]);
@@ -257,20 +237,16 @@ void write_wav(FILE *fp, char *wav, char law)
 						i+=4;
 					}
 				}
-				if (bytes==1 && channels==1)
-				{
-					while(i<chunk)
-					{
+				if (bytes==1 && channels==1) {
+					while(i<chunk) {
 						fread(buffer, 1, 1, wfp);
 						sample=(buffer[0]<<8);
 						fputc(encode_isdn(sample, law),fp);
 						i+=1;
 					}
 				}
-				if (bytes==1 && channels==2)
-				{
-					while(i<chunk)
-					{
+				if (bytes==1 && channels==2) {
+					while(i<chunk) {
 						fread(buffer, 2, 1, wfp);
 						sample=(buffer[0]<<8);
 						sample2=(buffer[1]<<8);
@@ -280,11 +256,9 @@ void write_wav(FILE *fp, char *wav, char law)
 					}
 				}
 				gotdata = 1;
-			} else
-			{
+			} else {
 				printf("Ignoring chunk '%c%c%c%c' (length=%d)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
-				while(chunk > (signed int)sizeof(buffer))
-				{
+				while(chunk > (signed int)sizeof(buffer)) {
 					fread(buffer, sizeof(buffer), 1, wfp);
 					chunk -=  sizeof(buffer);
 				}
@@ -294,8 +268,7 @@ void write_wav(FILE *fp, char *wav, char law)
 			
 		}
 		fclose(wfp);
-		if (!gotdata)
-		{
+		if (!gotdata) {
 			fprintf(stderr, "Error: No data chunk fount in file.\n");
 			return;
 		}
@@ -306,8 +279,7 @@ int main(int argc, char *argv[])
 {
 	FILE *fp;
 
-	if (argc <= 1)
-	{
+	if (argc <= 1) {
 		usage:
 		printf("Usage:\n");
 		printf("%s wave2alaw <wav file> <alaw file>\n", argv[0]);
@@ -320,56 +292,44 @@ int main(int argc, char *argv[])
 		return(0);
 	}
 
-	if (!strcmp(argv[1], "wave2alaw"))
-	{
+	if (!strcmp(argv[1], "wave2alaw")) {
 		if (argc <= 3)
 			goto usage;
-		if ((fp=fopen(argv[3],"w")))
-		{
+		if ((fp=fopen(argv[3],"w"))) {
 			write_wav(fp,argv[2],'a');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open isdn file %s\n",argv[3]);
 		}
 	} else
-	if (!strcmp(argv[1], "wave2ulaw"))
-	{
+	if (!strcmp(argv[1], "wave2ulaw")) {
 		if (argc <= 3)
 			goto usage;
-		if ((fp=fopen(argv[3],"w")))
-		{
+		if ((fp=fopen(argv[3],"w"))) {
 			write_wav(fp,argv[2],'u');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open isdn file %s\n",argv[3]);
 		}
 	} else
-	if (!strcmp(argv[1], "tone2alaw"))
-	{
+	if (!strcmp(argv[1], "tone2alaw")) {
 		if (argc <= 7)
 			goto usage;
-		if ((fp=fopen(argv[7],"a")))
-		{
+		if ((fp=fopen(argv[7],"a"))) {
 			write_tone(fp,strtod(argv[2],NULL),strtod(argv[3],NULL),atoi(argv[4]),atoi(argv[5]),atoi(argv[6]),'a');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open isdn file %s\n",argv[7]);
 		}
 
 	} else
-	if (!strcmp(argv[1], "tone2ulaw"))
-	{
+	if (!strcmp(argv[1], "tone2ulaw")) {
 		if (argc <= 7)
 			goto usage;
-		if ((fp=fopen(argv[7],"a")))
-		{
+		if ((fp=fopen(argv[7],"a"))) {
 			write_tone(fp,atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),atoi(argv[5]),atoi(argv[6]),'u');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open isdn file %s\n",argv[7]);
 		}
 	} else

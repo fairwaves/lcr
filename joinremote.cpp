@@ -67,14 +67,12 @@ void JoinRemote::message_epoint(unsigned int epoint_id, int message_type, union 
 		return;
 	
 	/* look for Remote's interface */
-	if (admin_message_from_join(j_remote_id, j_serial, message_type, param)<0)
-	{
+	if (admin_message_from_join(j_remote_id, j_serial, message_type, param)<0) {
 		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote_name);
 		return;		
 	}
 
-	if (message_type == MESSAGE_RELEASE)
-	{
+	if (message_type == MESSAGE_RELEASE) {
 		delete this;
 		return;
 	}
@@ -85,8 +83,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	struct lcr_msg *message;
 
 	/* create relation if no relation exists */
-	if (!j_epoint_id)
-	{
+	if (!j_epoint_id) {
 		class Endpoint		*epoint;
 
 		if (!(epoint = new Endpoint(0, j_serial)))
@@ -98,8 +95,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 
 	/* set serial on bchannel message
 	 * also ref is given, so we send message with ref */
-	if (message_type == MESSAGE_BCHANNEL)
-	{
+	if (message_type == MESSAGE_BCHANNEL) {
 		message_bchannel_from_remote(this, param->bchannel.type, param->bchannel.handle);
 		return;
 	}
@@ -109,8 +105,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	memcpy(&message->param, param, sizeof(message->param));
 	message_put(message);
 
-	if (message_type == MESSAGE_RELEASE)
-	{
+	if (message_type == MESSAGE_RELEASE) {
 		delete this;
 		return;
 	}
@@ -130,8 +125,7 @@ void message_bchannel_to_remote(unsigned int remote_id, unsigned int ref, int ty
 	if (crypt_len)
 		memcpy(param.bchannel.crypt, crypt, crypt_len);
 	param.bchannel.crypt_type = crypt_type;
-	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0)
-	{
+	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0) {
 		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);
 		return;		
 	}

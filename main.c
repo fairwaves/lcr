@@ -63,8 +63,7 @@ void debug_usleep(int msec, const char *file, int line, int hour, int min, int s
 void debug(const char *function, int line, const char *prefix, char *buffer)
 {
 	/* if we have a new debug count, we add a mark */
-	if (last_debug != debug_count)
-	{
+	if (last_debug != debug_count) {
 		last_debug = debug_count;
 		if (!nooutput)
 			printf("\033[34m--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\033[36m\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
@@ -72,8 +71,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer)
 			fprintf(debug_fp, "--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
 	}
 
-	if (!nooutput)
-	{
+	if (!nooutput) {
 		if (debug_newline)
 			printf("\033[32m%06d %s\033[37m%s", debug_count%1000000, prefix?prefix:"", prefix?" ":"");
 		if (function)
@@ -82,10 +80,8 @@ void debug(const char *function, int line, const char *prefix, char *buffer)
 			printf("%s", buffer);
 	}
 
-	if (debug_fp)
-	{
-		if (debug_newline)
-		{
+	if (debug_fp) {
+		if (debug_newline) {
 			if (function)
 				fprintf(debug_fp, "%s%s(in %s() line %d): %s", prefix?prefix:"", prefix?" ":"", function, line, buffer);
 			else
@@ -133,8 +129,7 @@ void _printerror(const char *function, int line, const char *fmt, ...)
 
 	if (options.deb)
 		debug(function, line, "ERROR", buffer);
-	else /* only if we do not debug */
-	{
+	else { /* only if we do not debug */
 		if (function)
 			fprintf(stderr, "ERROR (in %s() line %d) %s", function, line, buffer);
 		else
@@ -153,12 +148,10 @@ void sighandler(int sigset)
 		return;
 	if (sigset == SIGPIPE)
 		return;
-	if (!quit)
-	{
+	if (!quit) {
 		quit = sigset;
 		/* set scheduler & priority */
-		if (options.schedule > 1)
-		{
+		if (options.schedule > 1) {
 			memset(&schedp, 0, sizeof(schedp));
 			schedp.sched_priority = 0;
 			sched_setscheduler(0, SCHED_OTHER, &schedp);
@@ -206,8 +199,7 @@ int main(int argc, char *argv[])
 	printf("\n** %s  Version %s\n\n", NAME, VERSION_STRING);
 
 	/* show options */
-	if (argc <= 1)
-	{
+	if (argc <= 1) {
 		usage:
 		printf("\n");
 		printf("Usage: lcr (query | start | fork | rules | route)\n");
@@ -227,36 +219,31 @@ int main(int argc, char *argv[])
 	crc_init();
 
 	/* the mutex init */
-	if (pthread_mutex_init(&mutexd, NULL))
-	{
+	if (pthread_mutex_init(&mutexd, NULL)) {
 		fprintf(stderr, "cannot create 'PDEBUG' mutex\n");
 		goto free;
 	}
 	created_mutexd = 1;
-//	if (pthread_mutex_init(&mutext, NULL))
-//	{
+//	if (pthread_mutex_init(&mutext, NULL)) {
 //		fprintf(stderr, "cannot create 'trace' mutex\n");
 //		goto free;
 //	}
 //	created_mutext = 1;
-	if (pthread_mutex_init(&mutexe, NULL))
-	{
+	if (pthread_mutex_init(&mutexe, NULL)) {
 		fprintf(stderr, "cannot create 'PERROR' mutex\n");
 		goto free;
 	}
 	created_mutexe = 1;
 
 	/* show interface */
-	if (!(strcasecmp(argv[1],"interface")))
-	{
+	if (!(strcasecmp(argv[1],"interface"))) {
 		doc_interface();
 		ret = 0;
 		goto free;
 	}
 
 	/* show rules */
-	if (!(strcasecmp(argv[1],"rules")))
-	{
+	if (!(strcasecmp(argv[1],"rules"))) {
 		if (argc <= 2)
 			doc_rules(NULL);
 		else
@@ -266,8 +253,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* query available isdn ports */
-	if (!(strcasecmp(argv[1],"query")))
-	{
+	if (!(strcasecmp(argv[1],"query"))) {
 		fprintf(stderr, "-> Using 'misdn_info'\n");
 		system("misdn_info");
 		ret = 0;
@@ -275,8 +261,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* read options */
-	if (read_options() == 0)
-	{
+	if (read_options() == 0) {
 		PERROR("%s", options_error);
 		goto free;
 	}
@@ -293,8 +278,7 @@ int main(int argc, char *argv[])
 
 	/* set pointer to main ruleset */
 	ruleset_main = getrulesetbyname("main");
-	if (!ruleset_main)
-	{
+	if (!ruleset_main) {
 		fprintf(stderr, "\n***\n -> Missing 'main' ruleset, causing ALL calls to be disconnected.\n***\n\n");
 		PDEBUG(DEBUG_LOG, "Missing 'main' ruleset, causing ALL calls to be disconnected.\n");
 		sleep(2);
@@ -302,8 +286,7 @@ int main(int argc, char *argv[])
 
 #if 0
 	/* query available isdn ports */
-	if (!(strcasecmp(argv[1],"route")))
-	{
+	if (!(strcasecmp(argv[1],"route"))) {
 		ruleset_debug(ruleset_first);
 		ret = 0;
 		goto free;
@@ -311,21 +294,18 @@ int main(int argc, char *argv[])
 #endif
 
 	/* do fork in special cases */
-	if (!(strcasecmp(argv[1],"fork")))
-	{
+	if (!(strcasecmp(argv[1],"fork"))) {
 		pid_t pid;
 		FILE *pidfile;
 
 		/* do daemon fork */
 		pid = fork();
 
-		if (pid < 0)
-		{
+		if (pid < 0) {
 			fprintf(stderr, "Cannot fork!\n");
 			goto free;
 		}
-		if (pid != 0)
-		{
+		if (pid != 0) {
 			exit(0);
 		}
 		usleep(200000);
@@ -334,13 +314,11 @@ int main(int argc, char *argv[])
 		/* do second fork */
 		pid = fork();
 
-		if (pid < 0)
-		{
+		if (pid < 0) {
 			fprintf(stderr, "Cannot fork!\n");
 			goto free;
 		}
-		if (pid != 0)
-		{
+		if (pid != 0) {
 			printf("LCR: Starting daemon.\n");
 			exit(0);
 		}
@@ -348,28 +326,24 @@ int main(int argc, char *argv[])
 
 		/* write pid file */
 		pidfile = fopen("/var/run/lcr.pid","w");
-		if (pidfile)
-		{
+		if (pidfile) {
 			fprintf(pidfile, "%d\n", getpid());
 			fclose(pidfile);
 		}
 	} else
 	/* if not start */
-	if (!!strcasecmp(argv[1],"start"))
-	{
+	if (!!strcasecmp(argv[1],"start")) {
 		goto usage;
 	}
 
 	/* create lock and lock! */
 	SPRINT(lock, "%s/lcr.lock", options.lock);
-	if ((lockfd = open(lock, O_CREAT | O_WRONLY, S_IWUSR)) < 0)
-	{
+	if ((lockfd = open(lock, O_CREAT | O_WRONLY, S_IWUSR)) < 0) {
 		fprintf(stderr, "Cannot create lock file: %s\n", lock);
 		fprintf(stderr, "Check options.conf to change to path with permissions for you.\n");
 		goto free;
 	}
-	if (flock(lockfd, LOCK_EX|LOCK_NB) < 0)
-	{
+	if (flock(lockfd, LOCK_EX|LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK)
 			fprintf(stderr, "LCR: Another LCR process is running. Please kill the other one.\n");
 		else	fprintf(stderr, "Locking process failed: errno=%d\n", errno);
@@ -378,8 +352,7 @@ int main(int argc, char *argv[])
 	created_lock = 1;
 
 	/* initialize admin socket */
-	if (admin_init())
-	{
+	if (admin_init()) {
 		fprintf(stderr, "Unable to initialize admin socket.\n");
 		goto free;
 	}
@@ -388,30 +361,26 @@ int main(int argc, char *argv[])
 	generate_tables(options.law);
 
 	/* load tones (if requested) */
-	if (fetch_tones() == 0)
-	{
+	if (fetch_tones() == 0) {
 		fprintf(stderr, "Unable to fetch tones into memory.\n");
 		goto free;
 	}
 
 #ifdef WITH_GSM
 	/* handle gsm */
-	if (options.gsm && gsm_init())
-	{
+	if (options.gsm && gsm_init()) {
 		fprintf(stderr, "GSM initialization failed.\n");
 		goto free;
 	}
 #else
-	if (options.gsm)
-	{
+	if (options.gsm) {
 		fprintf(stderr, "GSM is enabled, but not compiled. Use --with-gsm while configure!\n");
 		goto free;
 	}
 #endif
 
 	/* read interfaces and open ports */
-	if (!read_interfaces())
-	{
+	if (!read_interfaces()) {
 		PERROR_RUNTIME("No interfaces specified or failed to parse interface.conf.\n");
 		fprintf(stderr, "No interfaces specified or failed to parse interface.conf.\n");
 		goto free;
@@ -422,17 +391,14 @@ int main(int argc, char *argv[])
 	
 	/* locking memory paging */
 	i = 0;
-	while(i < 10)
-	{
+	while(i < 10) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE) >= 0)
 			break;
 		usleep(200000);
 		i++;
 	}
-	if (i == 10)
-	{
-		switch(errno)
-		{
+	if (i == 10) {
+		switch(errno) {
 			case ENOMEM:
 			fprintf(stderr, "Warning: Not enough memory to lock paging.\n");
 			break;
@@ -448,13 +414,11 @@ int main(int argc, char *argv[])
 	}
 
 	/* set real time scheduler & priority */
-	if (options.schedule > 1)
-	{
+	if (options.schedule > 1) {
 		memset(&schedp, 0, sizeof(schedp));
 		schedp.sched_priority = options.schedule;
 		ret = sched_setscheduler(0, SCHED_RR, &schedp);
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			PERROR("Scheduling failed with given priority %d (errno = %d).\nCheck options.conf 'schedule', exitting...\n", options.schedule, errno);
 			goto free;
 		}
@@ -474,13 +438,11 @@ int main(int argc, char *argv[])
 	end_trace();
 	GET_NOW();
 	quit = 0;
-	while(!quit)
-	{
+	while(!quit) {
 
 		last_d = now_d;
 		GET_NOW();
-		if (now_d-last_d > 1.0)
-		{
+		if (now_d-last_d > 1.0) {
 			PERROR("LCR was stalling %d.%d seconds\n", ((int)((now_d-last_d)*10.0))/10, (int)((now_d-last_d)*10.0));
 		}
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
@@ -501,8 +463,7 @@ BUDETECT
 		/* loop through all port ports and call their handler */
 		port_again:
 		port = port_first;
-		while(port)
-		{
+		while(port) {
 			debug_prefix = port->p_name;
 			debug_count++;
 			ret = port->handler();
@@ -516,8 +477,7 @@ BUDETECT
 		/* loop through all epoint and call their handler */
 		epoint_again:
 		epoint = epoint_first;
-		while(epoint)
-		{
+		while(epoint) {
 			debug_prefix = prefix_string;
 			SPRINT(prefix_string, "ep%ld", epoint->ep_serial);
 			debug_count++;
@@ -532,8 +492,7 @@ BUDETECT
 		/* loop through all joins and call their handler */
 		join_again:
 		join = join_first;
-		while(join)
-		{
+		while(join) {
 			debug_prefix = "join";
 			debug_count++;
 			ret = join->handler();
@@ -549,25 +508,19 @@ BUDETECT
 		/* process any message */
 		debug_count++;
 		debug_prefix = "message";
-		while ((message = message_get()))
-		{
+		while ((message = message_get())) {
 			all_idle = 0;
-			switch(message->flow)
-			{
+			switch(message->flow) {
 				case PORT_TO_EPOINT:
 				debug_prefix = "msg port->epoint";
 				epoint = find_epoint_id(message->id_to);
-				if (epoint)
-				{
-					if (epoint->ep_app)
-					{
+				if (epoint) {
+					if (epoint->ep_app) {
 						epoint->ep_app->ea_message_port(message->id_from, message->type, &message->param);
-					} else
-					{
+					} else {
 						PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
 					}
-				} else
-				{
+				} else {
 					PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
@@ -575,11 +528,9 @@ BUDETECT
 				case EPOINT_TO_JOIN:
 				debug_prefix = "msg epoint->join";
 				join = find_join_id(message->id_to);
-				if (join)
-				{
+				if (join) {
 					join->message_epoint(message->id_from, message->type, &message->param);
-				} else
-				{
+				} else {
 					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to join %d. join doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
@@ -587,17 +538,13 @@ BUDETECT
 				case JOIN_TO_EPOINT:
 				debug_prefix = "msg join->epoint";
 				epoint = find_epoint_id(message->id_to);
-				if (epoint)
-				{
-					if (epoint->ep_app)
-					{
+				if (epoint) {
+					if (epoint->ep_app) {
 						epoint->ep_app->ea_message_join(message->id_from, message->type, &message->param);
-					} else
-					{
+					} else {
 						PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
 					}
-				} else
-				{
+				} else {
 					PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
@@ -605,12 +552,10 @@ BUDETECT
 				case EPOINT_TO_PORT:
 				debug_prefix = "msg epoint->port";
 				port = find_port_id(message->id_to);
-				if (port)
-				{
+				if (port) {
 					port->message_epoint(message->id_from, message->type, &message->param);
 BUDETECT
-				} else
-				{
+				} else {
 					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to port %d. port doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
 				}
 				break;
@@ -640,8 +585,7 @@ BUDETECT
 
 #if 0
 		/* check for child to exit (eliminate zombies) */
-		if (waitpid(-1, NULL, WNOHANG) > 0)
-		{
+		if (waitpid(-1, NULL, WNOHANG) > 0) {
 			PDEBUG(DEBUG_EPOINT, "a child process (created by endpoint) has exitted.\n");
 			all_idle = 0;
 		}
@@ -650,16 +594,14 @@ BUDETECT
 //		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 
 		/* do idle checking */
-		if (idlecheck != now)
-		{
+		if (idlecheck != now) {
 			PDEBUG(DEBUG_IDLETIME, "Idle time : %d%%\n", idletime/10000);
 			idletime = 0;
 			idlecheck = now;
 		}
 
 		/* did we do nothing? so we wait to give time to other processes */
-		if (all_idle)
-		{
+		if (all_idle) {
 //			pthread_mutex_unlock(&mutex_lcr); // unlock LCR
 			debug_usleep(4000, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
 //			pthread_mutex_lock(&mutex_lcr); // lock LCR
@@ -680,15 +622,13 @@ free:
 
 	/* set scheduler & priority
 	 */
-	if (options.schedule > 1)
-	{
+	if (options.schedule > 1) {
 		memset(&schedp, 0, sizeof(schedp));
 		schedp.sched_priority = options.schedule;
 		sched_setscheduler(0, SCHED_OTHER, &schedp);
 	}
 	/* reset signals */
-	if (created_signal)
-	{
+	if (created_signal) {
 		signal(SIGINT,SIG_DFL);
 		signal(SIGHUP,SIG_DFL);
 		signal(SIGTERM,SIG_DFL);
@@ -698,13 +638,11 @@ free:
 	/* destroy objects */
 	debug_prefix = "free";
 
-	while(port_first)
-	{
+	while(port_first) {
 		debug_count++;
 		delete port_first;
 	}
-	while(epoint_first)
-	{
+	while(epoint_first) {
 		debug_count++;
 		delete epoint_first;
 	}
@@ -723,13 +661,11 @@ free:
 	/* flush messages */
 	debug_count++;
 	i = 0;
-	while ((message = message_get()))
-	{
+	while ((message = message_get())) {
 		i++;
 		message_free(message);
 	}
-	if (i)
-	{
+	if (i) {
 		PDEBUG(DEBUG_MSG, "freed %d pending messages\n", i);
 	}
 
@@ -743,8 +679,7 @@ free:
 	/* close lock */
 	if (created_lock)
 		flock(lockfd, LOCK_UN);
-	if (lockfd >= 0)
-	{
+	if (lockfd >= 0) {
 		chmod(lock, 0700);
 		unlink(lock);
 		close(lockfd);
@@ -778,8 +713,7 @@ free:
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \
-	if (b) \
-	{ \
+	if (b) { \
 		SPRINT(tracetext, a, NAME); \
 		start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext); \
 		if (ret) add_trace("blocks", NULL, "%d", b); \
@@ -823,22 +757,16 @@ void budetect(const char *file, int line, const char *function)
 	struct mISDNport *mISDNport = mISDNport_first;
 	int i, ii;
 
-	while(mISDNport)
-	{
+	while(mISDNport) {
 		i = 0;
 		ii = mISDNport->b_num;
-		while(i < ii)
-		{
-			if (mISDNport->b_port[i])
-			{
+		while(i < ii) {
+			if (mISDNport->b_port[i]) {
 				port = port_first;
-				while(port)
-				{
-					if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_ISDN)
-					{
+				while(port) {
+					if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_ISDN) {
 						pmisdn = (class PmISDN *)port;
-						if (pmisdn->p_isdn_crypt_listen)
-						{
+						if (pmisdn->p_isdn_crypt_listen) {
 							PERROR_RUNTIME("************************************************\n");
 							PERROR_RUNTIME("** BUG detected in %s, line %d, function %s\n", file, line, function);
 							PERROR_RUNTIME("** p_isdn_crypt_listen = %d\n", pmisdn->p_isdn_crypt_listen);
@@ -849,8 +777,7 @@ void budetect(const char *file, int line, const char *function)
 					if (port == mISDNport->b_port[i])
 						break;
 					port = port->next;
-					if (!port)
-					{
+					if (!port) {
 						PERROR_RUNTIME("************************************************\n");
 						PERROR_RUNTIME("** BUG detected in %s, line %d, function %s\n", file, line, function);
 						PERROR_RUNTIME("** b_port not in list.\n");

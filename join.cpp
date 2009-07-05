@@ -27,8 +27,7 @@ class Join *find_join_id(unsigned int join_id)
 {
 	class Join *join = join_first;
 
-	while(join)
-	{
+	while(join) {
 //printf("comparing: '%s' with '%s'\n", name, join->j_name);
 		if (join->j_serial == join_id)
 			return(join);
@@ -71,8 +70,7 @@ Join::~Join()
 
 	cl = join_first;
 	clp = &join_first;
-	while(cl)
-	{
+	while(cl) {
 		if (cl == this)
 			break;
 		clp = &cl->next;
@@ -106,15 +104,12 @@ int Join::handler(void)
 void join_free(void)
 {
 
-	if (!join_first)
-	{
+	if (!join_first) {
 		PDEBUG(DEBUG_JOIN, "no more pending join(s), done!\n");
 		return;
 	}
-	while(join_first)
-	{
-		if (options.deb & DEBUG_JOIN)
-		{
+	while(join_first) {
+		if (options.deb & DEBUG_JOIN) {
 			PDEBUG(DEBUG_JOIN, "freeing pending join\n");
 		}
 

@@ -29,14 +29,12 @@ static void strnncpy(unsigned char *dest, unsigned char *src, int len, int dst_l
 void Pdss1::enc_ie_complete(struct l3_msg *l3m, int complete)
 {
 
-	if (complete<0 || complete>1)
-	{
+	if (complete<0 || complete>1) {
 		PERROR("complete(%d) is out of range.\n", complete);
 		return;
 	}
 
-	if (complete)
-	{
+	if (complete) {
 		add_trace("complete", NULL, NULL);
 		l3m->sending_complete++;
 	}
@@ -61,38 +59,31 @@ void Pdss1::enc_ie_bearer(struct l3_msg *l3m, int coding, int capability, int mo
 	unsigned char p[256];
 	int l;
 
-	if (coding<0 || coding>3)
-	{
+	if (coding<0 || coding>3) {
 		PERROR("coding(%d) is out of range.\n", coding);
 		return;
 	}
-	if (capability<0 || capability>31)
-	{
+	if (capability<0 || capability>31) {
 		PERROR("capability(%d) is out of range.\n", capability);
 		return;
 	}
-	if (mode<0 || mode>3)
-	{
+	if (mode<0 || mode>3) {
 		PERROR("mode(%d) is out of range.\n", mode);
 		return;
 	}
-	if (rate<0 || rate>31)
-	{
+	if (rate<0 || rate>31) {
 		PERROR("rate(%d) is out of range.\n", rate);
 		return;
 	}
-	if (multi>127)
-	{
+	if (multi>127) {
 		PERROR("multi(%d) is out of range.\n", multi);
 		return;
 	}
-	if (user>31)
-	{
+	if (user>31) {
 		PERROR("user L1(%d) is out of range.\n", user);
 		return;
 	}
-	if (rate!=24 && multi>=0)
-	{
+	if (rate!=24 && multi>=0) {
 		PERROR("multi(%d) is only possible if rate(%d) would be 24.\n", multi, rate);
 		multi = -1;
 	}
@@ -128,26 +119,22 @@ void Pdss1::dec_ie_bearer(struct l3_msg *l3m, int *coding, int *capability, int 
 	unsigned char *p = l3m->bearer_capability;
 	if (!p)
 		return;
-	if (p[0] < 2)
-	{
+	if (p[0] < 2) {
 		add_trace("bearer", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*coding = (p[1]&0x60) >> 5;
 	*capability = p[1] & 0x1f;
-	if (p[0]>=2)
-	{
+	if (p[0]>=2) {
 		*mode = (p[2]&0x60) >> 5;
 		*rate = p[2] & 0x1f;
 	}
-	if (p[0]>=3 && *rate==0x18)
-	{
+	if (p[0]>=3 && *rate==0x18) {
 		*multi = p[3] & 0x7f;
 		if (p[0]>=4)
 			*user = p[4] & 0x1f;
-	} else
-	{
+	} else {
 		if (p[0]>=3)
 			*user = p[3] & 0x1f;
 	}
@@ -167,28 +154,23 @@ void Pdss1::enc_ie_hlc(struct l3_msg *l3m, int coding, int interpretation, int p
 	unsigned char p[256];
 	int l;
 
-	if (coding<0 || coding>3)
-	{
+	if (coding<0 || coding>3) {
 		PERROR("coding(%d) is out of range.\n", coding);
 		return;
 	}
-	if (interpretation<0 || interpretation>7)
-	{
+	if (interpretation<0 || interpretation>7) {
 		PERROR("interpretation(%d) is out of range.\n", interpretation);
 		return;
 	}
-	if (presentation<0 || presentation>3)
-	{
+	if (presentation<0 || presentation>3) {
 		PERROR("presentation(%d) is out of range.\n", presentation);
 		return;
 	}
-	if (hlc<0 || hlc>127)
-	{
+	if (hlc<0 || hlc>127) {
 		PERROR("hlc(%d) is out of range.\n", hlc);
 		return;
 	}
-	if (exthlc>127)
-	{
+	if (exthlc>127) {
 		PERROR("hlc(%d) is out of range.\n", exthlc);
 		return;
 	}
@@ -204,8 +186,7 @@ void Pdss1::enc_ie_hlc(struct l3_msg *l3m, int coding, int interpretation, int p
 	p[0] = IE_HLC;
 	p[1] = l;
 	p[2] = 0x80 + (coding<<5) + (interpretation<<2) + presentation;
-	if (exthlc >= 0)
-	{
+	if (exthlc >= 0) {
 		p[3] = hlc;
 		p[4] = 0x80 + exthlc;
 	} else
@@ -224,8 +205,7 @@ void Pdss1::dec_ie_hlc(struct l3_msg *l3m, int *coding, int *interpretation, int
 	unsigned char *p = l3m->hlc;
 	if (!p)
 		return;
-	if (p[0] < 2)
-	{
+	if (p[0] < 2) {
 		add_trace("hlc", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -234,8 +214,7 @@ void Pdss1::dec_ie_hlc(struct l3_msg *l3m, int *coding, int *interpretation, int
 	*interpretation = (p[1]&0x1c) >> 2;
 	*presentation = p[1] & 0x03;
 	*hlc = p[2] & 0x7f;
-	if (p[0]>=3)
-	{
+	if (p[0]>=3) {
 		*exthlc = p[3] & 0x7f;
 	}
 
@@ -257,19 +236,16 @@ void Pdss1::enc_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int callid
 	char buffer[25];
 	int i;
 
-	if (!callid || callid_len<=0)
-	{
+	if (!callid || callid_len<=0) {
 		return;
 	}
-	if (callid_len > 8)
-	{
+	if (callid_len > 8) {
 		PERROR("callid_len(%d) is out of range.\n", callid_len);
 		return;
 	}
 
 	i = 0;
-	while(i < callid_len)
-	{
+	while(i < callid_len) {
 		UPRINT(buffer+(i*3), " %02x", callid[i]);
 		i++;
 	}
@@ -293,8 +269,7 @@ void Pdss1::dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *calli
 	unsigned char *p = l3m->call_id;
 	if (!p)
 		return;
-	if (p[0] > 8)
-	{
+	if (p[0] > 8) {
 		add_trace("callid", "error", "IE too long (len=%d)", p[0]);
 		return;
 	}
@@ -303,8 +278,7 @@ void Pdss1::dec_ie_call_id(struct l3_msg *l3m, unsigned char *callid, int *calli
 	memcpy(callid, p+1, *callid_len);
 
 	i = 0;
-	while(i < *callid_len)
-	{
+	while(i < *callid_len) {
 		UPRINT(buffer+(i*3), " %02x", callid[i]);
 		i++;
 	}
@@ -319,18 +293,15 @@ void Pdss1::enc_ie_called_pn(struct l3_msg *l3m, int type, int plan, unsigned ch
 	unsigned char p[256];
 	int l;
 
-	if (type<0 || type>7)
-	{
+	if (type<0 || type>7) {
 		PERROR("type(%d) is out of range.\n", type);
 		return;
 	}
-	if (plan<0 || plan>15)
-	{
+	if (plan<0 || plan>15) {
 		PERROR("plan(%d) is out of range.\n", plan);
 		return;
 	}
-	if (!number[0])
-	{
+	if (!number[0]) {
 		PERROR("number is not given.\n");
 		return;
 	}
@@ -358,8 +329,7 @@ void Pdss1::dec_ie_called_pn(struct l3_msg *l3m, int *type, int *plan, unsigned 
 	unsigned char *p = l3m->called_nr;
 	if (!p)
 		return;
-	if (p[0] < 2)
-	{
+	if (p[0] < 2) {
 		add_trace("called_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -380,23 +350,19 @@ void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int presen
 	unsigned char p[256];
 	int l;
 
-	if (type<0 || type>7)
-	{
+	if (type<0 || type>7) {
 		PERROR("type(%d) is out of range.\n", type);
 		return;
 	}
-	if (plan<0 || plan>15)
-	{
+	if (plan<0 || plan>15) {
 		PERROR("plan(%d) is out of range.\n", plan);
 		return;
 	}
-	if (present>3)
-	{
+	if (present>3) {
 		PERROR("present(%d) is out of range.\n", present);
 		return;
 	}
-	if (present >= 0) if (screen<0 || screen>3)
-	{
+	if (present >= 0) if (screen<0 || screen>3) {
 		PERROR("screen(%d) is out of range.\n", screen);
 		return;
 	}
@@ -414,14 +380,12 @@ void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int presen
 		l += 1;
 	p[0] = IE_CALLING_PN;
 	p[1] = l;
-	if (present >= 0)
-	{
+	if (present >= 0) {
 		p[2] = 0x00 + (type<<4) + plan;
 		p[3] = 0x80 + (present<<5) + screen;
 		if (number) if (number[0])
 			UNCPY((char *)p+4, (char *)number, strlen((char *)number));
-	} else
-	{
+	} else {
 		p[2] = 0x80 + (type<<4) + plan;
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
@@ -432,23 +396,19 @@ void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int presen
 	if (type2 < 0)
 		return;
 	
-	if (type2>7)
-	{
+	if (type2>7) {
 		PERROR("type2(%d) is out of range.\n", type2);
 		return;
 	}
-	if (plan2<0 || plan2>15)
-	{
+	if (plan2<0 || plan2>15) {
 		PERROR("plan2(%d) is out of range.\n", plan2);
 		return;
 	}
-	if (present2>3)
-	{
+	if (present2>3) {
 		PERROR("present2(%d) is out of range.\n", present2);
 		return;
 	}
-	if (present2 >= 0) if (screen2<0 || screen2>3)
-	{
+	if (present2 >= 0) if (screen2<0 || screen2>3) {
 		PERROR("screen2(%d) is out of range.\n", screen2);
 		return;
 	}
@@ -466,14 +426,12 @@ void Pdss1::enc_ie_calling_pn(struct l3_msg *l3m, int type, int plan, int presen
 		l += 1;
 	p[0] = IE_CALLING_PN;
 	p[1] = l;
-	if (present2 >= 0)
-	{
+	if (present2 >= 0) {
 		p[2] = 0x00 + (type2<<4) + plan2;
 		p[3] = 0x80 + (present2<<5) + screen2;
 		if (number2) if (number2[0])
 			UNCPY((char *)p+4, (char *)number2, strlen((char *)number2));
-	} else
-	{
+	} else {
 		p[2] = 0x80 + (type2<<4) + plan2;
 		if (number2) if (number2[0])
 			UNCPY((char *)p+3, (char *)number2, strlen((char *)number2));
@@ -499,26 +457,22 @@ void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *pre
 	unsigned char *p = l3m->calling_nr;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("calling_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*type = (p[1]&0x70) >> 4;
 	*plan = p[1] & 0xf;
-	if (!(p[1] & 0x80))
-	{
-		if (p[0] < 2)
-		{
+	if (!(p[1] & 0x80)) {
+		if (p[0] < 2) {
 			add_trace("calling_pn", "error", "IE too short (len=%d)", p[0]);
 			return;
 		}
 		*present = (p[2]&0x60) >> 5;
 		*screen = p[2] & 0x3;
 		strnncpy(number, p+3, p[0]-2, number_len);
-	} else
-	{
+	} else {
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
@@ -531,12 +485,10 @@ void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *pre
 	/* second calling party number */
 	p = NULL;
 	i = 0;
-	while(i < numextra)
-	{
+	while(i < numextra) {
 		if (!l3m->extra[i].val)
 			break;
-		if (l3m->extra[i].ie == IE_CALLING_PN)
-		{
+		if (l3m->extra[i].ie == IE_CALLING_PN) {
 			p = l3m->extra[i].val;
 			break;
 		}
@@ -544,26 +496,22 @@ void Pdss1::dec_ie_calling_pn(struct l3_msg *l3m, int *type, int *plan, int *pre
 	}
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("calling_pn2", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*type2 = (p[1]&0x70) >> 4;
 	*plan2 = p[1] & 0xf;
-	if (!(p[1] & 0x80))
-	{
-		if (p[0] < 2)
-		{
+	if (!(p[1] & 0x80)) {
+		if (p[0] < 2) {
 			add_trace("calling_pn2", "error", "IE too short (len=%d)", p[0]);
 			return;
 		}
 		*present2 = (p[2]&0x60) >> 5;
 		*screen2 = p[2] & 0x3;
 		strnncpy(number2, p+3, p[0]-2, number_len2);
-	} else
-	{
+	} else {
 		strnncpy(number2, p+2, p[0]-1, number_len2);
 	}
 
@@ -581,23 +529,19 @@ void Pdss1::enc_ie_connected_pn(struct l3_msg *l3m, int type, int plan, int pres
 	unsigned char p[256];
 	int l;
 
-	if (type<0 || type>7)
-	{
+	if (type<0 || type>7) {
 		PERROR("type(%d) is out of range.\n", type);
 		return;
 	}
-	if (plan<0 || plan>15)
-	{
+	if (plan<0 || plan>15) {
 		PERROR("plan(%d) is out of range.\n", plan);
 		return;
 	}
-	if (present>3)
-	{
+	if (present>3) {
 		PERROR("present(%d) is out of range.\n", present);
 		return;
 	}
-	if (present >= 0) if (screen<0 || screen>3)
-	{
+	if (present >= 0) if (screen<0 || screen>3) {
 		PERROR("screen(%d) is out of range.\n", screen);
 		return;
 	}
@@ -615,14 +559,12 @@ void Pdss1::enc_ie_connected_pn(struct l3_msg *l3m, int type, int plan, int pres
 		l += 1;
 	p[0] = IE_CONNECT_PN;
 	p[1] = l;
-	if (present >= 0)
-	{
+	if (present >= 0) {
 		p[2] = 0x00 + (type<<4) + plan;
 		p[3] = 0x80 + (present<<5) + screen;
 		if (number) if (number[0])
 			UNCPY((char *)p+4, (char *)number, strlen((char *)number));
-	} else
-	{
+	} else {
 		p[2] = 0x80 + (type<<4) + plan;
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
@@ -641,26 +583,22 @@ void Pdss1::dec_ie_connected_pn(struct l3_msg *l3m, int *type, int *plan, int *p
 	unsigned char *p = l3m->connected_nr;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("connect_pn", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*type = (p[1]&0x70) >> 4;
 	*plan = p[1] & 0xf;
-	if (!(p[1] & 0x80))
-	{
-		if (p[0] < 2)
-		{
+	if (!(p[1] & 0x80)) {
+		if (p[0] < 2) {
 			add_trace("connect_pn", "error", "IE too short (len=%d)", p[0]);
 			return;
 		}
 		*present = (p[2]&0x60) >> 5;
 		*screen = p[2] & 0x3;
 		strnncpy(number, p+3, p[0]-2, number_len);
-	} else
-	{
+	} else {
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
@@ -678,13 +616,11 @@ void Pdss1::enc_ie_cause(struct l3_msg *l3m, int location, int cause)
 	unsigned char p[256];
 	int l;
 
-	if (location<0 || location>7)
-	{
+	if (location<0 || location>7) {
 		PERROR("location(%d) is out of range.\n", location);
 		return;
 	}
-	if (cause<0 || cause>127)
-	{
+	if (cause<0 || cause>127) {
 		PERROR("cause(%d) is out of range.\n", cause);
 		return;
 	}
@@ -718,8 +654,7 @@ void Pdss1::dec_ie_cause(struct l3_msg *l3m, int *location, int *cause)
 	unsigned char *p = l3m->cause;
 	if (!p)
 		return;
-	if (p[0] < 2)
-	{
+	if (p[0] < 2) {
 		add_trace("cause", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -739,23 +674,20 @@ void Pdss1::enc_ie_channel_id(struct l3_msg *l3m, int exclusive, int channel)
 	int l;
 	int pri = p_m_mISDNport->pri;
 
-	if (exclusive<0 || exclusive>1)
-	{
+	if (exclusive<0 || exclusive>1) {
 		PERROR("exclusive(%d) is out of range.\n", exclusive);
 		return;
 	}
 	if ((channel<=0 && channel!=CHANNEL_NO && channel!=CHANNEL_ANY)
 	 || (!pri && channel>2)
 	 || (pri && channel>127)
-	 || (pri && channel==16))
-	{
+	 || (pri && channel==16)) {
 		PERROR("channel(%d) is out of range.\n", channel);
 		return;
 	}
 
 	add_trace("channel_id", "exclusive", "%d", exclusive);
-	switch(channel)
-	{
+	switch(channel) {
 		case CHANNEL_ANY:
 		add_trace("channel_id", "channel", "any channel");
 		break;
@@ -766,8 +698,7 @@ void Pdss1::enc_ie_channel_id(struct l3_msg *l3m, int exclusive, int channel)
 		add_trace("channel_id", "channel", "%d", channel);
 	}
 
-	if (!pri)
-	{
+	if (!pri) {
 		/* BRI */
 		l = 1;
 		p[0] = IE_CHANNEL_ID;
@@ -778,13 +709,11 @@ void Pdss1::enc_ie_channel_id(struct l3_msg *l3m, int exclusive, int channel)
 			channel = 3;
 		p[2] = 0x80 + (exclusive<<3) + channel;
 		add_layer3_ie(l3m, p[0], p[1], p+2);
-	} else
-	{
+	} else {
 		/* PRI */
 		if (channel == CHANNEL_NO) /* no channel */
 			return; /* IE not present */
-		if (channel == CHANNEL_ANY) /* any channel */
-		{
+		if (channel == CHANNEL_ANY) /* any channel */ {
 			l = 1;
 			p[0] = IE_CHANNEL_ID;
 			p[1] = l;
@@ -812,29 +741,24 @@ void Pdss1::dec_ie_channel_id(struct l3_msg *l3m, int *exclusive, int *channel)
 	unsigned char *p = l3m->channel_id;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("channel_id", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
-	if (p[1] & 0x40)
-	{
+	if (p[1] & 0x40) {
 		add_trace("channel_id", "error", "refering to channels of other interfaces is not supported");
 		return;
 	}
-	if (p[1] & 0x04)
-	{
+	if (p[1] & 0x04) {
 		add_trace("channel_id", "error", "using d-channel is not supported");
 		return;
 	}
 
 	*exclusive = (p[1]&0x08) >> 3;
-	if (!pri)
-	{
+	if (!pri) {
 		/* BRI */
-		if (p[1] & 0x20)
-		{
+		if (p[1] & 0x20) {
 			add_trace("channel_id", "error", "extended channel ID with non PRI interface");
 			return;
 		}
@@ -843,53 +767,44 @@ void Pdss1::dec_ie_channel_id(struct l3_msg *l3m, int *exclusive, int *channel)
 			*channel = CHANNEL_ANY;
 		else if (*channel == 0)
 			*channel = CHANNEL_NO;
-	} else
-	{
+	} else {
 		/* PRI */
-		if (p[0] < 1)
-		{
+		if (p[0] < 1) {
 
 			add_trace("channel_id", "error", "IE too short for PRI (len=%d)", p[0]);
 			return;
 		}
-		if (!(p[1] & 0x20))
-		{
+		if (!(p[1] & 0x20)) {
 			add_trace("channel_id", "error", "basic channel ID with PRI interface");
 			return;
 		}
-		if ((p[1]&0x03) == 0x00)
-		{
+		if ((p[1]&0x03) == 0x00) {
 			/* no channel */
 			*channel = CHANNEL_NO;
 			return;
 		}
-		if ((p[1]&0x03) == 0x03)
-		{
+		if ((p[1]&0x03) == 0x03) {
 			/* any channel */
 			*channel = CHANNEL_ANY;
 			return;
 		}
-		if (p[0] < 3)
-		{
+		if (p[0] < 3) {
 			add_trace("channel_id", "error", "IE too short for PRI with channel (len=%d)", p[0]);
 			return;
 		}
-		if (p[2] & 0x10)
-		{
+		if (p[2] & 0x10) {
 			add_trace("channel_id", "error", "channel map not supported");
 			return;
 		}
 		*channel = p[3] & 0x7f;
-		if ((*channel<1) || (*channel==16))
-		{
+		if ((*channel<1) || (*channel==16)) {
 			add_trace("channel_id", "error", "PRI interface channel out of range (%d)", *channel);
 			return;
 		}
 	}
 
 	add_trace("channel_id", "exclusive", "%d", *exclusive);
-	switch(*channel)
-	{
+	switch(*channel) {
 		case CHANNEL_ANY:
 		add_trace("channel_id", "channel", "any channel");
 		break;
@@ -911,8 +826,7 @@ void Pdss1::enc_ie_date(struct l3_msg *l3m, time_t ti, int no_seconds)
 	struct tm *tm;
 
 	tm = localtime(&ti);
-	if (!tm)
-	{
+	if (!tm) {
 		PERROR("localtime() returned NULL.\n");
 		return;
 	}
@@ -940,14 +854,12 @@ void Pdss1::enc_ie_display(struct l3_msg *l3m, unsigned char *display)
 	unsigned char p[256];
 	int l;
 
-	if (!display[0])
-	{
+	if (!display[0]) {
 		PERROR("display text not given.\n");
 		return;
 	}
 
-	if (strlen((char *)display) > 80)
-	{
+	if (strlen((char *)display) > 80) {
 		PERROR("display text too long (max 80 chars), cutting.\n");
 		display[80] = '\0';
 	}
@@ -968,8 +880,7 @@ void Pdss1::dec_ie_display(struct l3_msg *l3m, unsigned char *display, int displ
 	unsigned char *p = l3m->display;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("display", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -986,8 +897,7 @@ void Pdss1::enc_ie_keypad(struct l3_msg *l3m, unsigned char *keypad)
 	unsigned char p[256];
 	int l;
 
-	if (!keypad[0])
-	{
+	if (!keypad[0]) {
 		PERROR("keypad info not given.\n");
 		return;
 	}
@@ -1008,8 +918,7 @@ void Pdss1::dec_ie_keypad(struct l3_msg *l3m, unsigned char *keypad, int keypad_
 	unsigned char *p = l3m->keypad;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("keypad", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -1026,8 +935,7 @@ void Pdss1::enc_ie_notify(struct l3_msg *l3m, int notify)
 	unsigned char p[256];
 	int l;
 
-	if (notify<0 || notify>0x7f)
-	{
+	if (notify<0 || notify>0x7f) {
 		PERROR("notify(%d) is out of range.\n", notify);
 		return;
 	}
@@ -1048,8 +956,7 @@ void Pdss1::dec_ie_notify(struct l3_msg *l3m, int *notify)
 	unsigned char *p = l3m->notify;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("notify", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -1066,18 +973,15 @@ void Pdss1::enc_ie_progress(struct l3_msg *l3m, int coding, int location, int pr
 	unsigned char p[256];
 	int l;
 
-	if (coding<0 || coding>0x03)
-	{
+	if (coding<0 || coding>0x03) {
 		PERROR("coding(%d) is out of range.\n", coding);
 		return;
 	}
-	if (location<0 || location>0x0f)
-	{
+	if (location<0 || location>0x0f) {
 		PERROR("location(%d) is out of range.\n", location);
 		return;
 	}
-	if (progress<0 || progress>0x7f)
-	{
+	if (progress<0 || progress>0x7f) {
 		PERROR("progress(%d) is out of range.\n", progress);
 		return;
 	}
@@ -1103,8 +1007,7 @@ void Pdss1::dec_ie_progress(struct l3_msg *l3m, int *coding, int *location, int 
 	unsigned char *p = l3m->progress;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("progress", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
@@ -1125,28 +1028,23 @@ void Pdss1::enc_ie_redir_nr(struct l3_msg *l3m, int type, int plan, int present,
 	unsigned char p[256];
 	int l;
 
-	if (type<0 || type>7)
-	{
+	if (type<0 || type>7) {
 		PERROR("type(%d) is out of range.\n", type);
 		return;
 	}
-	if (plan<0 || plan>15)
-	{
+	if (plan<0 || plan>15) {
 		PERROR("plan(%d) is out of range.\n", plan);
 		return;
 	}
-	if (present > 3)
-	{
+	if (present > 3) {
 		PERROR("present(%d) is out of range.\n", present);
 		return;
 	}
-	if (present >= 0) if (screen<0 || screen>3)
-	{
+	if (present >= 0) if (screen<0 || screen>3) {
 		PERROR("screen(%d) is out of range.\n", screen);
 		return;
 	}
-	if (reason > 0x0f)
-	{
+	if (reason > 0x0f) {
 		PERROR("reason(%d) is out of range.\n", reason);
 		return;
 	}
@@ -1161,32 +1059,27 @@ void Pdss1::enc_ie_redir_nr(struct l3_msg *l3m, int type, int plan, int present,
 	l = 1;
 	if (number)
 		l += strlen((char *)number);
-	if (present >= 0)
-	{
+	if (present >= 0) {
 		l += 1;
 		if (reason >= 0)
 			l += 1;
 	}
 	p[0] = IE_REDIR_NR;
 	p[1] = l;
-	if (present >= 0)
-	{
-		if (reason >= 0)
-		{
+	if (present >= 0) {
+		if (reason >= 0) {
 			p[2] = 0x00 + (type<<4) + plan;
 			p[3] = 0x00 + (present<<5) + screen;
 			p[4] = 0x80 + reason;
 			if (number)
 				UNCPY((char *)p+5, (char *)number, strlen((char *)number));
-		} else
-		{
+		} else {
 			p[2] = 0x00 + (type<<4) + plan;
 			p[3] = 0x80 + (present<<5) + screen;
 			if (number)
 				UNCPY((char *)p+4, (char *)number, strlen((char *)number));
 		}
-	} else
-	{
+	} else {
 		p[2] = 0x80 + (type<<4) + plan;
 		if (number) if (number[0])
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
@@ -1206,28 +1099,23 @@ void Pdss1::dec_ie_redir_nr(struct l3_msg *l3m, int *type, int *plan, int *prese
 	unsigned char *p = l3m->redirect_nr;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("redir'ing", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*type = (p[1]&0x70) >> 4;
 	*plan = p[1] & 0xf;
-	if (!(p[1] & 0x80))
-	{
+	if (!(p[1] & 0x80)) {
 		*present = (p[2]&0x60) >> 5;
 		*screen = p[2] & 0x3;
-		if (!(p[2] & 0x80))
-		{
+		if (!(p[2] & 0x80)) {
 			*reason = p[3] & 0x0f;
 			strnncpy(number, p+4, p[0]-3, number_len);
-		} else
-		{
+		} else {
 			strnncpy(number, p+3, p[0]-2, number_len);
 		}
-	} else
-	{
+	} else {
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
@@ -1246,18 +1134,15 @@ void Pdss1::enc_ie_redir_dn(struct l3_msg *l3m, int type, int plan, int present,
 	unsigned char p[256];
 	int l;
 
-	if (type<0 || type>7)
-	{
+	if (type<0 || type>7) {
 		PERROR("type(%d) is out of range.\n", type);
 		return;
 	}
-	if (plan<0 || plan>15)
-	{
+	if (plan<0 || plan>15) {
 		PERROR("plan(%d) is out of range.\n", plan);
 		return;
 	}
-	if (present > 3)
-	{
+	if (present > 3) {
 		PERROR("present(%d) is out of range.\n", present);
 		return;
 	}
@@ -1274,14 +1159,12 @@ void Pdss1::enc_ie_redir_dn(struct l3_msg *l3m, int type, int plan, int present,
 		l += 1;
 	p[0] = IE_REDIR_DN;
 	p[1] = l;
-	if (present >= 0)
-	{
+	if (present >= 0) {
 		p[2] = 0x00 + (type<<4) + plan;
 		p[3] = 0x80 + (present<<5);
 		if (number)
 			UNCPY((char *)p+4, (char *)number, strlen((char *)number));
-	} else
-	{
+	} else {
 		p[2] = 0x80 + (type<<4) + plan;
 		if (number)
 			UNCPY((char *)p+3, (char *)number, strlen((char *)number));
@@ -1299,20 +1182,17 @@ void Pdss1::dec_ie_redir_dn(struct l3_msg *l3m, int *type, int *plan, int *prese
 	unsigned char *p = l3m->redirect_dn;
 	if (!p)
 		return;
-	if (p[0] < 1)
-	{
+	if (p[0] < 1) {
 		add_trace("redir'tion", "error", "IE too short (len=%d)", p[0]);
 		return;
 	}
 
 	*type = (p[1]&0x70) >> 4;
 	*plan = p[1] & 0xf;
-	if (!(p[1] & 0x80))
-	{
+	if (!(p[1] & 0x80)) {
 		*present = (p[2]&0x60) >> 5;
 		strnncpy(number, p+3, p[0]-2, number_len);
-	} else
-	{
+	} else {
 		strnncpy(number, p+2, p[0]-1, number_len);
 	}
 
@@ -1332,14 +1212,12 @@ void Pdss1::enc_ie_facility(struct l3_msg *l3m, unsigned char *facility, int fac
 	char buffer[768];
 	int i;
 
-	if (!facility || facility_len<=0)
-	{
+	if (!facility || facility_len<=0) {
 		return;
 	}
 
 	i = 0;
-	while(i < facility_len)
-	{
+	while(i < facility_len) {
 		UPRINT(buffer+(i*3), " %02x", facility[i]);
 		i++;
 	}
@@ -1368,8 +1246,7 @@ void Pdss1::dec_ie_facility(struct l3_msg *l3m, unsigned char *facility, int *fa
 	memcpy(facility, p+1, *facility_len);
 
 	i = 0;
-	while(i < *facility_len)
-	{
+	while(i < *facility_len) {
 		UPRINT(debug+(i*3), " %02x", facility[i]);
 		i++;
 	}
@@ -1388,8 +1265,7 @@ void Pdss1::dec_facility_centrex(struct l3_msg *l3m, unsigned char *cnip, int cn
 	*cnip = '\0';
 
 	dec_ie_facility(l3m, centrex, &facility_len);
-	if (facility_len >= 2)
-	{
+	if (facility_len >= 2) {
 		if (centrex[i++] != CENTREX_FAC)
 			return;
 		if (centrex[i++] != CENTREX_ID)
@@ -1397,15 +1273,12 @@ void Pdss1::dec_facility_centrex(struct l3_msg *l3m, unsigned char *cnip, int cn
 	}
 
 	/* loop sub IEs of facility */
-	while(facility_len > i+1)
-	{
-		if (centrex[i+1]+i+1 > facility_len)
-		{
+	while(facility_len > i+1) {
+		if (centrex[i+1]+i+1 > facility_len) {
 			PERROR("short read of centrex facility.\n");
 			return;
 		}
-		switch(centrex[i])
-		{
+		switch(centrex[i]) {
 			case 0x80:
 			strnncpy(cnip, &centrex[i+2], centrex[i+1], cnip_len);
 			add_trace("facility", "cnip", "%s", cnip);
@@ -1413,8 +1286,7 @@ void Pdss1::dec_facility_centrex(struct l3_msg *l3m, unsigned char *cnip, int cn
 
 			default:
 			j = 0;
-			while(j < centrex[i+1])
-			{
+			while(j < centrex[i+1]) {
 				UPRINT(debug+(j*3), " %02x", centrex[i+1+j]);
 				i++;
 			}
@@ -1434,19 +1306,16 @@ void Pdss1::enc_ie_useruser(struct l3_msg *l3m, int protocol, unsigned char *use
 	char buffer[768];
 	int i;
 
-	if (protocol<0 || protocol>127)
-	{
+	if (protocol<0 || protocol>127) {
 		PERROR("protocol(%d) is out of range.\n", protocol);
 		return;
 	}
-	if (!user || user_len<=0)
-	{
+	if (!user || user_len<=0) {
 		return;
 	}
 
 	i = 0;
-	while(i < user_len)
-	{
+	while(i < user_len) {
 		UPRINT(buffer+(i*3), " %02x", user[i]);
 		i++;
 	}
@@ -1481,8 +1350,7 @@ void Pdss1::dec_ie_useruser(struct l3_msg *l3m, int *protocol, unsigned char *us
 	memcpy(user, p+2, (*user_len<=128)?*(user_len):128); /* clip to 128 maximum */
 
 	i = 0;
-	while(i < *user_len)
-	{
+	while(i < *user_len) {
 		UPRINT(buffer+(i*3), " %02x", user[i]);
 		i++;
 	}

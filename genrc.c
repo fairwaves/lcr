@@ -43,17 +43,14 @@ int main(void)
 	printf("\n\nThis program generates a script, which is used to start/stop/restart mISDN\n");
 	printf("driver. Please select card only once. Mode and options are given by LCR.\n");
 
-	while(1)
-	{
+	while(1) {
 		printf("\nSelect %sdriver for cards:\n\n", i?"another ":"");
 		jj = 0;
-		while(cards[jj].name)
-		{
+		while(cards[jj].name) {
 			printf(" (%d) %s\n", jj+1, cards[jj].name);
 			jj++;
 		}
-		do
-		{
+		do {
 			printf("\nSelect driver number[1-n] (or enter 'done'): "); fflush(stdout);
 			scanf("%s", input);
 		} while (atoi(input) <= 0 && !!strcmp(input, "done"));
@@ -63,8 +60,7 @@ int main(void)
 			break;
 	}
 
-	if (!i)
-	{
+	if (!i) {
 		printf("\nNo cards defined!\n");
 		return(-1);
 	}
@@ -95,8 +91,7 @@ int main(void)
 
 	printf("\n\nFinally tell me where to write the mISDN rc file.\nEnter the name 'mISDN' for current directory.\nYou may want to say '/usr/local/lcr/mISDN' or '/etc/rc.d/mISDN'\n: "); fflush(stdout);
 	scanf("%s", file);
-	if (!(fp=fopen(file, "w")))
-	{
+	if (!(fp=fopen(file, "w"))) {
 		fprintf(stderr, "\nError: Failed to open '%s', try again.\n", file);
 		exit(EXIT_FAILURE);
 	}
@@ -106,11 +101,9 @@ int main(void)
 	fprintf(fp, "\t\t%s %smISDN_core%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", coredebug);
 	fprintf(fp, "\t\t%s %smISDN_dsp%s debug=0x%x options=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, input[0]?".ko":"", dspdebug, lawopt);
 	j = 0;
-	while(cards[j].name)
-	{
+	while(cards[j].name) {
 		jj = 0;
-		while (jj < n)
-		{
+		while (jj < n) {
 			if (type[jj] == j+1)
 				fprintf(fp, "\t\t%s %s%s%s debug=0x%x\n", input[0]?"insmod -f":"modprobe --ignore-install", input, cards[j].module, input[0]?".ko":"", carddebug);
 			jj++;
@@ -120,12 +113,10 @@ int main(void)
 	fprintf(fp, "\t\tsleep 1\n");
 	fprintf(fp, "\t\t;;\n\n");
 	fprintf(fp, "\tstop|--stop)\n");
-	while(j)
-	{
+	while(j) {
 		j--;
 		jj = 0;
-		while (jj < n)
-		{
+		while (jj < n) {
 			if (type[jj] == j+1)
 				fprintf(fp, "\t\trmmod %s\n", cards[j].module);
 			jj++;

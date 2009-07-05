@@ -23,8 +23,7 @@ class Endpoint *find_epoint_id(unsigned int epoint_id)
 {
 	class Endpoint *epoint = epoint_first;
 
-	while(epoint)
-	{
+	while(epoint) {
 //printf("comparing: '%s' with '%s'\n", name, epoint->name);
 		if (epoint->ep_serial == epoint_id)
 			return(epoint);
@@ -62,11 +61,9 @@ Endpoint::Endpoint(unsigned int port_id, unsigned int join_id)
 	ep_serial = epoint_serial++;
 
 	/* link to join or port */
-	if (port_id)
-	{
+	if (port_id) {
 		port = find_port_id(port_id);
-		if (port)
-		{
+		if (port) {
 			if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_mISDN)
 				earlyb = ((class PmISDN *)port)->p_m_mISDNport->earlyb;
 			if (!portlist_new(port_id, port->p_type, earlyb))
@@ -97,17 +94,14 @@ Endpoint::~Endpoint(void)
 		delete ep_app;
 	
 	/* free relations */
-	if (ep_join_id)
-	{
+	if (ep_join_id) {
 		PERROR("warning: still relation to join.\n");
 	}
 
 	/* free portlist */
 	portlist = ep_portlist;
-	while(portlist)
-	{
-		if (portlist->port_id)
-		{
+	while(portlist) {
+		if (portlist->port_id) {
 			PERROR("warning: still relation to port (portlist list)\n");
 		}
 		mtemp = portlist;
@@ -120,8 +114,7 @@ Endpoint::~Endpoint(void)
 	/* detach */
 	temp =epoint_first;
 	tempp = &epoint_first;
-	while(temp)
-	{
+	while(temp) {
 		if (temp == this)
 			break;
 
@@ -171,8 +164,7 @@ void Endpoint::free_portlist(struct port_list *portlist)
 
 	temp = ep_portlist;
 	tempp = &ep_portlist;
-	while(temp)
-	{
+	while(temp) {
 		if (temp == portlist)
 			break;
 
@@ -195,8 +187,7 @@ void Endpoint::free_portlist(struct port_list *portlist)
  */
 int Endpoint::handler(void)
 {
-	if (ep_use <= 0)
-	{
+	if (ep_use <= 0) {
 		delete this;
 		return(-1);
 	}

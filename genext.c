@@ -53,14 +53,12 @@ int main(int argc, char *argv[])
 	char pathname[256];
 	FILE *fp;
 
-	if (!read_options())
-	{
+	if (!read_options()) {
 		PERROR("%s", options_error);
 		return(-1);
 	}
 
-	if (argc != 4)
-	{
+	if (argc != 4) {
 		printf("Usage: %s <extension> <interfaces> <callerid>\n\n", argv[0]);
 		printf("extension: any number for the extension (e.g 200)\n");
 		printf("interfaces: internal interface(s) to reach extension, NOT port numbers\n");
@@ -70,8 +68,7 @@ int main(int argc, char *argv[])
 	}
 
 	SPRINT(pathname, "%s/%s", EXTENSION_DATA, argv[1]);
-	if (mkdir(pathname, 0755) < 0)
-	{
+	if (mkdir(pathname, 0755) < 0) {
 		if (errno == EEXIST)
 			PERROR("Extension's directory already exists. Nothing done!\n");
 		else	PERROR("Cannot open extension's directory '%s'.\n", pathname);
@@ -91,12 +88,10 @@ int main(int argc, char *argv[])
 	write_extension(&ext, argv[1]);
 
 	SPRINT(pathname, "%s/%s/phonebook", EXTENSION_DATA, argv[1]);
-	if (!(fp = fopen(pathname, "w")))
-	{
+	if (!(fp = fopen(pathname, "w"))) {
 		PERROR("Failed to write phonebook example '%s'.\n", pathname);
 		return(-1);
-	} else
-	{
+	} else {
 		fprintf(fp, "# fromat: <shortcut> <phone number> [<Name>]\n");
 		fprintf(fp, "# The shotcut may have any number of digits. \n");
 		fprintf(fp, "# The phone number must include the dialing code for external, internal or\n");
@@ -113,12 +108,10 @@ int main(int argc, char *argv[])
 	}
 
 	SPRINT(pathname, "%s/%s/secrets", EXTENSION_DATA, argv[1]);
-	if (!(fp = fopen(pathname, "w")))
-	{
+	if (!(fp = fopen(pathname, "w"))) {
 		PERROR("Failed to write secrets example '%s'.\n", pathname);
 		return(-1);
-	} else
-	{
+	} else {
 		fprintf(fp, "# Format: <remote number> <key exchange> <cypher> [<key>]\n");
 		fprintf(fp, "# The remote number must match the dialed number for outgoing calls.\n");
 		fprintf(fp, "# The remote number must match the caller id for incoming calls.\n");

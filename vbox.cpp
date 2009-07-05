@@ -36,8 +36,7 @@ VBoxPort::VBoxPort(int type, struct port_settings *settings) : Port(type, "vbox"
  */
 VBoxPort::~VBoxPort()
 {
-	if (p_vbox_announce_fh >= 0)
-	{
+	if (p_vbox_announce_fh >= 0) {
 		close(p_vbox_announce_fh);
 		p_vbox_announce_fh = -1;
 		fhuse--;
@@ -74,13 +73,10 @@ int VBoxPort::handler(void)
 	if ((ret = Port::handler()))
 		return(ret);
 
-	if (p_vbox_record_start && p_vbox_record_limit)
-	{
+	if (p_vbox_record_start && p_vbox_record_limit) {
 		time(&currenttime);
-		if (currenttime > (p_vbox_record_limit+p_vbox_record_start))
-		{
-			while(p_epointlist)
-			{
+		if (currenttime > (p_vbox_record_limit+p_vbox_record_start)) {
+			while(p_epointlist) {
 				/* send release */
 				message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 				message->param.disconnectinfo.cause = 16;
@@ -100,8 +96,7 @@ int VBoxPort::handler(void)
 	}
 
 	/* set time the first time */
-	if (p_vbox_audio_start < 1)
-	{
+	if (p_vbox_audio_start < 1) {
 		p_vbox_audio_start = now_d;
 		return(0);
 	}
@@ -118,11 +113,9 @@ int VBoxPort::handler(void)
 	p_vbox_audio_transferred += tosend;
 
 	/* if announcement is currently played, send audio data */
-	if (p_vbox_announce_fh >=0)
-	{
+	if (p_vbox_announce_fh >=0) {
 		tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
-		if (tosend <= 0)
-		{
+		if (tosend <= 0) {
 			/* end of file */
 			close(p_vbox_announce_fh);
 			p_vbox_announce_fh = -1;
@@ -133,11 +126,9 @@ int VBoxPort::handler(void)
 
 			/* connect if not already */
 			epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
-			if (epoint)
-			{
+			if (epoint) {
 				/* if we sent our announcement during ringing, we must now connect */
-				if (p_vbox_ext.vbox_free)
-				{
+				if (p_vbox_ext.vbox_free) {
 					/* send connect message */
 					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 					memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
@@ -149,15 +140,13 @@ int VBoxPort::handler(void)
 			}
 
 			/* start recording, if not already */
-			if (p_vbox_mode == VBOX_MODE_NORMAL)
-			{
+			if (p_vbox_mode == VBOX_MODE_NORMAL) {
 				/* recording start */
 				open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
 				vbox_trace_header(this, "RECORDING (announcement is over)", DIRECTION_IN);
 				end_trace();
 			} else // else!!
-			if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT)
-			{
+			if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT) {
 				/* send release */
 				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
 				message->param.disconnectinfo.cause = 16;
@@ -171,8 +160,7 @@ int VBoxPort::handler(void)
 				delete this;
 				return(-1); /* must return because port is gone */
 			}
-		} else
-		{
+		} else {
 			if (p_record)
 				record(buffer, tosend, 0); // from down
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
@@ -199,14 +187,12 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		return(1);
 
 	epoint = find_epoint_id(epoint_id);
-	if (!epoint)
-	{
+	if (!epoint) {
 		PDEBUG(DEBUG_EPOINT|DEBUG_VBOX, "PORT(%s) no endpoint object found where the message is from.\n", p_name);
 		return(0);
 	}
 
-	switch(message_id)
-	{
+	switch(message_id) {
 		case MESSAGE_DATA:
 		record(param->data.data, param->data.len, 1); // from up
 		return(1);
@@ -218,8 +204,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		add_trace("cause", "location", "%d", param->disconnectinfo.location);
 		end_trace();
 
-		while(p_epointlist)
-		{
+		while(p_epointlist) {
 			message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
 			message->param.disconnectinfo.cause = CAUSE_NORMAL;
 			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -252,15 +237,13 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		/* get apppbx */
 		memcpy(&p_vbox_ext, &((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
 		/* extract optional announcement file */
-		if ((c = strchr(param->setup.dialinginfo.id, ',')))
-		{
+		if ((c = strchr(param->setup.dialinginfo.id, ','))) {
 			if (c[1] == '/')
 				SPRINT(filename, c+1);
 			else
 				SPRINT(filename, "%s/%s/vbox/%s", EXTENSION_DATA, p_vbox_ext.number);
 			*c = '\0';
-		} else
-		{
+		} else {
 			SPRINT(filename, "%s/%s/vbox/announcement", EXTENSION_DATA, p_vbox_ext.number);
 		}
 		vbox_trace_header(this, "SETUP to VBox", DIRECTION_OUT);
@@ -285,8 +268,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		p_connectinfo.screen = INFO_SCREEN_NETWORK;
 
 		/* connect unless we can send announcement while ringing */
-		if (!p_vbox_ext.vbox_free)
-		{
+		if (!p_vbox_ext.vbox_free) {
 			/* send connect message */
 			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_CONNECT);
 			memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
@@ -294,8 +276,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 			vbox_trace_header(this, "CONNECT from VBox (after setup)", DIRECTION_IN);
 			end_trace();
 			new_state(PORT_STATE_CONNECT);
-		} else 
-		{
+		} else {
 			/* send alerting message */
 			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_ALERTING);
 			message_put(message);
@@ -305,8 +286,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		}
 
 		/* play the announcement */
-		if ((p_vbox_announce_fh = open_tone(filename, &p_vbox_announce_codec, &p_vbox_announce_size, &p_vbox_announce_left)) >= 0)
-		{
+		if ((p_vbox_announce_fh = open_tone(filename, &p_vbox_announce_codec, &p_vbox_announce_size, &p_vbox_announce_left)) >= 0) {
 			fhuse++;
 		} 
 		vbox_trace_header(this, "ANNOUNCEMENT", DIRECTION_OUT);
@@ -316,8 +296,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		/* start recording if desired */
 		p_vbox_mode = p_vbox_ext.vbox_mode;
 		p_vbox_record_limit = p_vbox_ext.vbox_time;
-		if (p_vbox_announce_fh<0 || p_vbox_mode==VBOX_MODE_PARALLEL)
-		{
+		if (p_vbox_announce_fh<0 || p_vbox_mode==VBOX_MODE_PARALLEL) {
 			/* recording start */
 			open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
 			vbox_trace_header(this, "RECORDING", DIRECTION_IN);

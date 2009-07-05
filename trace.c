@@ -59,8 +59,7 @@ void _add_trace(const char *__file, int __line, const char *name, const char *su
 	/* check for required name value */
 	if (!name)
 		goto nostring;
-	if (!name[0])
-	{
+	if (!name[0]) {
 		nostring:
 		PERROR("trace with name=%s gets element with no string\n", trace.name);
 		return;
@@ -70,8 +69,7 @@ void _add_trace(const char *__file, int __line, const char *name, const char *su
 	SCPY(trace.element[trace.elements].name, name);
 	if (sub) if (sub[0])
 		SCPY(trace.element[trace.elements].sub, sub);
-	if (fmt) if (fmt[0])
-	{
+	if (fmt) if (fmt[0]) {
 		va_start(args, fmt);
 		VUNPRINT(trace.element[trace.elements].value, sizeof(trace.element[trace.elements].value)-1, fmt, args);
 		va_end(args);
@@ -112,21 +110,17 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		if (!(category & trace.category)) return(NULL);
 
 	/* head */
-	if (detail >= 3)
-	{
+	if (detail >= 3) {
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
 		/* "Port: 1 (BRI PTMP TE)" */
-		if (trace.port >= 0)
-		{
+		if (trace.port >= 0) {
 			mISDNport = mISDNport_first;
-			while(mISDNport)
-			{
+			while(mISDNport) {
 				if (mISDNport->portnum == trace.port)
 					break;
 				mISDNport = mISDNport->next;
 			}
-			if (mISDNport)
-			{
+			if (mISDNport) {
 				SPRINT(buffer, "Port: %d (%s %s %s)", trace.port, (mISDNport->pri)?"PRI":"BRI", (mISDNport->ptp)?"PTP":"PTMP", (mISDNport->ntmode)?"NT":"TE");
 				/* copy interface, if we have a port */
 				if (mISDNport->ifport) if (mISDNport->ifport->interface)
@@ -137,16 +131,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		} else
 			SCAT(trace_string, "Port: ---");
 
-		if (trace.interface[0])
-		{
+		if (trace.interface[0]) {
 			/* "  Interface: 'Ext'" */
 			SPRINT(buffer, "  Interface: '%s'", trace.interface);
 			SCAT(trace_string, buffer);
 		} else
 			SCAT(trace_string, "  Interface: ---");
 			
-		if (trace.caller[0])
-		{
+		if (trace.caller[0]) {
 			/* "  Caller: '021256493'" */
 			SPRINT(buffer, "  Caller: '%s'\n", trace.caller);
 			SCAT(trace_string, buffer);
@@ -158,16 +150,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		SPRINT(buffer, "Time: %02d.%02d.%02d %02d:%02d:%02d.%03d", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100, tm->tm_hour, tm->tm_min, tm->tm_sec, trace.usec/1000);
 		SCAT(trace_string, buffer);
 
-		if (trace.direction)
-		{
+		if (trace.direction) {
 			/* "  Direction: out" */
 			SPRINT(buffer, "  Direction: %s", (trace.direction==DIRECTION_OUT)?"OUT":"IN");
 			SCAT(trace_string, buffer);
 		} else
 			SCAT(trace_string, "  Direction: ---");
 
-		if (trace.dialing[0])
-		{
+		if (trace.dialing[0]) {
 			/* "  Dialing: '57077'" */
 			SPRINT(buffer, "  Dialing: '%s'\n", trace.dialing);
 			SCAT(trace_string, buffer);
@@ -177,16 +167,15 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
 	}
 
-	if (detail < 3)
-	{
+	if (detail < 3) {
 		tm = localtime(&ti);
 		SPRINT(buffer, "%02d.%02d.%02d %02d:%02d:%02d.%03d ", tm->tm_mday, tm->tm_mon+1, tm->tm_year%100, tm->tm_hour, tm->tm_min, tm->tm_sec, trace.usec/1000);
 		SCAT(trace_string, buffer);
 	}
 
 	/* "CH(45): CC_SETUP (net->user)" */
-	switch (trace.category)
-	{	case CATEGORY_CH:
+	switch (trace.category) {
+		case CATEGORY_CH:
 		SCAT(trace_string, "CH");
 		break;
 
@@ -204,17 +193,14 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	SCAT(trace_string, buffer);
 
 	/* elements */
-	switch(detail)
-	{
+	switch(detail) {
 		case 1: /* brief */
-		if (trace.port >= 0)
-		{
+		if (trace.port >= 0) {
 			SPRINT(buffer, "  port %d", trace.port);
 			SCAT(trace_string, buffer);
 		}
 		i = 0;
-		while(i < trace.elements)
-		{
+		while(i < trace.elements) {
 			SPRINT(buffer, "  %s", trace.element[i].name);
 			if (i) if (!strcmp(trace.element[i].name, trace.element[i-1].name))
 				buffer[0] = '\0';
@@ -238,8 +224,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 		case 3: /* long */
 		SCAT(trace_string, "\n");
 		i = 0;
-		while(i < trace.elements)
-		{
+		while(i < trace.elements) {
 			SPRINT(buffer, " %s%s", trace.element[i].name, &spaces[strlen(trace.element[i].name)]);
 			if (i) if (!strcmp(trace.element[i].name, trace.element[i-1].name))
 				SPRINT(buffer, "           ");
@@ -280,20 +265,16 @@ void _end_trace(const char *__file, int __line)
 	if (!trace.name[0])
 		PERROR("trace not started in file %s line %d\n", __file, __line);
 	
-	if (options.deb || options.log[0])
-	{
+	if (options.deb || options.log[0]) {
 		string = print_trace(1, -1, NULL, NULL, NULL, 0);
-		if (string)
-		{
+		if (string) {
 			/* process debug */
 			if (options.deb)
 				debug(NULL, 0, "trace", string);
 			/* process log */
-			if (options.log[0])
-			{
+			if (options.log[0]) {
 				fp = fopen(options.log, "a");
-				if (fp)
-				{
+				if (fp) {
 					fwrite(string, strlen(string), 1, fp);
 					fclose(fp);
 				}
@@ -303,18 +284,14 @@ void _end_trace(const char *__file, int __line)
 
 	/* process admin */
 	admin = admin_first;
-	while(admin)
-	{
-		if (admin->trace.detail)
-		{
+	while(admin) {
+		if (admin->trace.detail) {
 			string = print_trace(admin->trace.detail, admin->trace.port, admin->trace.interface, admin->trace.caller, admin->trace.dialing, admin->trace.category);
-			if (string)
-			{
+			if (string) {
 				/* seek to end of response list */
 				response = admin->response;
 				responsep = &admin->response;
-				while(response)
-				{
+				while(response) {
 					responsep = &response->next;
 					response = response->next;
 				}

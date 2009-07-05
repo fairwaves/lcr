@@ -101,8 +101,7 @@ void write_law(FILE *fp, char *name, char law)
 	short sample;
 	unsigned int size, wsize;
 
-	if ((lfp=fopen(name,"r")))
-	{
+	if ((lfp=fopen(name,"r"))) {
 		/* get size */
 		fseek(lfp, 0, SEEK_END);
 		size = ftell(lfp);
@@ -131,8 +130,7 @@ void write_law(FILE *fp, char *name, char law)
 		/* data */
 		fprintf(fp, "data%c%c%c%c", (char)(size&0xff), (char)((size>>8)&0xff), (char)((size>>16)&0xff), (char)(size>>24));
 		i = 0;
-		while(i < size)
-		{
+		while(i < size) {
 			fread(buffer, 1, 1, lfp);
 			if (law == 'a')
 				sample = isdn_audio_alaw_to_s16[*buffer];
@@ -156,8 +154,7 @@ int main(int argc, char *argv[])
 {
 	FILE *fp;
 
-	if (argc <= 1)
-	{
+	if (argc <= 1) {
 		usage:
 		printf("Usage:\n");
 		printf("%s ulaw2wave <alaw file> <wav file>\n", argv[0]);
@@ -165,29 +162,23 @@ int main(int argc, char *argv[])
 		return(0);
 	}
 
-	if (!strcmp(argv[1], "alaw2wave"))
-	{
+	if (!strcmp(argv[1], "alaw2wave")) {
 		if (argc <= 3)
 			goto usage;
-		if ((fp=fopen(argv[3],"w")))
-		{
+		if ((fp=fopen(argv[3],"w"))) {
 			write_law(fp,argv[2],'a');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open wave file %s\n",argv[3]);
 		}
 	} else
-	if (!strcmp(argv[1], "ulaw2wave"))
-	{
+	if (!strcmp(argv[1], "ulaw2wave")) {
 		if (argc <= 3)
 			goto usage;
-		if ((fp=fopen(argv[3],"w")))
-		{
+		if ((fp=fopen(argv[3],"w"))) {
 			write_law(fp,argv[2],'u');
 			fclose(fp);
-		} else
-		{
+		} else {
 			printf("Cannot open wave file %s\n",argv[3]);
 		}
 	} else
