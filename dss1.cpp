@@ -753,7 +753,7 @@ void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l
 		p_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 		break;
 	}
-	SCAT(p_dialinginfo.display, (char *)display);
+	SCPY(p_dialinginfo.display, (char *)display);
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
 	memcpy(&message->param.information, &p_dialinginfo, sizeof(struct dialing_info));
 	message_put(message);
