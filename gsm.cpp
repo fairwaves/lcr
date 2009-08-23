@@ -11,13 +11,28 @@
 
 #include "main.h"
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 extern "C" {
-#include "openbsc/mncc.h"
-#include "openbsc/trau_frame.h"
-#include "openbsc/select.h"
-#include "openbsc/debug.h"
-#include "openbsc/e1_input.h"
-#include "bootstrap.h"
+#include <getopt.h>
+
+#include <openbsc/db.h>
+#include <openbsc/select.h>
+#include <openbsc/debug.h>
+#include <openbsc/e1_input.h>
+#include <openbsc/talloc.h>
+#include <openbsc/mncc.h>
+#include <openbsc/trau_frame.h>
+struct gsm_network *bsc_gsmnet = 0;
+extern int ipacc_rtp_direct;
+extern int bsc_bootstrap_network(int (*mmc_rev)(struct gsm_network *, int, void *),
+				 const char *cfg_file);
+extern int bsc_shutdown_net(struct gsm_network *net);
+void talloc_ctx_init(void);
+void on_dso_load_token(void);
+void on_dso_load_rrlp(void);
+
 #include "gsm_audio.h"
 
 #undef AF_ISDN
@@ -865,7 +880,7 @@ void Pgsm::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 /*
  * BSC sends message to port
  */
-static int message_bcs(struct gsm_network *net, int msg_type, void *arg)
+static int message_bsc(struct gsm_network *net, int msg_type, void *arg)
 {
 	struct gsm_mncc *mncc = (struct gsm_mncc *)arg;
 	unsigned int callref = mncc->callref;
@@ -1608,7 +1623,7 @@ int gsm_exit(int rc)
 			gsm_sock_close();
 		/* shutdown network */
 		if (gsm->network)
-			shutdown_net((struct gsm_network *)gsm->network);
+			bsc_shutdown_net((struct gsm_network *)gsm->network);
 		/* free network */
 //		if (gsm->network) {
 //			free((struct gsm_network *)gsm->network); /* TBD */
@@ -1622,9 +1637,17 @@ int gsm_exit(int rc)
 
 int gsm_init(void)
 {
-	char hlr[128], filename[128];
+	char hlr[128], cfg[128], filename[128];
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-	int pcapfd;
+	int pcapfd, rc;
+
+	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
+	talloc_ctx_init();
+	on_dso_load_token();
+	on_dso_load_rrlp();
+
+	/* seed the PRNG */
+	srand(time(NULL));
 
 	/* create gsm instance */
 	gsm = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
@@ -1637,31 +1660,8 @@ int gsm_init(void)
 	}
 
 	/* set debug */
-	debug_parse_category_mask(gsm->conf.debug);
-
-	/* init database */
-	if (gsm->conf.hlr[0] == '/')
-		SCPY(hlr, gsm->conf.hlr);
-	else
-		SPRINT(hlr, "%s/%s", CONFIG_DATA, gsm->conf.hlr);
-
-	// TODO multiple base stations
-	if (gsm->conf.numbts < 1 || gsm->conf.numbts > 1) {
-		PERROR("Expecting exactly one BTS. You defined %d.\n", gsm->conf.numbts);
-		return gsm_exit(-1);
-	}
-
-	/* bootstrap network */
-	gsm->network = bootstrap_network(&message_bcs, gsm->conf.bts[0].type, gsm->conf.mcc, gsm->conf.mnc, gsm->conf.lac, gsm->conf.bts[0].frequency[0], gsm->conf.bts[0].card, !gsm->conf.keep_l2, gsm->conf.short_name, gsm->conf.long_name, hlr, gsm->conf.allow_all);
-	if (!gsm->network) {
-		PERROR("Failed to bootstrap GSM network.\n");
-		return gsm_exit(-1);
-	}
-
-	/* open gsm loop interface */
-	if (gsm_sock_open(gsm->conf.interface_bsc)) {
-		return gsm_exit(-1);
-	}
+	if (gsm->conf.debug[0])
+		debug_parse_category_mask(gsm->conf.debug);
 
 	/* open pcap file */
 	if (gsm->conf.pcapfile[0]) {
@@ -1675,6 +1675,47 @@ int gsm_init(void)
 			return gsm_exit(-1);
 		}
 		e1_set_pcap_fd(pcapfd);
+	}
+
+	/* set reject cause */
+	if (gsm->conf.reject_cause)
+		gsm0408_set_reject_cause(gsm->conf.reject_cause);
+
+	/* use RTP proxy for audio streaming */
+	if (gsm->conf.rtp_proxy)
+		ipacc_rtp_direct = 0;
+
+	/* init database */
+	if (gsm->conf.hlr[0] == '/')
+		SCPY(hlr, gsm->conf.hlr);
+	else
+		SPRINT(hlr, "%s/%s", CONFIG_DATA, gsm->conf.hlr);
+	if (db_init(hlr)) {
+		PERROR("GSM DB: Failed to init database '%s'. Please check the option settings.\n", hlr);
+		return gsm_exit(-1);
+	}
+	printf("DB: Database initialized.\n");
+	if (db_prepare()) {
+		PERROR("GSM DB: Failed to prepare database.\n");
+		return gsm_exit(-1);
+	}
+	printf("DB: Database prepared.\n");
+
+	/* bootstrap network */
+	if (gsm->conf.openbsc_cfg[0] == '/')
+		SCPY(cfg, gsm->conf.openbsc_cfg);
+	else
+		SPRINT(cfg, "%s/%s", CONFIG_DATA, gsm->conf.openbsc_cfg);
+	rc = bsc_bootstrap_network(&message_bsc, cfg);
+	if (rc < 0) {
+		PERROR("Failed to bootstrap GSM network.\n");
+		return gsm_exit(-1);
+	}
+	gsm->network = bsc_gsmnet;
+
+	/* open gsm loop interface */
+	if (gsm_sock_open(gsm->conf.interface_bsc)) {
+		return gsm_exit(-1);
 	}
 
 	return 0;

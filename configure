@@ -1385,7 +1385,7 @@ Optional Packages:
 
   --with-ssl              compile with ssl support (libcrypto) [default=check]
 
-  --with-gsm              compile with OpenBSC support (libbsc) [default=no]
+  --with-gsm              compile with OpenBSC support [default=no]
 
 
 Some influential environment variables:
@@ -6264,13 +6264,50 @@ fi
 if test "${with_gsm+set}" = set; then
   withval=$with_gsm;
 else
-  with_gsm=no
+  with_gsm="check"
+fi
+
+
+if test "x$with_gsm" != xno; then
+  { $as_echo "$as_me:$LINENO: checking for openbsc/include/openbsc/gsm_data.h" >&5
+$as_echo_n "checking for openbsc/include/openbsc/gsm_data.h... " >&6; }
+if test "${ac_cv_file_openbsc_include_openbsc_gsm_data_h+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  { { $as_echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+$as_echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "openbsc/include/openbsc/gsm_data.h"; then
+  ac_cv_file_openbsc_include_openbsc_gsm_data_h=yes
+else
+  ac_cv_file_openbsc_include_openbsc_gsm_data_h=no
+fi
+fi
+{ $as_echo "$as_me:$LINENO: result: $ac_cv_file_openbsc_include_openbsc_gsm_data_h" >&5
+$as_echo "$ac_cv_file_openbsc_include_openbsc_gsm_data_h" >&6; }
+if test "x$ac_cv_file_openbsc_include_openbsc_gsm_data_h" = x""yes; then
+  with_gsm="yes"
+else
+  if test "x$with_gsm" != xcheck ; then
+			  { { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { $as_echo "$as_me:$LINENO: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .
+See \`config.log' for more details." >&5
+$as_echo "$as_me: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }; }
+                     fi
+
+fi
+
+
 fi
 
 
 
 
-if test "x$with_gsm" != "xno" ; then
+if test "x$with_gsm" == "xyes" ; then
   ENABLE_GSM_TRUE=
   ENABLE_GSM_FALSE='#'
 else

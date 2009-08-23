@@ -33,16 +33,10 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 	SCPY(gsm_conf->debug, "");
 	SCPY(gsm_conf->interface_bsc, "mISDN_l1loop.1");
 	SCPY(gsm_conf->interface_lcr, "mISDN_l1loop.2");
-	SCPY(gsm_conf->short_name, "LCR");
-	SCPY(gsm_conf->long_name, "Linux-Call-Router");
-	gsm_conf->mcc = 1;
-	gsm_conf->mnc = 1;
-	gsm_conf->lac = 1;
 	SCPY(gsm_conf->hlr, "hlr.sqlite3");
-	gsm_conf->allow_all = 0;
+	SCPY(gsm_conf->openbsc_cfg, "openbsc.cfg");
+	gsm_conf->reject_cause = 0;
 	gsm_conf->keep_l2 = 0;
-	gsm_conf->numbts = 0;
-	//gsm_conf->bts[xx]
 	gsm_conf->noemergshut = 0;
 
 	SPRINT(filename, "%s/gsm.conf", CONFIG_DATA);
@@ -132,44 +126,12 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 			SCPY(gsm_conf->interface_lcr, params[0]);
 
 		} else
-		if (!strcmp(option,"short-name")) {
+		if (!strcmp(option,"config")) {
 			if (params[0][0]==0) {
 				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
-			SCPY(gsm_conf->short_name, params[0]);
-
-		} else
-		if (!strcmp(option,"long-name")) {
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			SCPY(gsm_conf->long_name, params[0]);
-
-		} else
-		if (!strcmp(option,"mcc")) {
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			gsm_conf->mcc = atoi(params[0]);
-
-		} else
-		if (!strcmp(option,"mnc")) {
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			gsm_conf->mnc = atoi(params[0]);
-
-		} else
-		if (!strcmp(option,"lac")) {
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			gsm_conf->lac = atoi(params[0]);
+			SCPY(gsm_conf->openbsc_cfg, params[0]);
 
 		} else
 		if (!strcmp(option,"hlr")) {
@@ -178,6 +140,14 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 				goto error;
 			}
 			SCPY(gsm_conf->hlr, params[0]);
+
+		} else
+		if (!strcmp(option,"reject-cause")) {
+			if (params[0][0]==0) {
+				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				goto error;
+			}
+			gsm_conf->reject_cause = atoi(params[0]);
 
 		} else
 		if (!strcmp(option,"allow-all")) {
@@ -190,46 +160,15 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		if (!strcmp(option,"no-mergency-shutdown")) {
 			gsm_conf->noemergshut = 1;
 		} else
+		if (!strcmp(option,"rtp-proxy")) {
+			gsm_conf->rtp_proxy = 1;
+		} else
 		if (!strcmp(option,"pcapfile")) {
 			if (params[0][0]==0) {
 				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->pcapfile, params[0]);
-		} else
-		if (!strcmp(option,"bts")) {
-			if (gsm_conf->numbts == 8) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): too many BTS defined.\n",filename,line);
-				goto error;
-			}
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter <bts-type> for option %s missing.\n",filename,line,option);
-				goto error;
-			}
-			if (params[1][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter <card number> for option %s missing.\n",filename,line,option);
-				goto error;
-			}
-			if (params[2][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter <frequency> for option %s missing.\n",filename,line,option);
-				goto error;
-			}
-			if (!strcmp(params[0], "bs11")) {
-				gsm_conf->bts[gsm_conf->numbts].type = GSM_BTS_TYPE_BS11;
-			} else {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): unknown BTS type '%s'.\n",filename,line,params[0]);
-				goto error;
-			}
-			gsm_conf->bts[gsm_conf->numbts].card = atoi(params[1]);
-			gsm_conf->bts[gsm_conf->numbts].numtrx = 0;
-			while (params[gsm_conf->bts[gsm_conf->numbts].numtrx+2][0]) {
-				if (gsm_conf->bts[gsm_conf->numbts].numtrx == 8) {
-					SPRINT(gsm_conf_error, "Error in %s (line %d): too many frequencies defined.\n",filename,line);
-					goto error;
-				}
-				gsm_conf->bts[gsm_conf->numbts].frequency[gsm_conf->bts[gsm_conf->numbts].numtrx++] = atoi(params[gsm_conf->bts[gsm_conf->numbts].numtrx+2]);
-			}
-			gsm_conf->numbts++;
 		} else {
 			SPRINT(gsm_conf_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
 			goto error;

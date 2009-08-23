@@ -98,12 +98,22 @@ AS_IF([test "x$with_ssl" != xno],
 # check for gsm
 AC_ARG_WITH([gsm],
 	[AS_HELP_STRING([--with-gsm],
-			[compile with OpenBSC support (libbsc) @<:@default=no@:>@])
+			[compile with OpenBSC support @<:@default=no@:>@])
 	],
 	[],
-	[with_gsm=no])
+	[with_gsm="check"])
 
-AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm" != "xno" )
+AS_IF([test "x$with_gsm" != xno],
+      [AC_CHECK_FILE([openbsc/include/openbsc/gsm_data.h],
+			[with_gsm="yes"],
+			[if test "x$with_gsm" != xcheck ; then
+			  AC_MSG_FAILURE(
+			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .])
+                     fi
+		     ])
+      ])
+
+AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm" == "xyes" )
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])

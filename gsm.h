@@ -2,29 +2,20 @@ extern "C" {
 #include <openbsc/gsm_data.h>
 }
 
-struct bts_conf {
-	gsm_bts_type type;		/* type of BTS */
-	int card;			/* E1 card number of BS11 BTS */
-	int numtrx;			/* up to 8 TRXs */
-	int frequency[8];		/* up to 8 frequencies for TRXs */
-};
-
 struct gsm_conf {
 	char debug[128];		/* debug info */
 	char interface_bsc[64];		/* loopback interface BSC side */
 	char interface_lcr[64];		/* loopback interface LCR side */
+	char openbsc_cfg[128];		/* openbsc config file */
 	char short_name[64];		/* short network name */
 	char long_name[64];		/* long network name */
-	int mcc;			/* mobile country code */
-	int mnc;			/* mobile network code */
-	int lac;			/* location area code */
 	char hlr[64];			/* database name */
 	int allow_all;			/* accept unknown subscribers */
 	int keep_l2;			/* keep layer 2 after exit */
-	int numbts;			/* number of BTS' */
-	struct bts_conf bts[8];		/* configure BTS' */
 	int noemergshut;		/* don't shut down on emergency */
 	char pcapfile[128];		/* open capture file for BS11 links */
+	int reject_cause;		/* reject cause for unsubcribed IMSIs */
+	int rtp_proxy;			/* enable RTP proxy */
 };
 
 struct lcr_gsm {

@@ -45,11 +45,11 @@ INSTALLATION_DEFINES = \
 
 if ENABLE_GSM
 
-GSM_INCLUDE = -DWITH_GSM
+GSM_INCLUDE = -DWITH_GSM -I./openbsc/include
 
-GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c bootstrap.c
+GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/vty_interface.c openbsc/src/vty_interface_layer3.c
 
-GSM_LIB = /usr/lib/libgsm.a /usr/local/lib/libbsc.a /usr/local/lib/libvty.a -ldbi -lcrypt
+GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -ldbi -lcrypt
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
@@ -128,6 +128,9 @@ if ENABLE_GSM
 	@if test -a $(CONFIGdir)/gsm.conf ; then \
 		echo "NOTE: gsm.conf already exists, not changed." ; else \
 		cp -v default/gsm.conf $(CONFIGdir) ; fi
+	@if test -a $(CONFIGdir)/openbsc.cfg ; then \
+		echo "NOTE: openbsc.cfg already exists, not changed." ; else \
+		cp -v default/openbsc.cfg $(CONFIGdir) ; fi
 endif
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
