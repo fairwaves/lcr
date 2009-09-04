@@ -2209,7 +2209,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			break;
                 case AST_CONTROL_RINGING:
 			CDEBUG(call, ast, "Received indicate AST_CONTROL_RINGING from Asterisk.\n");
-			ast_setstate(ast, AST_STATE_RINGING);
+			ast_setstate(ast, AST_STATE_RING);
 			if (call->state == CHAN_LCR_STATE_IN_SETUP
 			 || call->state == CHAN_LCR_STATE_IN_DIALING
 			 || call->state == CHAN_LCR_STATE_IN_PROCEEDING) {
