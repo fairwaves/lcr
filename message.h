@@ -34,6 +34,8 @@ enum { /* number presentation */
 
 enum { /* number presentation */
 	INFO_SCREEN_USER, /* user provided */
+	INFO_SCREEN_USER_VERIFIED_PASSED,
+	INFO_SCREEN_USER_VERIFIED_FAILED,
 	INFO_SCREEN_NETWORK /* network provided */
 };
 

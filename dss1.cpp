@@ -473,6 +473,12 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		case 0:
 		p_callerinfo.screen = INFO_SCREEN_USER;
 		break;
+		case 1:
+		p_callerinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
+		break;
+		case 2:
+		p_callerinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
+		break;
 		default:
 		p_callerinfo.screen = INFO_SCREEN_NETWORK;
 		break;
@@ -515,6 +521,12 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (calling_screen2) {
 		case 0:
 		p_callerinfo.screen2 = INFO_SCREEN_USER;
+		break;
+		case 1:
+		p_callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_PASSED;
+		break;
+		case 2:
+		p_callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_FAILED;
 		break;
 		default:
 		p_callerinfo.screen2 = INFO_SCREEN_NETWORK;
@@ -573,6 +585,12 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (redir_screen) {
 		case 0:
 		p_redirinfo.screen = INFO_SCREEN_USER;
+		break;
+		case 1:
+		p_redirinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
+		break;
+		case 2:
+		p_redirinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
 		break;
 		default:
 		p_redirinfo.screen = INFO_SCREEN_NETWORK;
@@ -1006,6 +1024,12 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	switch (screen) {
 		case 0:
 		p_connectinfo.screen = INFO_SCREEN_USER;
+		break;
+		case 1:
+		p_connectinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
+		break;
+		case 2:
+		p_connectinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
 		break;
 		default:
 		p_connectinfo.screen = INFO_SCREEN_NETWORK;
@@ -2002,6 +2026,12 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		case INFO_SCREEN_USER:
 		screen = 0;
 		break;
+		case INFO_SCREEN_USER_VERIFIED_PASSED:
+		screen = 1;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_FAILED:
+		screen = 2;
+		break;
 		default: /* INFO_SCREEN_NETWORK */
 		screen = 3;
 		break;
@@ -2039,6 +2069,12 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	switch (p_callerinfo.screen2) {
 		case INFO_SCREEN_USER:
 		screen2 = 0;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_PASSED:
+		screen2 = 1;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_FAILED:
+		screen2 = 2;
 		break;
 		default: /* INFO_SCREEN_NETWORK */
 		screen2 = 3;
@@ -2093,6 +2129,12 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	switch (p_redirinfo.screen) {
 		case INFO_SCREEN_USER:
 		screen = 0;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_PASSED:
+		screen = 1;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_FAILED:
+		screen = 2;
 		break;
 		default: /* INFO_SCREE_NETWORK */
 		screen = 3;
@@ -2430,6 +2472,12 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	switch (param->connectinfo.screen) {
 		case INFO_SCREEN_USER:
 		screen = 0;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_PASSED:
+		screen = 1;
+		break;
+		case INFO_SCREEN_USER_VERIFIED_FAILED:
+		screen = 2;
 		break;
 		default: /* INFO_SCREE_NETWORK */
 		screen = 3;

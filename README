@@ -506,6 +506,8 @@ Changes after Version 1.5
 - Applied API change of OpenBSC.
 - Applied changes of OpenBSC main branch. LCR now works with OpenBSC main
   branch.
+- Minor fixes and source cleanups.
+- Added patch by Kai Peter to complete screening indicators. Thanx!
 
 
 
