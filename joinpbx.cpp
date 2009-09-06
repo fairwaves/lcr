@@ -542,6 +542,31 @@ int joinpbx_countrelations(unsigned int join_id)
 	return(i);
 }
 
+/* check if one is calling and all other relations are setup-realations */
+int joinpbx_onecalling_othersetup(struct join_relation *relation)
+{
+	int calling = 0, other = 0;
+
+	while(relation) {
+		switch(relation->type) {
+		case RELATION_TYPE_CALLING:
+			calling++;
+			break;
+		case RELATION_TYPE_SETUP:
+			break;
+		default:
+			other++;
+			break;
+		}
+
+		relation = relation->next;
+	}
+
+	if (calling == 1 && other == 0)
+		return(1);
+	return(0);
+}
+
 void JoinPBX::remove_relation(struct join_relation *relation)
 {
 	struct join_relation *temp, **tempp;
@@ -787,7 +812,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 				return; // must return, because join IS destroyed
 			}
 			/* in a conf, we don't kill the other members */
-			if (num > 2) {
+			if (num > 2 && !joinpbx_onecalling_othersetup(j_relation)) {
 				release(relation, 0, 0);
 				return;
 			}
@@ -818,19 +843,13 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 	}
 
 	/* check number of relations */
-	if (num > 2) {
-		PDEBUG(DEBUG_JOIN, "join has more than two relations so there is no need to send a message.\n");
+	if (num > 2 && !joinpbx_onecalling_othersetup(j_relation) && message_type != MESSAGE_CONNECT) {
+		PDEBUG(DEBUG_JOIN, "we are in a conference, so we ignore the messages, except MESSAGE_CONNECT.\n");
 		return;
 	}
 
-	/* find interfaces not related to calling epoint */
-	relation = j_relation;
-	while(relation) {
-		if (relation->epoint_id != epoint_id)
-			break;
-		relation = relation->next;
-	}
-	if (!relation) {
+	/* if join has no other relation, we process the setup message */
+	if (num == 1) {
 		switch(message_type) {
 			case MESSAGE_SETUP:
 			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION) {
@@ -849,11 +868,18 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			PDEBUG(DEBUG_JOIN, "no need to send a message because there is no other endpoint than the calling one.\n");
 		}
 	} else {
-		PDEBUG(DEBUG_JOIN, "sending message ep%ld -> ep%ld.\n", epoint_id, relation->epoint_id);
-		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, message_type);
-		memcpy(&message->param, param, sizeof(union parameter));
-		message_put(message);
-		PDEBUG(DEBUG_JOIN, "message sent.\n");
+		/* sending message to other relation(s) */
+		relation = j_relation;
+		while(relation) {
+			if (relation->epoint_id != epoint_id) {
+				PDEBUG(DEBUG_JOIN, "sending message ep%ld -> ep%ld.\n", epoint_id, relation->epoint_id);
+				message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, message_type);
+				memcpy(&message->param, param, sizeof(union parameter));
+				message_put(message);
+				PDEBUG(DEBUG_JOIN, "message sent.\n");
+			}
+			relation = relation->next;
+		}
 	}
 }
 

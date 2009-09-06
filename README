@@ -513,6 +513,8 @@ Changes after Version 1.5
 
 New release Version 1.6
 
+Changes after Version 1.5
+- Fixed bad call/conference bug in joinpbx.c
 
 
 
