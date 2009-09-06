@@ -508,6 +508,11 @@ Changes after Version 1.5
   branch.
 - Minor fixes and source cleanups.
 - Added patch by Kai Peter to complete screening indicators. Thanx!
+- Join conference during alerting phase, so calls can be forwarded.
+- Fixed conference release bug.
+
+New release Version 1.6
+
 
 
 

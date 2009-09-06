@@ -1565,7 +1565,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	}
 
 	/* keypad when connected */
-	if (e_state == EPOINT_STATE_CONNECT) {
+	if (e_state == EPOINT_STATE_CONNECT || e_state == EPOINT_STATE_IN_ALERTING) {
 		if (e_ext.keypad || e_enablekeypad) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
 			/* processing keypad function */
@@ -1639,7 +1639,7 @@ NOTE: vbox is now handled due to overlap state
 #endif
 
 	/* check for *X# sequence */
-	if (e_state == EPOINT_STATE_CONNECT) {
+	if (e_state == EPOINT_STATE_CONNECT || e_state == EPOINT_STATE_IN_ALERTING) {
 		if (e_dtmf_time+3 < now) {
 			/* the last digit was too far in the past to be a sequence */
 			if (param->dtmf == '*')
@@ -2758,6 +2758,9 @@ void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type,
 		set_tone(portlist, "ringpbx");
 	else
 		set_tone(portlist, "ringing");
+
+	if (e_ext.number[0])
+		e_dtmf = 1; /* allow dtmf */
 }
 
 /* join MESSAGE_CONNECT */
@@ -3514,7 +3517,7 @@ void EndpointAppPBX::join_join(void)
 	class Port *our_port, *other_port;
 	class Pdss1 *our_pdss1, *other_pdss1;
 
-	/* are we a candidate to join a join */
+	/* are we a candidate to join a join? */
 	our_join = find_join_id(ea_endpoint->ep_join_id);
 	if (!our_join) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
@@ -3575,14 +3578,14 @@ void EndpointAppPBX::join_join(void)
 		other_eapp = other_eapp->next;
 	}
 	if (!other_eapp) {
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same isdn interface with port on hold.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same isdn terminal.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port on hold found.\n", ea_endpoint->ep_serial);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port with same terminal found.\n", ea_endpoint->ep_serial);
 
 	/* if we have the same join */
 	if (other_eapp->ea_endpoint->ep_join_id == ea_endpoint->ep_join_id) {
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we an the other have the same join.\n", ea_endpoint->ep_serial);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we and the other have the same join.\n", ea_endpoint->ep_serial);
 		return;
 	}
 	other_join = find_join_id(other_eapp->ea_endpoint->ep_join_id);

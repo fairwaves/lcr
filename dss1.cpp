@@ -2239,7 +2239,7 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 	int notify;
 	int plan = 0, type = -1, present = 0;
 
-	printf("if = %d\n", param->notifyinfo.notify);
+//	printf("if = %d\n", param->notifyinfo.notify);
 	if (param->notifyinfo.notify>INFO_NOTIFY_NONE)
 		notify = param->notifyinfo.notify & 0x7f;
 	else

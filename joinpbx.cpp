@@ -525,7 +525,7 @@ int joinpbx_countrelations(unsigned int join_id)
 	if (!join)
 		return(0);
 
-	if (join->j_type != JOIN_TYPE_REMOTE)
+	if (join->j_type == JOIN_TYPE_REMOTE)
 		return(2);
 
 	if (join->j_type != JOIN_TYPE_PBX)
@@ -634,6 +634,9 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 		PDEBUG(DEBUG_JOIN, "no relation back to the endpoint found, ignoring (join=%d, endpoint=%d)\n", j_serial, epoint_id);
 		return;
 	}
+
+	/* count relations */
+	num=joinpbx_countrelations(j_serial);
 
 	/* process party line */
 	if (message_type == MESSAGE_SETUP) if (param->setup.partyline && !j_partyline) {
@@ -783,7 +786,12 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 				release(j_relation, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
 				return; // must return, because join IS destroyed
 			}
-			/* remove all relations that are in called */
+			/* in a conf, we don't kill the other members */
+			if (num > 2) {
+				release(relation, 0, 0);
+				return;
+			}
+			/* remove all relations that are of called type */
 			release_again2:
 			reltemp = j_relation;
 			while(reltemp) {
@@ -808,9 +816,6 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 		}
 		return; // must return, because join may be destroyed
 	}
-
-	/* count relations */
-	num=joinpbx_countrelations(j_serial);
 
 	/* check number of relations */
 	if (num > 2) {
