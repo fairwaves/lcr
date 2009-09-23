@@ -114,11 +114,28 @@ static int inter_block(struct interface *interface, char *filename, int line, ch
 }
 static int inter_extension(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+	if (interface->external) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not allowed, because interface is external interface.\n", filename, line, parameter);
+		return(-1);
+	}
 	if (value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
 		return(-1);
 	}
 	interface->extension = 1;
+	return(0);
+}
+static int inter_extern(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	if (interface->extension) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' not allowed, because interface is an extension.\n", filename, line, parameter);
+		return(-1);
+	}
+	if (value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects no value.\n", filename, line, parameter);
+		return(-1);
+	}
+	interface->external = 1;
 	return(0);
 }
 static int inter_ptp(struct interface *interface, char *filename, int line, char *parameter, char *value)
@@ -907,6 +924,12 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 struct interface_param interface_param[] = {
 	{ "extension", &inter_extension, "",
 	"If keyword is given, calls to interface are handled as internal extensions."},
+
+	{ "extern", &inter_extern, "",
+	"If keyword is given, this interface will be used for external calls.\n"
+	"Calls require an external interface, if the routing action 'extern' is used\nwithout specific interface given.\n"
+	"Calls forwarded by extension's 'settings' also require an external interface."},
+
 	{"tones", &inter_tones, "yes | no",
 	"Interface generates tones during call setup and release, or not.\nBy default only NT-mode ports generate tones."},
 

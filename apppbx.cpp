@@ -550,28 +550,36 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	struct select_channel *selchannel; 
 	struct mISDNport *mISDNport;
 	int index, i;
+	int there_is_an_external = 0;
 
 	interface = interface_first;
 
 	/* first find the given interface or, if not given, one with no extension */
 	checknext:
-	if (!interface)
+	if (!interface) {
+		if (!there_is_an_external && !(ifname && ifname[0])) {
+			trace_header("CHANNEL SELECTION (no external interface specified)", DIRECTION_NONE);
+			add_trace("info", NULL, "Add 'external' parameter to interface.conf.");
+			end_trace();
+		}
 		return(NULL);
+	}
 
 	/* check for given interface */
-	if (ifname) {
+	if (ifname && ifname[0]) {
 		if (!strcasecmp(interface->name, ifname)) {
 			/* found explicit interface */
-			trace_header("CHANNEL SELECTION (found interface)", DIRECTION_NONE);
+			trace_header("CHANNEL SELECTION (found given interface)", DIRECTION_NONE);
 			add_trace("interface", NULL, "%s", ifname);
 			end_trace();
 			goto foundif;
 		}
 
 	} else {
-		if (!interface->extension) {
+		if (interface->external) {
+			there_is_an_external = 1;
 			/* found non extension */
-			trace_header("CHANNEL SELECTION (found non extension interface)", DIRECTION_NONE);
+			trace_header("CHANNEL SELECTION (found external interface)", DIRECTION_NONE);
 			add_trace("interface", NULL, "%s", interface->name);
 			end_trace();
 			goto foundif;
