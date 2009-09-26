@@ -68,6 +68,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer);
 #define DEBUG_PORT 	0x0100
 #define DEBUG_ISDN 	0x0110
 #define DEBUG_GSM 	0x0120
+#define DEBUG_SS5 	0x0130
 //#define DEBUG_KNOCK	0x0140
 #define DEBUG_VBOX	0x0180
 #define DEBUG_EPOINT 	0x0200
@@ -150,6 +151,11 @@ extern "C" {
 #include "dss1.h"
 #ifdef WITH_GSM
 #include "gsm.h"
+#endif
+#ifdef WITH_SS5
+#include "ss5_encode.h"
+#include "ss5_decode.h"
+#include "ss5.h"
 #endif
 #include "vbox.h"
 #include "join.h"

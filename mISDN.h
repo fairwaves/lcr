@@ -67,6 +67,9 @@ struct mISDNport {
 	/* gsm */
 	int gsm; /* this is the (only) GSM interface */
 	int lcr_sock; /* socket of loopback on LCR side */
+
+	/* ss5 */
+	unsigned int ss5; /* set, if SS5 signalling enabled, also holds feature bits */
 };
 extern mISDNport *mISDNport_first;
 
@@ -89,7 +92,8 @@ calls with no bchannel (call waiting, call on hold).
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
 int mISDN_getportbyname(int sock, int cnt, char *portname);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm);
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm, unsigned int ss5);
+void mISDNport_static(struct mISDNport *mISDNport);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);
@@ -121,6 +125,7 @@ class PmISDN : public Port
 	int p_m_tx_gain, p_m_rx_gain;		/* volume shift (0 = no change) */
 	char p_m_pipeline[256];			/* filter pipeline */
 	int p_m_echo, p_m_conf;			/* remote echo, conference number */
+	int p_m_mute;				/* if set, conf is disconnected */
 	int p_m_tone;				/* current kernel space tone */
 	int p_m_rxoff;				/* rx from driver is disabled */
 //	int p_m_nodata;				/* all parties within a conf are isdn ports, so pure bridging is possible */
@@ -152,6 +157,7 @@ class PmISDN : public Port
 
 	void set_tone(const char *dir, const char *name);
 	void set_echotest(int echotest);
+	void set_conf(int oldconf, int newconf);
 
 	int p_m_portnum;			/* used port number (1...n) */
 	int p_m_b_index;			/* index 0,1 0..29 */
@@ -167,6 +173,18 @@ class PmISDN : public Port
 	time_t p_m_timer;			/* start of timer */
 	unsigned int p_m_remote_ref;		/* join to export bchannel to */
 	int p_m_remote_id;			/* sock to export bchannel to */
+
+	int p_m_inband_send_on;			/* triggers optional send function */
+	int p_m_inband_receive_on;		/* triggers optional receive function */
+	int p_m_mute_on;			/* if mute is on, bridge is removed */
+	virtual int inband_send(unsigned char *buffer, int len);
+	void inband_send_on(void);
+	void inband_send_off(void);
+	virtual void inband_receive(unsigned char *buffer, int len);
+	void inband_receive_on(void);
+	void inband_receive_off(void);
+	void mute_on(void);
+	void mute_off(void);
 
 	int seize_bchannel(int channel, int exclusive); /* requests / reserves / links bchannels, but does not open it! */
 	void drop_bchannel(void);

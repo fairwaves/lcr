@@ -52,6 +52,7 @@ struct interface_port {
 	int			l1hold; /* hold layer 1 (1=on, 0=off) */
 	int			l2hold; /* hold layer 2 (1=force, -1=disable, 0=default) */
 	int			gsm; /* interface is an GSM interface */
+	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */

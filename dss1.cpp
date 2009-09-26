@@ -1900,8 +1900,6 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 }
 
 
-int newteid = 0;
-
 /* MESSAGE_SETUP */
 void Pdss1::message_setup(unsigned int epoint_id, int message_id, union parameter *param)
 {

@@ -77,26 +77,29 @@ genwave_OBJECTS = genwave.$(OBJEXT)
 genwave_LDADD = $(LDADD)
 am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c \
 	openbsc/src/bsc_init.c openbsc/src/vty_interface.c \
-	openbsc/src/vty_interface_layer3.c action.cpp mISDN.cpp \
-	tones.c action_efi.cpp crypt.cpp mail.c trace.c \
-	action_vbox.cpp dss1.cpp main.c vbox.cpp alawulaw.c \
-	endpoint.cpp interface.c message.c apppbx.cpp endpointapp.cpp \
-	join.cpp options.c extension.c joinpbx.cpp port.cpp callerid.c \
-	joinremote.cpp route.c cause.c socket_server.c
+	openbsc/src/vty_interface_layer3.c ss5.cpp ss5_encode.c \
+	ss5_decode.c action.cpp mISDN.cpp tones.c action_efi.cpp \
+	crypt.cpp mail.c trace.c action_vbox.cpp dss1.cpp main.c \
+	vbox.cpp alawulaw.c endpoint.cpp interface.c message.c \
+	apppbx.cpp endpointapp.cpp join.cpp options.c extension.c \
+	joinpbx.cpp port.cpp callerid.c joinremote.cpp route.c cause.c \
+	socket_server.c
 @ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT) bsc_init.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	vty_interface.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	vty_interface_layer3.$(OBJEXT)
-am_lcr_OBJECTS = $(am__objects_1) action.$(OBJEXT) mISDN.$(OBJEXT) \
-	tones.$(OBJEXT) action_efi.$(OBJEXT) crypt.$(OBJEXT) \
-	mail.$(OBJEXT) trace.$(OBJEXT) action_vbox.$(OBJEXT) \
-	dss1.$(OBJEXT) main.$(OBJEXT) vbox.$(OBJEXT) \
-	alawulaw.$(OBJEXT) endpoint.$(OBJEXT) interface.$(OBJEXT) \
-	message.$(OBJEXT) apppbx.$(OBJEXT) endpointapp.$(OBJEXT) \
-	join.$(OBJEXT) options.$(OBJEXT) extension.$(OBJEXT) \
-	joinpbx.$(OBJEXT) port.$(OBJEXT) callerid.$(OBJEXT) \
-	joinremote.$(OBJEXT) route.$(OBJEXT) cause.$(OBJEXT) \
-	socket_server.$(OBJEXT)
+@ENABLE_SS5_TRUE@am__objects_2 = ss5.$(OBJEXT) ss5_encode.$(OBJEXT) \
+@ENABLE_SS5_TRUE@	ss5_decode.$(OBJEXT)
+am_lcr_OBJECTS = $(am__objects_1) $(am__objects_2) action.$(OBJEXT) \
+	mISDN.$(OBJEXT) tones.$(OBJEXT) action_efi.$(OBJEXT) \
+	crypt.$(OBJEXT) mail.$(OBJEXT) trace.$(OBJEXT) \
+	action_vbox.$(OBJEXT) dss1.$(OBJEXT) main.$(OBJEXT) \
+	vbox.$(OBJEXT) alawulaw.$(OBJEXT) endpoint.$(OBJEXT) \
+	interface.$(OBJEXT) message.$(OBJEXT) apppbx.$(OBJEXT) \
+	endpointapp.$(OBJEXT) join.$(OBJEXT) options.$(OBJEXT) \
+	extension.$(OBJEXT) joinpbx.$(OBJEXT) port.$(OBJEXT) \
+	callerid.$(OBJEXT) joinremote.$(OBJEXT) route.$(OBJEXT) \
+	cause.$(OBJEXT) socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
 @ENABLE_GSM_TRUE@am__DEPENDENCIES_2 = /usr/lib/libgsm.a \
@@ -161,6 +164,8 @@ ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE = @ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE@
 ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE = @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@
 ENABLE_GSM_FALSE = @ENABLE_GSM_FALSE@
 ENABLE_GSM_TRUE = @ENABLE_GSM_TRUE@
+ENABLE_SS5_FALSE = @ENABLE_SS5_FALSE@
+ENABLE_SS5_TRUE = @ENABLE_SS5_TRUE@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 INSTALL_DATA = @INSTALL_DATA@
@@ -246,11 +251,16 @@ INSTALLATION_DEFINES = \
 @ENABLE_GSM_TRUE@GSM_INCLUDE = -DWITH_GSM -I./openbsc/include
 @ENABLE_GSM_TRUE@GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/vty_interface.c openbsc/src/vty_interface_layer3.c
 @ENABLE_GSM_TRUE@GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -ldbi -lcrypt
+
+#gsm_audio.po: gsm_audio.c gsm_audio.h
+#	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
+@ENABLE_SS5_TRUE@SS5_INCLUDE = -DWITH_SS5
+@ENABLE_SS5_TRUE@SS5_SOURCE = ss5.cpp ss5_encode.c ss5_decode.c
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
-INCLUDES = $(all_includes) $(GSM_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
-lcr_SOURCES = $(GSM_SOURCE) action.cpp       mISDN.cpp        tones.c \
+INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
@@ -437,6 +447,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_server.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ss5.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ss5_decode.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ss5_encode.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tones.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vbox.Po@am__quote@

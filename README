@@ -517,8 +517,9 @@ Changes after Version 1.6
 - Fixed bad call/conference bug in joinpbx.c
 - External interfaces must now be specified using 'extern' keyword.
  -> This prevents from selecting other interfaces when dialing out.
- -> Just add 'extern' right below your external interface, or define
+ -> Just add 'extern' right below your external interface definition, or give
     external interface name in routing.conf: ": extern interfaces=XXXXX"
+- Added experimental CCITT No. 5 signalling system. (for educational purpose)
 
 
 

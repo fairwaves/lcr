@@ -616,7 +616,7 @@ void Pdss1::enc_ie_cause(struct l3_msg *l3m, int location, int cause)
 	unsigned char p[256];
 	int l;
 
-	if (location<0 || location>7) {
+	if (location<0 || location>10) {
 		PERROR("location(%d) is out of range.\n", location);
 		return;
 	}

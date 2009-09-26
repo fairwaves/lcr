@@ -1035,6 +1035,9 @@ int admin_state(struct admin_queue **responsep)
 			case PORT_STATE_OUT_DISCONNECT:
 			response->am[num].u.p.state = ADMIN_STATE_OUT_DISCONNECT;
 			break;
+			case PORT_STATE_RELEASE:
+			response->am[num].u.p.state = ADMIN_STATE_RELEASE;
+			break;
 			default:
 			response->am[num].u.p.state = ADMIN_STATE_IDLE;
 		}

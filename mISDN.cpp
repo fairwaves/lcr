@@ -108,12 +108,15 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_tx_gain = mISDNport->ifport->interface->tx_gain;
 	p_m_rx_gain = mISDNport->ifport->interface->rx_gain;
 	p_m_conf = 0;
+	p_m_mute = 0;
 	p_m_txdata = 0;
 	p_m_delay = 0;
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
 	p_m_joindata = 0;
+	p_m_inband_send_on = 0;
+	p_m_inband_receive_on = 0;
 	p_m_dtmf = !mISDNport->ifport->nodtmf;
 	p_m_timeout = 0;
 	p_m_timer = 0;
@@ -159,6 +162,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	/* we increase the number of objects: */
 	mISDNport->use++;
 	PDEBUG(DEBUG_ISDN, "Created new mISDNPort(%s). Currently %d objects use, port #%d\n", portname, mISDNport->use, p_m_portnum);
+//inband_receive_on();
 }
 
 
@@ -464,7 +468,7 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_RX, port->p_m_rx_gain, "DSP-RX_GAIN", port->p_m_rx_gain);
 	if (port->p_m_pipeline[0] && mode == B_MODE_TRANSPARENT)
 		ph_control_block(mISDNport, port, handle, DSP_PIPELINE_CFG, port->p_m_pipeline, strlen(port->p_m_pipeline)+1, "DSP-PIPELINE", 0);
-	if (port->p_m_conf)
+	if (port->p_m_conf && !port->p_m_mute)
 		ph_control(mISDNport, port, handle, DSP_CONF_JOIN, port->p_m_conf, "DSP-CONF", port->p_m_conf);
 	if (port->p_m_echo)
 		ph_control(mISDNport, port, handle, DSP_ECHO_ON, 0, "DSP-ECHO", 1);
@@ -479,6 +483,19 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 	if (port->p_m_crypt && mode == B_MODE_TRANSPARENT)
 		ph_control_block(mISDNport, port, handle, DSP_BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
 }
+
+
+void PmISDN::set_conf(int oldconf, int newconf)
+{
+		if (oldconf != newconf) {
+			PDEBUG(DEBUG_BCHANNEL, "we change conference from conf=%d to conf=%d.\n", oldconf, newconf);
+			if (p_m_b_index > -1)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], (newconf)?DSP_CONF_JOIN:DSP_CONF_SPLIT, newconf, "DSP-CONF", newconf);
+		} else
+			PDEBUG(DEBUG_BCHANNEL, "we already have conf=%d.\n", newconf);
+}
+
 
 /*
  * subfunction for bchannel_event
@@ -1218,14 +1235,19 @@ int PmISDN::handler(void)
 		else
 			p_m_load = 0;
 
-		/* to send data, tone must be active OR crypt messages must be on */
-		if ((p_tone_name[0] || p_m_crypt_msg_loops)
-		 && (p_m_load < ISDN_LOAD)
-		 && (p_state==PORT_STATE_CONNECT || p_m_mISDNport->tones)) {
+		/* to send data, tone must be on */
+		if ((p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on) /* what tones? */
+		 && (p_m_load < ISDN_LOAD) /* enough load? */
+		 && (p_state==PORT_STATE_CONNECT || p_m_mISDNport->tones || p_m_inband_send_on)) { /* connected or inband-tones? */
 			int tosend = ISDN_LOAD - p_m_load, length; 
 			unsigned char buf[MISDN_HEADER_LEN+tosend];
 			struct mISDNhead *frm = (struct mISDNhead *)buf;
 			unsigned char *p = buf+MISDN_HEADER_LEN;
+
+			/* copy inband signalling (e.g. used by ss5) */
+			if (p_m_inband_send_on && tosend) {
+				tosend -= inband_send(p, tosend);
+			}
 
 			/* copy crypto loops */
 			while (p_m_crypt_msg_loops && tosend) {
@@ -1371,6 +1393,10 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 		PERROR("Bchannel received unknown primitve: 0x%x\n", hh->prim);
 		return;
 	}
+
+	/* inband is processed */
+	if (p_m_inband_receive_on)
+		inband_receive(data, len);
 
 	/* calls will not process any audio data unless
 	 * the call is connected OR tones feature is enabled.
@@ -1566,6 +1592,7 @@ void PmISDN::set_tone(const char *dir, const char *tone)
 //extern struct lcr_msg *dddebug;
 void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union parameter *param)
 {
+	int oldconf, newconf;
 	switch(param->mISDNsignal.message) {
 		case mISDNSIGNAL_VOLUME:
 		if (p_m_tx_gain != param->mISDNsignal.tx_gain) {
@@ -1587,19 +1614,10 @@ void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union p
 		break;
 
 		case mISDNSIGNAL_CONF:
-//if (dddebug) PDEBUG(DEBUG_ISDN, "dddebug = %d\n", dddebug->type);
-//tone		if (!p_m_tone && p_m_conf!=param->mISDNsignal.conf)
-		if (p_m_conf != param->mISDNsignal.conf) {
-			p_m_conf = param->mISDNsignal.conf;
-			PDEBUG(DEBUG_BCHANNEL, "we change conference to conf=%d.\n", p_m_conf);
-			if (p_m_b_index > -1)
-			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
-				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_socket[p_m_b_index], (p_m_conf)?DSP_CONF_JOIN:DSP_CONF_SPLIT, p_m_conf, "DSP-CONF", p_m_conf);
-		} else
-			PDEBUG(DEBUG_BCHANNEL, "we already have conf=%d.\n", p_m_conf);
-		/* we must set, even if currently tone forbids conf */
+		oldconf = p_m_mute?0:p_m_conf;
 		p_m_conf = param->mISDNsignal.conf;
-//if (dddebug) PDEBUG(DEBUG_ISDN, "dddebug = %d\n", dddebug->type);
+		newconf = p_m_mute?0:p_m_conf;
+		set_conf(oldconf, newconf);
 		break;
 
 		case mISDNSIGNAL_JOINDATA:
@@ -1744,7 +1762,7 @@ int mISDN_handler(void)
 			isdnport=mISDNport->b_port[i];
 			if (isdnport) {
 				/* call bridges in user space OR crypto OR recording */
-				if (isdnport->p_m_joindata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record) {
+				if (isdnport->p_m_joindata || isdnport->p_m_crypt_msg_loops || isdnport->p_m_crypt_listen || isdnport->p_record || isdnport->p_m_inband_receive_on) {
 					/* rx IS required */
 					if (isdnport->p_m_rxoff) {
 						/* turn on RX */
@@ -1947,7 +1965,7 @@ int mISDN_handler(void)
 				mISDNport->l2establish = 0;
 				if (!mISDNport->gsm && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 
-					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
+//					PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 					mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 					time(&mISDNport->l2establish);
 					return(1);
@@ -2027,7 +2045,7 @@ int mISDN_getportbyname(int sock, int cnt, char *portname)
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm)
+struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm, unsigned int ss5)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
@@ -2168,8 +2186,8 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	while(*mISDNportp)
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
-	if (gsm) {
-		/* gsm audio is always active */
+	if (gsm | ss5) {
+		/* gsm/ss5 link is always active */
 		mISDNport->l1link = 1;
 		mISDNport->l2link = 1;
 	} else {
@@ -2183,7 +2201,13 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	/* if pri, must set PTP */
 	if (pri)
 		ptp = 1;
-	
+
+	/* set ss5 params */
+	if (ss5) {
+		/* try to keep interface enabled */
+		l1hold = 1;
+		l2hold = 1;
+	}
 	/* set l2hold */
 	switch (l2hold) {
 		case -1: // off
@@ -2273,6 +2297,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	mISDNport->ptp = ptp;
 	mISDNport->l1hold = l1hold;
 	mISDNport->l2hold = l2hold;
+	mISDNport->ss5 = ss5;
 	PDEBUG(DEBUG_ISDN, "Port has %d b-channels.\n", mISDNport->b_num);
 	i = 0;
 	while(i < mISDNport->b_num) {
@@ -2306,8 +2331,29 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		    "PORT (open)");
 	add_trace("mode", NULL, (mISDNport->ntmode)?"network":"terminal");
 	add_trace("channels", NULL, "%d", mISDNport->b_num);
+	if (mISDNport->ss5)
+		add_trace("ccitt#5", NULL, "enabled");
 	end_trace();
+
 	return(mISDNport);
+}
+
+
+/*
+ * load static port instances, if required by mISDNport
+ */
+void mISDNport_static(struct mISDNport *mISDNport)
+{
+	int i;
+
+	i = 0;
+	while(i < mISDNport->b_num) {
+#ifdef WITH_SS5
+		if (mISDNport->ss5)
+			ss5_create_channel(mISDNport, i);
+#endif
+		i++;
+	}
 }
 
 
@@ -2418,7 +2464,7 @@ void PmISDN::txfromup(unsigned char *data, int length)
 	/* check if high priority tones exist
 	 * ignore data in this case
 	 */
-	if (p_tone_name[0] || p_m_crypt_msg_loops)
+	if (p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on)
 		return;
 
 	/* preload procedure
@@ -2450,4 +2496,62 @@ void PmISDN::txfromup(unsigned char *data, int length)
 		PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_socket[p_m_b_index]);
 	p_m_load += length;
 }
+
+int PmISDN::inband_send(unsigned char *buffer, int len)
+{
+	PERROR("this function must be derived to function!\n");
+	return 0;
+}
+
+void PmISDN::inband_send_on(void)
+{
+	PDEBUG(DEBUG_PORT, "turning inband signalling send on.\n");
+	p_m_inband_send_on = 1;
+}
+
+void PmISDN::inband_send_off(void)
+{
+	PDEBUG(DEBUG_PORT, "turning inband signalling send off.\n");
+	p_m_inband_send_on = 0;
+}
+
+void PmISDN::inband_receive(unsigned char *buffer, int len)
+{
+//
+//	if (len >= SS5_DECODER_NPOINTS)
+//		ss5_decode(buffer, SS5_DECODER_NPOINTS);
+	PERROR("this function must be derived to function!\n");
+}
+
+void PmISDN::inband_receive_on(void)
+{
+	/* this must work during constructor, see ss5.cpp */
+	PDEBUG(DEBUG_PORT, "turning inband signalling receive on.\n");
+	p_m_inband_receive_on = 1;
+}
+
+void PmISDN::inband_receive_off(void)
+{
+	PDEBUG(DEBUG_PORT, "turning inband signalling receive off.\n");
+	p_m_inband_receive_on = 0;
+}
+
+void PmISDN::mute_on(void)
+{
+	if (p_m_mute)
+		return;
+	PDEBUG(DEBUG_PORT, "turning mute on.\n");
+	p_m_mute = 1;
+	set_conf(p_m_conf, 0);
+}
+
+void PmISDN::mute_off(void)
+{
+	if (!p_m_mute)
+		return;
+	PDEBUG(DEBUG_PORT, "turning mute off.\n");
+	p_m_mute = 0;
+	set_conf(0, p_m_conf);
+}
+
 

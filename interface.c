@@ -916,6 +916,56 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	return(0);
 #endif
 }
+#ifdef WITH_SS5
+static int inter_ss5(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+	char *element;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->ss5 |= SS5_ENABLE;
+	while((element = strsep(&value, " "))) {
+		if (element[0] == '\0')
+			continue;
+		if (!strcasecmp(element, "connect"))
+			ifport->ss5 |= SS5_FEATURE_CONNECT;
+		else
+		if (!strcasecmp(element, "nodisconnect"))
+			ifport->ss5 |= SS5_FEATURE_NODISCONNECT;
+		else
+		if (!strcasecmp(element, "releaseguardtimer"))
+			ifport->ss5 |= SS5_FEATURE_RELEASEGUARDTIMER;
+		else
+		if (!strcasecmp(element, "bell"))
+			ifport->ss5 |= SS5_FEATURE_BELL;
+		else
+		if (!strcasecmp(element, "pulsedialing"))
+			ifport->ss5 |= SS5_FEATURE_PULSEDIALING;
+		else
+		if (!strcasecmp(element, "delay"))
+			ifport->ss5 |= SS5_FEATURE_DELAY;
+		else
+		if (!strcasecmp(element, "starrelease"))
+			ifport->ss5 |= SS5_FEATURE_STAR_RELEASE;
+		else
+		if (!strcasecmp(element, "suppress"))
+			ifport->ss5 |= SS5_FEATURE_SUPPRESS;
+		else {
+			SPRINT(interface_error, "Error in %s (line %d): parameter '%s' does not allow value element '%s'.\n", filename, line, parameter, element);
+			return(-1);
+		}
+	}
+	return(0);
+}
+#endif
 
 
 /*
@@ -1048,6 +1098,22 @@ struct interface_param interface_param[] = {
 	"Sets up GSM interface for using OpenBSC.\n"
 	"This interface must be a loopback interface. The second loopback interface\n"
 	"must be assigned to OpenBSC"},
+
+#ifdef WITH_SS5
+	{"ccitt5", &inter_ss5, "[<feature> [feature ...]]",
+	"Interface uses CCITT No. 5 inband signalling rather than D-channel.\n"
+	"This feature causes CPU load to rise and has no practical intend.\n"
+	"If you don't know what it is, you don't need it.\n"
+	"Features apply to protocol behaviour and blueboxing specials, they are:\n"
+	" connect - Connect incomming call to throughconnect audio, if required.\n"
+	" nodisconnect - Don't disconnect if incomming exchange disconnects.\n"
+	" releaseguardtimer - Tries to prevent Blueboxing by a longer release-guard.\n"
+	" bell - Allow releasing and pulse-dialing via 2600 Hz like old Bell systems.\n"
+	" pulsedialing - Use pulse dialing on outgoing exchange. (takes long!)\n"
+	" delay - Use on incomming exchange, to make you feel a delay when blueboxing.\n"
+	" starrelease - Pulse dialing a star (11 pulses per digit) clears current call.\n"
+	" suppress - Suppress received tones, as they will be recognized."},
+#endif
 
 	{NULL, NULL, NULL, NULL}
 };
@@ -1275,12 +1341,12 @@ static void set_defaults(struct interface_port *ifport)
 	if (ifport->interface->is_tones)
 		ifport->mISDNport->tones = (ifport->interface->is_tones==IS_YES);
 	else
-		ifport->mISDNport->tones = (ifport->mISDNport->ntmode)?1:0;
+		ifport->mISDNport->tones = (ifport->mISDNport->ntmode || ifport->mISDNport->ss5)?1:0;
 	/* default is_earlyb */
 	if (ifport->interface->is_earlyb)
 		ifport->mISDNport->earlyb = (ifport->interface->is_earlyb==IS_YES);
 	else
-		ifport->mISDNport->earlyb = (ifport->mISDNport->ntmode)?0:1;
+		ifport->mISDNport->earlyb = (ifport->mISDNport->ntmode && !ifport->mISDNport->ss5)?0:1;
 	/* set locally flag */
 	if (ifport->interface->extension)
 		ifport->mISDNport->locally = 1;
@@ -1366,7 +1432,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface, ifport->gsm);
+	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface, ifport->gsm, ifport->ss5);
 	if (mISDNport) {
 		/* link port */
 		ifport->mISDNport = mISDNport;
@@ -1376,6 +1442,8 @@ void load_port(struct interface_port *ifport)
 		SCPY(ifport->portname, mISDNport->name);
 		/* set defaults */
 		set_defaults(ifport);
+		/* load static port instances */
+		mISDNport_static(mISDNport);
 	} else {
 		ifport->block = 2; /* not available */
 	}

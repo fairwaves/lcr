@@ -56,6 +56,14 @@ GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./open
 
 endif
 
+if ENABLE_SS5
+
+SS5_INCLUDE = -DWITH_SS5
+
+SS5_SOURCE = ss5.cpp ss5_encode.c ss5_decode.c
+
+endif
+
 bin_PROGRAMS = lcradmin gentones genwave
 
 sbin_PROGRAMS = lcr genrc genextension
@@ -84,9 +92,9 @@ install-exec-hook:
 	$(INSTALL) chan_lcr.so $(astmoddir)
 endif
 
-INCLUDES = $(all_includes) $(GSM_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) action.cpp       mISDN.cpp        tones.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \

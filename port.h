@@ -18,6 +18,7 @@
 #define PORT_CLASS_MASK		0xff00
 #define PORT_CLASS_mISDN_DSS1	0x0110
 #define PORT_CLASS_mISDN_GSM	0x0120
+#define PORT_CLASS_mISDN_SS5	0x0130
 #define PORT_CLASS_mISDN_MASK	0xfff0
 	/* nt-mode */
 #define	PORT_TYPE_DSS1_NT_IN	0x0111
@@ -28,6 +29,10 @@
 	/* gsm */
 #define	PORT_TYPE_GSM_IN	0x0121
 #define	PORT_TYPE_GSM_OUT	0x0122
+	/* ss5 */
+#define	PORT_TYPE_SS5_IN	0x0131
+#define	PORT_TYPE_SS5_OUT	0x0132
+#define	PORT_TYPE_SS5_IDLE	0x0133
 	/* answering machine */
 #define	PORT_TYPE_VBOX_OUT	0x0311
 

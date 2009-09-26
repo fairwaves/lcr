@@ -136,7 +136,7 @@ void EndpointAppPBX::trace_header(const char *name, int direction)
 	SCPY(msgtext, name);
 
 	/* init trace with given values */
-	start_trace(0,
+	start_trace(-1,
 		    NULL,
 		    numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international),
 		    e_dialinginfo.id,
@@ -648,92 +648,108 @@ foundif:
 
 	/* check for channel form selection list */
 	*channel = 0;
-	selchannel = ifport->out_channel;
-	while(selchannel) {
-		switch(selchannel->channel) {
-			case CHANNEL_FREE: /* free channel */
-			if (mISDNport->b_reserved >= mISDNport->b_num)
-				break; /* all channel in use or reserverd */
-			/* find channel */
-			i = 0;
-			while(i < mISDNport->b_num) {
+#ifdef WITH_SS5
+	if (mISDNport->ss5) {
+		class Pss5 *port;
+		port = ss5_hunt_line(mISDNport);
+		if (port) {
+			*channel = port->p_m_b_channel;
+			trace_header("CHANNEL SELECTION (selecting SS5 channel)", DIRECTION_NONE);
+			add_trace("port", NULL, "%d", ifport->portnum);
+			add_trace("position", NULL, "%d", index);
+			add_trace("channel", NULL, "%d", *channel);
+			end_trace();
+		}
+	} else
+#endif
+	{
+		selchannel = ifport->out_channel;
+		while(selchannel) {
+			switch(selchannel->channel) {
+				case CHANNEL_FREE: /* free channel */
+				if (mISDNport->b_reserved >= mISDNport->b_num)
+					break; /* all channel in use or reserverd */
+				/* find channel */
+				i = 0;
+				while(i < mISDNport->b_num) {
+					if (mISDNport->b_port[i] == NULL) {
+						*channel = i+1+(i>=15);
+						trace_header("CHANNEL SELECTION (selecting free channel)", DIRECTION_NONE);
+						add_trace("port", NULL, "%d", ifport->portnum);
+						add_trace("position", NULL, "%d", index);
+						add_trace("channel", NULL, "%d", *channel);
+						end_trace();
+						break;
+					}
+					i++;
+				}
+				if (*channel)
+					break;
+				trace_header("CHANNEL SELECTION (no channel is 'free')", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				end_trace();
+				break;
+
+				case CHANNEL_ANY: /* don't ask for channel */
+				if (mISDNport->b_reserved >= mISDNport->b_num) {
+					trace_header("CHANNEL SELECTION (cannot ask for 'any' channel, all reserved)", DIRECTION_NONE);
+					add_trace("port", NULL, "%d", ifport->portnum);
+					add_trace("position", NULL, "%d", index);
+					add_trace("total", NULL, "%d", mISDNport->b_num);
+					add_trace("reserved", NULL, "%d", mISDNport->b_reserved);
+					end_trace();
+					break; /* all channel in use or reserverd */
+				}
+				trace_header("CHANNEL SELECTION (using 'any' channel)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				end_trace();
+				*channel = CHANNEL_ANY;
+				break;
+
+				case CHANNEL_NO: /* call waiting */
+				trace_header("CHANNEL SELECTION (using 'no' channel, call-waiting)", DIRECTION_NONE);
+				add_trace("port", NULL, "%d", ifport->portnum);
+				add_trace("position", NULL, "%d", index);
+				end_trace();
+				*channel = CHANNEL_NO;
+				break;
+
+				default:
+				if (selchannel->channel<1 || selchannel->channel==16) {
+					trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
+					add_trace("port", NULL, "%d", ifport->portnum);
+					add_trace("position", NULL, "%d", index);
+					add_trace("channel", NULL, "%d", selchannel->channel);
+					end_trace();
+					break; /* invalid channels */
+				}
+				i = selchannel->channel-1-(selchannel->channel>=17);
+				if (i >= mISDNport->b_num) {
+					trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
+					add_trace("port", NULL, "%d", ifport->portnum);
+					add_trace("position", NULL, "%d", index);
+					add_trace("channel", NULL, "%d", selchannel->channel);
+					add_trace("channels", NULL, "%d", mISDNport->b_num);
+					end_trace();
+					break; /* channel not in port */
+				}
 				if (mISDNport->b_port[i] == NULL) {
-					*channel = i+1+(i>=15);
-					trace_header("CHANNEL SELECTION (selecting free channel)", DIRECTION_NONE);
+					*channel = selchannel->channel;
+					trace_header("CHANNEL SELECTION (selecting given channel)", DIRECTION_NONE);
 					add_trace("port", NULL, "%d", ifport->portnum);
 					add_trace("position", NULL, "%d", index);
 					add_trace("channel", NULL, "%d", *channel);
 					end_trace();
 					break;
 				}
-				i++;
+				break;
 			}
 			if (*channel)
-				break;
-			trace_header("CHANNEL SELECTION (no channel is 'free')", DIRECTION_NONE);
-			add_trace("port", NULL, "%d", ifport->portnum);
-			add_trace("position", NULL, "%d", index);
-			end_trace();
-			break;
-
-			case CHANNEL_ANY: /* don't ask for channel */
-			if (mISDNport->b_reserved >= mISDNport->b_num) {
-				trace_header("CHANNEL SELECTION (cannot ask for 'any' channel, all reserved)", DIRECTION_NONE);
-				add_trace("port", NULL, "%d", ifport->portnum);
-				add_trace("position", NULL, "%d", index);
-				add_trace("total", NULL, "%d", mISDNport->b_num);
-				add_trace("reserved", NULL, "%d", mISDNport->b_reserved);
-				end_trace();
-				break; /* all channel in use or reserverd */
-			}
-			trace_header("CHANNEL SELECTION (using 'any' channel)", DIRECTION_NONE);
-			add_trace("port", NULL, "%d", ifport->portnum);
-			add_trace("position", NULL, "%d", index);
-			end_trace();
-			*channel = CHANNEL_ANY;
-			break;
-
-			case CHANNEL_NO: /* call waiting */
-			trace_header("CHANNEL SELECTION (using 'no' channel, call-waiting)", DIRECTION_NONE);
-			add_trace("port", NULL, "%d", ifport->portnum);
-			add_trace("position", NULL, "%d", index);
-			end_trace();
-			*channel = CHANNEL_NO;
-			break;
-
-			default:
-			if (selchannel->channel<1 || selchannel->channel==16) {
-				trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
-				add_trace("port", NULL, "%d", ifport->portnum);
-				add_trace("position", NULL, "%d", index);
-				add_trace("channel", NULL, "%d", selchannel->channel);
-				end_trace();
-				break; /* invalid channels */
-			}
-			i = selchannel->channel-1-(selchannel->channel>=17);
-			if (i >= mISDNport->b_num) {
-				trace_header("CHANNEL SELECTION (channel out of range)", DIRECTION_NONE);
-				add_trace("port", NULL, "%d", ifport->portnum);
-				add_trace("position", NULL, "%d", index);
-				add_trace("channel", NULL, "%d", selchannel->channel);
-				add_trace("channels", NULL, "%d", mISDNport->b_num);
-				end_trace();
-				break; /* channel not in port */
-			}
-			if (mISDNport->b_port[i] == NULL) {
-				*channel = selchannel->channel;
-				trace_header("CHANNEL SELECTION (selecting given channel)", DIRECTION_NONE);
-				add_trace("port", NULL, "%d", ifport->portnum);
-				add_trace("position", NULL, "%d", index);
-				add_trace("channel", NULL, "%d", *channel);
-				end_trace();
-				break;
-			}
-			break;
+				break; /* found channel */
+			selchannel = selchannel->next;
 		}
-		if (*channel)
-			break; /* found channel */
-		selchannel = selchannel->next;
 	}
 
 	/* if channel was found, return mISDNport and channel */
@@ -921,6 +937,11 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating INTERNAL port */
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+#ifdef WITH_SS5
+			if (mISDNport->ss5)
+				port = ss5_hunt_line(mISDNport);
+			else
+#endif
 			if (!mISDNport->gsm)
 				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
@@ -1034,6 +1055,11 @@ void EndpointAppPBX::out_setup(void)
 				if (mISDNport) {
 					/* creating EXTERNAL port*/
 					SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+#ifdef WITH_SS5
+					if (mISDNport->ss5)
+						port = ss5_hunt_line(mISDNport);
+					else
+#endif
 						port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 					if (!port)
 						FATAL("No memory for Port instance\n");
@@ -1124,6 +1150,11 @@ void EndpointAppPBX::out_setup(void)
 			}
 			/* creating EXTERNAL port*/
 			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+#ifdef WITH_SS5
+			if (mISDNport->ss5)
+				port = ss5_hunt_line(mISDNport);
+			else
+#endif
 			if (!mISDNport->gsm)
 				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else

@@ -179,6 +179,10 @@ int debug_port(struct admin_message *msg, struct admin_message *m, int line, int
 		color(blue);
 		addstr("'out >> disc'");
 		break;
+		case ADMIN_STATE_RELEASE:
+		color(blue);
+		addstr("'release'");
+		break;
 		default:
 		color(blue);
 		addstr("'--NONE--'");
@@ -729,7 +733,7 @@ const char *admin_state(int sock, char *argv[])
 								break;
 								case B_STATE_ACTIVE:
 								color(green);
-								addstr("busy    ");
+								addstr("active  ");
 								break;
 								case B_STATE_DEACTIVATING:
 								color(yellow);

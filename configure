@@ -640,6 +640,8 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 POW_LIB
 LIBOBJS
+ENABLE_SS5_FALSE
+ENABLE_SS5_TRUE
 ENABLE_GSM_FALSE
 ENABLE_GSM_TRUE
 LIBCRYPTO
@@ -735,6 +737,7 @@ enable_dependency_tracking
 with_asterisk
 with_ssl
 with_gsm
+with_ss5
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1385,7 +1388,9 @@ Optional Packages:
 
   --with-ssl              compile with ssl support (libcrypto) [default=check]
 
-  --with-gsm              compile with OpenBSC support [default=no]
+  --with-gsm              compile with OpenBSC support [default=check]
+
+  --with-ss5              compile with CCITT No. 5 support [default=no]
 
 
 Some influential environment variables:
@@ -6316,6 +6321,27 @@ else
 fi
 
 
+# check for ss5
+
+# Check whether --with-ss5 was given.
+if test "${with_ss5+set}" = set; then
+  withval=$with_ss5;
+else
+  with_ss5="check"
+fi
+
+
+
+
+if test "x$with_ss5" == "xyes" ; then
+  ENABLE_SS5_TRUE=
+  ENABLE_SS5_FALSE='#'
+else
+  ENABLE_SS5_TRUE='#'
+  ENABLE_SS5_FALSE=
+fi
+
+
 # Checks for libraries.
 
 { $as_echo "$as_me:$LINENO: checking for main in -lm" >&5
@@ -9823,6 +9849,13 @@ if test -z "${ENABLE_GSM_TRUE}" && test -z "${ENABLE_GSM_FALSE}"; then
   { { $as_echo "$as_me:$LINENO: error: conditional \"ENABLE_GSM\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 $as_echo "$as_me: error: conditional \"ENABLE_GSM\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${ENABLE_SS5_TRUE}" && test -z "${ENABLE_SS5_FALSE}"; then
+  { { $as_echo "$as_me:$LINENO: error: conditional \"ENABLE_SS5\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+$as_echo "$as_me: error: conditional \"ENABLE_SS5\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi

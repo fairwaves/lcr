@@ -98,7 +98,7 @@ AS_IF([test "x$with_ssl" != xno],
 # check for gsm
 AC_ARG_WITH([gsm],
 	[AS_HELP_STRING([--with-gsm],
-			[compile with OpenBSC support @<:@default=no@:>@])
+			[compile with OpenBSC support @<:@default=check@:>@])
 	],
 	[],
 	[with_gsm="check"])
@@ -114,6 +114,16 @@ AS_IF([test "x$with_gsm" != xno],
       ])
 
 AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm" == "xyes" )
+
+# check for ss5
+AC_ARG_WITH([ss5],
+	[AS_HELP_STRING([--with-ss5],
+			[compile with CCITT No. 5 support @<:@default=no@:>@])
+	],
+	[],
+	[with_ss5="check"])
+
+AM_CONDITIONAL(ENABLE_SS5, test "x$with_ss5" == "xyes" )
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])

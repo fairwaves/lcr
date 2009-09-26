@@ -360,6 +360,12 @@ int main(int argc, char *argv[])
 	/* generate alaw / ulaw tables */
 	generate_tables(options.law);
 
+#ifdef WITH_SS5
+	/* init ss5 sine tables */
+	ss5_sine_generate();
+	ss5_test_decode();
+#endif
+
 	/* load tones (if requested) */
 	if (fetch_tones() == 0) {
 		fprintf(stderr, "Unable to fetch tones into memory.\n");
