@@ -19,7 +19,7 @@
 #define NCOEFF		8	/* number of frequencies to be analyzed */
 
 #define MIN_DB		0.01995262 /* -17 db */
-#define DIFF_DB		0.31622777 /*  -5 db */
+#define DIFF_DB		0.2 // 0.31622777 /*  -5 db */
 #define SNR		1.3	/* noise may not exceed signal by that factor */
 
 /* For DTMF recognition:
@@ -56,7 +56,7 @@ char ss5_decode(unsigned char *data, int len)
 	signed short buf[len];
 	signed long sk, sk1, sk2, low, high;
 	int k, n, i;
-	int f1 = 0, f2 = 0, f3 = 0;
+	int f1 = 0, f2 = 0;
 	double result[NCOEFF], power, noise, snr;
 	signed long long cos2pik_;
 	char digit = ' ';
@@ -115,45 +115,33 @@ char ss5_decode(unsigned char *data, int len)
 			f2 = i;
 		}
 	}
-	power = 0.0;
-	for (i = 0; i < NCOEFF; i++) {
-		if (i != f1  && i != f2 && result[i] > power) {
-			power = result[i];
-			f3 = i;
-		}
-	}
 
-#if 0
-	/* check one frequency */
-	if (result[f1] > MIN_DB /* must be at least -17 db */
-	 && result[f1]*DIFF_DB > result[f2]) /* must be 5 db above other tones */
-		digit = decode_one[f1];
-	/* check two frequencies */
-	if (result[f1] > MIN_DB && result[f2] > MIN_DB /* must be at lease -17 db */
-	 && result[f1]*DIFF_DB <= result[f2] /* f2 must be not less than 5 db below f1 */
-	 && result[f1]*DIFF_DB > result[f3]) /* f1 must be 5 db above other tones */
-		digit = decode_two[f1][f2];
-#endif
 	snr = 0;
 	/* check one frequency */
 	if (result[f1] > MIN_DB /* must be at least -17 db */
 	 && result[f1]*SNR > noise) { /*  */
 		digit = decode_one[f1];
-		snr = result[f1] / noise;
+		if (digit != ' ')
+			snr = result[f1] / noise;
 	}
 	/* check two frequencies */
 	if (result[f1] > MIN_DB && result[f2] > MIN_DB /* must be at lease -17 db */
 	 && result[f1]*DIFF_DB <= result[f2] /* f2 must be not less than 5 db below f1 */
 	 && (result[f1]+result[f2])*SNR > noise) { /* */
 		digit = decode_two[f1][f2];
-		snr = (result[f1]+result[f2]) / noise;
+		if (digit != ' ')
+			snr = (result[f1]+result[f2]) / noise;
 	}
 
 	/* debug powers */
 #ifdef DEBUG_LEVELS
-	for (i = 0; i < NCOEFF; i++)
-		printf("%d:%3d %c ", i, (int)(result[i]*100), (f1==i || f2==i)?'*':' ');
-	printf("N:%3d digit:%c snr=%3d\n", (int)(noise*100), digit, (int)(snr*100));
+	if (noise > 0.2) {
+		for (i = 0; i < NCOEFF; i++)
+			printf("%d:%3d %c ", i, (int)(result[i]*100), (f1==i || f2==i)?'*':' ');
+		printf("N:%3d digit:%c snr=%3d\n", (int)(noise*100), digit, (int)(snr*100));
+	 	if (result[f1]*DIFF_DB <= result[f2]) /* f2 must be not less than 5 db below f1 */
+			printf("jo!");
+	}
 #endif
 
 	return digit;

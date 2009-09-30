@@ -35,6 +35,8 @@
 
 #include "main.h"
 
+//#define DEBUG_DETECT
+
 /* ss5 signal states */
 enum {
 	SS5_STATE_IDLE,			/* no signal */
