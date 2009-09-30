@@ -506,7 +506,6 @@ void Pss5::inband_receive(unsigned char *buffer, int len)
 			PDEBUG(DEBUG_SS5, "%s: received clear-forward in idle state, waiting for recognition\n", p_name);
 			break;
 		}
-		new_state(PORT_STATE_RELEASE);
 		new_ss5_state(SS5_STATE_RELEASE_GUARD);
 		new_ss5_signal(SS5_SIGNAL_RECEIVE_RECOG);
 		p_m_s_recog = 0;
@@ -797,6 +796,7 @@ void Pss5::inband_receive(unsigned char *buffer, int len)
 				PDEBUG(DEBUG_SS5, "%s: incomming release-guard is recognized, responding...\n", p_name);
 			else
 				PDEBUG(DEBUG_SS5, "%s: incomming clear-forward is recognized, responding...\n", p_name);
+			new_state(PORT_STATE_RELEASE);
 			new_ss5_signal(SS5_SIGNAL_RECEIVE);
 			p_m_s_sample_nr = 0;
 			inband_send_on();
@@ -1266,6 +1266,7 @@ void Pss5::seizing_ind(void)
 	end_trace();
 
 	new_state(PORT_STATE_IN_SETUP);
+	set_tone("", "noise");
 }
 
 void Pss5::digit_ind(char digit)
