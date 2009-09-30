@@ -2378,13 +2378,15 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	int i;
 
 	/* remove all port instance that are linked to this mISDNport */
+	again:
 	port = port_first;
 	while(port) {
 		if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_mISDN) {
 			isdnport = (class PmISDN *)port;
-			if (isdnport->p_m_mISDNport) {
+			if (isdnport->p_m_mISDNport && isdnport->p_m_mISDNport == mISDNport) {
 				PDEBUG(DEBUG_ISDN, "port %s uses mISDNport %d, destroying it.\n", isdnport->p_name, mISDNport->portnum);
 				delete isdnport;
+				goto again;
 			}
 		}
 		port = port->next;
