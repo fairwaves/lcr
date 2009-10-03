@@ -1,0 +1,24 @@
+Source: lcr
+Section: comm
+Priority: extra
+Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
+Uploaders: Joerg Dorchain <joerg@dorchain.net>, Victor Seva <linuxmaniac@torreviejawireless.org>
+Build-Depends: debhelper (>= 7), autotools-dev, libmisdnv2user-dev, asterisk-dev, libncurses-dev,  automake1.9, quilt
+Standards-Version: 3.8.3
+Homepage: http://isdn.eversberg.eu/download/lcr-1.3/
+Vcs-Svn: svn://svn.debian.org/pkg-voip/lcr/trunk
+Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/lcr/?op=log
+
+Package: lcr
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.0-6)
+Suggests: asterisk
+Description: LinuxCallRouter - an ISDN based PBX for Linux
+ Formerly known as "PBX4Linux", Linux-Call-Router is not only a router,
+ it is a real ISDN PBX which interconnects ISDN telephones and ISDN lines.
+ It is possible to connect telephones to a Linux box. It is a pure software
+ solution except for the ISDN cards and telephones. The great benefit is
+ the NT-mode that allows to connect telephones to an ISDN card. Special
+ cards are needed and a little bit of different cabeling. It supports lots
+ of features, that only expensive PBXs have. It include a channel driver
+ that can link LCR to Asterisk PBX.
