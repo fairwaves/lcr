@@ -1,0 +1,32 @@
+.TH GENEXTENSION 8
+.SH NAME
+genextension \- Linux Call Route extension generator
+.SH SYNOPSIS
+genextension EXTENSION INTERFACES CALLERID
+.SH DESCRIPTION
+Extensions can be easily created by using the "genextension" command.
+After executing the command the extension will be created at "/usr/share/lcr/extensions/EXTENSION/".
+.SS EXTENSION
+Extension number.
+.br
+Any number for the extension (e.g 200)
+.SS INTERFACES
+Extension’s interface to be used for calls to the extension.
+.br
+"Int" would send a call to the internal interface as defined in "/etc/lcr/interface.conf".
+If calls should ring on more then one port, they must be separated by commas without spaces.
+Internal ports must be defined in "/etc/lcr/options.conf"
+.br
+Internal interface(s) to reach extension, NOT port numbers -> seperate multiple
+interfaces with commas without spaces. (e.g Int1,Int2)
+.SS CALLERID
+Caller ID to be used, whenever the extension makes a call (to external line).
+The type of caller ID is "undefined", that is the standard type for normal
+external ISDN lines. If the external ISDN line has the "CLIP No Screening" 
+feature, it must be given with type "subscriber", "national" or "international".
+.SH SEE ALSO
+http://www.linux-call-router.de/doc.html
+.SH AUTHOR
+This minimal man page was written by Victor Seva <linuxmaniac@torreviejawireless.org>
+.br
+from documentation created by Andreas Eversberg <jolly@eversberg.eu>
