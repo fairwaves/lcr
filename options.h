@@ -27,7 +27,8 @@ struct options {
 	char	email[128];		/* source email address */
 	char	lock[128];		/* path of lock files */
 	int	socketrights;		/* rights of lcr admin socket */
-
+	int     socketuser;             /* socket chown to this user */
+	int     socketgroup;            /* socket chgrp to this group */
 	int	gsm;			/* enable gsm support */
 };	
 
