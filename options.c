@@ -17,6 +17,8 @@
 #include "macro.h"
 #include "extension.h"
 #include "options.h"
+#include <grp.h>
+#include <pwd.h>
 
 struct options options = {
 	"/usr/local/lcr/log",		/* log file */
@@ -31,6 +33,8 @@ struct options options = {
 	"lcr@your.machine",		/* source mail adress */
 	"/var/tmp",			/* path of lock files */
 	0700,				/* rights of lcr admin socket */
+	-1,                             /* socket user (-1= no change) */
+	-1,                             /* socket group (-1= no change) */
 	0				/* enable gsm */
 };
 
@@ -201,6 +205,30 @@ int read_options(void)
 				param[strlen(param)-1]=0;
 			SCPY(options.lock, param);
 
+		} else
+		if (!strcmp(option,"socketuser")) {
+			char * endptr = NULL;
+			options.socketuser = strtol(param, &endptr, 10);
+			if (*endptr != '\0') {
+				struct passwd * pwd = getpwnam(param);
+				if (pwd == NULL) {
+					SPRINT(options_error, "Error in %s (line %d): no such user: %s.\n",filename,line,param);
+					goto error;
+				}
+				options.socketuser = pwd->pw_uid;
+			}
+		} else
+		if (!strcmp(option,"socketgroup")) {
+			char * endptr = NULL;
+			options.socketgroup = strtol(param, &endptr, 10);
+			if (*endptr != '\0') {
+				struct group * grp = getgrnam(param);
+				if (grp == NULL) {
+					SPRINT(options_error, "Error in %s (line %d): no such group: %s.\n",filename,line,param);
+					goto error;
+				}
+				options.socketgroup = grp->gr_gid;
+			}
 		} else
 		if (!strcmp(option,"socketrights")) {
 			options.socketrights = strtol(param, NULL, 0);

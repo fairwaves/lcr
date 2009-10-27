@@ -520,7 +520,7 @@ Changes after Version 1.6
  -> Just add 'extern' right below your external interface definition, or give
     external interface name in routing.conf: ": extern interfaces=XXXXX"
 - Added experimental CCITT No. 5 signalling system. (for educational purpose)
+- Added socket owner/group options to options.conf
 - Fixed/simplyfied config parser. The last digit of the last line was ignored.
-
 
 

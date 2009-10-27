@@ -64,8 +64,12 @@ int admin_init(void)
 		return(-1);
 	}
 	if (chmod(socket_name, options.socketrights) < 0) {
-		PERROR("Failed to change socket rigts to %d. (errno=%d)\n", options.socketrights, errno);
+		PERROR("Failed to change socket rights to %d. (errno=%d)\n", options.socketrights, errno);
 	}
+	if (chown(socket_name, options.socketuser, options.socketgroup) < 0) {
+		PERROR("Failed to change socket user/group to %d/%d. (errno=%d)\n", options.socketuser, options.socketgroup, errno);
+	}
+
 	return(0);
 }
 
