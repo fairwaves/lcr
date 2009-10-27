@@ -839,11 +839,9 @@ struct route_ruleset *ruleset_parse(void)
 	go_leaf:
         line[nesting]=0;
 	go_root:
-        while((fgets(buffer,sizeof(buffer),fp[nesting])))
+        while((GETLINE(buffer, fp[nesting])))
         {
                 line[nesting]++;
-                buffer[sizeof(buffer)-1]=0;
-                if (buffer[0]) buffer[strlen(buffer)-1]=0;
                 p = buffer;
 
 		/* remove tabs */

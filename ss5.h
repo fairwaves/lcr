@@ -57,7 +57,7 @@ class Pss5 : public PmISDN
 	void start_signal(int);
 	void start_outgoing(void);
 	void do_release(int cause, int location);
-	void do_setup(char *digit);
+	void do_setup(char *digit, int complete);
 
 	void seizing_ind(void);
 	void digit_ind(char digit);

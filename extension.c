@@ -68,10 +68,8 @@ int read_extension(struct extension *ext, char *num)
 	ext->vbox_codec = CODEC_MONO;
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
 		while(*p <= 32) { /* skip spaces */
@@ -1228,10 +1226,8 @@ int parse_phonebook(char *number, char **abbrev_pointer, char **phone_pointer, c
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
 		while(*p <= 32) { /* skip spaces */
@@ -1351,10 +1347,8 @@ int parse_secrets(char *number, char *remote_id, char **auth_pointer, char **cry
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
 		while(*p <= 32) { /* skip spaces */
@@ -1476,10 +1470,8 @@ char *parse_directory(char *number, int type)
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
 		while(*p <= 32) { /* skip spaces */
@@ -1611,10 +1603,8 @@ int parse_callbackauth(char *number, struct caller_info *callerinfo)
 	}
 
 	line=0;
-	while((fgets(buffer, sizeof(buffer), fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
 		p = buffer;
 
 		while(*p <= 32) { /* skip spaces */

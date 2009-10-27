@@ -1347,7 +1347,7 @@ void Pss5::digit_ind(char digit)
 	end_trace();
 	new_ss5_state(SS5_STATE_IDLE);
 
-	do_setup(dial);
+	do_setup(dial, 1);
 	new_state(PORT_STATE_IN_PROCEEDING);
 }
 
@@ -1392,7 +1392,7 @@ void Pss5::pulse_ind(int on)
 			}
 			if (p_state == PORT_STATE_IN_SETUP) {
 				/* sending digit as setup */
-				do_setup(dial); /* include 'a' == KP1 */
+				do_setup(dial, 0); /* include 'a' == KP1 */
 				new_state(PORT_STATE_IN_OVERLAP);
 			} else {
 				/* sending digit as information */
@@ -1618,13 +1618,13 @@ void Pss5::do_release(int cause, int location)
 /*
  * create endpoint and send setup
  */
-void Pss5::do_setup(char *dial)
+void Pss5::do_setup(char *dial, int complete)
 {
 	class Endpoint *epoint;
 	struct lcr_msg *message;
 
 	SCPY(p_dialinginfo.id, dial);
-	p_dialinginfo.sending_complete = 1;
+	p_dialinginfo.sending_complete = complete;
 	p_callerinfo.present = INFO_PRESENT_NOTAVAIL;
 	p_callerinfo.screen = INFO_SCREEN_NETWORK;
 	p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
