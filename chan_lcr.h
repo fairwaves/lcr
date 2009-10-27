@@ -65,6 +65,8 @@ struct chan_call {
 					/* echo cancel pipeline by option */
 	int			tx_gain, rx_gain;
 					/* gain by option */
+	int			keypad;
+					/* use keypad to dial number */
 	unsigned char		bf_key[56];
 	int			bf_len;	/* blowfish crypt key */
 	struct ast_dsp		*dsp; /* ast dsp processor for fax/tone detection */

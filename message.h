@@ -178,6 +178,7 @@ struct dialing_info {
 	int ntype;			/* type of number */
 	int sending_complete;		/* end of dialing */
 	char display[84];		/* display information */
+	char keypad[33];		/* send keypad facility */
 };
 
 /* call-info structure CONNECT */

@@ -522,5 +522,8 @@ Changes after Version 1.6
 - Added experimental CCITT No. 5 signalling system. (for educational purpose)
 - Added socket owner/group options to options.conf
 - Fixed/simplyfied config parser. The last digit of the last line was ignored.
+- Added Keypad facility
+ -> New option for chan_lcr: 'k'
+ -> New dialing parameter for LCR: keypad
 
 

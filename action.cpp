@@ -213,6 +213,12 @@ void EndpointAppPBX::action_dialing_external(void)
 	if ((rparam = routeparam(e_action, PARAM_PREFIX)))
 		SPRINT(dialinginfo.id, "%s%s", rparam->string_value, e_extdialing);
 
+	/* process keypad */
+	if ((rparam = routeparam(e_action, PARAM_KEYPAD))) {
+		SCPY(dialinginfo.keypad, dialinginfo.id);
+		dialinginfo.id[0] = '\0';
+	}
+
 	/* process number complete */
 	if ((rparam = routeparam(e_action, PARAM_COMPLETE)))
 		if ((rparam = routeparam(e_action, PARAM_PREFIX)))
