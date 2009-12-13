@@ -346,6 +346,7 @@ Pss5::Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_se
 	p_m_s_digit_i = 0;
 	p_m_s_pulsecount = 0;
 	p_m_s_last_digit = ' ';
+	p_m_s_last_digit_used = ' ';
 	p_m_s_signal_loss = 0;
 	p_m_s_decoder_count = 0;
 	//p_m_s_decoder_buffer;
@@ -428,7 +429,7 @@ void Pss5::inband_receive(unsigned char *buffer, int len)
 		PDEBUG(DEBUG_SS5, "%s: detecting signal '%c' start (state=%s signal=%s)\n", p_name, digit, ss5_state_name[p_m_s_state], ss5_signal_name[p_m_s_signal]);
 #endif
 
-	/* ignore short loss of signal */
+	/* ignore short loss of signal, or change within one decode window */
 	if (p_m_s_signal_loss) {
 		if (digit == ' ') {
 			/* still lost */
@@ -460,11 +461,19 @@ void Pss5::inband_receive(unsigned char *buffer, int len)
 			p_m_s_last_digit = digit;
 			/* starting to loose signal */
 			p_m_s_signal_loss = SS5_DECODER_NPOINTS;
+		} else if (digit != p_m_s_last_digit) {
+			/* digit changes, but we keep old digit until it is detected twice */
+#ifdef DEBUG_DETECT
+			PDEBUG(DEBUG_SS5, "%s: signal '%c' changes to '%c'\n", p_name, p_m_s_last_digit, digit);
+#endif
+			p_m_s_last_digit = digit;
+			digit = p_m_s_last_digit_used;
 		} else {
 			/* storing last signal, in case it is lost */
 			p_m_s_last_digit = digit;
 		}
 	}
+	p_m_s_last_digit_used = digit;
 
 	/* update mute */
 	if ((p_m_mISDNport->ss5 & SS5_FEATURE_SUPPRESS)) {
@@ -1597,6 +1606,8 @@ void Pss5::do_release(int cause, int location)
 {
 	struct lcr_msg *message;
 
+	p_m_s_timer = 0.0;
+
 	/* sending release to endpoint */
 	while(p_epointlist) {
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -1926,6 +1937,8 @@ if (0	 || p_type==PORT_TYPE_SS5_OUT) { /* outgoing exchange */
 	start_signal(SS5_STATE_CLEAR_BACK);
 
 	new_state(PORT_STATE_OUT_DISCONNECT);
+//	p_m_s_timer_fn = &Pss5::register_timeout;
+//	p_m_s_timer = now + 30.0;
 }
 
 /* MESSAGE_RELEASE */
@@ -1934,6 +1947,10 @@ void Pss5::message_release(unsigned int epoint_id, int message_id, union paramet
 	do_release(param->disconnectinfo.cause, param->disconnectinfo.location);
 }
 
+void Pss5::register_timeout(void)
+{
+	do_release(CAUSE_NORMAL, LOCATION_BEYOND);
+}
 
 /*
  * endpoint sends messages to the port

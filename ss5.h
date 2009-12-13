@@ -34,7 +34,8 @@ class Pss5 : public PmISDN
 	char p_m_s_dial[64]; /* current dialing register */
 	int p_m_s_digit_i; /* current digit of register counter */
 	int p_m_s_pulsecount; /* counts pule dialing half cycles */
-	char p_m_s_last_digit; /* stores last digit to fill short signal losses */
+	char p_m_s_last_digit; /* stores last digit that was detected, to fill short signal losses */
+	char p_m_s_last_digit_used; /* stores last digit that was used, to ignore short changes of signal due to noise */
 	int p_m_s_signal_loss; /* sample counter for loss of signal check */
 	int p_m_s_decoder_count; /* samples currently decoded */
 	unsigned char p_m_s_decoder_buffer[SS5_DECODER_NPOINTS]; /* buffer for storing one goertzel window */
@@ -75,6 +76,8 @@ class Pss5 : public PmISDN
 	void message_connect(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_disconnect(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_release(unsigned int epoint_id, int message_id, union parameter *param);
+
+	void register_timeout(void);
 
 };
 
