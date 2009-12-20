@@ -160,9 +160,6 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		if (!strcmp(option,"no-mergency-shutdown")) {
 			gsm_conf->noemergshut = 1;
 		} else
-		if (!strcmp(option,"rtp-proxy")) {
-			gsm_conf->rtp_proxy = 1;
-		} else
 		if (!strcmp(option,"pcapfile")) {
 			if (params[0][0]==0) {
 				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);

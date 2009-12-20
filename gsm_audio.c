@@ -21,7 +21,7 @@ void *gsm_audio_create(void)
 
 	handle = gsm_create();
 	if (handle)
-		gsm_option(handle, GSM_OPT_WAV49, &value);
+		gsm_option(handle, 0/*GSM_OPT_WAV49*/, &value);
 
 	return handle;
 }
@@ -35,20 +35,20 @@ void gsm_audio_destroy(void *arg)
 /* decode frame into samples, return error */
 int gsm_audio_decode(void *arg, unsigned char *frame, signed short *samples)
 {
-	int value = 0;
+//	int value = 0;
 
-	gsm_option((gsm)arg, GSM_OPT_FRAME_INDEX, &value);
+//	gsm_option((gsm)arg, GSM_OPT_FRAME_INDEX, &value);
 	return gsm_decode((gsm)arg, (gsm_byte *)frame, (gsm_signal *)samples);
 }
 
 /* encode samples into frame */
 void gsm_audio_encode(void *arg, signed short *samples, unsigned char *frame)
 {
-	int value = 0;
+//	int value = 0;
 	
-	gsm_option((gsm)arg, GSM_OPT_FRAME_INDEX, &value);
+//	gsm_option((gsm)arg, GSM_OPT_FRAME_INDEX, &value);
 	gsm_encode((gsm)arg, (gsm_signal *)samples, (gsm_byte *)frame);
 }
 
-}
+} /* extern "C" */
 

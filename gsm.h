@@ -15,7 +15,6 @@ struct gsm_conf {
 	int noemergshut;		/* don't shut down on emergency */
 	char pcapfile[128];		/* open capture file for BS11 links */
 	int reject_cause;		/* reject cause for unsubcribed IMSIs */
-	int rtp_proxy;			/* enable RTP proxy */
 };
 
 struct lcr_gsm {
@@ -50,8 +49,8 @@ class Pgsm : public PmISDN
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
 	void bchannel_send(unsigned int prim, unsigned int id, unsigned char *data, int len);
 
-	void trau_send(void *_tf);
-	void trau_receive(void *_frame);
+	void frame_send(void *_frame);
+	void frame_receive(void *_frame);
 
 	int hunt_bchannel(void);
 	void setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);

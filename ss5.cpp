@@ -227,13 +227,13 @@ static void ss5_trace_header(struct mISDNport *mISDNport, class PmISDN *port, un
 
 
 /*
- * changes release tone int busy signal
- * this makes the line more authentic
+ * changes release tone into silence
+ * this makes the line sound more authentic
  */
 void Pss5::set_tone(const char *dir, const char *name)
 {
 	if (name && !strcmp(name, "cause_10"))
-		name = "busy";
+		name = NULL;
 
 	PmISDN::set_tone(dir, name);
 }

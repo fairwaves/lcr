@@ -185,9 +185,7 @@ int Pgsm::bchannel_open(int index)
 /* receive from bchannel */
 void Pgsm::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len)
 {
-	int i, j, k;
 	unsigned char frame[33];
-	struct decoded_trau_frame tf;
 
 	/* encoder init failed */
 	if (!p_m_g_encoder)
@@ -205,31 +203,7 @@ void Pgsm::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len)
 
 			/* encode data */
 			gsm_audio_encode(p_m_g_encoder, p_m_g_rxdata, frame);
-
-			/* set c-bits and t-bits */
-			tf.c_bits[0] = 1;
-			tf.c_bits[1] = 1;
-			tf.c_bits[2] = 1;
-			tf.c_bits[3] = 0;
-			tf.c_bits[4] = 0;
-			memset(&tf.c_bits[5], 0, 6);
-			memset(&tf.c_bits[11], 1, 10);
-			memset(&tf.t_bits[0], 1, 4);
-
-			/* reassemble d-bits */
-			i = 0;
-			j = 0;
-			k = 0;
-			while(i < 260) {
-				tf.d_bits[i] = (frame[j] >> k) & 1;
-				if (++k == 8) {
-					k = 0;
-					j++;
-				}
-				i++;
-			}
-
-			trau_send(&tf);
+			frame_send(frame);
 		}
 	}
 }
@@ -253,57 +227,33 @@ void Pgsm::bchannel_send(unsigned int prim, unsigned int id, unsigned char *data
 		PERROR("Failed to send to socket index %d\n", index);
 }
 
-void Pgsm::trau_send(void *_tf)
+void Pgsm::frame_send(void *_frame)
 {
-	struct decoded_trau_frame *tf = (struct decoded_trau_frame *)_tf;
-	unsigned char data[sizeof(struct gsm_trau_frame) + sizeof(struct decoded_trau_frame)];
-	struct gsm_trau_frame *frame = (struct gsm_trau_frame *)data;
+	unsigned char buffer[sizeof(struct gsm_data_frame) + 33];
+	struct gsm_data_frame *frame = (struct gsm_data_frame *)buffer;
 	
-	frame->msg_type = GSM_TRAU_FRAME;
+	frame->msg_type = GSM_TCHF_FRAME;
 	frame->callref = p_m_g_callref;
-	memcpy(frame->data, tf, sizeof(struct decoded_trau_frame));
+	memcpy(frame->data, _frame, 33);
 	mncc_send((struct gsm_network *)gsm->network, frame->msg_type, frame);
 }
 
 
-void Pgsm::trau_receive(void *_frame)
+void Pgsm::frame_receive(void *_frame)
 {
-	struct gsm_trau_frame *frm = (struct gsm_trau_frame *)_frame;
-	struct decoded_trau_frame *tf = (struct decoded_trau_frame *)frm->data;
-//struct decoded_trau_frame *tf = (struct decoded_trau_frame *)_frame;
-	unsigned char frame[33];
+	struct gsm_data_frame *frame = (struct gsm_data_frame *)_frame;
 	signed short samples[160];
 	unsigned char data[160];
-	int i, j, k;
+	int i;
 
 	if (!p_m_g_decoder)
 		return;
 
-//	printf("got trau %d %d %d %d %d\n", tf->c_bits[0], tf->c_bits[1], tf->c_bits[2], tf->c_bits[3], tf->c_bits[4]);
-	if (tf->c_bits[0]!=0 || tf->c_bits[1]!=0 || tf->c_bits[2]!=0 || tf->c_bits[3]!=1 || tf->c_bits[4]!=0)
-		PERROR("illegal trau (C1-C5) %d %d %d %d %d\n", tf->c_bits[0], tf->c_bits[1], tf->c_bits[2], tf->c_bits[3], tf->c_bits[4]);
-
-	/* set GSM_MAGIC */
-	memset(&frame, 0, sizeof(frame));
-//	frame[0] = 0xd << 4;
-
-	/* reassemble bits */
-	i = 0;
-	j = 0;
-	k = 0;
-	while(i < 260) {
-		if (tf->d_bits[i] > 1)
-			PERROR("fix!\n");
-		frame[j] |= (tf->d_bits[i] << k);
-		if (++k == 8) {
-			k = 0;
-			j++;
-		}
-		i++;
-	}
+	if ((frame->data[0]>>4) != 0xd)
+		PERROR("received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
 	
 	/* decode */
-	gsm_audio_decode(p_m_g_decoder, frame, samples);
+	gsm_audio_decode(p_m_g_decoder, frame->data, samples);
 	for (i = 0; i < 160; i++) {
 		data[i] = audio_s16_to_law[samples[i] & 0xffff];
 	}
@@ -906,9 +856,9 @@ static int message_bsc(struct gsm_network *net, int msg_type, void *arg)
 		port = port->next;
 	}
 
-	if (msg_type == GSM_TRAU_FRAME) {
+	if (msg_type == GSM_TCHF_FRAME) {
 		if (port)
-			pgsm->trau_receive((struct gsm_trau_frame *)arg);
+			pgsm->frame_receive((struct gsm_trau_frame *)arg);
 		return 0;
 	}
 
@@ -1677,13 +1627,8 @@ int gsm_init(void)
 		e1_set_pcap_fd(pcapfd);
 	}
 
-	/* set reject cause */
-	if (gsm->conf.reject_cause)
-		gsm0408_set_reject_cause(gsm->conf.reject_cause);
-
 	/* use RTP proxy for audio streaming */
-	if (gsm->conf.rtp_proxy)
-		ipacc_rtp_direct = 0;
+	ipacc_rtp_direct = 0;
 
 	/* init database */
 	if (gsm->conf.hlr[0] == '/')
@@ -1712,6 +1657,10 @@ int gsm_init(void)
 		return gsm_exit(-1);
 	}
 	gsm->network = bsc_gsmnet;
+
+	/* set reject cause */
+	if (gsm->conf.reject_cause)
+		gsm0408_set_reject_cause(gsm->conf.reject_cause);
 
 	/* open gsm loop interface */
 	if (gsm_sock_open(gsm->conf.interface_bsc)) {
