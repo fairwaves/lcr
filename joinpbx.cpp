@@ -855,12 +855,17 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION) {
 				numbers = param->setup.dialinginfo.id;
 				while((number = strsep(&numbers, ","))) {
-					if (out_setup(epoint_id, message_type, param, number))
+					if (out_setup(epoint_id, message_type, param, number, NULL))
+						return; // join destroyed
+				}
+				numbers = param->setup.dialinginfo.id;
+				while((number = strsep(&numbers, ","))) {
+					if (out_setup(epoint_id, message_type, param, NULL, number))
 						return; // join destroyed
 				}
 				break;
 			}
-			if (out_setup(epoint_id, message_type, param, NULL))
+			if (out_setup(epoint_id, message_type, param, NULL, NULL))
 				return; // join destroyed
 			break;
 
@@ -945,7 +950,7 @@ int track_notify(int oldstate, int notify)
  * if other outgoing endpoints already exists, they are release as well.
  * note: if this functions fails, it will destroy its own join object!
  */
-int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter *param, char *newnumber)
+int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter *param, char *newnumber, char *newkeypad)
 {
 	struct join_relation *relation;
 	struct lcr_msg *message;
@@ -974,7 +979,9 @@ int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter
 	memcpy(&message->param, param, sizeof(union parameter));
 	if (newnumber)
 		SCPY(message->param.setup.dialinginfo.id, newnumber);
-	PDEBUG(DEBUG_JOIN, "setup message sent to ep %d with number='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.id);
+	if (newkeypad)
+		SCPY(message->param.setup.dialinginfo.keypad, newkeypad);
+	PDEBUG(DEBUG_JOIN, "setup message sent to ep %d with number='%s' keypad='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.id, message->param.setup.dialinginfo.keypad);
 	message_put(message);
 	return(0);
 }

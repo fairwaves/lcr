@@ -1,0 +1,9 @@
+/var/log/lcr/log {
+        weekly
+	missingok
+	rotate 8
+	compress
+	delaycompress
+	notifempty
+# No signalling necessary, lcr does not keep logiles open
+}

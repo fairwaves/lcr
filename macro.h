@@ -92,7 +92,7 @@ static inline void *_malloc(unsigned int size, const char *function, int line)
 	if (!addr)
 		fatal(function, line, "No memory for %d bytes.\n", size);
 	memset(addr, 0, size);
-	return(addr);
+	return addr;
 }
 
 /* memory freeing with clearing memory to prevent using freed memory */
@@ -102,6 +102,22 @@ static inline void _free(void *addr, int size)
 	if (size)
 		memset(addr, 0, size);
 	free(addr);
+}
+
+/* fill buffer and be sure that it's result is 0-terminated, also remove newline */
+#define GETLINE(buffer, fp) _getline(buffer, sizeof(buffer), fp)
+static inline char *_getline(char *buffer, int size, FILE *fp)
+{
+	if (!fgets(buffer, size-1, fp))
+		return NULL;
+	buffer[size-1] = '\0';
+	if (!buffer[0])
+		return buffer;
+	if (buffer[strlen(buffer)-1] == '\n')
+		buffer[strlen(buffer)-1] = '\0';
+	if (buffer[strlen(buffer)-1] == '\r')
+		buffer[strlen(buffer)-1] = '\0';
+	return buffer;
 }
 
 

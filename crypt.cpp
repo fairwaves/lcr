@@ -216,7 +216,7 @@ static unsigned int get_bogomips(void)
 	}
 	fduse++;
 	buffer[sizeof(buffer-1)] = '\0';
-	while(fgets(buffer, sizeof(buffer)-1, fp)) {
+	while(GETLINE(buffer, fp)) {
 		if (!!strncmp(buffer, "bogomips", 8))
 			continue;
 		if (!strchr(buffer, ':'))

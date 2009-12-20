@@ -242,13 +242,16 @@ struct param_defs param_defs[] = {
 	{ PARAM_ON,
 	  "on",	PARAM_TYPE_STRING,
 	  "on=[init|hangup]", "Defines if the action is executed on call init or on hangup."},
+	{ PARAM_KEYPAD,
+	  "keypad",	PARAM_TYPE_NULL,
+	  "keypad", "Use 'keypad facility' for dialing, instead of 'called number'."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
 struct action_defs action_defs[] = {
 	{ ACTION_EXTERNAL,
 	  "extern",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_TIMEOUT,
+	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_KEYPAD | PARAM_TIMEOUT,
 	  "Call is routed to extern number as dialed."},
 	{ ACTION_INTERNAL,
 	  "intern",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_internal, &EndpointAppPBX::action_hangup_call,
@@ -256,7 +259,7 @@ struct action_defs action_defs[] = {
 	  "Call is routed to intern extension as given by the dialed number or specified by option."},
 	{ ACTION_OUTDIAL,
 	  "outdial",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_TIMEOUT,
+	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_KEYPAD | PARAM_TIMEOUT,
 	  "Same as 'extern'"},
 	{ ACTION_REMOTE,
 	  "remote",	&EndpointAppPBX::action_init_remote, &EndpointAppPBX::action_dialing_remote, &EndpointAppPBX::action_hangup_call,
@@ -839,11 +842,9 @@ struct route_ruleset *ruleset_parse(void)
 	go_leaf:
         line[nesting]=0;
 	go_root:
-        while((fgets(buffer,sizeof(buffer),fp[nesting])))
+        while((GETLINE(buffer, fp[nesting])))
         {
                 line[nesting]++;
-                buffer[sizeof(buffer)-1]=0;
-                if (buffer[0]) buffer[strlen(buffer)-1]=0;
                 p = buffer;
 
 		/* remove tabs */

@@ -142,10 +142,7 @@ void EndpointAppPBX::vbox_index_read(int num)
 	fduse++;
 
 	i = 0;
-	while((fgets(buffer,sizeof(buffer),fp))) {
-		buffer[sizeof(buffer)-1] = '\0';
-		if (buffer[0]) buffer[strlen(buffer)-1] = '\0';
-
+	while((GETLINE(buffer, fp))) {
 		name[0] = callerid[0] = '\0';
 		mon = mday = hour = min = 0;
 		sscanf(buffer, "%s %d %d %d %d %d %s", name, &year, &mon, &mday, &hour, &min, callerid);

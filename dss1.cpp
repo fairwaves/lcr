@@ -402,7 +402,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	int bearer_coding, bearer_capability, bearer_mode, bearer_rate, bearer_multi, bearer_user;
 	int exclusive, channel;
 	int ret;
-	unsigned char keypad[32] = "";
+	unsigned char keypad[33] = "";
 	unsigned char useruser[128];
 	int useruser_len = 0, useruser_protocol;
 	class Endpoint *epoint;
@@ -746,7 +746,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 void Pdss1::information_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
 	int type, plan;
-	unsigned char keypad[32] = "", display[128] = "";
+	unsigned char keypad[33] = "", display[128] = "";
 	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_INFORMATION_IND, DIRECTION_IN);
@@ -2098,6 +2098,9 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		enc_ie_called_pn(l3m, 0, 1, (unsigned char *)p_dialinginfo.id, max);
 		SCPY(p_m_d_queue, p_dialinginfo.id + max);
 	}
+	/* keypad */
+	if (p_dialinginfo.keypad[0])
+		enc_ie_keypad(l3m, (unsigned char *)p_dialinginfo.keypad);
 	/* sending complete */
 	if (p_dialinginfo.sending_complete)
 		enc_ie_complete(l3m, 1);

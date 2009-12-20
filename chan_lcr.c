@@ -555,6 +555,15 @@ void apply_opt(struct chan_call *call, char *data)
 					bchannel_gain(call->bchannel, call->tx_gain, 1);
 			}
 			break;
+		case 'k':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 'k' (keypad) expects no parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'k' (keypad).\n");
+			if (!call->keypad)
+				call->keypad = 1;
+			break;
 		default:
 			CERROR(call, call->ast, "Option '%s' unknown.\n", opt);
 		}
@@ -586,7 +595,10 @@ static void send_setup_to_lcr(struct chan_call *call)
 	memset(&newparam, 0, sizeof(union parameter));
        	newparam.setup.dialinginfo.itype = INFO_ITYPE_ISDN;	
        	newparam.setup.dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
-	strncpy(newparam.setup.dialinginfo.id, call->dialstring, sizeof(newparam.setup.dialinginfo.id)-1);
+	if (call->keypad)
+		strncpy(newparam.setup.dialinginfo.keypad, call->dialstring, sizeof(newparam.setup.dialinginfo.keypad)-1);
+	else
+		strncpy(newparam.setup.dialinginfo.id, call->dialstring, sizeof(newparam.setup.dialinginfo.id)-1);
 	strncpy(newparam.setup.dialinginfo.interfaces, call->interface, sizeof(newparam.setup.dialinginfo.interfaces)-1);
        	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;	
        	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
@@ -657,7 +669,10 @@ static void send_dialque_to_lcr(struct chan_call *call)
 
 	/* send setup message to LCR */
 	memset(&newparam, 0, sizeof(union parameter));
-	strncpy(newparam.information.id, call->dialque, sizeof(newparam.information.id)-1);
+	if (call->keypad)
+		strncpy(newparam.information.keypad, call->dialque, sizeof(newparam.information.keypad)-1);
+	else
+		strncpy(newparam.information.id, call->dialque, sizeof(newparam.information.id)-1);
 	call->dialque[0] = '\0';
 	send_message(MESSAGE_INFORMATION, call->ref, &newparam);
 }
@@ -1927,8 +1942,13 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	if (call->ref && call->state == CHAN_LCR_STATE_OUT_DIALING) {
 		CDEBUG(call, ast, "Sending digit to LCR, because we are in dialing state.\n");
 		memset(&newparam, 0, sizeof(union parameter));
-		newparam.information.id[0] = digit;
-		newparam.information.id[1] = '\0';
+		if (call->keypad) {
+			newparam.information.keypad[0] = digit;
+			newparam.information.keypad[1] = '\0';
+		} else {
+			newparam.information.id[0] = digit;
+			newparam.information.id[1] = '\0';
+		}
 		send_message(MESSAGE_INFORMATION, call->ref, &newparam);
 	} else
 	if (!call->ref
@@ -2742,6 +2762,7 @@ int load_module(void)
 				 "   vr - rxgain control\n"
 				 "   vt - txgain control\n"
 				 "        Volume changes at factor 2 ^ optarg.\n"
+				 "    k - use keypad to dial this call.\n"
 		);
 
  

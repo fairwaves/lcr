@@ -1148,9 +1148,7 @@ struct interface *read_interfaces(void)
 	}
 
 	line=0;
-	while((fgets(buffer,sizeof(buffer),fp))) {
-		buffer[sizeof(buffer)-1]=0;
-		if (buffer[0]) buffer[strlen(buffer)-1]=0;
+	while((GETLINE(buffer, fp))) {
 		p=buffer;
 		line++;
 

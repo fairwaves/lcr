@@ -47,10 +47,8 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 	}
 
 	line=0;
-	while((fgets(buffer,sizeof(buffer),fp))) {
+	while((GETLINE(buffer, fp))) {
 		line++;
-		buffer[sizeof(buffer)-1]=0;
-		if (buffer[0]) buffer[strlen(buffer)-1]=0;
 		p=buffer;
 
 		while(*p <= 32) { /* skip spaces */

@@ -146,6 +146,7 @@ enum { /* defines when a statement should be executed */
 #define PARAM_CONTEXT		(1LL<<45)
 #define PARAM_EXTEN		(1LL<<46)
 #define PARAM_ON		(1LL<<47)
+#define PARAM_KEYPAD		(1LL<<48)
 
 /* action index
  * NOTE: The given index is the actual entry number of action_defs[], so add/remove both lists!!!

@@ -18,8 +18,9 @@
 
 #define NCOEFF		8	/* number of frequencies to be analyzed */
 
-#define MIN_DB		0.01995262 /* -17 db */
-#define DIFF_DB		0.2 // 0.31622777 /*  -5 db */
+#define TONE_MIN_DB	0.01995262 /* -17 db */
+#define TONE_DIFF_DB	0.2 // 0.31622777 /*  -5 db */
+#define NOISE_MIN_DB	(TONE_MIN_DB / 2) /* noise must be higher than the minimum of two tones */
 #define SNR		1.3	/* noise may not exceed signal by that factor */
 
 /* For DTMF recognition:
@@ -65,6 +66,22 @@ char ss5_decode(unsigned char *data, int len)
 	for (i = 0; i < len; i++)
 		buf[i] = audio_law_to_s32[*data++];
 
+	/* now we do noise level calculation */
+	low = 32767;
+	high = -32768;
+	for (n = 0; n < len; n++) {
+		sk = buf[n];
+		if (sk < low)
+			low = sk;
+		if (sk > high)
+			high = sk;
+	}
+	noise = ((double)(high-low) / 65536.0);
+
+	/* check for minimum noise, or tone detection will not be necessary */
+	if (noise < NOISE_MIN_DB)
+		return digit;
+
 	/* now we have a full buffer of signed long samples - we do goertzel */
 	for (k = 0; k < NCOEFF; k++) {
 		sk = 0;
@@ -88,18 +105,6 @@ char ss5_decode(unsigned char *data, int len)
 			) / len / 62; /* level of 1 is 0 db*/
 	}
 
-	/* now we do noise level calculation */
-	low = 32767;
-	high = -32768;
-	for (n = 0; n < len; n++) {
-		sk = buf[n];
-		if (sk < low)
-			low = sk;
-		if (sk > high)
-			high = sk;
-	}
-	noise = ((double)(high-low) / 65536.0);
-
 	/* find the two loudest frequencies + one less lower frequency to detect noise */
 	power = 0.0;
 	for (i = 0; i < NCOEFF; i++) {
@@ -118,15 +123,15 @@ char ss5_decode(unsigned char *data, int len)
 
 	snr = 0;
 	/* check one frequency */
-	if (result[f1] > MIN_DB /* must be at least -17 db */
+	if (result[f1] > TONE_MIN_DB /* must be at least -17 db */
 	 && result[f1]*SNR > noise) { /*  */
 		digit = decode_one[f1];
 		if (digit != ' ')
 			snr = result[f1] / noise;
 	}
 	/* check two frequencies */
-	if (result[f1] > MIN_DB && result[f2] > MIN_DB /* must be at lease -17 db */
-	 && result[f1]*DIFF_DB <= result[f2] /* f2 must be not less than 5 db below f1 */
+	if (result[f1] > TONE_MIN_DB && result[f2] > TONE_MIN_DB /* must be at lease -17 db */
+	 && result[f1]*TONE_DIFF_DB <= result[f2] /* f2 must be not less than 5 db below f1 */
 	 && (result[f1]+result[f2])*SNR > noise) { /* */
 		digit = decode_two[f1][f2];
 		if (digit != ' ')
@@ -135,13 +140,11 @@ char ss5_decode(unsigned char *data, int len)
 
 	/* debug powers */
 #ifdef DEBUG_LEVELS
-	if (noise > 0.2) {
-		for (i = 0; i < NCOEFF; i++)
-			printf("%d:%3d %c ", i, (int)(result[i]*100), (f1==i || f2==i)?'*':' ');
-		printf("N:%3d digit:%c snr=%3d\n", (int)(noise*100), digit, (int)(snr*100));
-	 	if (result[f1]*DIFF_DB <= result[f2]) /* f2 must be not less than 5 db below f1 */
-			printf("jo!");
-	}
+	for (i = 0; i < NCOEFF; i++)
+		printf("%d:%3d %c ", i, (int)(result[i]*100), (f1==i || f2==i)?'*':' ');
+	printf("N:%3d digit:%c snr=%3d\n", (int)(noise*100), digit, (int)(snr*100));
+// 	if (result[f1]*TONE_DIFF_DB <= result[f2]) /* f2 must be not less than 5 db below f1 */
+//		printf("jo!");
 #endif
 
 	return digit;

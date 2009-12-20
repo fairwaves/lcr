@@ -1128,9 +1128,12 @@ void EndpointAppPBX::out_setup(void)
 
 		/* *********************** external call */
 		default:
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing external: '%s'\n", ea_endpoint->ep_serial, e_dialinginfo.id);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing external: called='%s' keypad='%s'\n", ea_endpoint->ep_serial, e_dialinginfo.id, e_dialinginfo.keypad);
 		/* call to extenal interfaces */
-		p = e_dialinginfo.id;
+		if (e_dialinginfo.keypad[0])
+			p = e_dialinginfo.keypad;
+		else
+			p = e_dialinginfo.id;
 		do {
 			number[0] = '\0';
 			while(*p!=',' && *p!='\0')
@@ -1168,7 +1171,10 @@ void EndpointAppPBX::out_setup(void)
 			earlyb = mISDNport->earlyb;
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
-			SCPY(dialinginfo.id, number);
+			if (e_dialinginfo.keypad[0])
+				SCPY(dialinginfo.keypad, number);
+			else
+				SCPY(dialinginfo.id, number);
 			dialinginfo.itype = INFO_ITYPE_ISDN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
@@ -1180,7 +1186,6 @@ void EndpointAppPBX::out_setup(void)
 //printf("EXTERNAL caller=%s,id=%s,dial=%s\n", param.setup.networkid, param.setup.callerinfo.id, param.setup.dialinginfo.id);
 			message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_SETUP);
 			memcpy(&message->param.setup.dialinginfo, &dialinginfo, sizeof(struct dialing_info));
-			SCPY(message->param.setup.dialinginfo.id, number);
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
@@ -3844,6 +3849,8 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		}
 		if (param->setup.dialinginfo.id[0])
 			add_trace("dialing", NULL, "%s", param->setup.dialinginfo.id);
+		if (param->setup.dialinginfo.keypad[0])
+			add_trace("keypad", NULL, "%s", param->setup.dialinginfo.keypad);
 		if (param->setup.dialinginfo.display[0])
 			add_trace("display", NULL, "%s", param->setup.dialinginfo.display);
 		if (param->setup.dialinginfo.sending_complete)
