@@ -1658,10 +1658,6 @@ int gsm_init(void)
 	}
 	gsm->network = bsc_gsmnet;
 
-	/* set reject cause */
-	if (gsm->conf.reject_cause)
-		gsm0408_set_reject_cause(gsm->conf.reject_cause);
-
 	/* open gsm loop interface */
 	if (gsm_sock_open(gsm->conf.interface_bsc)) {
 		return gsm_exit(-1);

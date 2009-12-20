@@ -141,12 +141,8 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 
 		} else
 		if (!strcmp(option,"reject-cause")) {
-			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			gsm_conf->reject_cause = atoi(params[0]);
-
+			SPRINT(gsm_conf_error, "Option '%s' in gsm.conf has moved to openbsc.cfg", option);
+			goto error;
 		} else
 		if (!strcmp(option,"allow-all")) {
 			gsm_conf->allow_all = 1;
