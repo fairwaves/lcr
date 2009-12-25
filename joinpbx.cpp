@@ -871,7 +871,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 				}
 				break;
 			}
-			if (out_setup(epoint_id, message_type, param, NULL, NULL))
+			if (out_setup(epoint_id, message_type, param, param->setup.dialinginfo.id, param->setup.dialinginfo.keypad))
 				return; // join destroyed
 			break;
 
