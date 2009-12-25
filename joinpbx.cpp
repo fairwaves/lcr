@@ -853,14 +853,20 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 		switch(message_type) {
 			case MESSAGE_SETUP:
 			if (param->setup.dialinginfo.itype == INFO_ITYPE_ISDN_EXTENSION) {
+				/* in case of keypad */
+				numbers = param->setup.dialinginfo.keypad;
+				if (numbers[0]) {
+					while((number = strsep(&numbers, ","))) {
+						if (out_setup(epoint_id, message_type, param, NULL, number))
+							return; // join destroyed
+					}
+					/* after keypad finish dialing */
+					break;
+				}
+				/* dialed number */
 				numbers = param->setup.dialinginfo.id;
 				while((number = strsep(&numbers, ","))) {
 					if (out_setup(epoint_id, message_type, param, number, NULL))
-						return; // join destroyed
-				}
-				numbers = param->setup.dialinginfo.id;
-				while((number = strsep(&numbers, ","))) {
-					if (out_setup(epoint_id, message_type, param, NULL, number))
 						return; // join destroyed
 				}
 				break;
@@ -979,8 +985,12 @@ int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter
 	memcpy(&message->param, param, sizeof(union parameter));
 	if (newnumber)
 		SCPY(message->param.setup.dialinginfo.id, newnumber);
+	else
+		message->param.setup.dialinginfo.id[0] = '\0';
 	if (newkeypad)
 		SCPY(message->param.setup.dialinginfo.keypad, newkeypad);
+	else
+		message->param.setup.dialinginfo.keypad[0] = '\0';
 	PDEBUG(DEBUG_JOIN, "setup message sent to ep %d with number='%s' keypad='%s'.\n", relation->epoint_id, message->param.setup.dialinginfo.id, message->param.setup.dialinginfo.keypad);
 	message_put(message);
 	return(0);

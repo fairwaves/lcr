@@ -959,7 +959,7 @@ int Pss5::inband_send(unsigned char *buffer, int len)
 		if (duration > 0 && p_m_s_sample_nr >= duration) {
 			PDEBUG(DEBUG_SS5, "%s: sending tone '%c' complete, starting delay\n", p_name, digit);
 			if (p_m_s_state == SS5_STATE_DOUBLE_SEIZE) {
-				do_release(CAUSE_NOCHANNEL, LOCATION_BEYOND);
+				do_release(CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL);
 				break;
 			}
 			new_ss5_state(SS5_STATE_DELAY);
@@ -1949,7 +1949,7 @@ void Pss5::message_release(unsigned int epoint_id, int message_id, union paramet
 
 void Pss5::register_timeout(void)
 {
-	do_release(CAUSE_NORMAL, LOCATION_BEYOND);
+	do_release(CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL);
 }
 
 /*

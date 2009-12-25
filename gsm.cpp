@@ -1539,7 +1539,7 @@ static int gsm_sock_open(char *portname)
 		PERROR_RUNTIME("GSM port %d does not support TE PRI or TE BRI.\n", gsm->gsm_port);
 	}
 	/* open socket */
-	if ((gsm->gsm_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_TE_S0)) < 0) {
+	if ((gsm->gsm_sock = socket(PF_ISDN, SOCK_DGRAM, (pri)?ISDN_P_TE_E1:ISDN_P_TE_S0)) < 0) {
 		PERROR_RUNTIME("GSM port %d failed to open socket.\n", gsm->gsm_port);
 		gsm_sock_close();
 		return gsm->gsm_sock;
