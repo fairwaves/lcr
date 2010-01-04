@@ -525,5 +525,6 @@ Changes after Version 1.6
 - Added Keypad facility
  -> New option for chan_lcr: 'k'
  -> New dialing parameter for LCR: keypad
+- Keep up with current OpenBSC API
 
 

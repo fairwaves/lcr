@@ -1435,6 +1435,11 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
+
+	/* convert (inter-)national number type */
+	SCPY(e_dialinginfo.id, numberrize_callerinfo(e_dialinginfo.id, e_dialinginfo.ntype, options.national, options.international));
+	e_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
+
 //	e_dtmf = param->setup.dtmf;
 	/* screen incoming caller id */
 	interface = interface_first;
