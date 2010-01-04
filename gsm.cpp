@@ -760,8 +760,15 @@ void Pgsm::rel_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc 
 /* NOTIFY INDICATION */
 void Pgsm::notify_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
+	struct lcr_msg *message;
+
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	add_trace("notify", NULL, "%d", mncc->notify);
 	end_trace();
+
+	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
+	message->param.notifyinfo.notify = mncc->notify;
+	message_put(message);
 }
 
 
