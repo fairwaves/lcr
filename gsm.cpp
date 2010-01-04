@@ -32,6 +32,7 @@ extern int bsc_shutdown_net(struct gsm_network *net);
 void talloc_ctx_init(void);
 void on_dso_load_token(void);
 void on_dso_load_rrlp(void);
+static struct debug_target *stderr_target;
 
 #include "gsm_audio.h"
 
@@ -1610,8 +1611,9 @@ int gsm_init(void)
 	}
 
 	/* set debug */
+	stderr_target = debug_target_create_stderr();
 	if (gsm->conf.debug[0])
-		debug_parse_category_mask(gsm->conf.debug);
+		debug_parse_category_mask(stderr_target, gsm->conf.debug);
 
 	/* open pcap file */
 	if (gsm->conf.pcapfile[0]) {
