@@ -1292,6 +1292,8 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			/* store new ref */
 			call->ref = ref;
 			call->ref_was_assigned = 1;
+			/* set dtmf (default, use option 'n' to disable */
+			call->dsp_dtmf = 1;
 			/* send pending setup info */
 			if (call->state == CHAN_LCR_STATE_OUT_PREPARE)
 				send_setup_to_lcr(call);
