@@ -526,5 +526,11 @@ Changes after Version 1.6
  -> New option for chan_lcr: 'k'
  -> New dialing parameter for LCR: keypad
 - Keep up with current OpenBSC API
+- Fixed DTMF detection option with chan_lcr
+
+New release Version 1.7
+
+Changes after Version 1.7
+
 
 
