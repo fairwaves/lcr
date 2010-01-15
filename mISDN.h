@@ -92,7 +92,7 @@ calls with no bchannel (call waiting, call on hold).
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
 int mISDN_getportbyname(int sock, int cnt, char *portname);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm, unsigned int ss5);
+struct mISDNport *mISDNport_open(struct interface_port *ifport);
 void mISDNport_static(struct mISDNport *mISDNport);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);

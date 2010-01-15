@@ -2240,6 +2240,13 @@ void Pdss1::message_notify(unsigned int epoint_id, int message_id, union paramet
 	int notify;
 	int plan = 0, type = -1, present = 0;
 
+	if (p_m_mISDNport->ifport->nonotify) {
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_NOTIFY_REQ, DIRECTION_OUT);
+		add_trace("info", NULL, "blocked by config");
+		end_trace();
+		return;
+	}
+
 //	printf("if = %d\n", param->notifyinfo.notify);
 	if (param->notifyinfo.notify>INFO_NOTIFY_NONE)
 		notify = param->notifyinfo.notify & 0x7f;

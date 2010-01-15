@@ -2045,10 +2045,17 @@ int mISDN_getportbyname(int sock, int cnt, char *portname)
 /*
  * global function to add a new card (port)
  */
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm, unsigned int ss5)
+struct mISDNport *mISDNport_open(struct interface_port *ifport)
 {
 	int ret;
 	struct mISDNport *mISDNport, **mISDNportp;
+	int port = ifport->portnum;
+	int ptp = ifport->ptp;
+	int force_nt = ifport->nt;
+	int l1hold = ifport->l1hold;
+	int l2hold = ifport->l2hold;
+	int gsm = ifport->gsm;
+	int ss5 = ifport->ss5;
 	int i, cnt;
 	int pri, bri, pots;
 	int nt, te;
@@ -2068,12 +2075,12 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 		return(NULL);
 	}
 	if (port < 0) {
-		port = mISDN_getportbyname(mISDNsocket, cnt, portname);
+		port = mISDN_getportbyname(mISDNsocket, cnt, ifport->portname);
 		if (port < 0) {
 			if (gsm)
-				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", portname);
+				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", ifport->portname);
 			else
-				PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", portname);
+				PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", ifport->portname);
 			return(NULL);
 		}
 		// note: 'port' has still the port number
@@ -2275,7 +2282,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 			mqueue_purge(&mISDNport->upqueue);
 			PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
 			start_trace(port,
-				interface,
+				ifport->interface,
 				NULL,
 				NULL,
 				DIRECTION_NONE,
@@ -2292,7 +2299,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	mISDNport->b_num = devinfo.nrbchan;
 	mISDNport->portnum = port;
 	mISDNport->ntmode = nt;
-	mISDNport->tespecial = te_special;
+	mISDNport->tespecial = ifport->tespecial;
 	mISDNport->pri = pri;
 	mISDNport->ptp = ptp;
 	mISDNport->l1hold = l1hold;
@@ -2322,7 +2329,7 @@ struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt
 	PDEBUG(DEBUG_BCHANNEL, "using 'mISDN_dsp.o' module\n");
 
 	start_trace(mISDNport->portnum,
-		    interface,
+		    ifport->interface,
 		    NULL,
 		    NULL,
 		    DIRECTION_NONE,

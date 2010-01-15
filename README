@@ -531,6 +531,7 @@ Changes after Version 1.6
 New release Version 1.7
 
 Changes after Version 1.7
+- Added new option to interface.conf: "nonotify" to disable notify messages.
 
 
 
