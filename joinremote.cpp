@@ -49,17 +49,6 @@ JoinRemote::~JoinRemote()
 {
 }
 
-
-/* join process is called from the main loop
- * it processes the current calling state.
- * returns 0 if join nothing was done
- */
-int JoinRemote::handler(void)
-{
-	return(0);
-}
-
-
 void JoinRemote::message_epoint(unsigned int epoint_id, int message_type, union parameter *param)
 {
 	/* if endpoint has just been removed, but still a message in the que */

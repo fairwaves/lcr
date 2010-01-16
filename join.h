@@ -24,7 +24,6 @@ class Join
 	virtual ~Join();
 	class Join *next;		/* next node in list of joins */
 	virtual void message_epoint(unsigned int epoint_id, int message, union parameter *param);
-	virtual int handler(void);
 
 	unsigned int j_type;		/* join type (pbx or asterisk) */
 	unsigned int j_serial;		/* serial/unique number of join */

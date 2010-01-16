@@ -16,9 +16,9 @@ class Pdss1 : public PmISDN
 	Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pdss1();
 	unsigned int p_m_d_l3id;		/* current l3 process id */
+	struct lcr_work p_m_d_delete;		/* timer for audio transmission */
 	void message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 	int p_m_d_ces;				/* ntmode: tei&sapi */
-	int handler(void);
 	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 
 	int p_m_d_ntmode;			/* flags the nt-mode */

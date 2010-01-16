@@ -72,7 +72,7 @@ if ENABLE_ASTERISK_CHANNEL_DRIVER
 noinst_PROGRAMS = chan_lcr.so
 chan_lcr_so_SOURCES =
 chan_lcr_so_LDFLAGS = -shared
-chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
+chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
@@ -86,6 +86,9 @@ callerid.po: callerid.c callerid.h
 options.po: options.c options.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
 
+select.po: select.c select.h
+	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c select.c -o select.po
+
 install-exec-hook:
 	mkdir -p $(astmoddir)
 	$(INSTALL) -d $(astmoddir)
@@ -94,7 +97,7 @@ endif
 
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) action.cpp       mISDN.cpp        tones.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \

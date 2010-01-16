@@ -15,6 +15,7 @@ struct bchannel {
 	struct chan_call *call;		/* link to call process */
 	unsigned int handle;		/* handle for stack id */
 	int b_sock;			/* socket for b-channel */
+	struct lcr_fd lcr_fd;		/* socket register */
 	int b_mode;			/* dsp, raw, dsphdlc */
 	int b_state;
 	int b_txdata;
@@ -47,7 +48,6 @@ void bchannel_dtmf(struct bchannel *channel, int on);
 void bchannel_blowfish(struct bchannel *bchannel, unsigned char *key, int len);
 void bchannel_pipeline(struct bchannel *bchannel, char *pipeline);
 void bchannel_gain(struct bchannel *bchannel, int gain, int tx);
-int bchannel_handle(void);
 struct bchannel *find_bchannel_handle(unsigned int handle);
 //struct bchannel *find_bchannel_ref(unsigned int ref);
 struct bchannel *alloc_bchannel(unsigned int handle);

@@ -170,4 +170,4 @@ int cm_msg_num = sizeof(cm_msg_name) / sizeof(char *);
 void crc_init(void);
 unsigned int crc32(unsigned char *data, int len);
 int cryptman_encode_bch(unsigned char *data, int len, unsigned char *buf, int buf_len);
-
+int crypt_handler(struct lcr_timer *timer, void *instance, int index);

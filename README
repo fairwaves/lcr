@@ -532,6 +532,8 @@ New release Version 1.7
 
 Changes after Version 1.7
 - Added new option to interface.conf: "nonotify" to disable notify messages.
+- Replaced polling main loop by event driven "select()" loop.
+- Also replaced polling main loop by event driven "select()" loop on chan_lcr.
 
 
 

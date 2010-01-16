@@ -136,6 +136,7 @@ extern "C" {
 }
 #endif
 #include "macro.h"
+#include "select.h"
 #include "options.h"
 #include "interface.h"
 #include "extension.h"
@@ -168,11 +169,6 @@ extern "C" {
 #include "trace.h"
 
 extern int quit;
-extern double now_d;
-extern time_t now;
-extern struct tm *now_tm;
-extern struct timeval now_tv;
-extern struct timezone now_tz;
 
 #define DIRECTION_NONE	0
 #define DIRECTION_OUT	1

@@ -16,7 +16,6 @@ class JoinRemote : public Join
 	~JoinRemote();
 	void message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	void message_remote(int message_type, union parameter *param);
-	int handler(void);
 
 	int j_remote_id;
 	char j_remote_name[32];

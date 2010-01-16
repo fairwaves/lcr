@@ -61,7 +61,8 @@ am_chan_lcr_so_OBJECTS =
 chan_lcr_so_OBJECTS = $(am_chan_lcr_so_OBJECTS)
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_DEPENDENCIES =  \
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	chan_lcr.po bchannel.po \
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	options.po callerid.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	options.po callerid.po \
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	select.po
 am_genextension_OBJECTS = genext.$(OBJEXT) options.$(OBJEXT) \
 	extension.$(OBJEXT)
 genextension_OBJECTS = $(am_genextension_OBJECTS)
@@ -78,28 +79,28 @@ genwave_LDADD = $(LDADD)
 am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c \
 	openbsc/src/bsc_init.c openbsc/src/vty_interface.c \
 	openbsc/src/vty_interface_layer3.c ss5.cpp ss5_encode.c \
-	ss5_decode.c action.cpp mISDN.cpp tones.c action_efi.cpp \
-	crypt.cpp mail.c trace.c action_vbox.cpp dss1.cpp main.c \
-	vbox.cpp alawulaw.c endpoint.cpp interface.c message.c \
-	apppbx.cpp endpointapp.cpp join.cpp options.c extension.c \
-	joinpbx.cpp port.cpp callerid.c joinremote.cpp route.c cause.c \
-	socket_server.c
+	ss5_decode.c select.c action.cpp mISDN.cpp tones.c \
+	action_efi.cpp crypt.cpp mail.c trace.c action_vbox.cpp \
+	dss1.cpp main.c vbox.cpp alawulaw.c endpoint.cpp interface.c \
+	message.c apppbx.cpp endpointapp.cpp join.cpp options.c \
+	extension.c joinpbx.cpp port.cpp callerid.c joinremote.cpp \
+	route.c cause.c socket_server.c
 @ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT) bsc_init.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	vty_interface.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	vty_interface_layer3.$(OBJEXT)
 @ENABLE_SS5_TRUE@am__objects_2 = ss5.$(OBJEXT) ss5_encode.$(OBJEXT) \
 @ENABLE_SS5_TRUE@	ss5_decode.$(OBJEXT)
-am_lcr_OBJECTS = $(am__objects_1) $(am__objects_2) action.$(OBJEXT) \
-	mISDN.$(OBJEXT) tones.$(OBJEXT) action_efi.$(OBJEXT) \
-	crypt.$(OBJEXT) mail.$(OBJEXT) trace.$(OBJEXT) \
-	action_vbox.$(OBJEXT) dss1.$(OBJEXT) main.$(OBJEXT) \
-	vbox.$(OBJEXT) alawulaw.$(OBJEXT) endpoint.$(OBJEXT) \
-	interface.$(OBJEXT) message.$(OBJEXT) apppbx.$(OBJEXT) \
-	endpointapp.$(OBJEXT) join.$(OBJEXT) options.$(OBJEXT) \
-	extension.$(OBJEXT) joinpbx.$(OBJEXT) port.$(OBJEXT) \
-	callerid.$(OBJEXT) joinremote.$(OBJEXT) route.$(OBJEXT) \
-	cause.$(OBJEXT) socket_server.$(OBJEXT)
+am_lcr_OBJECTS = $(am__objects_1) $(am__objects_2) select.$(OBJEXT) \
+	action.$(OBJEXT) mISDN.$(OBJEXT) tones.$(OBJEXT) \
+	action_efi.$(OBJEXT) crypt.$(OBJEXT) mail.$(OBJEXT) \
+	trace.$(OBJEXT) action_vbox.$(OBJEXT) dss1.$(OBJEXT) \
+	main.$(OBJEXT) vbox.$(OBJEXT) alawulaw.$(OBJEXT) \
+	endpoint.$(OBJEXT) interface.$(OBJEXT) message.$(OBJEXT) \
+	apppbx.$(OBJEXT) endpointapp.$(OBJEXT) join.$(OBJEXT) \
+	options.$(OBJEXT) extension.$(OBJEXT) joinpbx.$(OBJEXT) \
+	port.$(OBJEXT) callerid.$(OBJEXT) joinremote.$(OBJEXT) \
+	route.$(OBJEXT) cause.$(OBJEXT) socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
 @ENABLE_GSM_TRUE@am__DEPENDENCIES_2 = /usr/lib/libgsm.a \
@@ -258,9 +259,9 @@ INSTALLATION_DEFINES = \
 @ENABLE_SS5_TRUE@SS5_SOURCE = ss5.cpp ss5_encode.c ss5_decode.c
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) action.cpp       mISDN.cpp        tones.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
@@ -446,6 +447,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/route.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/select.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ss5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ss5_decode.Po@am__quote@
@@ -818,6 +820,9 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am \
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@options.po: options.c options.h
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
+
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@select.po: select.c select.h
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c select.c -o select.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@install-exec-hook:
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	mkdir -p $(astmoddir)

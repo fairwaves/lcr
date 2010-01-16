@@ -9,8 +9,6 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-#define ISDN_TRANSMIT	256 // samples
-
 enum { /* interface types */
 	INFO_ITYPE_ISDN, /* call from external */
 	INFO_ITYPE_ISDN_EXTENSION, /* call from internal extension */
@@ -271,10 +269,11 @@ struct park_info {
 	int len;
 };
 
+#define ISDN_TRANSMIT 256
 /* DATA */
 struct param_data {
-	unsigned char data[ISDN_TRANSMIT]; /* audio/hdlc data */
-	int len; /* audio/hdlc data */
+	unsigned char data[ISDN_TRANSMIT]; /* audio data */
+	int len; /* audio data */
 };
 
 struct param_play {
@@ -444,6 +443,7 @@ void message_put(struct lcr_msg *message);
 struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param);
 struct lcr_msg *message_get(void);
 void message_free(struct lcr_msg *message);
-
+void init_message(void);
+void cleanup_message(void);
 
 

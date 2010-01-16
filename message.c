@@ -15,6 +15,20 @@ MESSAGES
 
 struct lcr_msg *message_first = NULL;
 struct lcr_msg **messagepointer_end = &message_first;
+struct lcr_work message_work;
+
+static int work_message(struct lcr_work *work, void *instance, int index);
+
+void init_message(void)
+{
+	memset(&message_work, 0, sizeof(message_work));
+	add_work(&message_work, work_message, NULL, 0);
+}
+
+void cleanup_message(void)
+{
+	del_work(&message_work);
+}
 
 /* creates a new message with the given attributes. the message must be filled then. after filling, the message_put must be called */
 struct lcr_msg *message_create(int id_from, int id_to, int flow, int type)
@@ -50,6 +64,9 @@ void message_put(struct lcr_msg *message)
 	messagepointer_end = &(message->next);
 	/* Nullify next pointer if recycled messages */
 	*messagepointer_end=NULL;
+
+	/* trigger work */
+	trigger_work(&message_work);
 }
 
 struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param)
@@ -101,4 +118,67 @@ void message_free(struct lcr_msg *message)
 	mmemuse--;
 }
 
+
+static int work_message(struct lcr_work *work, void *instance, int index)
+{
+	struct lcr_msg		*message;
+	class Port		*port;
+	class Endpoint		*epoint;
+	class Join		*join;
+
+	while ((message = message_get())) {
+		switch(message->flow) {
+			case PORT_TO_EPOINT:
+			epoint = find_epoint_id(message->id_to);
+			if (epoint) {
+				if (epoint->ep_app) {
+					epoint->ep_app->ea_message_port(message->id_from, message->type, &message->param);
+				} else {
+					PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
+				}
+			} else {
+				PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
+			}
+			break;
+
+			case EPOINT_TO_JOIN:
+			join = find_join_id(message->id_to);
+			if (join) {
+				join->message_epoint(message->id_from, message->type, &message->param);
+			} else {
+				PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to join %d. join doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
+			}
+			break;
+
+			case JOIN_TO_EPOINT:
+			epoint = find_epoint_id(message->id_to);
+			if (epoint) {
+				if (epoint->ep_app) {
+					epoint->ep_app->ea_message_join(message->id_from, message->type, &message->param);
+				} else {
+					PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
+				}
+			} else {
+				PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
+			}
+			break;
+
+			case EPOINT_TO_PORT:
+			port = find_port_id(message->id_to);
+			if (port) {
+				port->message_epoint(message->id_from, message->type, &message->param);
+BUDETECT
+			} else {
+				PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to port %d. port doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
+			}
+			break;
+
+			default:
+			PERROR("Message flow %d unknown.\n", message->flow);
+		}
+		message_free(message);
+	}
+
+	return 0;
+}
 

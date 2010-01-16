@@ -20,6 +20,8 @@ extern unsigned int mt_assign_pid;
 
 #include "ie.cpp"
 
+static int delete_event(struct lcr_work *work, void *instance, int index);
+
 /*
  * constructor
  */
@@ -29,6 +31,8 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
 	p_m_d_ntmode = mISDNport->ntmode;
 	p_m_d_tespecial = mISDNport->tespecial;
 	p_m_d_l3id = 0;
+	memset(&p_m_d_delete, 0, sizeof(p_m_d_delete));
+	add_work(&p_m_d_delete, delete_event, this, 0);
 	p_m_d_ces = -1;
 	p_m_d_queue[0] = '\0';
 	p_m_d_notify_pending = NULL;
@@ -44,6 +48,8 @@ Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_
  */
 Pdss1::~Pdss1()
 {
+	del_work(&p_m_d_delete);
+
 	/* remove queued message */
 	if (p_m_d_notify_pending)
 		message_free(p_m_d_notify_pending);
@@ -255,7 +261,7 @@ int Pdss1::received_first_reply_to_setup(unsigned int cmd, int channel, int excl
 	end_trace();
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, p_m_d_l3id, l3m);
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_d_delete);
 	return(-34); /* to epoint: no channel available */
 }
 
@@ -422,7 +428,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, pid, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	p_m_d_l3id = pid;
@@ -453,7 +459,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 
@@ -711,7 +717,7 @@ void Pdss1::setup_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
@@ -803,7 +809,7 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 
@@ -851,7 +857,7 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
@@ -928,7 +934,7 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_ALERTING);
@@ -1005,7 +1011,7 @@ void Pdss1::connect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 
@@ -1117,7 +1123,7 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 			free_epointlist(p_epointlist);
 		}
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 
@@ -1197,7 +1203,7 @@ void Pdss1::release_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	}
 
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_d_delete);
 }
 
 /* CC_RESTART INDICATION */
@@ -1247,7 +1253,7 @@ void Pdss1::release_complete_ind(unsigned int cmd, unsigned int pid, struct l3_m
 	}
 
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_d_delete);
 }
 
 /* T312 timeout  */
@@ -1351,8 +1357,8 @@ void Pdss1::hold_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 #if 0
 	epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
 	if (epoint && p_m_d_ntmode) {
-		p_m_timeout = p_settings.tout_hold;
-		time(&p_m_timer);
+		if (p_settings.tout_hold)
+			schedule_timer(&p_m_timeout, p_settings.tout_hold, 0);
 	}
 #endif
 
@@ -1410,7 +1416,7 @@ void Pdss1::retrieve_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	/* set hold state */
 	p_m_hold = 0;
-	p_m_timeout = 0;
+	unsched_timer(&p_m_timeout);
 
 	/* acknowledge retrieve */
 	l3m = create_l3msg();
@@ -1488,7 +1494,7 @@ void Pdss1::suspend_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_SUSPEND_ACKNOWLEDGE, p_m_d_l3id, l3m);
 
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_d_delete);
 }
 
 /* CC_RESUME INDICATION */
@@ -1515,7 +1521,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RESUME_REJECT, pid, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	p_m_d_l3id = pid;
@@ -1558,7 +1564,7 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RESUME_REJECT, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
@@ -1778,8 +1784,8 @@ void Pdss1::message_isdn(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 		add_trace("callref", NULL, "0x%x", p_m_d_l3id);
 		end_trace();
 		p_m_d_l3id = 0;
+		trigger_work(&p_m_d_delete);
 		p_m_d_ces = -1;
-		p_m_delete = 1;
 		/* sending release to endpoint in case we still have an endpoint
 		 * this is because we don't get any response if a release_complete is received (or a release in release state)
 		 */
@@ -1814,35 +1820,39 @@ void Pdss1::new_state(int state)
 
 	/* set timeout */
 	if (state == PORT_STATE_IN_OVERLAP) {
-		p_m_timeout = p_m_mISDNport->ifport->tout_dialing;
-		time(&p_m_timer);
+		if (p_m_mISDNport->ifport->tout_dialing)
+			schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_dialing, 0);
 	}
 	if (state != p_state) {
+		unsched_timer(&p_m_timeout);
 		if (state == PORT_STATE_IN_SETUP
 		 || state == PORT_STATE_OUT_SETUP
 		 || state == PORT_STATE_IN_OVERLAP
 		 || state == PORT_STATE_OUT_OVERLAP) {
-			p_m_timeout = p_m_mISDNport->ifport->tout_setup;
-			time(&p_m_timer);
+		 	if (p_m_mISDNport->ifport->tout_setup)
+				schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_setup, 0);
 		}
 		if (state == PORT_STATE_IN_PROCEEDING
 		 || state == PORT_STATE_OUT_PROCEEDING) {
-			p_m_timeout = p_m_mISDNport->ifport->tout_proceeding;
-			time(&p_m_timer);
+			if (p_m_mISDNport->ifport->tout_proceeding)
+				schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_proceeding, 0);
 		}
 		if (state == PORT_STATE_IN_ALERTING
 		 || state == PORT_STATE_OUT_ALERTING) {
-			p_m_timeout = p_m_mISDNport->ifport->tout_alerting;
-			time(&p_m_timer);
+			if (p_m_mISDNport->ifport->tout_alerting)
+				schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_alerting, 0);
 		}
+#if 0
 		if (state == PORT_STATE_CONNECT
 		 || state == PORT_STATE_CONNECT_WAITING) {
-			p_m_timeout = 0;
+			if (p_m_mISDNport->ifport->tout_connect)
+				schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_connect, 0);
 		}
+#endif
 		if (state == PORT_STATE_IN_DISCONNECT
 		 || state == PORT_STATE_OUT_DISCONNECT) {
-			p_m_timeout = p_m_mISDNport->ifport->tout_disconnect;
-			time(&p_m_timer);
+			if (p_m_mISDNport->ifport->tout_disconnect)
+				schedule_timer(&p_m_timeout, p_m_mISDNport->ifport->tout_disconnect, 0);
 		}
 	}
 	
@@ -1850,23 +1860,15 @@ void Pdss1::new_state(int state)
 }
 
 
-/*
- * handler
- */
-int Pdss1::handler(void)
+/* deletes only if l3id is release, otherwhise it will be triggered then */
+static int delete_event(struct lcr_work *work, void *instance, int index)
 {
-	int ret;
+	class Pdss1 *isdnport = (class Pdss1 *)instance;
 
-	if ((ret = PmISDN::handler()))
-		return(ret);
+	if (!isdnport->p_m_d_l3id)
+		delete isdnport;
 
-	/* handle destruction */
-	if (p_m_delete && p_m_d_l3id==0) {
-		delete this;
-		return(-1);
-	}
-
-	return(0);
+	return 0;
 }
 
 
@@ -1921,7 +1923,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 
@@ -1987,7 +1989,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 	p_m_d_l3id = mt_assign_pid;
@@ -2419,6 +2421,7 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	l3_msg *l3m;
 	int type, plan, present, screen;
 	class Endpoint *epoint;
+	time_t current_time;
 
 	/* NT-MODE in setup state we must send PROCEEDING first */
 	if (p_m_d_ntmode && p_state==PORT_STATE_IN_SETUP) {
@@ -2513,7 +2516,8 @@ void Pdss1::message_connect(unsigned int epoint_id, int message_id, union parame
 	/* date & time */
 	if (p_m_d_ntmode || p_m_d_tespecial) {
 		epoint = find_epoint_id(epoint_id);
-		enc_ie_date(l3m, now, p_settings.no_seconds);
+		time(&current_time);
+		enc_ie_date(l3m, current_time, p_settings.no_seconds);
 	}
 	end_trace();
 	/* finally send message */
@@ -2552,7 +2556,7 @@ if (/*	 ||*/ p_state==PORT_STATE_OUT_SETUP) {
 		end_trace();
 		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE_COMPLETE, p_m_d_l3id, l3m);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_d_delete);
 		return;
 	}
 

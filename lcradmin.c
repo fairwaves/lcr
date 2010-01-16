@@ -25,6 +25,7 @@
 #include "macro.h"
 #include "options.h"
 #include "join.h"
+#include "select.h"
 #include "joinpbx.h"
 #include "extension.h"
 #include "message.h"

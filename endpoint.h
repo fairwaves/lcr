@@ -26,7 +26,6 @@ class Endpoint
 	~Endpoint();
 	class Endpoint		*next;		/* next in list */
 	unsigned int		ep_serial;	/* a unique serial to identify */
-	int			handler(void);
 
 	/* applocaton relation */
 	class EndpointApp 	*ep_app;		/* link to application class */
@@ -41,6 +40,7 @@ class Endpoint
 
 	/* if still used by threads */
 	int			ep_use;
+	struct lcr_work		ep_delete;
 
 	/* application indipendant states */
 	int			ep_park;		/* indicates that the epoint is parked */

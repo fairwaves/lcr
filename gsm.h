@@ -33,9 +33,11 @@ class Pgsm : public PmISDN
 	Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pgsm();
 
+	struct lcr_work p_m_g_delete;		/* timer for audio transmission */
 	unsigned int p_m_g_callref; /* ref by OpenBSC */
 	unsigned int p_m_g_mode; /* data/transparent mode */
 	int p_m_g_gsm_b_sock; /* gsm bchannel socket */
+	struct lcr_fd p_m_g_gsm_b_fd; /* event node */
 	int p_m_g_gsm_b_index; /* gsm bchannel socket index to use */
 	int p_m_g_gsm_b_active; /* gsm bchannel socket is activated */
 	struct lcr_msg *p_m_g_notify_pending;	/* queue for NOTIFY if not connected */
@@ -72,7 +74,6 @@ class Pgsm : public PmISDN
 	void message_disconnect(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_release(unsigned int epoint_id, int message_id, union parameter *param);
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
-	int handler(void);
 };
 
 extern char *gsm_conf_error;

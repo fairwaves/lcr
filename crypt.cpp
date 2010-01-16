@@ -549,7 +549,8 @@ static void *keyengine_child(void *arg)
 	PDEBUG((DEBUG_EPOINT | DEBUG_CRYPT), "child process done after using libcrypto with return value %d\n", apppbx->e_crypt_keyengine_return);
 
 	/* exit process */
-	apppbx->ea_endpoint->ep_use--;
+	if (--apppbx->ea_endpoint->ep_use <= 0)
+		trigger_work(&apppbx->ea_endpoint->ep_delete);
 	FREE(args, sizeof(struct auth_args));
 	amemuse--;
 	return(NULL);
@@ -588,37 +589,47 @@ void EndpointAppPBX::cryptman_keyengine(int job)
 
 /* handler for authentication (called by apppbx's handler)
  */
-void EndpointAppPBX::cryptman_handler(void)
+int crypt_handler(struct lcr_timer *timer, void *instance, int index)
 {
-	if (e_crypt_keyengine_busy) {
-		if (e_crypt_keyengine_return < 0) {
-			e_crypt_keyengine_busy = 0;
-			cryptman_message(CK_ERROR_IND, NULL, 0);
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+	struct timeval current_time;
+
+	if (ea->e_crypt_keyengine_busy) {
+		if (ea->e_crypt_keyengine_return < 0) {
+			ea->e_crypt_keyengine_busy = 0;
+			ea->cryptman_message(CK_ERROR_IND, NULL, 0);
 		} else
-		if (e_crypt_keyengine_return > 0) {
-			switch(e_crypt_keyengine_busy) {
+		if (ea->e_crypt_keyengine_return > 0) {
+			switch(ea->e_crypt_keyengine_busy) {
 				case CK_GENRSA_REQ:
-				e_crypt_keyengine_busy = 0;
-				cryptman_message(CK_GENRSA_CONF, NULL, 0);
+				ea->e_crypt_keyengine_busy = 0;
+				ea->cryptman_message(CK_GENRSA_CONF, NULL, 0);
 				break;
 				case CK_CPTRSA_REQ:
-				e_crypt_keyengine_busy = 0;
-				cryptman_message(CK_CPTRSA_CONF, NULL, 0);
+				ea->e_crypt_keyengine_busy = 0;
+				ea->cryptman_message(CK_CPTRSA_CONF, NULL, 0);
 				break;
 				case CK_DECRSA_REQ:
-				e_crypt_keyengine_busy = 0;
-				cryptman_message(CK_DECRSA_CONF, NULL, 0);
+				ea->e_crypt_keyengine_busy = 0;
+				ea->cryptman_message(CK_DECRSA_CONF, NULL, 0);
 				break;
 			}
 		}
 	}
 
 	/* check for event, make next event */
-	if (e_crypt_timeout_sec) if (e_crypt_timeout_sec<now_tv.tv_sec || (e_crypt_timeout_sec==now_tv.tv_sec && e_crypt_timeout_usec<now_tv.tv_usec)) {
-		e_crypt_timeout_sec = 0;
-		e_crypt_timeout_usec = 0;
-		cryptman_message(CT_TIMEOUT, NULL, 0);
+	gettimeofday(&current_time, NULL);
+	if (ea->e_crypt_timeout_sec) if (ea->e_crypt_timeout_sec<current_time.tv_sec || (ea->e_crypt_timeout_sec==current_time.tv_sec && ea->e_crypt_timeout_usec<current_time.tv_usec)) {
+		ea->e_crypt_timeout_sec = 0;
+		ea->e_crypt_timeout_usec = 0;
+		ea->cryptman_message(CT_TIMEOUT, NULL, 0);
 	}
+
+	/* trigger until state is 0 */
+	if (ea->e_crypt_state != CM_ST_NULL)
+		schedule_timer(&ea->e_crypt_handler, 0, 100000);
+
+	return 0;
 }
 
 
@@ -679,6 +690,7 @@ void EndpointAppPBX::cr_activate(int message, unsigned char *param, int len)
 	unsigned char buf[128] = "";
 	unsigned char msg;
 	unsigned char bogomips[4], ran[4];
+	struct timeval current_time;
 
 	/* activate listener */
 	cryptman_msg2crengine(CR_LISTEN_REQ, NULL, 0);
@@ -686,7 +698,8 @@ void EndpointAppPBX::cr_activate(int message, unsigned char *param, int len)
 	msg = CMSG_IDENT;
 	CM_ADDINF(CM_INFO_MESSAGE, 1, &msg);
 	/* random number element */
-	srandom(now_tv.tv_sec ^ now_tv.tv_usec ^ random());
+	gettimeofday(&current_time, NULL);
+	srandom(current_time.tv_sec ^ current_time.tv_usec ^ random());
 	e_crypt_random = random();
 	ran[0] = e_crypt_random >> 24;
 	ran[1] = e_crypt_random >> 16;
@@ -1484,6 +1497,8 @@ void EndpointAppPBX::cryptman_msg2user(int msg, const char *text)
 void EndpointAppPBX::cryptman_state(int state)
 {
 	PDEBUG(DEBUG_CRYPT, "Changing state from %s to %s\n", statename(e_crypt_state), statename(state));
+	if (state != CM_ST_NULL && e_crypt_state == CM_ST_NULL)
+		schedule_timer(&e_crypt_handler, 0, 100000);
 	e_crypt_state = state;
 }
 
@@ -1492,9 +1507,12 @@ void EndpointAppPBX::cryptman_state(int state)
  */
 void EndpointAppPBX::cryptman_timeout(int secs)
 {
+	struct timeval current_time;
+
+	gettimeofday(&current_time, NULL);
 	if (secs) {
-		e_crypt_timeout_sec = now_tv.tv_sec+secs;
-		e_crypt_timeout_usec = now_tv.tv_usec;
+		e_crypt_timeout_sec = current_time.tv_sec+secs;
+		e_crypt_timeout_usec = current_time.tv_usec;
 		PDEBUG(DEBUG_CRYPT, "Changing timeout to %d seconds\n", secs);
 	} else {
 		e_crypt_timeout_sec = 0;

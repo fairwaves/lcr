@@ -333,6 +333,7 @@ class Pss5 *ss5_hunt_line(struct mISDNport *mISDNport)
 	return NULL;
 }
 
+int queue_event(struct lcr_work *work, void *instance, int index);
 
 /*
  * constructor
@@ -352,8 +353,8 @@ Pss5::Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_se
 	//p_m_s_decoder_buffer;
 	p_m_s_sample_nr = 0;
 	p_m_s_recog = 0;
-	p_m_s_timer = 0.0;
-	p_m_s_timer_fn = NULL;
+	memset(&p_m_s_queue, 0, sizeof(p_m_s_queue));
+	add_work(&p_m_s_queue, queue_event, this, 0);
 	p_m_s_answer = 0;
 	p_m_s_busy_flash = 0;
 	p_m_s_clear_back = 0;
@@ -372,6 +373,7 @@ Pss5::Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_se
  */
 Pss5::~Pss5()
 {
+	del_work(&p_m_s_queue);
 }
 
 
@@ -383,7 +385,47 @@ void Pss5::_new_ss5_state(int state, const char *func, int line)
 	PDEBUG(DEBUG_SS5, "%s(%s:%d): changing SS5 state from %s to %s\n", p_name, func, line, ss5_state_name[p_m_s_state], ss5_state_name[state]);
 	p_m_s_state = state;
 	p_m_s_signal = SS5_SIGNAL_NULL;
+
+	if (p_m_s_state == SS5_STATE_IDLE && (p_m_s_answer || p_m_s_busy_flash || p_m_s_clear_back))
+		trigger_work(&p_m_s_queue);
 }
+
+int queue_event(struct lcr_work *work, void *instance, int index)
+{
+	class Pss5 *ss5port = (class Pss5 *)instance;
+
+	if (ss5port->p_m_s_state == SS5_STATE_IDLE) {
+		/* if answer signal is queued */
+		if (ss5port->p_m_s_answer) {
+			ss5port->p_m_s_answer = 0;
+			/* start answer */
+			ss5_trace_header(ss5port->p_m_mISDNport, ss5port, SS5_ANSWER_REQ, ss5port->p_m_b_channel);
+			end_trace();
+			ss5port->start_signal(SS5_STATE_ANSWER);
+		}
+
+		/* if busy-flash signal is queued */
+		if (ss5port->p_m_s_busy_flash) {
+			ss5port->p_m_s_busy_flash = 0;
+			/* start busy-flash */
+			ss5_trace_header(ss5port->p_m_mISDNport, ss5port, SS5_BUSY_FLASH_REQ, ss5port->p_m_b_channel);
+			end_trace();
+			ss5port->start_signal(SS5_STATE_BUSY_FLASH);
+		}
+
+		/* if clear-back signal is queued */
+		if (ss5port->p_m_s_clear_back) {
+			ss5port->p_m_s_clear_back = 0;
+			/* start clear-back */
+			ss5_trace_header(ss5port->p_m_mISDNport, ss5port, SS5_CLEAR_BACK_REQ, ss5port->p_m_b_channel);
+			end_trace();
+			ss5port->start_signal(SS5_STATE_CLEAR_BACK);
+		}
+	}
+
+	return 0;
+}
+
 void Pss5::_new_ss5_signal(int signal, const char *func, int line)
 {
 	if (p_m_s_signal)
@@ -1606,8 +1648,6 @@ void Pss5::do_release(int cause, int location)
 {
 	struct lcr_msg *message;
 
-	p_m_s_timer = 0.0;
-
 	/* sending release to endpoint */
 	while(p_epointlist) {
 		message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -1671,52 +1711,6 @@ void Pss5::do_setup(char *dial, int complete)
 
 }
 
-
-/*
- * handler
- */
-int Pss5::handler(void)
-{
-	int ret;
-
-	if ((ret = PmISDN::handler()))
-		return(ret);
-
-	/* handle timer */
-	if (p_m_s_timer && p_m_s_timer < now) {
-		p_m_s_timer = 0.0;
-		(this->*(p_m_s_timer_fn))();
-	}
-
-	/* if answer signal is queued */
-	if (p_m_s_answer && p_m_s_state == SS5_STATE_IDLE) {
-		p_m_s_answer = 0;
-		/* start answer */
-		ss5_trace_header(p_m_mISDNport, this, SS5_ANSWER_REQ, p_m_b_channel);
-		end_trace();
-		start_signal(SS5_STATE_ANSWER);
-	}
-
-	/* if busy-flash signal is queued */
-	if (p_m_s_busy_flash && p_m_s_state == SS5_STATE_IDLE) {
-		p_m_s_busy_flash = 0;
-		/* start busy-flash */
-		ss5_trace_header(p_m_mISDNport, this, SS5_BUSY_FLASH_REQ, p_m_b_channel);
-		end_trace();
-		start_signal(SS5_STATE_BUSY_FLASH);
-	}
-
-	/* if clear-back signal is queued */
-	if (p_m_s_clear_back && p_m_s_state == SS5_STATE_IDLE) {
-		p_m_s_clear_back = 0;
-		/* start clear-back */
-		ss5_trace_header(p_m_mISDNport, this, SS5_CLEAR_BACK_REQ, p_m_b_channel);
-		end_trace();
-		start_signal(SS5_STATE_CLEAR_BACK);
-	}
-
-	return(0);
-}
 
 
 /*
@@ -1917,6 +1911,7 @@ void Pss5::message_connect(unsigned int epoint_id, int message_id, union paramet
 	if (p_state != PORT_STATE_CONNECT) {
 		new_state(PORT_STATE_CONNECT);
 		p_m_s_answer = 1;
+		trigger_work(&p_m_s_queue);
 	}
 
 	set_tone("", NULL);
@@ -1937,8 +1932,6 @@ if (0	 || p_type==PORT_TYPE_SS5_OUT) { /* outgoing exchange */
 	start_signal(SS5_STATE_CLEAR_BACK);
 
 	new_state(PORT_STATE_OUT_DISCONNECT);
-//	p_m_s_timer_fn = &Pss5::register_timeout;
-//	p_m_s_timer = now + 30.0;
 }
 
 /* MESSAGE_RELEASE */

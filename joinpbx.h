@@ -50,7 +50,6 @@ class JoinPBX : public Join
 	JoinPBX(class Endpoint *epoint);
 	~JoinPBX();
 	void message_epoint(unsigned int epoint_id, int message, union parameter *param);
-	int handler(void);
 	int release(struct join_relation *relation, int location, int cause);
 
 	char j_caller[32];		/* caller number */
@@ -60,7 +59,7 @@ class JoinPBX : public Join
 	int j_multicause, j_multilocation;
 	
 	int j_pid;			/* pid of join to generate bridge id */
-	int j_updatebridge;		/* bridge must be updated */
+	struct lcr_work j_updatebridge;		/* bridge must be updated */
 	struct join_relation *j_relation; /* list of endpoints that are related to the join */
 
 	int j_partyline;		/* if set, join is conference room */

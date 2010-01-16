@@ -21,6 +21,7 @@ struct admin_queue {
 struct admin_list {
 	struct admin_list *next;
 	int sock;
+	struct lcr_fd fd;
 	int sockserial;
 	char remote_name[32]; /* socket is connected remote application */
 	struct admin_trace_req trace; /* stores trace, if detail != 0 */
@@ -31,7 +32,6 @@ struct admin_list {
 extern struct admin_list *admin_first;
 int admin_init(void);
 void admin_cleanup(void);
-int admin_handle(void);
 void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify);
 int admin_message_to_join(struct admin_message *msg, int remote_id);
 int admin_message_from_join(int remote_id, unsigned int ref, int message_type, union parameter *param);

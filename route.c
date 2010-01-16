@@ -1791,12 +1791,14 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	int			integer;
 	char			*string;
 	FILE			*tfp;
-	double			timeout;
+	long long		timeout, now_ll = 0, match_timeout = 0;
+	struct timeval		current_time;
 	struct mISDNport	*mISDNport;
 	struct admin_list	*admin;
+	time_t			now;
+	struct tm		*now_tm;
 
 	/* reset timeout action */
-	e_match_timeout = 0; /* no timeout */
 	e_match_to_action = NULL;
 
 	SCPY(callerid, numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international));
@@ -1910,22 +1912,32 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				goto match_string_prefix;
 
 				case MATCH_TIME:
+				time(&now);
+				now_tm = localtime(&now);
 				integer = now_tm->tm_hour*100 + now_tm->tm_min;
 				goto match_integer;
 
 				case MATCH_MDAY:
+				time(&now);
+				now_tm = localtime(&now);
 				integer = now_tm->tm_mday;
 				goto match_integer;
 
 				case MATCH_MONTH:
+				time(&now);
+				now_tm = localtime(&now);
 				integer = now_tm->tm_mon+1;
 				goto match_integer;
 
 				case MATCH_YEAR:
+				time(&now);
+				now_tm = localtime(&now);
 				integer = now_tm->tm_year + 1900;
 				goto match_integer;
 
 				case MATCH_WDAY:
+				time(&now);
+				now_tm = localtime(&now);
 				integer = now_tm->tm_wday;
 				integer = integer?integer:7; /* correct sunday */
 				goto match_integer;
@@ -1963,7 +1975,11 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				case MATCH_TIMEOUT:
-				timeout = now_d + cond->integer_value;
+				if (!now_ll) {
+					gettimeofday(&current_time, NULL);
+					now_ll = current_time.tv_sec * MICRO_SECONDS + current_time.tv_usec;
+				}
+				timeout = now_ll + (cond->integer_value * MICRO_SECONDS);
 				istrue = 1;
 				break;
 
@@ -2166,10 +2182,10 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 			cond = cond->next;
 		}
-		if (timeout>now_d && match==1) /* the matching rule with timeout in the future */
-		if (e_match_timeout<1 || timeout<e_match_timeout) { /* first timeout or lower */
+		if (timeout>now_ll && match==1) /* the matching rule with timeout in the future */
+		if (match_timeout == 0 || timeout < match_timeout) { /* first timeout or lower */
 			/* set timeout in the furture */
-			e_match_timeout = timeout;
+			match_timeout = timeout;
 			e_match_to_action = rule->action_first;
 			e_match_to_extdialing = e_dialinginfo.id + dialing_required;
 			match = 0; /* matches in the future */
@@ -2177,7 +2193,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 		if (match == 1) {
 			/* matching, we return first action */
 			action = rule->action_first;
-			e_match_timeout = 0; /* no timeout */
+			match_timeout = 0; /* no timeout */
 			e_match_to_action = NULL;
 			e_extdialing = e_dialinginfo.id + dialing_required;
 			break;
@@ -2187,6 +2203,11 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 			couldmatch = 1;
 		}
 		rule = rule->next;
+	}
+	if (match_timeout == 0)
+		unsched_timer(&e_match_timeout); /* no timeout */
+	else {
+		schedule_timer(&e_match_timeout, match_timeout / 1000000, match_timeout % 1000000);
 	}
 	return(action);
 }

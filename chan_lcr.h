@@ -132,6 +132,8 @@ enum {
 };
 
 
+#define SOCKET_RETRY_TIMER	5
+
 #define CERROR(call, ast, arg...) chan_lcr_log(__LOG_ERROR, __FILE__, __LINE__,  __FUNCTION__, call, ast, ##arg)
 #define CDEBUG(call, ast, arg...) chan_lcr_log(__LOG_NOTICE, __FILE__, __LINE__,  __FUNCTION__, call, ast, ##arg)
 void chan_lcr_log(int type, const char *file, int line, const char *function,  struct chan_call *call, struct ast_channel *ast, const char *fmt, ...);

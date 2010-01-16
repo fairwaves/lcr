@@ -25,7 +25,6 @@ class Pss5 : public PmISDN
 	public:
 	Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pss5();
-	int handler(void);
 	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	void set_tone(const char *dir, const char *name);
 
@@ -43,8 +42,7 @@ class Pss5 : public PmISDN
 	unsigned char p_m_s_delay_mute[400/SS5_DECODER_NPOINTS]; /* 40 ms delay on mute, so a 'chirp' can be heared */
 	int p_m_s_sample_nr; /* decoder's sample number, counter */
 	int p_m_s_recog; /* sample counter to wait for signal recognition time */
-	double p_m_s_timer;
-        void (Pss5::*p_m_s_timer_fn)(void);
+	struct lcr_work p_m_s_queue;
 	int p_m_s_answer; /* queued signal */
 	int p_m_s_busy_flash; /* queued signal */
 	int p_m_s_clear_back; /* queued signal */

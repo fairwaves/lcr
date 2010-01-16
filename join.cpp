@@ -91,15 +91,6 @@ void Join::message_epoint(unsigned int epoint_id, int message_type, union parame
 }
 
 
-/* join process is called from the main loop
- * it processes the current calling state.
- * returns 0 if nothing was done
- */
-int Join::handler(void)
-{
-	return(0);
-}
-
 /* free all join structures */
 void join_free(void)
 {

@@ -137,11 +137,11 @@ class Port
 	virtual ~Port();
 	class Port *next;			/* next port in list */
 	int p_type;				/* type of port */
-	virtual int handler(void);
 	virtual int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	virtual void set_echotest(int echotest);
 	virtual void set_tone(const char *dir, const char *name);
 	virtual int read_audio(unsigned char *buffer, int length);
+	virtual void update_load(void);
 
 	struct port_settings p_settings;
 	
@@ -205,6 +205,7 @@ class Port
 	int p_record_anon_ignore;
 	char p_record_vbox_email[128];
 	int p_record_vbox_email_file;
+	virtual void update_rxoff(void);	/* inherited by mISDNport, to control rxoff */
 
 	void free_epointlist(struct epoint_list *epointlist);
 	void free_epointid(unsigned int epoint_id);
