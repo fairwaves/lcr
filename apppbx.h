@@ -224,7 +224,7 @@ class EndpointAppPBX : public EndpointApp
 
 	/* epoint */
 	void new_state(int state);
-	void release(int release, int joinlocation, int joincause, int portlocation, int portcause);
+	void release(int release, int joinlocation, int joincause, int portlocation, int portcause, int force);
 	void notify_active(void);
 	void keypad_function(char digit);
 	void set_tone(struct port_list *portlist, const char *tone);
@@ -288,6 +288,7 @@ class EndpointAppPBX : public EndpointApp
 	void action_dialing_goto(void);
 	void action_dialing_menu(void);
 	void action_dialing_disconnect(void);
+	void action_dialing_release(void);
 	void action_dialing_help(void);
 	void action_dialing_deflect(void);
 	void action_dialing_setforward(void);

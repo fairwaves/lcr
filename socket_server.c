@@ -278,7 +278,7 @@ int admin_route(struct admin_queue **responsep)
 			release:
 			unsched_timer(&apppbx->e_callback_timeout);
 			apppbx->e_action = NULL;
-			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 			start_trace(-1,
 				NULL,
 				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype, options.national, options.international),
@@ -488,7 +488,7 @@ int admin_release(struct admin_queue **responsep, char *message)
 	}
 
 	unsched_timer(&apppbx->e_callback_timeout);
-	apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+	apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 
 	out:
 	/* attach to response chain */
@@ -1123,7 +1123,7 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 				epoint = find_epoint_id(admin->epointid);
 				if (epoint) {
 					((class DEFAULT_ENDPOINT_APP *)epoint->ep_app)->
-						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 				}
 			}
 

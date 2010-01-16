@@ -2607,26 +2607,6 @@ void Pdss1::message_release(unsigned int epoint_id, int message_id, union parame
 	char *p = NULL;
 
 	/*
-	 * we may only release during incoming disconnect state.
-	 * this means that the endpoint doesnt require audio anymore
-	 */
-	if (p_state == PORT_STATE_IN_DISCONNECT
-     	 || p_state == PORT_STATE_OUT_DISCONNECT) {
-		/* sending release */
-		l3m = create_l3msg();
-		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
-		/* send cause */
-		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
-		end_trace();
-		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE, p_m_d_l3id, l3m);
-		new_state(PORT_STATE_RELEASE);
-		/* remove epoint */
-		free_epointid(epoint_id);
-		// wait for callref to be released
-		return;
-
-	}
-	/*
 	 * if we are on incoming call setup, we may reject by sending a release_complete
 	 * also on outgoing call setup, we send a release complete, BUT this is not conform. (i don't know any other way)
 	 */
@@ -2646,6 +2626,27 @@ void Pdss1::message_release(unsigned int epoint_id, int message_id, union parame
 		free_epointid(epoint_id);
 		// wait for callref to be released
 		return;
+	}
+	/*
+	 * we may only release during incoming disconnect state.
+	 * this means that the endpoint doesnt require audio anymore
+	 */
+	if (p_state == PORT_STATE_IN_DISCONNECT
+     	 || p_state == PORT_STATE_OUT_DISCONNECT
+	 || param->disconnectinfo.force) {
+		/* sending release */
+		l3m = create_l3msg();
+		l1l2l3_trace_header(p_m_mISDNport, this, L3_RELEASE_REQ, DIRECTION_OUT);
+		/* send cause */
+		enc_ie_cause(l3m, (p_m_mISDNport->locally && param->disconnectinfo.location==LOCATION_PRIVATE_LOCAL)?LOCATION_PRIVATE_LOCAL:param->disconnectinfo.location, param->disconnectinfo.cause);
+		end_trace();
+		p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_RELEASE, p_m_d_l3id, l3m);
+		new_state(PORT_STATE_RELEASE);
+		/* remove epoint */
+		free_epointid(epoint_id);
+		// wait for callref to be released
+		return;
+
 	}
 
 #if 0

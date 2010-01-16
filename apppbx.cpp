@@ -201,7 +201,7 @@ void EndpointAppPBX::new_state(int state)
 
 /* release join and port (as specified)
  */
-void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause)
+void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause, int force)
 {
 	struct port_list *portlist;
 	struct lcr_msg *message;
@@ -238,6 +238,7 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
 				message->param.disconnectinfo.cause = portcause;
 				message->param.disconnectinfo.location = portlocation;
+				message->param.disconnectinfo.force = force; // set, if port should release imediately
 				message_put(message);
 				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			}
@@ -879,7 +880,7 @@ void EndpointAppPBX::out_setup(void)
 			}
 			if (atemp) {
 				PERROR("EPOINT(%d) noknocking and currently a call\n", ea_endpoint->ep_serial);
-				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYSPE_ join, port */
+				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYSPE_ join, port */
 				return; /* must exit here */
 			}
 		}
@@ -892,7 +893,7 @@ void EndpointAppPBX::out_setup(void)
 //		if (!read_extension(&e_ext, exten))
 		if (!read_extension(&e_ext, e_dialinginfo.id)) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) extension %s not configured\n", ea_endpoint->ep_serial, e_dialinginfo.id);
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 
@@ -1156,7 +1157,7 @@ void EndpointAppPBX::out_setup(void)
 			end_trace();
 			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1245,7 +1246,7 @@ void EndpointAppPBX::out_setup(void)
 			end_trace();
 			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1424,7 +1425,7 @@ void EndpointAppPBX::hookflash(void)
 		port->set_echotest(0);
 	}
 	if (ea_endpoint->ep_join_id) {
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 	}
 	e_ruleset = ruleset_main;
 	if (e_ruleset)
@@ -2237,7 +2238,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	}
 	if (message_type == MESSAGE_RELEASE)
 		ea_endpoint->free_portlist(portlist);
-	release(RELEASE_ALL, location, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, callcause, portcause */
+	release(RELEASE_ALL, location, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, callcause, portcause */
 	return; /* must exit here */
 }
 
@@ -2254,7 +2255,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		add_trace("state", NULL, "outgoing setup/dialing");
 		end_trace();
 		/* no user responding */
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_SETUP:
@@ -2269,7 +2270,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOUSER; /* no user responding */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_PROCEEDING:
@@ -2283,7 +2284,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOANSWER; /* no answer */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_CONNECT:
@@ -2291,7 +2292,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NORMAL; /* normal */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_ALERTING:
@@ -2305,7 +2306,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		add_trace("state", NULL, "disconnect");
 		end_trace();
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) in this special case, we release due to disconnect timeout.\n", ea_endpoint->ep_serial);
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		default:
@@ -2323,7 +2324,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		message_disconnect_port(portlist, param->disconnectinfo.cause, param->disconnectinfo.location, "");
 		portlist = portlist->next;
 	}
-	release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+	release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 }
 
 /* port MESSAGE_NOTIFY */
@@ -2919,7 +2920,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 
 	/* we are powerdialing, if e_powerdial_on is set and limit is not exceeded if given */
 	if (e_powerdial_on && ((e_powercount+1)<e_powerlimit || e_powerlimit<1)) {
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL,0 ); /* RELEASE_TYPE, join, port */
 
 		/* set time for power dialing */
 		schedule_timer(&e_powerdial_timeout, (int)e_powerdelay, 0); /* set redial in the future */
@@ -2970,7 +2971,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	  && e_state!=EPOINT_STATE_IN_ALERTING)
 	 || !ea_endpoint->ep_portlist) { /* or no port */
 		process_hangup(param->disconnectinfo.cause, param->disconnectinfo.location);
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause); /* RELEASE_TYPE, join, port */
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause, 0); /* RELEASE_TYPE, join, port */
 		return; /* must exit here */
 	}
 	/* save cause */
@@ -2992,7 +2993,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	 || !e_join_pattern) { /* no patterns */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have own cause or we have no patterns. (own_cause=%d pattern=%d)\n", ea_endpoint->ep_serial, e_ext.own_cause, e_join_pattern);
 		if (message_type != MESSAGE_RELEASE)
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 		e_join_pattern = 0;
 	} else { /* else we enable audio */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);

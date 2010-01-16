@@ -199,6 +199,7 @@ struct disconnect_info {
 	int cause;			/* reason for disconnect */
 	int location;			/* disconnect location */
 	char display[84];		/* optional display information */
+	int force;			/* special flag to release imediately */
 };
 
 /* call-info structure REDIR */

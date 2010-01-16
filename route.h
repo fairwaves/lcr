@@ -174,15 +174,16 @@ enum { /* defines when a statement should be executed */
 #define	ACTION_GOTO		20
 #define	ACTION_MENU		21
 #define	ACTION_DISCONNECT	22
-#define ACTION_DEFLECT		23
-#define ACTION_SETFORWARD	24
-#define ACTION_EXECUTE		25
-#define ACTION_FILE		26
-#define ACTION_PICK		27
-#define	ACTION_PASSWORD		28
-#define	ACTION_PASSWORD_WRITE	29
-#define	ACTION_NOTHING		30
-#define	ACTION_EFI		31
+#define	ACTION_RELEASE		23
+#define ACTION_DEFLECT		24
+#define ACTION_SETFORWARD	25
+#define ACTION_EXECUTE		26
+#define ACTION_FILE		27
+#define ACTION_PICK		28
+#define	ACTION_PASSWORD		29
+#define	ACTION_PASSWORD_WRITE	30
+#define	ACTION_NOTHING		31
+#define	ACTION_EFI		32
 
 struct route_cond { /* an item */
 	struct route_cond	*next;			/* next entry */

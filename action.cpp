@@ -135,7 +135,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		trace_header("ACTION extension (extension doesn't exist)", DIRECTION_NONE);
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_UNALLOCATED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_86");
@@ -147,7 +147,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_81");
 		return;
@@ -273,7 +273,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	if (e_ext.rights < 2) {
 		trace_header("ACTION extern (calling denied)", DIRECTION_NONE);
 		end_trace();
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 		set_tone(portlist, "cause_82");
 		denied:
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
@@ -288,7 +288,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 3) {
 			trace_header("ACTION extern (national calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 			set_tone(portlist, "cause_83");
 			goto denied;
 		}
@@ -300,7 +300,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 4) {
 			trace_header("ACTION extern (international calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 			set_tone(portlist, "cause_84");
 			goto denied;
 		}
@@ -1781,6 +1781,48 @@ void EndpointAppPBX::action_dialing_disconnect(void)
 
 
 /*
+ * process dialing release
+ */
+void EndpointAppPBX::action_dialing_release(void)
+{
+	struct route_param *rparam;
+	int cause = CAUSE_NORMAL; /* normal call clearing */
+	int location = LOCATION_PRIVATE_LOCAL;
+	char cause_string[256] = "", display[84] = "";
+
+	/* check cause parameter */
+	if ((rparam = routeparam(e_action, PARAM_CAUSE))) {
+		cause = rparam->integer_value;
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'cause' is given: %d\n", ea_endpoint->ep_serial, cause);
+	}
+	if ((rparam = routeparam(e_action, PARAM_LOCATION))) {
+		location = rparam->integer_value;
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'location' is given: %d\n", ea_endpoint->ep_serial, location);
+	}
+
+
+	/* use cause as sample, if not given later */
+	SPRINT(cause_string, "cause_%02x", cause);
+
+	/* check display */
+	if ((rparam = routeparam(e_action, PARAM_DISPLAY))) {
+		SCPY(display, rparam->string_value);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'display' is given: %s\n", ea_endpoint->ep_serial, display);
+	}
+
+	/* disconnect only if connect parameter is not given */
+	trace_header("ACTION release", DIRECTION_NONE);
+	add_trace("cause", "value", "%d", cause);
+	add_trace("cause", "location", "%d", location);
+	if (display[0])
+		add_trace("display", NULL, "%s", display);
+	end_trace();
+	e_action = NULL;
+	release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, location, cause, 1);
+	return;
+}
+
+/*
  * process dialing help
  */
 void EndpointAppPBX::action_dialing_help(void)
@@ -2148,10 +2190,10 @@ void EndpointAppPBX::process_dialing(int timeout)
 		if (e_action->index == ACTION_DISCONNECT
 		 || e_state == EPOINT_STATE_OUT_DISCONNECT) {
 			/* release after disconnect */
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 			goto end;
 		}
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		e_action = e_action->next;
 		if (!e_action) {
 			/* nothing more, so we release */

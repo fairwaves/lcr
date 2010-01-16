@@ -1834,8 +1834,11 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 	char byte;
 
 	/* unset global semaphore */
-	read(fd->fd, &byte, 1);
 	upqueue_avail = 0;
+	// with a very small incident, upqueue_avail may be set by mISDN thread and
+	// another byte may be sent to the pipe, which causes a call to this function
+	// again with nothing in the upqueue. this is no problem.
+	read(fd->fd, &byte, 1);
 
 	/* process all ports */
 	mISDNport = mISDNport_first;
@@ -2060,6 +2063,9 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 	l3m->pid = pid;
 	mqueue_tail(&mISDNport->upqueue, mb);
 	if (!upqueue_avail) {
+		// multiple threads may cause multiple calls of this section, but this
+		// results only in multiple processing of the upqueue read.
+		// this is no problem.
 		upqueue_avail = 1;
 		char byte = 0;
 		write(upqueue_pipe[1], &byte, 1);
