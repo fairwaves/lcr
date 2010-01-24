@@ -104,9 +104,9 @@ again:
 	}
 	if (polling)
 		timer = &no_time;
-#warning TESTING
-	if (!timer)
-		printf("wait till infinity ..."); fflush(stdout);
+//#warning TESTING
+//	if (!timer)
+//		printf("wait till infinity ..."); fflush(stdout);
 
 	FD_ZERO(&readset);
 	FD_ZERO(&writeset);
@@ -129,9 +129,9 @@ again:
 	rc = select(maxfd+1, &readset, &writeset, &exceptset, timer);
 	if (lock)
 		lock();
-#warning TESTING
-	if (!timer)
-		printf("interrupted.\n");
+//#warning TESTING
+//	if (!timer)
+//		printf("interrupted.\n");
 	if (rc < 0)
 		return 0;
 	if (global_change && *global_change) {

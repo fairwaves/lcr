@@ -54,6 +54,7 @@
 #include "bchannel.h"
 #include "chan_lcr.h"
 #include "callerid.h"
+#include "options.h"
 
 
 #ifndef ISDN_PID_L4_B_USER
@@ -69,6 +70,7 @@ enum {
 	BSTATE_DEACTIVATING,
 };
 
+static void bchannel_send_queue(struct bchannel *bchannel);
 
 int bchannel_initialize(void)
 {
@@ -129,7 +131,7 @@ static int bchannel_handle(struct lcr_fd *fd, unsigned int what, void *instance,
 /*
  * create stack
  */
-int bchannel_create(struct bchannel *bchannel, int mode)
+int bchannel_create(struct bchannel *bchannel, int mode, int queue)
 {
 	int ret;
 	struct sockaddr_mISDN addr;
@@ -140,7 +142,7 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	}
 
 	/* open socket */
-	bchannel->b_mode = mode;
+	bchannel->b_mode = (mode & 3);
 	switch(bchannel->b_mode) {
 		case 0:
 		CDEBUG(bchannel->call, NULL, "Open DSP audio\n");
@@ -181,6 +183,19 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 		bchannel->b_sock = -1;
 		return 0;
 	}
+
+	/* queue */
+	if (bchannel->b_mode == 1 && queue) {
+		bchannel->nodsp_queue_out = 0;
+		bchannel->nodsp_queue_in = queue * 8;
+		if (bchannel->nodsp_queue_in > QUEUE_BUFFER_MAX-1)
+			bchannel->nodsp_queue_in = QUEUE_BUFFER_MAX-1;
+		bchannel->nodsp_queue = bchannel->nodsp_queue_in; /* store initial load */
+		memset(&bchannel->nodsp_queue_buffer, (options.law=='a')?0x2a:0xff, QUEUE_BUFFER_SIZE);
+		bchannel->queue_sent = 0;
+	} else
+		bchannel->nodsp_queue = 0;
+										 
 	return 1;
 }
 
@@ -399,6 +414,7 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 	struct mISDNhead *frm = (struct mISDNhead *)buff;
 	int ret;
 	int i;
+	int space, in;
 
 	if (bchannel->b_state != BSTATE_ACTIVE)
 		return;
@@ -425,9 +441,65 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 		break;
 	}
 	frm->id = 0;
+#ifdef SEAMLESS_TEST
+	unsigned char test_tone[8] = {0x2a, 0x24, 0xb4, 0x24, 0x2a, 0x25, 0xb5, 0x25};
+	p = buff + MISDN_HEADER_LEN;
+	for (i = 0; i < len; i++)
+		*p++ = test_tone[(bchannel->test + i) & 7];
+	bchannel->test = (bchannel->test + len) & 7;
+#endif
+	if (bchannel->nodsp_queue) {
+		space = (bchannel->nodsp_queue_out - bchannel->nodsp_queue_in) & (QUEUE_BUFFER_SIZE - 1);
+		if (len > space) {
+			CERROR(bchannel->call, NULL, "Queue buffer overflow.\n");
+			return;
+		}
+		p = buff + MISDN_HEADER_LEN;
+		in = bchannel->nodsp_queue_in;
+		for (i = 0; i < len; i++) {
+			bchannel->nodsp_queue_buffer[in] = *p++;
+			in = (in + 1) & (QUEUE_BUFFER_SIZE - 1);
+		}
+		bchannel->nodsp_queue_in = in;
+		if (bchannel->queue_sent == 0) /* if there is no pending data */
+			bchannel_send_queue(bchannel);
+		return;
+	}
 	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
 	if (ret < 0)
 		CERROR(bchannel->call, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
+}
+
+
+/*
+ * in case of a send queue, we send from that queue rather directly
+ */
+static void bchannel_send_queue(struct bchannel *bchannel)
+{
+	unsigned char buff[1024 + MISDN_HEADER_LEN], *p = buff + MISDN_HEADER_LEN;
+	struct mISDNhead *frm = (struct mISDNhead *)buff;
+	int ret;
+	int i;
+	int len, out;
+
+	len = (bchannel->nodsp_queue_in - bchannel->nodsp_queue_out) & (QUEUE_BUFFER_SIZE - 1);
+	if (len == 0)
+		return; /* mISDN driver received all load */
+	if (len > 1024)
+		len = 1024;
+	frm->prim = PH_DATA_REQ;
+	frm->id = 0;
+	out = bchannel->nodsp_queue_out;
+	for (i = 0; i < len; i++) {
+		*p++ = bchannel->nodsp_queue_buffer[out];
+		out = (out + 1) & (QUEUE_BUFFER_SIZE - 1);
+	}
+	bchannel->nodsp_queue_out = out;
+	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
+	if (ret < 0)
+		CERROR(bchannel->call, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
+	else
+		bchannel->queue_sent = 1;
 }
 
 
@@ -526,8 +598,12 @@ static int bchannel_handle(struct lcr_fd *fd, unsigned int what, void *instance,
 	ret = recv(bchannel->b_sock, buffer, sizeof(buffer), 0);
 	if (ret >= (int)MISDN_HEADER_LEN) {
 		switch(hh->prim) {
-			/* we don't care about confirms, we use rx data to sync tx */
+			/* after a confim, we can send more from queue */
 			case PH_DATA_CNF:
+			if (bchannel->nodsp_queue) {
+				bchannel->queue_sent = 0;
+				bchannel_send_queue(bchannel);
+			}
 			break;
 
 			/* we receive audio data, we respond to it AND we send tones */

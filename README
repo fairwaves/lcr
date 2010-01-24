@@ -535,6 +535,8 @@ Changes after Version 1.7
 - Replaced polling main loop by event driven "select()" loop.
 - Also replaced polling main loop by event driven "select()" loop on chan_lcr.
 - Added "release" action and timeout to "execute" action.
+- Added queue buffer for chan_lcr sending faxes without interruption.
+  -> Use options "t:q250" for disabling mISDN_dsp and adding a 250ms delay.
 
 
 

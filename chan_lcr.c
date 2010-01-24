@@ -496,6 +496,14 @@ void apply_opt(struct chan_call *call, char *data)
 			if (!call->nodsp)
 				call->nodsp = 1;
 			break;
+		case 'q':
+			if (opt[1] == '\0') {
+				CERROR(call, call->ast, "Option 'q' (queue) expects parameter.\n", opt);
+				break;
+			}
+			CDEBUG(call, call->ast, "Option 'q' (queue).\n");
+			call->nodsp_queue = atoi(opt+1);
+			break;
 		case 'e':
 			if (opt[1] == '\0') {
 				CERROR(call, call->ast, "Option 'e' (echo cancel) expects parameter.\n", opt);
@@ -591,7 +599,7 @@ void apply_opt(struct chan_call *call, char *data)
 	/* re-open, if bchannel is created */
 	if (call->bchannel && call->bchannel->b_sock > -1) {
 		bchannel_destroy(call->bchannel);
-		if (bchannel_create(call->bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0)))
+		if (bchannel_create(call->bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0), call->nodsp_queue))
 			bchannel_activate(call->bchannel, 1);
 	}
 }
@@ -1287,7 +1295,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 					bchannel_join(bchannel, call->bridge_id);
 				}
 				/* create only, if call exists, othewhise it bchannel is freed below... */
-				if (bchannel_create(bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0)))
+				if (bchannel_create(bchannel, ((call->nodsp || call->faxdetect > 0)?1:0) + ((call->hdlc)?2:0), call->nodsp_queue))
 					bchannel_activate(bchannel, 1);
 			}
 			/* acknowledge */
@@ -2802,6 +2810,8 @@ int load_module(void)
 				 "    n - Don't detect dtmf tones on called channel.\n"
 				 "    h - Force data call (HDLC).\n" 
 				 "    t - Disable mISDN_dsp features (required for fax application).\n"
+				 "    q - Add queue to make fax stream seamless (required for fax app).\n"
+				 "        Use queue size in miliseconds for optarg. (try 250)\n"
 				 "    f - Adding fax detection. It it timeouts, mISDN_dsp is used.\n"
 				 "        Use time to detect for optarg.\n"
 				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
