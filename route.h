@@ -32,6 +32,7 @@ enum { /* how to parse text file during startup */
 	COND_TYPE_IP,
 	COND_TYPE_CAPABILITY,
 	COND_TYPE_BMODE,
+	COND_TYPE_HLC,
 	COND_TYPE_IFATTR,
 };
 
@@ -84,6 +85,7 @@ enum { /* how to parse text file during startup */
 	PARAM_TYPE_YESNO,
 	PARAM_TYPE_CAPABILITY,
 	PARAM_TYPE_BMODE,
+	PARAM_TYPE_HLC,
 	PARAM_TYPE_DIVERSION,
 	PARAM_TYPE_DESTIN,
 	PARAM_TYPE_PORTS,

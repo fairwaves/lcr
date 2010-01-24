@@ -111,6 +111,8 @@ void EndpointAppPBX::action_dialing_internal(void)
 			capainfo.bearer_mode = INFO_BMODE_PACKET;
 		}
 		capainfo.bearer_info1 = INFO_INFO1_NONE;
+		capainfo.hlc = INFO_HLC_NONE;
+		capainfo.exthlc = INFO_HLC_NONE;
 	}
 	if ((rparam = routeparam(e_action, PARAM_BMODE))) {
 		capainfo.bearer_mode = rparam->integer_value;
@@ -237,6 +239,8 @@ void EndpointAppPBX::action_dialing_external(void)
 			capainfo.bearer_mode = INFO_BMODE_PACKET;
 		}
 		capainfo.bearer_info1 = INFO_INFO1_NONE;
+		capainfo.hlc = INFO_HLC_NONE;
+		capainfo.exthlc = INFO_HLC_NONE;
 	}
 	if ((rparam = routeparam(e_action, PARAM_BMODE))) {
 		capainfo.bearer_mode = rparam->integer_value;

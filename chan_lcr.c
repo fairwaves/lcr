@@ -612,6 +612,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 {
 	union parameter newparam;
 	struct ast_channel *ast = call->ast;
+	const char *tmp;
 
 	if (!call->ast || !call->ref)
 		return;
@@ -664,6 +665,9 @@ static void send_setup_to_lcr(struct chan_call *call)
 		default:
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
+	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
+	if (tmp && *tmp)
+		ast->transfercapability = atoi(tmp);
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	if (call->hdlc)
@@ -2823,6 +2827,12 @@ int load_module(void)
 				 "   vt - txgain control\n"
 				 "        Volume changes at factor 2 ^ optarg.\n"
 				 "    k - use keypad to dial this call.\n"
+				 "\n"
+				 "set LCR_TRANSFERCAPABILITY to the numerical bearer capabilty in order to alter caller's capability\n"
+				 " -> use 16 for fax (3.1k audio)\n"
+				 "\n"
+				 "To send a fax, you need to set LCR_TRANSFERCAPABILITY environment to 16, also you need to set\n"
+				 "options: \"n:t:q250\" for seamless audio transmission.\n"
 		);
 
  

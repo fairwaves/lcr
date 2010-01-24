@@ -537,6 +537,8 @@ Changes after Version 1.7
 - Added "release" action and timeout to "execute" action.
 - Added queue buffer for chan_lcr sending faxes without interruption.
   -> Use options "t:q250" for disabling mISDN_dsp and adding a 250ms delay.
+- Fixed HLC (higher layer capability) modification to LCR routing.
+- Fixed chan_lcr fax queue buffer. Added LCR_TRANSFERCAPABILITY environment.
 
 
 

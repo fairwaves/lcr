@@ -68,8 +68,8 @@ struct cond_defs cond_defs[] = {
 	  "capability=speech|audio|video|digital-restricted|digital-unrestricted|digital-unrestricted-tones[,...]", "Matches the given bearer capability(s)."},
 	{ "infolayer1",	MATCH_INFOLAYER1, COND_TYPE_INTEGER,
 	  "infolayer1=<value>[,...]", "Matches the given information layer 1. (2=u-Law, 3=a-law, see info layer 1 in bearer capability.)"},
-	{ "hlc",	MATCH_HLC,	COND_TYPE_INTEGER,
-	  "hlc=<value>[,...]", "Matches the high layer capability(s)."},
+	{ "hlc",	MATCH_HLC,	COND_TYPE_HLC,
+	  "hlc=telephony|faxg2g3|faxg4|teletex1|teletex2|teletex3|videotex1|videotex2|telex|mhs|osi|maintenance|management|audiovisual[,...]", "Matches the high layer capability(s)."},
 	{ "file",	MATCH_FILE,	COND_TYPE_STRING,
 	  "file=<path>[,...]", "Mathes is the given file exists and if the first character is '1'."},
 	{ "execute",	MATCH_EXECUTE,	COND_TYPE_STRING,
@@ -126,11 +126,11 @@ struct param_defs param_defs[] = {
 	  "infolayer1",	PARAM_TYPE_INTEGER,
 	  "infolayer1=<value>", "Alter the layer 1 information of a call. Use 3 for ALAW or 2 for uLAW."},
 	{ PARAM_HLC,
-	  "hlc",	PARAM_TYPE_INTEGER,
-	  "hlc=<value>", "Alter the HLC identification. Use 1 for telephony or omit."},
+	  "hlc",	PARAM_TYPE_HLC,
+	  "hlc=telephony|faxg2g3|faxg4|teletex1|teletex2|teletex3|videotex1|videotex2|telex|mhs|osi|maintenance|management|audiovisual", "Alter the HLC identification."},
 	{ PARAM_EXTHLC,
-	  "exthlc",	PARAM_TYPE_INTEGER,
-	  "exthlc=<value>", "Alter extended HLC value. (Mainenance only, don't use it.)"},
+	  "exthlc",	PARAM_TYPE_HLC,
+	  "exthlc=<value>", "Alter extended HLC value, see hlc. (Mainenance only, don't use it.)"},
 	{ PARAM_PRESENT,
 	  "present",	PARAM_TYPE_YESNO,
 	  "present=yes|no", "Allow or restrict caller ID regardless what the caller wants."},
@@ -1252,6 +1252,43 @@ struct route_ruleset *ruleset_parse(void)
 				cond->value_type = VALUE_TYPE_INTEGER;
 				break;
 
+				/* parse service value */
+				case COND_TYPE_HLC:
+				if (!strncasecmp("telephony", p, 9))
+					cond->integer_value = INFO_HLC_TELEPHONY;
+				else if (!strncasecmp("faxg2g3", p, 7))
+					cond->integer_value = INFO_HLC_FAXG2G3;
+				else if (!strncasecmp("faxg4", p, 5))
+					cond->integer_value = INFO_HLC_FAXG4;
+				else if (!strncasecmp("teletex1", p, 8))
+					cond->integer_value = INFO_HLC_TELETEX1;
+				else if (!strncasecmp("teletex2", p, 8))
+					cond->integer_value = INFO_HLC_TELETEX2;
+				else if (!strncasecmp("teletex3", p, 8))
+					cond->integer_value = INFO_HLC_TELETEX3;
+				else if (!strncasecmp("videotex1", p, 9))
+					cond->integer_value = INFO_HLC_VIDEOTEX1;
+				else if (!strncasecmp("videotex2", p, 9))
+					cond->integer_value = INFO_HLC_VIDEOTEX2;
+				else if (!strncasecmp("telex", p, 5))
+					cond->integer_value = INFO_HLC_TELEX;
+				else if (!strncasecmp("mhs", p, 3))
+					cond->integer_value = INFO_HLC_MHS;
+				else if (!strncasecmp("osi", p, 3))
+					cond->integer_value = INFO_HLC_OSI;
+				else if (!strncasecmp("maintenance", p, 11))
+					cond->integer_value = INFO_HLC_MAINTENANCE;
+				else if (!strncasecmp("management", p, 10))
+					cond->integer_value = INFO_HLC_MANAGEMENT;
+				else if (!strncasecmp("audiovisual", p, 11))
+					cond->integer_value = INFO_HLC_AUDIOVISUAL;
+				else {
+					SPRINT(failure, "Given HLC type is invalid or misspelled.");
+					goto parse_error;
+				}
+				cond->value_type = VALUE_TYPE_INTEGER;
+				break;
+
 				/* parse interface attribute <if>:<value> */
 				case COND_TYPE_IFATTR:
 				key[0] = key_to[0] = '\0';
@@ -1536,6 +1573,7 @@ struct route_ruleset *ruleset_parse(void)
 				case PARAM_TYPE_CALLERIDTYPE:
 				case PARAM_TYPE_CAPABILITY:
 				case PARAM_TYPE_BMODE:
+				case PARAM_TYPE_HLC:
 				case PARAM_TYPE_DIVERSION:
 				case PARAM_TYPE_DESTIN:
 				case PARAM_TYPE_TYPE:
@@ -1625,6 +1663,67 @@ struct route_ruleset *ruleset_parse(void)
 						break;
 					}
 					SPRINT(failure, "Bchannel mode '%s' unknown.", key);
+					goto parse_error;
+				}
+				if (param_defs[index].type == PARAM_TYPE_HLC) {
+					param->value_type = VALUE_TYPE_INTEGER;
+					if (!strcasecmp(key, "telephony")) {
+						param->integer_value = INFO_HLC_TELEPHONY;
+						break;
+					}
+					if (!strcasecmp(key, "faxg2g3")) {
+						param->integer_value = INFO_HLC_FAXG2G3;
+						break;
+					}
+					if (!strcasecmp(key, "faxg4")) {
+						param->integer_value = INFO_HLC_FAXG4;
+						break;
+					}
+					if (!strcasecmp(key, "teletex1")) {
+						param->integer_value = INFO_HLC_TELETEX1;
+						break;
+					}
+					if (!strcasecmp(key, "teletex2")) {
+						param->integer_value = INFO_HLC_TELETEX2;
+						break;
+					}
+					if (!strcasecmp(key, "teletex3")) {
+						param->integer_value = INFO_HLC_TELETEX3;
+						break;
+					}
+					if (!strcasecmp(key, "videotex1")) {
+						param->integer_value = INFO_HLC_VIDEOTEX1;
+						break;
+					}
+					if (!strcasecmp(key, "videotex2")) {
+						param->integer_value = INFO_HLC_VIDEOTEX2;
+						break;
+					}
+					if (!strcasecmp(key, "telex")) {
+						param->integer_value = INFO_HLC_TELEX;
+						break;
+					}
+					if (!strcasecmp(key, "mhs")) {
+						param->integer_value = INFO_HLC_MHS;
+						break;
+					}
+					if (!strcasecmp(key, "osi")) {
+						param->integer_value = INFO_HLC_OSI;
+						break;
+					}
+					if (!strcasecmp(key, "maintenance")) {
+						param->integer_value = INFO_HLC_MAINTENANCE;
+						break;
+					}
+					if (!strcasecmp(key, "management")) {
+						param->integer_value = INFO_HLC_MANAGEMENT;
+						break;
+					}
+					if (!strcasecmp(key, "audiovisual")) {
+						param->integer_value = INFO_HLC_AUDIOVISUAL;
+						break;
+					}
+					SPRINT(failure, "HLC type '%s' unknown.", key);
 					goto parse_error;
 				}
 				if (param_defs[index].type == PARAM_TYPE_DIVERSION) {

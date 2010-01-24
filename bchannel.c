@@ -449,9 +449,9 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 	bchannel->test = (bchannel->test + len) & 7;
 #endif
 	if (bchannel->nodsp_queue) {
-		space = (bchannel->nodsp_queue_out - bchannel->nodsp_queue_in) & (QUEUE_BUFFER_SIZE - 1);
+		space = (bchannel->nodsp_queue_out - bchannel->nodsp_queue_in - 1) & (QUEUE_BUFFER_SIZE - 1);
 		if (len > space) {
-			CERROR(bchannel->call, NULL, "Queue buffer overflow.\n");
+			CERROR(bchannel->call, NULL, "Queue buffer overflow, space is %d, len is %d.\n", space, len);
 			return;
 		}
 		p = buff + MISDN_HEADER_LEN;
@@ -485,6 +485,11 @@ static void bchannel_send_queue(struct bchannel *bchannel)
 	len = (bchannel->nodsp_queue_in - bchannel->nodsp_queue_out) & (QUEUE_BUFFER_SIZE - 1);
 	if (len == 0)
 		return; /* mISDN driver received all load */
+#if 0
+	printf("%4d:(%s|%s)\n", bchannel->nodsp_queue_out,
+		"----------------------------------------------------------------"+64-len/(8192/64),
+		"                                                                "+len/(8192/64));
+#endif
 	if (len > 1024)
 		len = 1024;
 	frm->prim = PH_DATA_REQ;
