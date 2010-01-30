@@ -82,7 +82,7 @@ int mISDN_initialize(void)
 
 	if (pipe(upqueue_pipe) < 0)
 		FATAL("Failed to open pipe\n");
-	memset(&upqueue_fd, 0, sizeof(upqueue_fd.fd));
+	memset(&upqueue_fd, 0, sizeof(upqueue_fd));
 	upqueue_fd.fd = upqueue_pipe[0];
 	register_fd(&upqueue_fd, LCR_FD_READ, mISDN_upqueue, NULL, 0);
 

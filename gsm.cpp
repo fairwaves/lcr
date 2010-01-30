@@ -176,7 +176,7 @@ int Pgsm::bchannel_open(int index)
 		bchannel_close();
 		return(ret);
 	}
-	memset(&p_m_g_gsm_b_fd, 0, sizeof(p_m_g_gsm_b_fd.fd));
+	memset(&p_m_g_gsm_b_fd, 0, sizeof(p_m_g_gsm_b_fd));
 	p_m_g_gsm_b_fd.fd = p_m_g_gsm_b_sock;
 	register_fd(&p_m_g_gsm_b_fd, LCR_FD_READ, b_handler, this, 0);
 
