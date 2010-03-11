@@ -260,7 +260,7 @@ INSTALLATION_DEFINES = \
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
-INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \

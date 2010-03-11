@@ -25,9 +25,9 @@
 #include <sys/socket.h>
 #include <mISDNif.h>
 
-#define AF_COMPATIBILITY_FUNC 1
-#define MISDN_OLD_AF_COMPATIBILITY 1
-#include <compat_af_isdn.h>
+#include <mISDN/mISDNcompat.h>
+int __af_isdn = MISDN_AF_ISDN;
+#include <mISDN/q931.h>
 
 #define HAVE_ATTRIBUTE_always_inline 1
 #define HAVE_ARPA_INET_H 1
@@ -74,8 +74,6 @@ static void bchannel_send_queue(struct bchannel *bchannel);
 
 int bchannel_initialize(void)
 {
-  	init_af_isdn();
-
 	return 0;
 }
 

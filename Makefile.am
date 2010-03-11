@@ -95,7 +95,7 @@ install-exec-hook:
 	$(INSTALL) chan_lcr.so $(astmoddir)
 endif
 
-INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall -I/usr/include/mISDNuser $(INSTALLATION_DEFINES)
+INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
 lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
 	action_efi.cpp   crypt.cpp        mail.c           trace.c \

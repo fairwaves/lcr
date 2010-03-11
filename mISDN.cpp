@@ -12,11 +12,9 @@
 #include "main.h"
 #include "myisdn.h"
 
-extern "C" {
-#define MISDN_OLD_AF_COMPATIBILITY 1
-#include <compat_af_isdn.h>
-}
-#include <q931.h>
+#include <mISDN/mISDNcompat.h>
+int __af_isdn = MISDN_AF_ISDN;
+#include <mISDN/q931.h>
 
 #undef offsetof
 #ifdef __compiler_offsetof
@@ -56,12 +54,10 @@ int mISDN_initialize(void)
 {
 	char filename[256];
 
-	init_af_isdn();
-
 	/* try to open raw socket to check kernel */
 	mISDNsocket = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
 	if (mISDNsocket < 0) {
-		fprintf(stderr, "Cannot open mISDN due to '%s'. (Does your Kernel support socket based mISDN?)\n", strerror(errno));
+		fprintf(stderr, "Cannot open mISDN due to '%s'. (Does your Kernel support socket based mISDN? Protocol family is %d.)\n", strerror(errno), PF_ISDN);
 		return(-1);
 	}
 

@@ -15,7 +15,7 @@
 //#include <sys/socket.h>
 extern "C" {
 }
-#include <q931.h>
+#include <mISDN/q931.h>
 extern unsigned int mt_assign_pid;
 
 #include "ie.cpp"

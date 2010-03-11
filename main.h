@@ -131,7 +131,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer);
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <mbuffer.h>
+#include <mISDN/mbuffer.h>
 #ifdef __cplusplus
 }
 #endif
