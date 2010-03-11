@@ -2356,9 +2356,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 		        break;
 #ifdef AST_CONTROL_SRCUPDATE
 	        case AST_CONTROL_SRCUPDATE:
+#else
+	        case 20:
+#endif
 			CDEBUG(call, ast, "Received AST_CONTROL_SRCUPDATE from Asterisk.\n");
                         break;
-#endif
                 default:
 			CERROR(call, ast, "Received indicate from Asterisk with unknown condition %d.\n", cond);
                         res = -1;

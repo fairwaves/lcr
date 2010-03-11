@@ -539,6 +539,9 @@ Changes after Version 1.7
   -> Use options "t:q250" for disabling mISDN_dsp and adding a 250ms delay.
 - Fixed HLC (higher layer capability) modification to LCR routing.
 - Fixed chan_lcr fax queue buffer. Added LCR_TRANSFERCAPABILITY environment.
+- Fixed compiler warnings when compiling with gcc 4.3.4.
+
+
 
 
 

@@ -18,10 +18,10 @@ extern "C" {
 #include <getopt.h>
 
 #include <openbsc/db.h>
-#include <openbsc/select.h>
+#include <osmocore/select.h>
 #include <openbsc/debug.h>
 #include <openbsc/e1_input.h>
-#include <openbsc/talloc.h>
+#include <osmocore/talloc.h>
 #include <openbsc/mncc.h>
 #include <openbsc/trau_frame.h>
 struct gsm_network *bsc_gsmnet = 0;

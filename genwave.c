@@ -100,6 +100,7 @@ void write_law(FILE *fp, char *name, char law)
 	unsigned int i;
 	short sample;
 	unsigned int size, wsize;
+	int ret;
 
 	if ((lfp=fopen(name,"r"))) {
 		/* get size */
@@ -125,18 +126,18 @@ void write_law(FILE *fp, char *name, char law)
 		fmt.data_rate = 16000;
 		fmt.bytes_sample = 2;
 		fmt.bits_sample = 16;
-		fwrite(&fmt, sizeof(fmt), 1, fp);
+		ret = fwrite(&fmt, sizeof(fmt), 1, fp);
 
 		/* data */
 		fprintf(fp, "data%c%c%c%c", (char)(size&0xff), (char)((size>>8)&0xff), (char)((size>>16)&0xff), (char)(size>>24));
 		i = 0;
 		while(i < size) {
-			fread(buffer, 1, 1, lfp);
+			ret = fread(buffer, 1, 1, lfp);
 			if (law == 'a')
 				sample = isdn_audio_alaw_to_s16[*buffer];
 			else
 				sample = isdn_audio_ulaw_to_s16[*buffer];
-			fwrite(&sample, 2, 1, fp);
+			ret = fwrite(&sample, 2, 1, fp);
 			i+=2;
 		}
 

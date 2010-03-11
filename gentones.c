@@ -150,9 +150,10 @@ void write_wav(FILE *fp, char *wav, char law)
 	short sample, sample2;
 	signed int size, chunk;
 	int gotfmt = 0, gotdata = 0;
+	int ret;
 
 	if ((wfp=fopen(wav,"r"))) {
-		fread(buffer,8,1,wfp);
+		ret=fread(buffer,8,1,wfp);
 		size=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 		if (!!strncmp((char *)buffer, "RIFF", 4)) {
 			fclose(wfp);
@@ -160,7 +161,7 @@ void write_wav(FILE *fp, char *wav, char law)
 			return;
 		}
 		printf("%c%c%c%c size=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],size);
-		fread(buffer,4,1,wfp);
+		ret=fread(buffer,4,1,wfp);
 		size -= 4;
 		if (!!strncmp((char *)buffer, "WAVE", 4)) {
 			fclose(wfp);
@@ -173,7 +174,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				fprintf(stderr, "Error: Remaining file size %d not large enough for next chunk.\n",size);
 				return;
 			}
-			fread(buffer,8,1,wfp);
+			ret=fread(buffer,8,1,wfp);
 			chunk=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 //printf("DEBUG: size(%d) - (8+chunk(%d) = size(%d)\n", size, chunk, size-chunk-8);
 			size -= (8+chunk);
@@ -189,7 +190,7 @@ void write_wav(FILE *fp, char *wav, char law)
 					fprintf(stderr, "Error: Fmt chunk illegal size.\n");
 					return;
 				}
-				fread(buffer, chunk, 1, wfp);
+				ret=fread(buffer, chunk, 1, wfp);
 				fmt = (struct fmt *)buffer;
 				if (fmt->channels<1 || fmt->channels>2) {
 					fclose(wfp);
@@ -221,7 +222,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				i=0;
 				if (bytes==2 && channels==1) {
 					while(i<chunk) {
-						fread(buffer, 2, 1, wfp);
+						ret=fread(buffer, 2, 1, wfp);
 						sample=(buffer[1]<<8) + (buffer[0]);
 						fputc(encode_isdn(sample, law),fp);
 						i+=2;
@@ -229,7 +230,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				}
 				if (bytes==2 && channels==2) {
 					while(i<chunk) {
-						fread(buffer, 4, 1, wfp);
+						ret=fread(buffer, 4, 1, wfp);
 						sample=(buffer[1]<<8) + (buffer[0]);
 						sample2=(buffer[3]<<8) + (buffer[2]);
 						sample = (sample/2) + (sample2/2);
@@ -239,7 +240,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				}
 				if (bytes==1 && channels==1) {
 					while(i<chunk) {
-						fread(buffer, 1, 1, wfp);
+						ret=fread(buffer, 1, 1, wfp);
 						sample=(buffer[0]<<8);
 						fputc(encode_isdn(sample, law),fp);
 						i+=1;
@@ -247,7 +248,7 @@ void write_wav(FILE *fp, char *wav, char law)
 				}
 				if (bytes==1 && channels==2) {
 					while(i<chunk) {
-						fread(buffer, 2, 1, wfp);
+						ret=fread(buffer, 2, 1, wfp);
 						sample=(buffer[0]<<8);
 						sample2=(buffer[1]<<8);
 						sample = (sample/2) + (sample2/2);
@@ -259,11 +260,11 @@ void write_wav(FILE *fp, char *wav, char law)
 			} else {
 				printf("Ignoring chunk '%c%c%c%c' (length=%d)\n",buffer[0],buffer[1],buffer[2],buffer[3], chunk);
 				while(chunk > (signed int)sizeof(buffer)) {
-					fread(buffer, sizeof(buffer), 1, wfp);
+					ret=fread(buffer, sizeof(buffer), 1, wfp);
 					chunk -=  sizeof(buffer);
 				}
 				if (chunk)
-					fread(buffer, chunk, 1, wfp);
+					ret=fread(buffer, chunk, 1, wfp);
 			}
 			
 		}

@@ -242,8 +242,9 @@ int main(int argc, char *argv[])
 
 	/* query available isdn ports */
 	if (!(strcasecmp(argv[1],"query"))) {
+		int rc;
 		fprintf(stderr, "-> Using 'misdn_info'\n");
-		system("misdn_info");
+		rc = system("misdn_info");
 		ret = 0;
 		goto free;
 	}

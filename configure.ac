@@ -108,7 +108,7 @@ AS_IF([test "x$with_gsm" != xno],
 			[with_gsm="yes"],
 			[if test "x$with_gsm" != xcheck ; then
 			  AC_MSG_FAILURE(
-			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .])
+			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore osmocore])
                      fi
 		     ])
       ])

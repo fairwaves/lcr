@@ -249,9 +249,9 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
-@ENABLE_GSM_TRUE@GSM_INCLUDE = -DWITH_GSM -I./openbsc/include
+@ENABLE_GSM_TRUE@GSM_INCLUDE = -DWITH_GSM -I./openbsc/include -I./libosmocore/include
 @ENABLE_GSM_TRUE@GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/vty_interface.c openbsc/src/vty_interface_layer3.c
-@ENABLE_GSM_TRUE@GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -ldbi -lcrypt
+@ENABLE_GSM_TRUE@GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -L./libosmocore/src/ -losmocore -ldbi -lcrypt
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
@@ -294,15 +294,15 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
-	      echo ' cd $(srcdir) && $(AUTOMAKE) --foreign '; \
-	      cd $(srcdir) && $(AUTOMAKE) --foreign  \
+	      echo ' cd $(srcdir) && $(AUTOMAKE) --gnu '; \
+	      cd $(srcdir) && $(AUTOMAKE) --gnu  \
 		&& exit 0; \
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  Makefile
+	  $(AUTOMAKE) --gnu  Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

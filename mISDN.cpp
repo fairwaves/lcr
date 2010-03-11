@@ -1832,13 +1832,14 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 	struct mbuffer *mb;
 	struct l3_msg *l3m;
 	char byte;
+	int ret;
 
 	/* unset global semaphore */
 	upqueue_avail = 0;
 	// with a very small incident, upqueue_avail may be set by mISDN thread and
 	// another byte may be sent to the pipe, which causes a call to this function
 	// again with nothing in the upqueue. this is no problem.
-	read(fd->fd, &byte, 1);
+	ret = read(fd->fd, &byte, 1);
 
 	/* process all ports */
 	mISDNport = mISDNport_first;
@@ -2068,7 +2069,8 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 		// this is no problem.
 		upqueue_avail = 1;
 		char byte = 0;
-		write(upqueue_pipe[1], &byte, 1);
+		int ret;
+		ret = write(upqueue_pipe[1], &byte, 1);
 	}
 	return 0;
 }

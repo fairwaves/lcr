@@ -6297,9 +6297,9 @@ else
   if test "x$with_gsm" != xcheck ; then
 			  { { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-{ { $as_echo "$as_me:$LINENO: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .
+{ { $as_echo "$as_me:$LINENO: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore osmocore
 See \`config.log' for more details." >&5
-$as_echo "$as_me: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .
+$as_echo "$as_me: error: --with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore osmocore
 See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }; }
                      fi
