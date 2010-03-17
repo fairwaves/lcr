@@ -30,6 +30,7 @@ struct options {
 	int     socketuser;             /* socket chown to this user */
 	int     socketgroup;            /* socket chgrp to this group */
 	int	gsm;			/* enable gsm support */
+	int	polling;
 };	
 
 extern struct options options;

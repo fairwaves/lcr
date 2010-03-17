@@ -460,7 +460,11 @@ int main(int argc, char *argv[])
 			usleep(10000);
 		}
 #else
-		select_main(0, NULL, NULL, NULL);
+		if (options.polling)
+			if (!select_main(1, NULL, NULL, NULL))
+				usleep(10000);
+		else
+			select_main(0, NULL, NULL, NULL);
 #endif
 	}
 	SPRINT(tracetext, "%s terminated", NAME);
