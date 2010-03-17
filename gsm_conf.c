@@ -12,13 +12,11 @@
 #include "main.h"
 
 
-char *gsm_conf_error = (char *)"";
-
 /* read options
  *
  * read options from options.conf
  */
-int gsm_conf(struct gsm_conf *gsm_conf)
+int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error)
 {
 	FILE *fp=NULL;
 	char filename[128];
@@ -42,7 +40,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 	SPRINT(filename, "%s/gsm.conf", CONFIG_DATA);
 
 	if (!(fp=fopen(filename,"r"))) {
-		SPRINT(gsm_conf_error, "Cannot open %s\n",filename);
+		UPRINT(conf_error, "Cannot open %s\n",filename);
 		return(0);
 	}
 
@@ -63,7 +61,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		i=0; /* read option */
 		while(*p > 32) {
 			if (i+1 >= sizeof(option)) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): option too long.\n",filename,line);
+				UPRINT(conf_error, "Error in %s (line %d): option too long.\n",filename,line);
 				goto error;
 			}
 			option[i+1] = '\0';
@@ -82,7 +80,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 			i=0; /* read param */
 			while(*p > 32) {
 				if (i+1 >= sizeof(params[pnum])) {
-					SPRINT(gsm_conf_error, "Error in %s (line %d): param too long.\n",filename,line);
+					UPRINT(conf_error, "Error in %s (line %d): param too long.\n",filename,line);
 					goto error;
 				}
 				params[pnum][i+1] = '\0';
@@ -102,7 +100,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		/* check option */
 		if (!strcmp(option,"debug")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			SCPY(gsm_conf->debug, params[0]);
@@ -110,7 +108,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		} else
 		if (!strcmp(option,"interface-bsc")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->interface_bsc, params[0]);
@@ -118,7 +116,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		} else
 		if (!strcmp(option,"interface-lcr")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->interface_lcr, params[0]);
@@ -126,7 +124,7 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		} else
 		if (!strcmp(option,"config")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->openbsc_cfg, params[0]);
@@ -134,14 +132,14 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		} else
 		if (!strcmp(option,"hlr")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->hlr, params[0]);
 
 		} else
 		if (!strcmp(option,"reject-cause")) {
-			SPRINT(gsm_conf_error, "Option '%s' in gsm.conf has moved to openbsc.cfg", option);
+			UPRINT(conf_error, "Option '%s' in gsm.conf has moved to openbsc.cfg", option);
 			goto error;
 		} else
 		if (!strcmp(option,"allow-all")) {
@@ -156,12 +154,12 @@ int gsm_conf(struct gsm_conf *gsm_conf)
 		} else
 		if (!strcmp(option,"pcapfile")) {
 			if (params[0][0]==0) {
-				SPRINT(gsm_conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(gsm_conf->pcapfile, params[0]);
 		} else {
-			SPRINT(gsm_conf_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
+			UPRINT(conf_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
 			goto error;
 		}
 	}

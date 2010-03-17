@@ -44,7 +44,7 @@ char options_error[256];
  *
  * read options from options.conf
  */
-int read_options(void)
+int read_options(char *options_error)
 {
 	FILE *fp=NULL;
 	char filename[128];
@@ -57,7 +57,7 @@ int read_options(void)
 	SPRINT(filename, "%s/options.conf", CONFIG_DATA);
 
 	if (!(fp=fopen(filename,"r"))) {
-		SPRINT(options_error, "Cannot open %s\n",filename);
+		UPRINT(options_error, "Cannot open %s\n",filename);
 		return(0);
 	}
 
@@ -80,7 +80,7 @@ int read_options(void)
 		i=0; /* read option */
 		while(*p > 32) {
 			if (i+1 >= sizeof(option)) {
-				SPRINT(options_error, "Error in %s (line %d): option too long.\n",filename,line);
+				UPRINT(options_error, "Error in %s (line %d): option too long.\n",filename,line);
 				goto error;
 			}
 			option[i+1] = '\0';
@@ -98,7 +98,7 @@ int read_options(void)
 			i=0; /* read param */
 			while(*p > 31) {
 				if (i+1 >= sizeof(param)) {
-					SPRINT(options_error, "Error in %s (line %d): param too long.\n",filename,line);
+					UPRINT(options_error, "Error in %s (line %d): param too long.\n",filename,line);
 					goto error;
 				}
 				param[i+1] = '\0';
@@ -110,12 +110,12 @@ int read_options(void)
 
 		/* check option */
 		if (!strcmp(option,"nt_if") || !strcmp(option,"te_if")) {
-			SPRINT(options_error, "Error in %s (line %d): obsolete option %s. Use multiple 'port' options to define ports to use.\n",filename,line,option);
+			UPRINT(options_error, "Error in %s (line %d): obsolete option %s. Use multiple 'port' options to define ports to use.\n",filename,line,option);
 			goto error;
 		} else
 		if (!strcmp(option,"debug")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			options.deb = strtol(param, NULL, 0);
@@ -123,7 +123,7 @@ int read_options(void)
 		} else
 		if (!strcmp(option,"log")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
 				goto error;
 			}
 			SCPY(options.log, param);
@@ -139,7 +139,7 @@ int read_options(void)
 		} else
 		if (!strcmp(option,"tones_dir")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
@@ -149,7 +149,7 @@ int read_options(void)
 		} else
 		if (!strcmp(option,"fetch_tones")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
@@ -173,24 +173,24 @@ int read_options(void)
 
 		} else
 		if (!strcmp(option,"dsptones")) {
-			SPRINT(options_error, "Error in %s (line %d): parameter 'dsptones' is obsolete. Just define the tones (american,german,oldgerman) at 'tones_dir' option.\n",filename,line,option);
+			UPRINT(options_error, "Error in %s (line %d): parameter 'dsptones' is obsolete. Just define the tones (american,german,oldgerman) at 'tones_dir' option.\n",filename,line);
 			goto error;
 		} else
 		if (!strcmp(option,"schedule")) {
 			options.schedule = atoi(param);
 			if (options.schedule < 0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s must be at least '0'.\n", filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s must be at least '0'.\n", filename,line,option);
 				goto error;
 			}
 			if (options.schedule > 99) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s must be '99' or less.\n", filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s must be '99' or less.\n", filename,line,option);
 				goto error;
 			}
 
 		} else
 		if (!strcmp(option,"email")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n", filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n", filename,line,option);
 				goto error;
 			}
 			SCPY(options.email, param);
@@ -198,7 +198,7 @@ int read_options(void)
 		} else
 		if (!strcmp(option,"lock")) {
 			if (param[0]==0) {
-				SPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line,option);
 				goto error;
 			}
 			if (param[strlen(param)-1] == '/')
@@ -212,7 +212,7 @@ int read_options(void)
 			if (*endptr != '\0') {
 				struct passwd * pwd = getpwnam(param);
 				if (pwd == NULL) {
-					SPRINT(options_error, "Error in %s (line %d): no such user: %s.\n",filename,line,param);
+					UPRINT(options_error, "Error in %s (line %d): no such user: %s.\n",filename,line,param);
 					goto error;
 				}
 				options.socketuser = pwd->pw_uid;
@@ -224,7 +224,7 @@ int read_options(void)
 			if (*endptr != '\0') {
 				struct group * grp = getgrnam(param);
 				if (grp == NULL) {
-					SPRINT(options_error, "Error in %s (line %d): no such group: %s.\n",filename,line,param);
+					UPRINT(options_error, "Error in %s (line %d): no such group: %s.\n",filename,line,param);
 					goto error;
 				}
 				options.socketgroup = grp->gr_gid;
@@ -236,13 +236,13 @@ int read_options(void)
 		if (!strcmp(option,"gsm")) {
 			options.gsm = 1;
 		} else {
-			SPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
+			UPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
 			goto error;
 		}
 	}
 
 	if (!options.tones_dir[0]) {
-		SPRINT(options_error, "Error in %s (line %d): option 'tones_dir' with parameter missing.\n", filename);
+		UPRINT(options_error, "Error in %s (line %d): option 'tones_dir' with parameter missing.\n", filename,line);
 		goto error;
 	}
 	if (fp) fclose(fp);

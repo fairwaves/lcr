@@ -44,12 +44,9 @@ static struct timer_list db_sync_timer;
 
 #include "gsm_audio.h"
 
-#undef AF_ISDN
-#undef PF_ISDN
-extern  int     AF_ISDN;
-#define PF_ISDN AF_ISDN
 }
 
+#include <mISDN/mISDNcompat.h>
 
 struct lcr_gsm *gsm = NULL;
 
@@ -1607,6 +1604,8 @@ int gsm_init(void)
 	char hlr[128], cfg[128], filename[128];
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	int pcapfd, rc;
+	char conf_error[128] = "";
+
 
 	debug_init();
 	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
@@ -1632,8 +1631,8 @@ int gsm_init(void)
 	gsm->gsm_sock = -1;
 
 	/* parse options */
-	if (!gsm_conf(&gsm->conf)) {
-		PERROR("%s", gsm_conf_error);
+	if (!gsm_conf(&gsm->conf, conf_error)) {
+		PERROR("%s", conf_error);
 		return gsm_exit(-EINVAL);
 	}
 

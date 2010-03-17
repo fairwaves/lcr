@@ -1680,7 +1680,7 @@ int main(int argc, char *argv[])
 	int sock, conn;
 	struct sockaddr_un sock_address;
 	const char *ret = "invalid mode";
-
+	char options_error[256];
 
 	/* show options */
 	if (argc <= 1) {
@@ -1756,7 +1756,7 @@ int main(int argc, char *argv[])
 		goto usage;
 	}
 
-	if (read_options() == 0) {
+	if (read_options(options_error) == 0) {
 		exit(EXIT_FAILURE);
 	}
 

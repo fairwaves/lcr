@@ -76,8 +76,7 @@ class Pgsm : public PmISDN
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 };
 
-extern char *gsm_conf_error;
-int gsm_conf(struct gsm_conf *gsm_conf);
+int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int handle_gsm(void);
 int gsm_exit(int rc);
 int gsm_init(void);

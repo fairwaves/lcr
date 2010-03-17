@@ -23,7 +23,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <mISDNif.h>
+#include <mISDN/mISDNif.h>
 
 #include <mISDN/mISDNcompat.h>
 int __af_isdn = MISDN_AF_ISDN;

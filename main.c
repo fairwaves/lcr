@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
         			created_lock = 0, created_signal = 0, created_debug = 0,
 				created_misdn = 0;
 	char			tracetext[256], lock[128];
+	char			options_error[256];
 
 #if 0
 	/* init fdset */
@@ -250,7 +251,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* read options */
-	if (read_options() == 0) {
+	if (read_options(options_error) == 0) {
 		PERROR("%s", options_error);
 		goto free;
 	}

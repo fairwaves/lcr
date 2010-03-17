@@ -2748,13 +2748,14 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 int load_module(void)
 {
 	u_short i;
+	char options_error[256];
 
 	for (i = 0; i < 256; i++) {
 		flip_bits[i] = (i>>7) | ((i>>5)&2) | ((i>>3)&4) | ((i>>1)&8)
 			     | (i<<7) | ((i&2)<<5) | ((i&4)<<3) | ((i&8)<<1);
 	}
 
-	if (read_options() == 0) {
+	if (read_options(options_error) == 0) {
 		CERROR(NULL, NULL, "%s", options_error);
 
 		#ifdef LCR_FOR_ASTERISK

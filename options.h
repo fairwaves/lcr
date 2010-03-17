@@ -34,9 +34,7 @@ struct options {
 
 extern struct options options;
 
-extern char options_error[256];
-
-int read_options(void);
+int read_options(char *options_error);
 
 #ifdef __cplusplus
 }
