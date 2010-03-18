@@ -541,7 +541,7 @@ Changes after Version 1.7
 - Fixed chan_lcr fax queue buffer. Added LCR_TRANSFERCAPABILITY environment.
 - Fixed compiler warnings when compiling with gcc 4.3.4.
 - Fixed includes to latest mISDNuser structures.
-
+- Fix by Peter: NULL pointer issue in asterisk frame.
 
 
 
