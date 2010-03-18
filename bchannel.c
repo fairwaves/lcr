@@ -418,26 +418,29 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 		return;
 	if (len > 1024 || len < 1)
 		return;
-	switch(bchannel->b_mode) {
-	case 0:
-		for (i = 0; i < len; i++)
-			*p++ = flip_bits[*data++];
-		frm->prim = DL_DATA_REQ;
-		break;
-	case 1:
-		for (i = 0; i < len; i++)
-			*p++ = flip_bits[*data++];
-		frm->prim = PH_DATA_REQ;
-		break;
-	case 2:
-		memcpy(p, data, len);
-		frm->prim = DL_DATA_REQ;
-		break;
-	case 3:
-		memcpy(p, data, len);
-		frm->prim = PH_DATA_REQ;
-		break;
-	}
+	if (data) {
+		switch(bchannel->b_mode) {
+		case 0:
+			for (i = 0; i < len; i++)
+				*p++ = flip_bits[*data++];
+			frm->prim = DL_DATA_REQ;
+			break;
+		case 1:
+			for (i = 0; i < len; i++)
+				*p++ = flip_bits[*data++];
+			frm->prim = PH_DATA_REQ;
+			break;
+		case 2:
+			memcpy(p, data, len);
+			frm->prim = DL_DATA_REQ;
+			break;
+		case 3:
+			memcpy(p, data, len);
+			frm->prim = PH_DATA_REQ;
+			break;
+		}
+	} else
+		memset(p, flip_bits[(options.law=='a')?0x2a:0xff], len);
 	frm->id = 0;
 #ifdef SEAMLESS_TEST
 	unsigned char test_tone[8] = {0x2a, 0x24, 0xb4, 0x24, 0x2a, 0x25, 0xb5, 0x25};
