@@ -316,6 +316,8 @@ void Port::set_tone(const char *dir, const char *name)
 			SCPY(p_tone_dir, dir);
 			SCPY(p_tone_name, name);
 		}
+		/* trigger playback */
+		update_load();
 	} else {
 	 	p_tone_name[0]= '\0';
 	 	p_tone_dir[0]= '\0';
@@ -382,6 +384,8 @@ void Port::set_vbox_tone(const char *dir, const char *name)
 
 	SPRINT(p_tone_dir,  dir);
 	SPRINT(p_tone_name,  name);
+	/* trigger playback */
+	update_load();
 
 	/* now we check if the cause exists, otherwhise we use error tone. */
 	if (p_tone_dir[0]) {
@@ -585,13 +589,6 @@ try_loop:
 }
 
 
-/* port handler:
- * process transmission clock */
-int Port::handler(void)
-{
-	return(0);
-}
-
 /* endpoint sends messages to the port
  * this is called by the message_epoint inherited by child classes
  * therefor a return=1 means: stop, no more processing
@@ -648,6 +645,9 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 	/* RIFFxxxxWAVEfmt xxxx(fmt-size)dataxxxx... */
 	char dummyheader[8+4+8+sizeof(fmt)+8];
 	char filename[256];
+	time_t now;
+	struct tm *now_tm;
+	int ret;
 
 	if (!extension) {
 		PERROR("Port(%d) not an extension\n", p_serial);
@@ -676,8 +676,11 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 
 	if (vbox == 1)
 		UPRINT(strchr(filename,'\0'), "/announcement");
-	else
+	else {
+		time(&now);
+		now_tm = localtime(&now);
 		UPRINT(strchr(filename,'\0'), "/%04d-%02d-%02d_%02d%02d%02d", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
+	}
 	if (vbox == 2) {
 		p_record_vbox_year = now_tm->tm_year;
 		p_record_vbox_mon = now_tm->tm_mon;
@@ -698,6 +701,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 		PERROR("Port(%d) cannot record because file cannot be opened '%s'\n", p_serial, filename);
 		return(0);
 	}
+	update_rxoff();
 	fduse++;
 
 	p_record_type = type;
@@ -708,7 +712,7 @@ int Port::open_record(int type, int vbox, int skip, char *extension, int anon_ig
 		case CODEC_MONO:
 		case CODEC_STEREO:
 		case CODEC_8BIT:
-		fwrite(dummyheader, sizeof(dummyheader), 1, p_record);
+		ret = fwrite(dummyheader, sizeof(dummyheader), 1, p_record);
 		break;
 
 		case CODEC_LAW:
@@ -736,6 +740,7 @@ void Port::close_record(int beep, int mute)
 	char *p;
 	struct caller_info callerinfo;
 	const char *valid_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_.-!$%&/()=+*;~";
+	int ret;
 
 	if (!p_record)
 		return;
@@ -798,7 +803,7 @@ void Port::close_record(int beep, int mute)
 		}
 		i = 0;
 		while(i < beep) {
-			fwrite(beep_mono, sizeof(beep_mono), 1, p_record);
+			ret = fwrite(beep_mono, sizeof(beep_mono), 1, p_record);
 			i += sizeof(beep_mono);
 			p_record_length += sizeof(beep_mono);
 		}
@@ -858,7 +863,7 @@ void Port::close_record(int beep, int mute)
 			fmt.bits_sample = 8; /* one channel */
 			break;
 		}
-		fwrite(&fmt, sizeof(fmt), 1, p_record);
+		ret = fwrite(&fmt, sizeof(fmt), 1, p_record);
 
 		/* data */
 		fprintf(p_record, "data%c%c%c%c", (unsigned char)(size&0xff), (unsigned char)((size>>8)&0xff), (unsigned char)((size>>16)&0xff), (unsigned char)(size>>24));
@@ -882,6 +887,7 @@ void Port::close_record(int beep, int mute)
 	fclose(p_record);
 	fduse--;
 	p_record = NULL;
+	update_rxoff();
 
 	if (rename(p_record_filename, filename) < 0) {
 		PERROR("Port(%d) cannot rename from '%s' to '%s'\n", p_serial, p_record_filename, filename);
@@ -935,6 +941,7 @@ void Port::record(unsigned char *data, int length, int dir_fromup)
 	signed short *s;
 	int free, i, ii;
 	signed int sample;
+	int ret;
 
 	/* no recording */
 	if (!p_record || !length)
@@ -984,7 +991,7 @@ same_again:
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
-			fwrite(write_buffer, 512, 1, p_record);
+			ret = fwrite(write_buffer, 512, 1, p_record);
 			p_record_length += 512;
 			break;
 
@@ -1007,7 +1014,7 @@ same_again:
 					i++;
 				}
 			}
-			fwrite(write_buffer, 1024, 1, p_record);
+			ret = fwrite(write_buffer, 1024, 1, p_record);
 			p_record_length += 1024;
 			break;
 
@@ -1019,7 +1026,7 @@ same_again:
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
-			fwrite(write_buffer, 512, 1, p_record);
+			ret = fwrite(write_buffer, 512, 1, p_record);
 			p_record_length += 512;
 			break;
 
@@ -1031,7 +1038,7 @@ same_again:
 				p_record_buffer_readp = (p_record_buffer_readp + 1) & RECORD_BUFFER_MASK;
 				i++;
 			}
-			fwrite(write_buffer, 256, 1, p_record);
+			ret = fwrite(write_buffer, 256, 1, p_record);
 			p_record_length += 256;
 			break;
 		}
@@ -1071,7 +1078,7 @@ different_again:
 			*s++ = sample;
 			i++;
 		}
-		fwrite(write_buffer, ii<<1, 1, p_record);
+		ret = fwrite(write_buffer, ii<<1, 1, p_record);
 		p_record_length += (ii<<1);
 		break;
 		
@@ -1094,7 +1101,7 @@ different_again:
 				i++;
 			}
 		}
-		fwrite(write_buffer, ii<<2, 1, p_record);
+		ret = fwrite(write_buffer, ii<<2, 1, p_record);
 		p_record_length += (ii<<2);
 		break;
 		
@@ -1110,7 +1117,7 @@ different_again:
 			*d++ = (sample+0x8000) >> 8;
 			i++;
 		}
-		fwrite(write_buffer, ii, 1, p_record);
+		ret = fwrite(write_buffer, ii, 1, p_record);
 		p_record_length += ii;
 		break;
 		
@@ -1126,7 +1133,7 @@ different_again:
 			*d++ = audio_s16_to_law[sample & 0xffff];
 			i++;
 		}
-		fwrite(write_buffer, ii, 1, p_record);
+		ret = fwrite(write_buffer, ii, 1, p_record);
 		p_record_length += ii;
 		break;
 	}
@@ -1139,4 +1146,11 @@ different_again:
 
 }
 
+void Port::update_rxoff(void)
+{
+}
+
+void Port::update_load(void)
+{
+}
 

@@ -49,6 +49,8 @@ static const char *state_name[] = { \
 }; \
 int state_name_num = sizeof(state_name) / sizeof(char *);
 
+int vbox_refresh(struct lcr_timer *timer, void *instance, int index);
+
 extern class EndpointAppPBX *apppbx_first;
 
 /* structure of an EndpointAppPBX */
@@ -59,7 +61,6 @@ class EndpointAppPBX : public EndpointApp
 	~EndpointAppPBX();
 
 	class EndpointAppPBX	*next;
-	int			handler(void);
 
 	int			e_hold;			/* is this endpoint on hold ? */
 	char			e_tone[256];		/* save tone for resuming ports */
@@ -79,9 +80,7 @@ class EndpointAppPBX : public EndpointApp
 	struct route_ruleset	*e_ruleset;		/* current ruleset pointer (NULL=no ruleset) */
 	struct route_rule	*e_rule;		/* current rule pointer (NULL=no rule) */
 	struct route_action	*e_action;		/* current action pointer (NULL=no action) */
-	double			e_action_timeout;	/* when to timeout */
 	int			e_rule_nesting;		/* 'goto'/'menu' recrusion counter to prevent infinie loops */
-	double			e_match_timeout;	/* set for the next possible timeout time */
 	struct route_action	*e_match_to_action;	/* what todo when timeout */
 	char			*e_match_to_extdialing;	/* dialing after matching timeout rule */
 	int			e_select;		/* current selection for various selector options */
@@ -97,15 +96,11 @@ class EndpointAppPBX : public EndpointApp
 
 	/* action */
 	char e_dialing_queue[32];		/* holds dialing during setup state */
-	double e_redial;			/* time when redialing 0=off */
-	double e_powerdialing;			/* on disconnect redial! 0=off, >0=redial time, -1=on */
 	double e_powerdelay;			/* delay when to redial */
 	int e_powercount;			/* power count */
 	int e_powerlimit;			/* power limit */
-	double e_callback;			/* time when callback (when idle reached) 0=off */
-	signed int e_cfnr_release;		/* time stamp when to do the release for call forward on no response */
-	signed int e_cfnr_call;		/* time stamp when to do the call for call forward on no response */
-	signed int e_password_timeout;		/* time stamp when to do the release for password timeout */
+	struct lcr_timer	e_action_timeout;
+	struct lcr_timer	e_match_timeout;
 
 	/* port relation */
 	int e_multipoint_cause;			/* cause value of disconnected multiport calls (highest priority) */
@@ -120,6 +115,13 @@ class EndpointAppPBX : public EndpointApp
 	char e_cbcaller[256];			/* extension for the epoint which calls back */
 	char e_cbto[32];			/* override callerid to call back to */
 	struct caller_info e_callbackinfo;	/* information about the callback caller */
+	struct lcr_timer	e_redial_timeout;
+	int e_powerdial_on;
+	struct lcr_timer	e_powerdial_timeout;
+	struct lcr_timer	e_cfnr_timeout;
+	struct lcr_timer	e_cfnr_call_timeout;
+	struct lcr_timer	e_callback_timeout;
+	struct lcr_timer	e_password_timeout;
 
 	/* dtmf stuff */
 	int e_connectedmode;			/* if the port should stay connected if the enpoint disconnects or releases (usefull for callback) */
@@ -138,7 +140,7 @@ class EndpointAppPBX : public EndpointApp
 	int e_vbox_state;			/* state of vbox during playback */
 	int e_vbox_menu;			/* currently selected menu using '*' and '#' */
 	char e_vbox_display[128];		/* current display message */
-	int e_vbox_display_refresh;		/* display must be refreshed du to change */
+	struct lcr_timer e_vbox_refresh;	/* display must be refreshed du to change */
 	int e_vbox_counter;			/* current playback counter in seconds */
 	int e_vbox_counter_max;			/* size of file in seconds */
 	int e_vbox_counter_last;		/* temp variable to recognise a change in seconds */
@@ -188,6 +190,7 @@ class EndpointAppPBX : public EndpointApp
 	int e_crypt_rsa_iqmp_len;
 	int e_crypt_keyengine_busy;		/* current job and busy state */
 	int e_crypt_keyengine_return;		/* return */
+	struct lcr_timer e_crypt_handler; /* poll timer for crypt events */
 
 	/* messages */
 	void hookflash(void);
@@ -221,7 +224,7 @@ class EndpointAppPBX : public EndpointApp
 
 	/* epoint */
 	void new_state(int state);
-	void release(int release, int joinlocation, int joincause, int portlocation, int portcause);
+	void release(int release, int joinlocation, int joincause, int portlocation, int portcause, int force);
 	void notify_active(void);
 	void keypad_function(char digit);
 	void set_tone(struct port_list *portlist, const char *tone);
@@ -234,7 +237,6 @@ class EndpointAppPBX : public EndpointApp
 	void vbox_init(void);
 	void vbox_index_read(int num);
 	void vbox_index_remove(int num);
-	void vbox_handler(void);
 	void efi_message_eof(void);
 	void vbox_message_eof(void);
 	void set_tone_vbox(const char *tone);
@@ -286,6 +288,7 @@ class EndpointAppPBX : public EndpointApp
 	void action_dialing_goto(void);
 	void action_dialing_menu(void);
 	void action_dialing_disconnect(void);
+	void action_dialing_release(void);
 	void action_dialing_help(void);
 	void action_dialing_deflect(void);
 	void action_dialing_setforward(void);
@@ -296,7 +299,7 @@ class EndpointAppPBX : public EndpointApp
 	void action_init_pick(void);
 	void action_dialing_password(void);
 	void action_dialing_password_wr(void);
-	void process_dialing(void);
+	void process_dialing(int timeout);
 	void process_hangup(int cause, int location);
 
 	/* facility function */
@@ -310,7 +313,6 @@ class EndpointAppPBX : public EndpointApp
 
 	/* crypt */
 	void cryptman_keyengine(int job);
-	void cryptman_handler(void);
 	void cr_ident(int message, unsigned char *param, int len);
 	void cr_activate(int message, unsigned char *param, int len);
 	void cr_deactivate(int message, unsigned char *param, int len);

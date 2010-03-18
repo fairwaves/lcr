@@ -30,13 +30,12 @@ struct options {
 	int     socketuser;             /* socket chown to this user */
 	int     socketgroup;            /* socket chgrp to this group */
 	int	gsm;			/* enable gsm support */
+	int	polling;
 };	
 
 extern struct options options;
 
-extern char options_error[256];
-
-int read_options(void);
+int read_options(char *options_error);
 
 #ifdef __cplusplus
 }

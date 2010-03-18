@@ -24,7 +24,7 @@ dnl    Boston, MA 02110-1301, USA.
 dnl This keeps being the first instruction.
 dnl Change the 2nd argument if the version increases
 dnl 1st + 2nd argument is used for distribution package name
-AC_INIT(lcr, 1.6, andreas@eversberg.eu)
+AC_INIT(lcr, 1.7, andreas@eversberg.eu)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR([main.c])
 AM_CONFIG_HEADER(config.h)
@@ -32,7 +32,7 @@ AM_CONFIG_HEADER(config.h)
 # fix warnings from autoconf + automake
 AC_GNU_SOURCE
 # AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE(lcr,1.6)
+AM_INIT_AUTOMAKE(lcr,1.7)
 
 
 
@@ -108,7 +108,7 @@ AS_IF([test "x$with_gsm" != xno],
 			[with_gsm="yes"],
 			[if test "x$with_gsm" != xcheck ; then
 			  AC_MSG_FAILURE(
-			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ .])
+			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore osmocore])
                      fi
 		     ])
       ])

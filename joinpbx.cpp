@@ -202,6 +202,7 @@ void joinpbx_debug(class JoinPBX *joinpbx, const char *function)
 	PDEBUG(DEBUG_JOIN, "end\n");
 }
 
+int update_bridge(struct lcr_work *work, void *instance, int index);
 
 /*
  * constructor for a new join 
@@ -223,11 +224,12 @@ JoinPBX::JoinPBX(class Endpoint *epoint) : Join()
 	j_dialed[0] = '\0';
 	j_todial[0] = '\0';
 	j_pid = getpid();
-	j_updatebridge = 0;
 	j_partyline = 0;
 	j_partyline_jingle = 0;
 	j_multicause = 0;
 	j_multilocation = 0;
+	memset(&j_updatebridge, 0, sizeof(j_updatebridge));
+	add_work(&j_updatebridge, update_bridge, this, 0);
 
 	/* initialize a relation only to the calling interface */
 	relation = j_relation = (struct join_relation *)MALLOC(sizeof(struct join_relation));
@@ -258,12 +260,23 @@ JoinPBX::~JoinPBX()
 		cmemuse--;
 		relation = rtemp;
 	}
+
+	del_work(&j_updatebridge);
 }
 
 
 /* bridge sets the audio flow of all bchannels assiociated to 'this' join
  * also it changes and notifies active/hold/conference states
  */
+int update_bridge(struct lcr_work *work, void *instance, int index)
+{
+	 class JoinPBX *joinpbx = (class JoinPBX *)instance;
+
+	 joinpbx->bridge();
+
+	 return 0;
+}
+
 void JoinPBX::bridge(void)
 {
 	struct join_relation *relation;
@@ -453,7 +466,7 @@ int JoinPBX::release(struct join_relation *relation, int location, int cause)
 	/* remove from bridge */
 	if (relation->channel_state != 0) {
 		relation->channel_state = 0;
-		j_updatebridge = 1; /* update bridge flag */
+		trigger_work(&j_updatebridge);
 		// note: if join is not released, bridge must be updated
 	}
 
@@ -677,7 +690,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			SPRINT(message->param.connectinfo.id, "%d", j_partyline);
 			message->param.connectinfo.ntype = INFO_NTYPE_UNKNOWN;
 			message_put(message);
-			j_updatebridge = 1; /* update bridge flag */
+			trigger_work(&j_updatebridge);
 			if (j_partyline_jingle)
 			       play_jingle(1);
 			break;
@@ -686,7 +699,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
 			if (relation->channel_state != param->audiopath) {
 				relation->channel_state = param->audiopath;
-				j_updatebridge = 1; /* update bridge flag */
+				trigger_work(&j_updatebridge);
 				if (options.deb & DEBUG_JOIN)
 					joinpbx_debug(this, "Join::message_epoint{after setting new channel state}");
 			}
@@ -721,7 +734,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 		PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
 		if (relation->channel_state != param->audiopath) {
 			relation->channel_state = param->audiopath;
-			j_updatebridge = 1; /* update bridge flag */
+			trigger_work(&j_updatebridge);
 			if (options.deb & DEBUG_JOIN)
 				joinpbx_debug(this, "Join::message_epoint{after setting new channel state}");
 		}
@@ -739,7 +752,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			new_state = track_notify(relation->rx_state, param->notifyinfo.notify);
 			if (new_state != relation->rx_state) {
 				relation->rx_state = new_state;
-				j_updatebridge = 1;
+				trigger_work(&j_updatebridge);
 				if (options.deb & DEBUG_JOIN)
 					joinpbx_debug(this, "Join::message_epoint{after setting new rx state}");
 			}
@@ -892,30 +905,6 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			relation = relation->next;
 		}
 	}
-}
-
-
-/* join process is called from the main loop
- * it processes the current calling state.
- * returns 0 if join nothing was done
- */
-int JoinPBX::handler(void)
-{
-//	struct join_relation *relation;
-//	char dialing[32][32];
-//	int port[32];
-//	int found;
-//	int i, j;
-//	char *p;
-
-	/* the bridge must be updated */
-	if (j_updatebridge) {
-		bridge();
-		j_updatebridge = 0;
-		return(1);
-	}
-
-	return(0);
 }
 
 

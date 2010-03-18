@@ -11,19 +11,14 @@
 
 #include "main.h"
 
-MESSAGES
+//MESSAGES
 
-double now_d, last_d;
-time_t now;
-struct tm *now_tm;
 struct timeval now_tv;
 struct timezone now_tz;
 #define GET_NOW() \
 	{ \
 		gettimeofday(&now_tv, &now_tz); \
 		now_d = ((double)(now_tv.tv_usec))/1000000 + now_tv.tv_sec; \
-		now = now_tv.tv_sec; \
-		now_tm = localtime(&now); \
 	}
 
 FILE *debug_fp = NULL;
@@ -49,22 +44,21 @@ int classuse = 0;
 int fduse = 0;
 int fhuse = 0;
 
-const char *debug_prefix = NULL;
 int debug_count = 0;
 int last_debug = 0;
 int debug_newline = 1;
 int nooutput = 0;
 
-void debug_usleep(int msec, const char *file, int line, int hour, int min, int sec)
-{
-	usleep(msec);
-}
-
 void debug(const char *function, int line, const char *prefix, char *buffer)
 {
+	time_t now;
+	struct tm *now_tm;
+
 	/* if we have a new debug count, we add a mark */
 	if (last_debug != debug_count) {
 		last_debug = debug_count;
+		time(&now);
+		now_tm = localtime(&now);
 		if (!nooutput)
 			printf("\033[34m--------------------- %04d.%02d.%02d %02d:%02d:%02d %06d\033[36m\n", now_tm->tm_year+1900, now_tm->tm_mon+1, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec, debug_count%1000000);
 		if (debug_fp)
@@ -110,7 +104,7 @@ void _printdebug(const char *function, int line, unsigned int mask, const char *
 	buffer[sizeof(buffer)-1]=0;
 	va_end(args);
 
-	debug(function, line, debug_prefix, buffer);
+	debug(function, line, "DEBUG", buffer);
 
 	pthread_mutex_unlock(&mutexd);
 }
@@ -167,22 +161,20 @@ void sighandler(int sigset)
  */
 int main(int argc, char *argv[])
 {
+#ifdef WITH_GSM
+	double			now_d, last_d;
+	int			all_idle;
+#endif
 	int			ret = -1;
 	int			lockfd = -1; /* file lock */
 	struct lcr_msg		*message;
-	class Port		*port;
-	class Endpoint		*epoint;
-	class Join		*join;
 	int			i;
-	int			all_idle;
-	char			prefix_string[64];
 	struct sched_param	schedp;
-	const char		*debug_prefix = "alloc";
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
         			created_lock = 0, created_signal = 0, created_debug = 0,
 				created_misdn = 0;
-	int			idletime = 0, idlecheck = 0;
 	char			tracetext[256], lock[128];
+	char			options_error[256];
 
 #if 0
 	/* init fdset */
@@ -191,9 +183,6 @@ int main(int argc, char *argv[])
 
 	/* lock LCR process */
 //	pthread_mutex_lock(&mutex_lcr);
-
-	/* current time */
-	GET_NOW();
 
 	/* show version */
 	printf("\n** %s  Version %s\n\n", NAME, VERSION_STRING);
@@ -254,14 +243,15 @@ int main(int argc, char *argv[])
 
 	/* query available isdn ports */
 	if (!(strcasecmp(argv[1],"query"))) {
+		int rc;
 		fprintf(stderr, "-> Using 'misdn_info'\n");
-		system("misdn_info");
+		rc = system("misdn_info");
 		ret = 0;
 		goto free;
 	}
 
 	/* read options */
-	if (read_options() == 0) {
+	if (read_options(options_error) == 0) {
 		PERROR("%s", options_error);
 		goto free;
 	}
@@ -437,15 +427,20 @@ int main(int argc, char *argv[])
 	signal(SIGPIPE,sighandler);
 	created_signal = 1;
 
+	/* init message */
+	init_message();
+
 	/*** main loop ***/
 	SPRINT(tracetext, "%s %s started, waiting for calls...", NAME, VERSION_STRING);
 	start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext);
 	printf("%s\n", tracetext);
 	end_trace();
-	GET_NOW();
 	quit = 0;
+#ifdef WITH_GSM
+	GET_NOW();
+#endif
 	while(!quit) {
-
+#ifdef WITH_GSM
 		last_d = now_d;
 		GET_NOW();
 		if (now_d-last_d > 1.0) {
@@ -454,165 +449,23 @@ int main(int argc, char *argv[])
 		/* all loops must be counted from the beginning since nodes might get freed during handler */
 		all_idle = 1;
 
-//#warning debugging usleep crash
-//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-
-		/* handle mISDN messages from kernel */
-		debug_prefix = "ISDN";
-		if (mISDN_handler())
+		/* must be processed after all queues, so they are empty */
+		if (select_main(1, NULL, NULL, NULL))
 			all_idle = 0;
-//#warning debugging usleep crash
-//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-
-BUDETECT
-
-		/* loop through all port ports and call their handler */
-		port_again:
-		port = port_first;
-		while(port) {
-			debug_prefix = port->p_name;
-			debug_count++;
-			ret = port->handler();
-			if (ret)
-				all_idle = 0;
-			if (ret < 0) /* port has been destroyed */
-				goto port_again;
-			port = port->next;
-		}
-
-		/* loop through all epoint and call their handler */
-		epoint_again:
-		epoint = epoint_first;
-		while(epoint) {
-			debug_prefix = prefix_string;
-			SPRINT(prefix_string, "ep%ld", epoint->ep_serial);
-			debug_count++;
-			ret = epoint->handler();
-			if (ret)
-				all_idle = 0;
-			if (ret < 0) /* epoint has been destroyed */
-				goto epoint_again;
-			epoint = epoint->next;
-		}
-
-		/* loop through all joins and call their handler */
-		join_again:
-		join = join_first;
-		while(join) {
-			debug_prefix = "join";
-			debug_count++;
-			ret = join->handler();
-			if (ret)
-				all_idle = 0;
-			if (ret < 0) /* join has been destroyed */
-				goto join_again;
-			join = join->next;
-		}
-
-		debug_prefix = 0;
-
-		/* process any message */
-		debug_count++;
-		debug_prefix = "message";
-		while ((message = message_get())) {
-			all_idle = 0;
-			switch(message->flow) {
-				case PORT_TO_EPOINT:
-				debug_prefix = "msg port->epoint";
-				epoint = find_epoint_id(message->id_to);
-				if (epoint) {
-					if (epoint->ep_app) {
-						epoint->ep_app->ea_message_port(message->id_from, message->type, &message->param);
-					} else {
-						PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
-					}
-				} else {
-					PDEBUG(DEBUG_MSG, "Warning: message %s from port %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
-				}
-				break;
-
-				case EPOINT_TO_JOIN:
-				debug_prefix = "msg epoint->join";
-				join = find_join_id(message->id_to);
-				if (join) {
-					join->message_epoint(message->id_from, message->type, &message->param);
-				} else {
-					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to join %d. join doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
-				}
-				break;
-
-				case JOIN_TO_EPOINT:
-				debug_prefix = "msg join->epoint";
-				epoint = find_epoint_id(message->id_to);
-				if (epoint) {
-					if (epoint->ep_app) {
-						epoint->ep_app->ea_message_join(message->id_from, message->type, &message->param);
-					} else {
-						PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't have an application.\n", messages_txt[message->type], message->id_from, message->id_to);
-					}
-				} else {
-					PDEBUG(DEBUG_MSG, "Warning: message %s from join %d to endpoint %d. endpoint doesn't exist anymore.\n", messages_txt[message->type], message->id_from, message->id_to);
-				}
-				break;
-
-				case EPOINT_TO_PORT:
-				debug_prefix = "msg epoint->port";
-				port = find_port_id(message->id_to);
-				if (port) {
-					port->message_epoint(message->id_from, message->type, &message->param);
-BUDETECT
-				} else {
-					PDEBUG(DEBUG_MSG, "Warning: message %s from endpoint %d to port %d. port doesn't exist anymore\n", messages_txt[message->type], message->id_from, message->id_to);
-				}
-				break;
-
-				default:
-				PERROR("Message flow %d unknown.\n", message->flow);
-			}
-			message_free(message);
-			debug_count++;
-			debug_prefix = "message";
-		}
-BUDETECT
-
-		/* handle socket */
-		if (admin_handle())
-			all_idle = 0;
-BUDETECT
-
-#ifdef WITH_GSM
 		/* handle gsm */
 		if (options.gsm)
 			while(handle_gsm())
 				all_idle = 0;
-#endif
-
-BUDETECT
-
-#if 0
-		/* check for child to exit (eliminate zombies) */
-		if (waitpid(-1, NULL, WNOHANG) > 0) {
-			PDEBUG(DEBUG_EPOINT, "a child process (created by endpoint) has exitted.\n");
-			all_idle = 0;
-		}
-#endif
-//#warning debugging usleep crash
-//		debug_usleep(1, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-
-		/* do idle checking */
-		if (idlecheck != now) {
-			PDEBUG(DEBUG_IDLETIME, "Idle time : %d%%\n", idletime/10000);
-			idletime = 0;
-			idlecheck = now;
-		}
-
-		/* did we do nothing? so we wait to give time to other processes */
 		if (all_idle) {
-//			pthread_mutex_unlock(&mutex_lcr); // unlock LCR
-			debug_usleep(4000, __FILE__, __LINE__, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
-//			pthread_mutex_lock(&mutex_lcr); // lock LCR
-			idletime += 4000;
+			usleep(10000);
 		}
+#else
+		if (options.polling)
+			if (!select_main(1, NULL, NULL, NULL))
+				usleep(10000);
+		else
+			select_main(0, NULL, NULL, NULL);
+#endif
 	}
 	SPRINT(tracetext, "%s terminated", NAME);
 	printf("%s\n", tracetext);
@@ -622,9 +475,11 @@ BUDETECT
 	end_trace();
 	ret=0;
 
+	/* clean messacleane */
+	cleanup_message();
+
 	/* free all */
 free:
-
 
 	/* set scheduler & priority
 	 */
@@ -642,7 +497,6 @@ free:
 	}
 
 	/* destroy objects */
-	debug_prefix = "free";
 
 	while(port_first) {
 		debug_count++;
@@ -748,55 +602,4 @@ free:
 }
 
 
-#ifdef BUDETECT_DEF
-/* special debug function to detect buffer overflow
- */
-int budetect_stop = 0;
-void budetect(const char *file, int line, const char *function)
-{
-	if (budetect_stop)
-		return;
-	/* modify this function to detect race-bugs */
-#warning DID YOU MODIFY THIS FUNCTION TO DETECT THE BUFFER OVERFLOW BUG?
-	class Port *port;
-	class PmISDN *pmisdn;
-	struct mISDNport *mISDNport = mISDNport_first;
-	int i, ii;
-
-	while(mISDNport) {
-		i = 0;
-		ii = mISDNport->b_num;
-		while(i < ii) {
-			if (mISDNport->b_port[i]) {
-				port = port_first;
-				while(port) {
-					if ((port->p_type&PORT_CLASS_MASK) == PORT_CLASS_ISDN) {
-						pmisdn = (class PmISDN *)port;
-						if (pmisdn->p_isdn_crypt_listen) {
-							PERROR_RUNTIME("************************************************\n");
-							PERROR_RUNTIME("** BUG detected in %s, line %d, function %s\n", file, line, function);
-							PERROR_RUNTIME("** p_isdn_crypt_listen = %d\n", pmisdn->p_isdn_crypt_listen);
-							PERROR_RUNTIME("************************************************\n");
-							budetect_stop = 1;
-						}
-					}
-					if (port == mISDNport->b_port[i])
-						break;
-					port = port->next;
-					if (!port) {
-						PERROR_RUNTIME("************************************************\n");
-						PERROR_RUNTIME("** BUG detected in %s, line %d, function %s\n", file, line, function);
-						PERROR_RUNTIME("** b_port not in list.\n");
-						PERROR_RUNTIME("************************************************\n");
-						budetect_stop = 1;
-					}
-				}
-			}
-			i++;
-		}
-		mISDNport = mISDNport->next;
-	}
-
-}
-#endif
 

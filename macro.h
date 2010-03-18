@@ -77,8 +77,8 @@ static inline void fatal(const char *function, int line, const char *fmt, ...)
 	fprintf(stderr, "FATAL ERROR in function %s, line %d: %s", function, line, buffer);
 	fprintf(stderr, "This error is not recoverable, must exit here.\n");
 #ifdef DEBUG_FUNC
-	debug(function, line, "FATAL ERROR", buffer);
-	debug(function, line, "FATAL ERROR", (char *)"This error is not recoverable, must exit here.\n");
+	debug(function, line, "FATAL", buffer);
+	debug(function, line, "FATAL", (char *)"This error is not recoverable, must exit here.\n");
 #endif
 	exit(EXIT_FAILURE);
 }

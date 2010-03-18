@@ -48,6 +48,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 	int linksize;
 	int l;
 	char *p;
+	int ret;
 
 
 	/* try to open the law file */
@@ -104,7 +105,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 	SPRINT(filename, "%s.wav", file);
 	if ((fh = open(filename, O_RDONLY)) >= 0) {
 		/* get wave header */
-		read(fh, buffer, 8);
+		ret = read(fh, buffer, 8);
 		size=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 		if (!!strncmp((char *)buffer, "RIFF", 4)) {
 			close(fh);
@@ -113,7 +114,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 			return(-1);
 		}
 //		printf("%c%c%c%c size=%ld\n",buffer[0],buffer[1],buffer[2],buffer[3],size);
-		read(fh, buffer, 4);
+		ret = read(fh, buffer, 4);
 		size -= 4;
 		if (!!strncmp((char *)buffer, "WAVE", 4)) {
 			close(fh);
@@ -128,7 +129,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 				PERROR("Remaining file size %ld not large enough for next chunk.\n",size);
 				return(-1);
 			}
-			read(fh, buffer, 8);
+			ret = read(fh, buffer, 8);
 			chunk=(buffer[4]) + (buffer[5]<<8) + (buffer[6]<<16) + (buffer[7]<<24);
 			size -= (8+chunk);
 //			printf("%c%c%c%c length=%d\n",buffer[0],buffer[1],buffer[2],buffer[3],chunk);
@@ -145,7 +146,7 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 					PERROR("File %s Fmt chunk illegal size.\n", filename);
 					return(-1);
 				}
-				read(fh, buffer, chunk);
+				ret = read(fh, buffer, chunk);
 				fmt = (struct fmt *)buffer;
 				if (fmt->channels<1 || fmt->channels>2) {
 					close(fh);
@@ -211,11 +212,11 @@ int open_tone(char *file, int *codec, signed int *length, signed int *left)
 			} else {
 //				PDEBUG(DEBUG_PORT, "Unknown chunk '%c%c%c%c'\n",buffer[0],buffer[1],buffer[2],buffer[3]);
 				while(chunk > sizeof(buffer)) {
-					read(fh, buffer, sizeof(buffer));
+					ret = read(fh, buffer, sizeof(buffer));
 					chunk -=  sizeof(buffer);
 				}
 				if (chunk)
-					read(fh, buffer, chunk);
+					ret = read(fh, buffer, chunk);
 			}
 			
 		}

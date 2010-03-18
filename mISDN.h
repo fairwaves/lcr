@@ -44,7 +44,7 @@ struct mISDNport {
 	unsigned char l2mask[16]; /* 128 bits for each tei */
 	int l1hold; /* set, if layer 1 should be holt */
 	int l2hold; /* set, if layer 2 must be hold/checked */
-	time_t l2establish; /* time until establishing after link failure */
+	struct lcr_timer l2establish; /* time until establishing after link failure */
 	int use; /* counts the number of port that uses this port */
 	int ntmode; /* is TRUE if port is NT mode */
 	int tespecial; /* is TRUE if port uses special TE mode */
@@ -55,10 +55,10 @@ struct mISDNport {
 	int b_reserved; /* number of bchannels reserved or in use */
 	class PmISDN *b_port[128]; /* bchannel assigned to port object */
 	struct mqueue upqueue;
-	int b_socket[128];
+	struct lcr_fd b_sock[128]; /* socket list elements */
 	int b_mode[128]; /* B_MODE_* */
 	int b_state[128]; /* statemachine, 0 = IDLE */
-	double b_timer[128]; /* timer for state machine */
+	struct lcr_timer b_timer[128]; /* timer for bchannel state machine */
 	int b_remote_id[128]; /* the socket currently exported (0=none) */
 	unsigned int b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
@@ -92,12 +92,11 @@ calls with no bchannel (call waiting, call on hold).
 int mISDN_initialize(void);
 void mISDN_deinitialize(void);
 int mISDN_getportbyname(int sock, int cnt, char *portname);
-struct mISDNport *mISDNport_open(int port, char *portname, int ptp, int force_nt, int te_special, int l1hold, int l2hold, struct interface *interface, int gsm, unsigned int ss5);
+struct mISDNport *mISDNport_open(struct interface_port *ifport);
 void mISDNport_static(struct mISDNport *mISDNport);
 void mISDNport_close_all(void);
 void mISDNport_close(struct mISDNport *mISDNport);
 void mISDN_port_reorder(void);
-int mISDN_handler(void);
 void enc_ie_cause_standalone(struct l3_msg *l3m, int location, int cause);
 int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pid, struct l3_msg *l3m);
 void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, unsigned int handle, unsigned int c1, unsigned int c2, const char *trace_name, int trace_value);
@@ -115,7 +114,6 @@ class PmISDN : public Port
 	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~PmISDN();
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
-	int handler(void);
 	void transmit(unsigned char *buffer, int length);
 	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	void message_mISDNsignal(unsigned int epoint_id, int message_id, union parameter *param);
@@ -133,8 +131,11 @@ class PmISDN : public Port
 	int p_m_dtmf;				/* dtmf decoding is enabled */
 	int p_m_joindata;			/* the call requires data due to no briging capability */
 
+	struct lcr_timer p_m_loadtimer;		/* timer for audio transmission */
+	virtual void update_load(void);
+	void load_tx(void);
 	int p_m_load;				/* current data in dsp tx buffer */
-	unsigned int p_m_last_tv_sec;		/* time stamp of last handler call, (to sync audio data */
+	unsigned int p_m_last_tv_sec;		/* time stamp of last tx_load call, (to sync audio data */
 	unsigned int p_m_last_tv_msec;
 //	int p_m_fromup_buffer_readp;		/* buffer for audio from remote endpoint */
 //	int p_m_fromup_buffer_writep;
@@ -167,10 +168,8 @@ class PmISDN : public Port
 //	long long p_m_jittercheck;		/* time of audio data */
 //	long long p_m_jitterdropped;		/* number of bytes dropped */
 	int p_m_b_mode;				/* bchannel mode */
-	int p_m_delete;				/* true if obj. must del. */
 	int p_m_hold;				/* if port is on hold */
-	unsigned int p_m_timeout;		/* timeout of timers */
-	time_t p_m_timer;			/* start of timer */
+	struct lcr_timer p_m_timeout;		/* timeout of timers */
 	unsigned int p_m_remote_ref;		/* join to export bchannel to */
 	int p_m_remote_id;			/* sock to export bchannel to */
 
@@ -185,6 +184,7 @@ class PmISDN : public Port
 	void inband_receive_off(void);
 	void mute_on(void);
 	void mute_off(void);
+	void update_rxoff(void);
 
 	int seize_bchannel(int channel, int exclusive); /* requests / reserves / links bchannels, but does not open it! */
 	void drop_bchannel(void);

@@ -20,14 +20,15 @@ int sock = -1;
 struct sockaddr_un sock_address;
 
 struct admin_list *admin_first = NULL;
+static struct lcr_fd admin_fd;
+
+int admin_handle(struct lcr_fd *fd, unsigned int what, void *instance, int index);
 
 /*
  * initialize admin socket 
  */
 int admin_init(void)
 {
-	unsigned int on = 1;
-
 	/* open and bind socket */
 	if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
 		PERROR("Failed to create admin socket. (errno=%d)\n", errno);
@@ -55,14 +56,9 @@ int admin_init(void)
 		PERROR("Failed to listen to socket \"%s\". (errno=%d)\n", sock_address.sun_path, errno);
 		return(-1);
 	}
-	if (ioctl(sock, FIONBIO, (unsigned char *)(&on)) < 0) {
-		close(sock);
-		unlink(socket_name);
-		fhuse--;
-		sock = -1;
-		PERROR("Failed to set socket \"%s\" into non-blocking mode. (errno=%d)\n", sock_address.sun_path, errno);
-		return(-1);
-	}
+	memset(&admin_fd, 0, sizeof(admin_fd));
+	admin_fd.fd = sock;
+	register_fd(&admin_fd, LCR_FD_READ | LCR_FD_EXCEPT, admin_handle, NULL, 0);
 	if (chmod(socket_name, options.socketrights) < 0) {
 		PERROR("Failed to change socket rights to %d. (errno=%d)\n", options.socketrights, errno);
 	}
@@ -86,6 +82,7 @@ void free_connection(struct admin_list *admin)
 	class Join *join, *joinnext;
 	struct mISDNport *mISDNport;
 	int i, ii;
+	struct admin_list **adminp;
 
 	/* free remote joins */
 	if (admin->remote_name[0]) {
@@ -107,7 +104,7 @@ void free_connection(struct admin_list *admin)
 			while(i < ii) {
 				if (mISDNport->b_remote_id[i] == admin->sock) {
 					mISDNport->b_state[i] = B_STATE_IDLE;
-					mISDNport->b_timer[i] = 0;
+					unsched_timer(&mISDNport->b_timer[i]);
 					mISDNport->b_remote_id[i] = 0;
 					mISDNport->b_remote_ref[i] = 0;
 				}
@@ -131,22 +128,28 @@ void free_connection(struct admin_list *admin)
 	}
 
 	if (admin->sock >= 0) {
+		unregister_fd(&admin->fd);
 		close(admin->sock);
 		fhuse--;
 	}
-//	printf("new\n", response);
 	response = admin->response;
 	while (response) {
-//#warning
-//	printf("%x\n", response);
 		temp = response->next;
 		FREE(response, 0);
 		memuse--;
 		response = (struct admin_queue *)temp;
 	}
-//	printf("new2\n", response);
+
+	adminp = &admin_first;
+	while(*adminp) {
+		if (*adminp == admin)
+			break;
+		adminp = &((*adminp)->next);
+	}
+	if (*adminp)
+		*adminp = (*adminp)->next;
+
 	FREE(admin, 0);
-//	printf("new3\n", response);
 	memuse--;
 }
 
@@ -160,13 +163,13 @@ void admin_cleanup(void)
 
 	admin = admin_first;
 	while(admin) {
-//printf("clean\n");
 		next = admin->next;
 		free_connection(admin);
 		admin = next;
 	}
 
 	if (sock >= 0) {
+		unregister_fd(&admin_fd);
 		close(sock);
 		fhuse--;
 	}
@@ -206,7 +209,6 @@ int admin_interface(struct admin_queue **responsep)
 	/* attach to response chain */
 	*responsep = response;
 	responsep = &response->next;
-
 	return(0);
 }
 
@@ -274,9 +276,9 @@ int admin_route(struct admin_queue **responsep)
 			}
 		} else if (apppbx->e_state != EPOINT_STATE_CONNECT) {
 			release:
-			apppbx->e_callback = 0;
+			unsched_timer(&apppbx->e_callback_timeout);
 			apppbx->e_action = NULL;
-			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+			apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 			start_trace(-1,
 				NULL,
 				numberrize_callerinfo(apppbx->e_callerinfo.id, apppbx->e_callerinfo.ntype, options.national, options.international),
@@ -288,7 +290,7 @@ int admin_route(struct admin_queue **responsep)
 			end_trace();
 		}
 
-		apppbx->e_action_timeout = 0;
+		unsched_timer(&apppbx->e_action_timeout);
 		apppbx->e_rule = NULL;
 		apppbx->e_ruleset = NULL;
 
@@ -309,7 +311,6 @@ int admin_route(struct admin_queue **responsep)
 	/* attach to response chain */
 	*responsep = response;
 	responsep = &response->next;
-
 	return(0);
 }
 
@@ -486,8 +487,8 @@ int admin_release(struct admin_queue **responsep, char *message)
 		goto out;
 	}
 
-	apppbx->e_callback = 0;
-	apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+	unsched_timer(&apppbx->e_callback_timeout);
+	apppbx->release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 
 	out:
 	/* attach to response chain */
@@ -518,7 +519,6 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 		apppbx->e_callerinfo.present = INFO_PRESENT_RESTRICTED;
 	apppbx->e_callerinfo.screen = INFO_SCREEN_NETWORK;
 
-//printf("hh=%d\n", apppbx->e_capainfo.hlc);
 
 	apppbx->e_capainfo.bearer_capa = msg->u.call.bc_capa;
 	apppbx->e_capainfo.bearer_mode = msg->u.call.bc_mode;
@@ -569,7 +569,6 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
 	response->num = 1;
 	/* message */
 	response->am[0].message = message;
-//	printf("MESSAGE: %d\n", message);
 
 	SCPY(response->am[0].u.call.callerid, connected);
 	response->am[0].u.call.cause = cause;
@@ -579,6 +578,7 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
 	/* attach to response chain */
 	*responsep = response;
 	responsep = &response->next;
+	admin->fd.when |= LCR_FD_WRITE;
 }
 
 
@@ -722,7 +722,7 @@ int admin_message_from_join(int remote_id, unsigned int ref, int message_type, u
 	(*responsep)->am[0].u.msg.type = message_type;
 	(*responsep)->am[0].u.msg.ref = ref;
 	memcpy(&(*responsep)->am[0].u.msg.param, param, sizeof(union parameter));
-
+	admin->fd.when |= LCR_FD_WRITE;
 	return(0);
 }
 
@@ -732,7 +732,6 @@ int admin_message_from_join(int remote_id, unsigned int ref, int message_type, u
  */
 int admin_state(struct admin_queue **responsep)
 {
-
 	class Port		*port;
 	class EndpointAppPBX	*apppbx;
 	class Join		*join;
@@ -745,6 +744,8 @@ int admin_state(struct admin_queue **responsep)
 	int			anybusy;
 	struct admin_queue	*response;
 	struct admin_list	*admin;
+	struct tm		*now_tm;
+	time_t			now;
 
 	/* create state response */
 	response = (struct admin_queue *)MALLOC(sizeof(struct admin_queue)+sizeof(admin_message));
@@ -755,6 +756,8 @@ int admin_state(struct admin_queue **responsep)
 	/* version */
 	SCPY(response->am[0].u.s.version_string, VERSION_STRING);
 	/* time */
+	time(&now);
+	now_tm = localtime(&now);
 	memcpy(&response->am[0].u.s.tm, now_tm, sizeof(struct tm));
 	/* log file */
 	SCPY(response->am[0].u.s.logfile, options.log);
@@ -1064,68 +1067,54 @@ int sockserial = 1; // must start with 1, because 0 is used if no serial is set
 /*
  * handle admin socket (non blocking)
  */
-int admin_handle(void)
+int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int index);
+
+int admin_handle(struct lcr_fd *fd, unsigned int what, void *instance, int index)
 {
-	struct admin_list	*admin, **adminp;
-	void			*temp;
-	struct admin_message	msg;
-	int			len;
 	int			new_sock;
 	socklen_t		sock_len = sizeof(sock_address);
-	unsigned int		on = 1;
-	int			work = 0; /* if work was done */
-	struct Endpoint		*epoint;
-
-	if (sock < 0)
-		return(0);
+	struct admin_list	*admin;
 
 	/* check for new incoming connections */
 	if ((new_sock = accept(sock, (struct sockaddr *)&sock_address, &sock_len)) >= 0) {
-		work = 1;
 		/* insert new socket */
 		admin = (struct admin_list *)MALLOC(sizeof(struct admin_list));
-		if (ioctl(new_sock, FIONBIO, (unsigned char *)(&on)) >= 0) {
-//#warning
-//	PERROR("DEBUG incoming socket %d, serial=%d\n", new_sock, sockserial);
-			memuse++;
-			fhuse++;
-			admin->sockserial = sockserial++;
-			admin->next = admin_first;
-			admin_first = admin;
-			admin->sock = new_sock;
-		} else {
-			close(new_sock);
-			FREE(admin, sizeof(struct admin_list));
-		}
+		memuse++;
+		fhuse++;
+		admin->sockserial = sockserial++;
+		admin->next = admin_first;
+		admin_first = admin;
+		admin->sock = new_sock;
+		admin->fd.fd = new_sock;
+		register_fd(&admin->fd, LCR_FD_READ | LCR_FD_EXCEPT, admin_handle_con, admin, 0);
 	} else {
 		if (errno != EWOULDBLOCK) {
 			PERROR("Failed to accept connection from socket \"%s\". (errno=%d) Closing socket.\n", sock_address.sun_path, errno);
 			admin_cleanup();
-			return(1);
+			return 0;
 		}
 	}
 
-	/* loop all current socket connections */
-	admin = admin_first;
-	adminp = &admin_first;
-	while(admin) {
+	return 0;
+}
+
+int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int index)
+{
+	struct admin_list *admin = (struct admin_list *)instance;
+	void			*temp;
+	struct admin_message	msg;
+	int			len;
+	struct Endpoint		*epoint;
+
+	if ((what & LCR_FD_READ)) {
 		/* read command */
 		len = read(admin->sock, &msg, sizeof(msg));
 		if (len < 0) {
-			if (errno != EWOULDBLOCK) {
-				work = 1;
-				brokenpipe:
-				PDEBUG(DEBUG_LOG, "Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
-				*adminp = admin->next;
-				free_connection(admin);
-				admin = *adminp;
-				continue;
-			}
-			goto send_data;
+			brokenpipe:
+			PDEBUG(DEBUG_LOG, "Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
+			free_connection(admin);
+			return 0;
 		}
-		work = 1;
-//#warning
-//PERROR("DEBUG socket %d got data. serial=%d\n", admin->sock, admin->sockserial);
 		if (len == 0) {
 			end:
 
@@ -1134,32 +1123,23 @@ int admin_handle(void)
 				epoint = find_epoint_id(admin->epointid);
 				if (epoint) {
 					((class DEFAULT_ENDPOINT_APP *)epoint->ep_app)->
-						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 				}
 			}
 
-//#warning
-//PERROR("DEBUG socket %d closed by remote.\n", admin->sock);
-			*adminp = admin->next;
 			free_connection(admin);
-			admin = *adminp;
-//PERROR("DEBUG (admin_first=%x)\n", admin_first);
-			continue;
+			return 0;
 		}
 		if (len != sizeof(msg)) {
 			PERROR("Short/long read on socket %d. (len=%d != size=%d).\n", admin->sock, len, sizeof(msg));
-			*adminp = admin->next;
 			free_connection(admin);
-			admin = *adminp;
-			continue;
+			return 0;
 		}
 		/* process socket command */
 		if (admin->response && msg.message != ADMIN_MESSAGE) {
 			PERROR("Data from socket %d while sending response.\n", admin->sock);
-			*adminp = admin->next;
 			free_connection(admin);
-			admin = *adminp;
-			continue;
+			return 0;
 		}
 		switch (msg.message) {
 			case ADMIN_REQUEST_CMD_INTERFACE:
@@ -1167,6 +1147,7 @@ int admin_handle(void)
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_REQUEST_CMD_ROUTE:
@@ -1174,6 +1155,7 @@ int admin_handle(void)
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_REQUEST_CMD_DIAL:
@@ -1181,6 +1163,7 @@ int admin_handle(void)
 				PERROR("Failed to create dial response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_REQUEST_CMD_RELEASE:
@@ -1188,6 +1171,7 @@ int admin_handle(void)
 				PERROR("Failed to create release response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_REQUEST_STATE:
@@ -1195,6 +1179,7 @@ int admin_handle(void)
 				PERROR("Failed to create state response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_TRACE_REQUEST:
@@ -1202,6 +1187,7 @@ int admin_handle(void)
 				PERROR("Failed to create trace response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_REQUEST_CMD_BLOCK:
@@ -1209,6 +1195,7 @@ int admin_handle(void)
 				PERROR("Failed to create block response for socket %d.\n", admin->sock);
 				goto response_error;
 			}
+			admin->fd.when |= LCR_FD_WRITE;
 			break;
 
 			case ADMIN_MESSAGE:
@@ -1216,71 +1203,46 @@ int admin_handle(void)
 				PERROR("Failed to deliver message for socket %d.\n", admin->sock);
 				goto response_error;
 			}
-#if 0
-#warning DEBUGGING
-{
-	struct admin_queue	*response;
-	printf("Chain: ");
-	response = admin->response;
-	while(response) {
-		printf("%c", '0'+response->am[0].message);
-		response=response->next;
-	}
-	printf("\n");
-}
-#endif
 			break;
 
 			case ADMIN_CALL_SETUP:
 			if (admin_call(admin, &msg) < 0) {
 				PERROR("Failed to create call for socket %d.\n", admin->sock);
 				response_error:
-				*adminp = admin->next;
 				free_connection(admin);
-				admin = *adminp;
-				continue;
+				return 0;
 			}
 			break;
 
 			default:
 			PERROR("Invalid message %d from socket %d.\n", msg.message, admin->sock);
-			*adminp = admin->next;
 			free_connection(admin);
-			admin = *adminp;
-			continue;
+			return 0;
 		}
+	}
+
+	if ((what & LCR_FD_WRITE)) {
 		/* write queue */
-		send_data:
 		if (admin->response) {
-//#warning
-//PERROR("DEBUG socket %d sending data.\n", admin->sock);
 			len = write(admin->sock, ((unsigned char *)(admin->response->am))+admin->response->offset, sizeof(struct admin_message)*(admin->response->num)-admin->response->offset);
 			if (len < 0) {
-				if (errno != EWOULDBLOCK) {
-					work = 1;
-					goto brokenpipe;
-				}
-				goto next;
+				goto brokenpipe;
 			}
-			work = 1;
 			if (len == 0)
 				goto end;
 			if (len < (int)(sizeof(struct admin_message)*(admin->response->num) - admin->response->offset)) {
 				admin->response->offset+=len;
-				goto next;
+				return 0;
 			} else {
 				temp = admin->response;
 				admin->response = admin->response->next;
 				FREE(temp, 0);
 				memuse--;
 			}
-		}
-		/* done with socket instance */
-		next:
-		adminp = &admin->next;
-		admin = admin->next;
+		} else
+			admin->fd.when &= ~LCR_FD_WRITE;
 	}
 
-	return(work);
+	return 0;
 }
 

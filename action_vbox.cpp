@@ -101,7 +101,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 
 	e_vbox_state = VBOX_STATE_MENU;
 	SCPY(e_vbox_display, (char *)((language)?"druecke 2 f. wiedergabe":"press 2 to play"));
-	e_vbox_display_refresh = 1;
+	schedule_timer(&e_vbox_refresh, 0, 0);
 	set_tone_vbox("menu");
 
 	e_vbox_menu = -1;
@@ -112,7 +112,7 @@ void EndpointAppPBX::action_init_vbox_play(void)
 	if (e_vbox_index_num == 0) {
 		e_vbox_state = VBOX_STATE_NOTHING;
 		SCPY(e_vbox_display, (char *)((language)?"keine Anrufe":"no calls"));
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		set_tone_vbox("nothing");
 	}
 }
@@ -232,6 +232,8 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 	int language = e_ext.vbox_language;
 	struct port_list *portlist;
 	class Port *port;
+	time_t current_time;
+	struct tm *current_tm;
 	
 	portlist = ea_endpoint->ep_portlist;
 
@@ -242,7 +244,7 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing digit: %c\n", ea_endpoint->ep_serial, e_extdialing[0]);
 
-	e_vbox_display_refresh = 1;
+	schedule_timer(&e_vbox_refresh, 0, 0);
 
 	if (e_vbox_state == VBOX_STATE_RECORD_RECORD) {
 		if (e_extdialing[0] == '1' || e_extdialing[0] == '0') {
@@ -280,10 +282,10 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) play recoding.\n", ea_endpoint->ep_serial);
 			/* play announcement */
 			e_vbox_counter = 0;
-			e_vbox_counter_last = 0;
 			e_vbox_counter_max = 0;
 			e_vbox_speed = 1;
 			e_vbox_state = VBOX_STATE_RECORD_PLAY;
+			schedule_timer(&e_vbox_refresh, 0, 0);
 			if (e_ext.vbox_language)
 				SCPY(e_vbox_display, "Wied., 1=stop %s");
 			else
@@ -396,10 +398,12 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 		e_vbox_state = VBOX_STATE_CALLINFO_INTRO;
 		SPRINT(e_vbox_display, "#%d", e_vbox_play+1);
 		vbox_index_read(e_vbox_play);
-		if (e_vbox_index_mon!=now_tm->tm_mon || e_vbox_index_year!=now_tm->tm_year) {
+		time(&current_time);
+		current_tm = localtime(&current_time);
+		if (e_vbox_index_mon!=current_tm->tm_mon || e_vbox_index_year!=current_tm->tm_year) {
 			UPRINT(strchr(e_vbox_display,'\0'), " %s", (language)?months_german[e_vbox_index_mon]:months_english[e_vbox_index_mon]);
 		}
-		if (e_vbox_index_mday!=now_tm->tm_mday || e_vbox_index_mon!=now_tm->tm_mon || e_vbox_index_year!=now_tm->tm_year) {
+		if (e_vbox_index_mday!=current_tm->tm_mday || e_vbox_index_mon!=current_tm->tm_mon || e_vbox_index_year!=current_tm->tm_year) {
 			UPRINT(strchr(e_vbox_display,'\0'), " %d", e_vbox_index_mday);
 		}
 		UPRINT(strchr(e_vbox_display,'\0'), " %02d:%02d", e_vbox_index_hour, e_vbox_index_min);
@@ -419,10 +423,10 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) play call #%d. abborting announcement and starting with playback\n", ea_endpoint->ep_serial, e_vbox_play+1);
 			/* the callinfo is played, so we start with the call */
 			e_vbox_counter = 0;
-			e_vbox_counter_last = 0;
 			e_vbox_counter_max = 0;
 			e_vbox_speed = 1;
 			e_vbox_state = VBOX_STATE_PLAY;
+			schedule_timer(&e_vbox_refresh, 0, 0);
 			SPRINT(e_vbox_display, "#%d %%s", e_vbox_play+1);
 			if (e_ext.vbox_display == VBOX_DISPLAY_DETAILED)
 				UPRINT(strchr(e_vbox_display,'\0'), " (%s)", e_vbox_index_callerid);
@@ -558,7 +562,7 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 				SPRINT(e_dialinginfo.id, "extern:%s", e_vbox_index_callerid);
 				e_extdialing = e_dialinginfo.id;
 				e_action = NULL;
-				process_dialing();
+				process_dialing(0);
 				return;
 			}
 			break;
@@ -600,31 +604,35 @@ void EndpointAppPBX::action_dialing_vbox_play(void)
 /*
  * this handler is called by Epoint::handler(), whenever the action is NUMB_ACTION_VBOX_PLAY
  */
-void EndpointAppPBX::vbox_handler(void)
+int vbox_refresh(struct lcr_timer *timer, void *instance, int index)
 {
-	/* refresh if counter changes */
-	if (e_vbox_state==VBOX_STATE_PLAY || e_vbox_state==VBOX_STATE_RECORD_PLAY)
-	if (e_vbox_counter != e_vbox_counter_last) {
-		e_vbox_counter_last = e_vbox_counter;
-		e_vbox_display_refresh = 1;
-	}
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
 
-	/* refresh display, if required (include counter) */
-	if (e_vbox_display_refresh && e_ext.vbox_display!=VBOX_DISPLAY_OFF) {
-		char counter[32];
-		struct lcr_msg *message;
+	/* no display */
+	if (ea->e_ext.vbox_display == VBOX_DISPLAY_OFF)
+		return 0;
 
-		SPRINT(counter, "%02d:%02d", e_vbox_counter/60, e_vbox_counter%60);
-		if (e_vbox_counter_max)
-			UPRINT(strchr(counter,'\0'), " of %02d:%02d", e_vbox_counter_max/60, e_vbox_counter_max%60);
+	/* refresh display */
+	char counter[32];
+	struct lcr_msg *message;
 
-		e_vbox_display_refresh = 0;
-		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
-		SPRINT(message->param.notifyinfo.display, e_vbox_display, counter);
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s pending display:%s\n", ea_endpoint->ep_serial, e_ext.number, message->param.notifyinfo.display);
-		message_put(message);
-		logmessage(message->type, &message->param, ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
-	}
+	SPRINT(counter, "%02d:%02d", ea->e_vbox_counter/60, ea->e_vbox_counter%60);
+	if (ea->e_vbox_counter_max)
+		UPRINT(strchr(counter,'\0'), " of %02d:%02d", ea->e_vbox_counter_max/60, ea->e_vbox_counter_max%60);
+
+	message = message_create(ea->ea_endpoint->ep_serial, ea->ea_endpoint->ep_portlist->port_id, EPOINT_TO_PORT, MESSAGE_NOTIFY);
+	SPRINT(message->param.notifyinfo.display, ea->e_vbox_display, counter);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s pending display:%s\n", ea->ea_endpoint->ep_serial, ea->e_ext.number, message->param.notifyinfo.display);
+	message_put(message);
+	ea->logmessage(message->type, &message->param, ea->ea_endpoint->ep_portlist->port_id, DIRECTION_OUT);
+
+	/* not playing anymore */
+	if (!ea->e_vbox_state==VBOX_STATE_PLAY && !ea->e_vbox_state==VBOX_STATE_RECORD_PLAY)
+		return 0;
+	
+	schedule_timer(&ea->e_vbox_refresh, 1, 0);
+
+	return 0;
 }
 
 
@@ -636,6 +644,8 @@ void EndpointAppPBX::vbox_message_eof(void)
 {
 	char buffer[32];
 	int language = e_ext.vbox_language;
+	time_t current_time;
+	struct tm *current_tm;
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) terminal %s end of file during state: %d\n", ea_endpoint->ep_serial, e_ext.number, e_vbox_state);
 
@@ -644,7 +654,7 @@ void EndpointAppPBX::vbox_message_eof(void)
 		case VBOX_STATE_NOTHING:
 		e_vbox_state = VBOX_STATE_MENU;
 		SCPY(e_vbox_display, (char *)((language)?"druecke 2 f. wiedergabe":"press 2 to play"));
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		set_tone_vbox("menu");
 		break;
 
@@ -652,7 +662,7 @@ void EndpointAppPBX::vbox_message_eof(void)
 		if (e_vbox_speed > 0) {
 			e_vbox_state = VBOX_STATE_MENU;
 			SCPY(e_vbox_display, (char *)((language)?"druecke 3 f. Naechste":"press 3 for next"));
-			e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 			set_tone_vbox("menu");
 		} else {
 			/* if we have endoffile because we were playing backwards, we continue to play forward */
@@ -664,11 +674,13 @@ void EndpointAppPBX::vbox_message_eof(void)
 
 		case VBOX_STATE_PAUSE:
 		SCPY(e_vbox_display, (char *)((language)?"druecke 2 f. weiterspielen":"press 2 to continue"));
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		break;
 
 		case VBOX_STATE_CALLINFO_INTRO:
-		if (e_vbox_index_mday==now_tm->tm_mday && e_vbox_index_mon==now_tm->tm_mon && e_vbox_index_year==now_tm->tm_year)
+		time(&current_time);
+		current_tm = localtime(&current_time);
+		if (e_vbox_index_mday==current_tm->tm_mday && e_vbox_index_mon==current_tm->tm_mon && e_vbox_index_year==current_tm->tm_year)
 			goto skip_day_month;
 		e_vbox_state = VBOX_STATE_CALLINFO_MONTH; //german day
 		if (e_ext.vbox_language)
@@ -764,37 +776,37 @@ void EndpointAppPBX::vbox_message_eof(void)
 		} else {
 			/* the callinfo is played, so we start with the call */
 			e_vbox_counter = 0;
-			e_vbox_counter_last = 0;
 			e_vbox_counter_max = 0;
 			e_vbox_speed = 1;
 			e_vbox_state = VBOX_STATE_PLAY;
+			schedule_timer(&e_vbox_refresh, 0, 0);
 			SPRINT(e_vbox_display, "#%d %%s", e_vbox_play);
 			if (e_ext.vbox_display == VBOX_DISPLAY_DETAILED)
 				UPRINT(strchr(e_vbox_display,'\0'), " (%s)", e_vbox_index_callerid);
-			e_vbox_display_refresh = 1;
+			schedule_timer(&e_vbox_refresh, 0, 0);
 			set_play_vbox(e_vbox_index_file, 0);
 		}
 		break;
 
 		case VBOX_STATE_RECORD_ASK:
 		set_tone_vbox("record_ask");
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		break;
 
 		case VBOX_STATE_STORE_ASK:
 		set_tone_vbox("store_ask");
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		break;
 
 		case VBOX_STATE_DELETE_ASK:
 		set_tone_vbox("delete_ask");
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		break;
 
 		case VBOX_STATE_RECORD_PLAY:
 		e_vbox_state = VBOX_STATE_RECORD_ASK;
 		SCPY(e_vbox_display, (char *)((language)?"1=Aufn. 2=Wied. 3=nein":"1=record 2=play 3=no"));
-		e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 		set_tone_vbox("record_ask");
 		break;
 
@@ -803,12 +815,12 @@ void EndpointAppPBX::vbox_message_eof(void)
 		if (e_vbox_index_num == 0) { /* nothing to play */
 			e_vbox_state = VBOX_STATE_MENU;
 			SCPY(e_vbox_display, (char *)((language)?"keine Anrufe":"no calls"));
-			e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 			set_tone_vbox("nothing");
 		} else {
 			e_vbox_state = VBOX_STATE_MENU;
 			SCPY(e_vbox_display, (char *)((language)?"druecke 2 f. wiedergabe":"press 2 to play"));
-			e_vbox_display_refresh = 1;
+		schedule_timer(&e_vbox_refresh, 0, 0);
 			set_tone_vbox("menu");
 		}
 		break;

@@ -15,5 +15,5 @@ doku:
 - neuen partyline-param dokumentieren
 - aufzeichnung der ansage mit 0 ohne beep beenden
 - gain, pipeline, crypt
-
+- polling
 

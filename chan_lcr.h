@@ -71,7 +71,7 @@ struct chan_call {
 	int			bf_len;	/* blowfish crypt key */
 	struct ast_dsp		*dsp; /* ast dsp processor for fax/tone detection */
 	struct ast_trans_pvt 	*trans; /* Codec translation path as fax/tone detection requires slin */
-	int			nodsp, hdlc, faxdetect;
+	int			nodsp, nodsp_queue, hdlc, faxdetect;
 					/* flags for bchannel mode */
 	char			queue_string[64];
 					/* queue for asterisk */
@@ -131,6 +131,8 @@ enum {
 	  "Call is waiting for complete release." }, \
 };
 
+
+#define SOCKET_RETRY_TIMER	5
 
 #define CERROR(call, ast, arg...) chan_lcr_log(__LOG_ERROR, __FILE__, __LINE__,  __FUNCTION__, call, ast, ##arg)
 #define CDEBUG(call, ast, arg...) chan_lcr_log(__LOG_NOTICE, __FILE__, __LINE__,  __FUNCTION__, call, ast, ##arg)

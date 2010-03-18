@@ -111,6 +111,8 @@ void EndpointAppPBX::action_dialing_internal(void)
 			capainfo.bearer_mode = INFO_BMODE_PACKET;
 		}
 		capainfo.bearer_info1 = INFO_INFO1_NONE;
+		capainfo.hlc = INFO_HLC_NONE;
+		capainfo.exthlc = INFO_HLC_NONE;
 	}
 	if ((rparam = routeparam(e_action, PARAM_BMODE))) {
 		capainfo.bearer_mode = rparam->integer_value;
@@ -135,7 +137,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		trace_header("ACTION extension (extension doesn't exist)", DIRECTION_NONE);
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_UNALLOCATED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_86");
@@ -147,7 +149,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 		add_trace("extension", NULL, dialinginfo.id);
 		end_trace();
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_81");
 		return;
@@ -237,6 +239,8 @@ void EndpointAppPBX::action_dialing_external(void)
 			capainfo.bearer_mode = INFO_BMODE_PACKET;
 		}
 		capainfo.bearer_info1 = INFO_INFO1_NONE;
+		capainfo.hlc = INFO_HLC_NONE;
+		capainfo.exthlc = INFO_HLC_NONE;
 	}
 	if ((rparam = routeparam(e_action, PARAM_BMODE))) {
 		capainfo.bearer_mode = rparam->integer_value;
@@ -273,7 +277,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	if (e_ext.rights < 2) {
 		trace_header("ACTION extern (calling denied)", DIRECTION_NONE);
 		end_trace();
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 		set_tone(portlist, "cause_82");
 		denied:
 		message_disconnect_port(portlist, CAUSE_REJECTED, LOCATION_PRIVATE_LOCAL, "");
@@ -288,7 +292,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 3) {
 			trace_header("ACTION extern (national calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 			set_tone(portlist, "cause_83");
 			goto denied;
 		}
@@ -300,7 +304,7 @@ void EndpointAppPBX::action_dialing_external(void)
 		if (e_ext.rights < 4) {
 			trace_header("ACTION extern (international calls denied)", DIRECTION_NONE);
 			end_trace();
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0);
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_REJECTED, 0, 0, 0);
 			set_tone(portlist, "cause_84");
 			goto denied;
 		}
@@ -644,16 +648,16 @@ void EndpointAppPBX::action_dialing_login(void)
 		e_ruleset = NULL;
 		e_rule = NULL;
 		e_action = &action_password;
-		e_match_timeout = 0;
+		unsched_timer(&e_match_timeout);
 		e_match_to_action = NULL;
 		e_dialinginfo.id[0] = '\0';
 		e_extdialing = strchr(e_dialinginfo.id, '\0');
 
 		/* set timeout */
-		e_password_timeout = now+20;
+		schedule_timer(&e_password_timeout, 20, 0);
 
 		/* do dialing */
-		process_dialing();
+		process_dialing(0);
 	} else {
 		/* make call state  */
 		new_state(EPOINT_STATE_IN_OVERLAP);
@@ -945,7 +949,7 @@ void EndpointAppPBX::_action_redial_reply(int in)
 		SCPY(e_dialinginfo.id, last);
 		e_extdialing = e_dialinginfo.id;
 		e_action = NULL;
-		process_dialing();
+		process_dialing(0);
 		return;
 	}
 	e_extdialing[0] = '\0';
@@ -1039,10 +1043,10 @@ void EndpointAppPBX::action_dialing_powerdial(void)
 
 	/* do dialing */
 	SCPY(e_dialinginfo.id, e_ext.last_out[0]);
-	e_powerdialing = -1; /* indicates the existence of powerdialing but no redial time given */
+	e_powerdial_on = 1; /* indicates the existence of powerdialing but no redial time given */
 	e_powercount = 0;
 	e_action = NULL;
-	process_dialing();
+	process_dialing(0);
 }
 
 
@@ -1144,7 +1148,7 @@ void EndpointAppPBX::action_hangup_callback(void)
 	end_trace();
 
 	/* set time to callback */
-	e_callback = now_d + delay;
+	schedule_timer(&e_callback_timeout, delay, 0);
 }
 
 
@@ -1197,7 +1201,7 @@ void EndpointAppPBX::action_dialing_abbrev(void)
 	SCPY(e_dialinginfo.id, phone);
 	e_extdialing = e_dialinginfo.id;
 	e_action = NULL;
-	process_dialing();
+	process_dialing(0);
 }
 
 
@@ -1701,7 +1705,7 @@ void EndpointAppPBX::_action_goto_menu(int mode)
 
 	/* do dialing with new ruleset */
 	e_action = NULL;
-	process_dialing();
+	process_dialing(0);
 }
 
 /* process dialing goto
@@ -1781,6 +1785,48 @@ void EndpointAppPBX::action_dialing_disconnect(void)
 
 
 /*
+ * process dialing release
+ */
+void EndpointAppPBX::action_dialing_release(void)
+{
+	struct route_param *rparam;
+	int cause = CAUSE_NORMAL; /* normal call clearing */
+	int location = LOCATION_PRIVATE_LOCAL;
+	char cause_string[256] = "", display[84] = "";
+
+	/* check cause parameter */
+	if ((rparam = routeparam(e_action, PARAM_CAUSE))) {
+		cause = rparam->integer_value;
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'cause' is given: %d\n", ea_endpoint->ep_serial, cause);
+	}
+	if ((rparam = routeparam(e_action, PARAM_LOCATION))) {
+		location = rparam->integer_value;
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'location' is given: %d\n", ea_endpoint->ep_serial, location);
+	}
+
+
+	/* use cause as sample, if not given later */
+	SPRINT(cause_string, "cause_%02x", cause);
+
+	/* check display */
+	if ((rparam = routeparam(e_action, PARAM_DISPLAY))) {
+		SCPY(display, rparam->string_value);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): 'display' is given: %s\n", ea_endpoint->ep_serial, display);
+	}
+
+	/* disconnect only if connect parameter is not given */
+	trace_header("ACTION release", DIRECTION_NONE);
+	add_trace("cause", "value", "%d", cause);
+	add_trace("cause", "location", "%d", location);
+	if (display[0])
+		add_trace("display", NULL, "%s", display);
+	end_trace();
+	e_action = NULL;
+	release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, location, cause, 1);
+	return;
+}
+
+/*
  * process dialing help
  */
 void EndpointAppPBX::action_dialing_help(void)
@@ -1839,7 +1885,7 @@ void EndpointAppPBX::action_dialing_help(void)
 		e_extdialing = e_dialinginfo.id+strlen(numbering->prefix);
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal %s selected a new menu '%s' dialing: %s\n", ea_endpoint->ep_serial, e_ext.number, numb_actions[numbering->action], e_dialinginfo.id);
 nesting?:
-		process_dialing();
+		process_dialing(0);
 		return;
 	}
 
@@ -2098,11 +2144,16 @@ void EndpointAppPBX::action_dialing_password_wr(void)
  * depending on the detected prefix, subfunctions above (action_*) will be
  * calles.
  */
-void EndpointAppPBX::process_dialing(void)
+void EndpointAppPBX::process_dialing(int timeout)
 {
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	struct lcr_msg *message;
 	struct route_param *rparam;
+	struct timeval current_time;
+
+	/* set if timeout is active, or if timeout value was given due to timeout action */
+	if (e_action_timeout.active)
+		timeout = 1;
 
 //#warning Due to HANG-BUG somewhere here, I added some HANG-BUG-DEBUGGING output that cannot be disabled. after bug has been found, this will be removed.
 //PDEBUG(~0, "HANG-BUG-DEBUGGING: entered porcess_dialing\n");
@@ -2111,8 +2162,8 @@ void EndpointAppPBX::process_dialing(void)
 	if (!portlist) {
 		portlist_error:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): note: dialing call requires exactly one port object to process dialing. this case could happen due to a parked call. we end dialing here.\n", ea_endpoint->ep_serial, e_ext.number);
-		e_action_timeout = 0;
-		e_match_timeout = 0;
+		unsched_timer(&e_action_timeout);
+		unsched_timer(&e_match_timeout);
 		return;
 	}
 	if (portlist->next) {
@@ -2127,15 +2178,15 @@ void EndpointAppPBX::process_dialing(void)
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
 		set_tone(portlist, "cause_3f");
-		e_action_timeout = 0;
-		e_match_timeout = 0;
+		unsched_timer(&e_action_timeout);
+		unsched_timer(&e_match_timeout);
 		goto end;
 	}
 
 //PDEBUG(~0, "HANG-BUG-DEBUGGING: before action-timeout processing\n");
 	/* process timeout */
-	if (e_action && e_action_timeout) { /* e_action may be NULL, but e_action_timeout may still be set and must be ignored */
-		e_action_timeout = 0;
+	if (e_action && timeout) { /* e_action may be NULL, but e_action_timeout may still be set and must be ignored */
+		unsched_timer(&e_action_timeout);
 		if (e_state == EPOINT_STATE_CONNECT) {
 			PDEBUG(DEBUG_ROUTE|DEBUG_EPOINT, "EPOINT(%d): action timed out, but we already have connected, so we stop timer and continue.\n", ea_endpoint->ep_serial);
 			goto end;
@@ -2143,10 +2194,10 @@ void EndpointAppPBX::process_dialing(void)
 		if (e_action->index == ACTION_DISCONNECT
 		 || e_state == EPOINT_STATE_OUT_DISCONNECT) {
 			/* release after disconnect */
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 			goto end;
 		}
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0);
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0, 0, 0);
 		e_action = e_action->next;
 		if (!e_action) {
 			/* nothing more, so we release */
@@ -2163,7 +2214,7 @@ void EndpointAppPBX::process_dialing(void)
 	if (e_state!=EPOINT_STATE_IN_SETUP
 	 && e_state!=EPOINT_STATE_IN_OVERLAP) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d): we are not in incoming setup/overlap state, so we ignore init/dialing process.\n", ea_endpoint->ep_serial, e_rule_nesting);
-		e_match_timeout = 0;
+		unsched_timer(&e_match_timeout);
 		goto end;
 	}
 
@@ -2176,8 +2227,8 @@ void EndpointAppPBX::process_dialing(void)
 			e_dialinginfo.id[0] = '\0';
 			e_action = NUMB_ACTION_MENU;
 			e_menu = 0;
-			process_dialing();
-			e_match_timeout = 0;
+			process_dialing(0);
+			unsched_timer(&e_match_timeout);
 			goto end;
 		}
 		/* invalid dialing */
@@ -2194,7 +2245,7 @@ void EndpointAppPBX::process_dialing(void)
 		}
 		new_state(EPOINT_STATE_OUT_DISCONNECT);
 		set_tone(portlist,"cause_1c");
-		e_match_timeout = 0;
+		unsched_timer(&e_match_timeout);
 		goto end;
 	}
 #endif
@@ -2230,10 +2281,11 @@ void EndpointAppPBX::process_dialing(void)
 			goto process_action;
 		}
 
-		if (e_match_timeout && now_d>=e_match_timeout) {
+		gettimeofday(&current_time, NULL);
+		if (timeout && TIME_SMALLER(&e_match_timeout.timeout, &current_time)) {
 			/* return timeout rule */
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id, e_ruleset->name);
-			e_match_timeout = 0;
+			unsched_timer(&e_match_timeout);
 			e_action = e_match_to_action;
 			e_extdialing = e_match_to_extdialing;
 			trace_header("ROUTING (timeout)", DIRECTION_NONE);
@@ -2272,9 +2324,9 @@ void EndpointAppPBX::process_dialing(void)
 		action_timeout:
 
 		/* set timeout */
-		e_action_timeout = 0;
+		unsched_timer(&e_action_timeout);
 		if (e_action->timeout) {
-			e_action_timeout = now_d + e_action->timeout;
+			schedule_timer(&e_action_timeout, e_action->timeout, 0);
 			PDEBUG(DEBUG_ROUTE|DEBUG_EPOINT, "EPOINT(%d): action has a timeout of %d secods.\n", ea_endpoint->ep_serial, e_action->timeout);
 		}
 

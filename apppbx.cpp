@@ -14,12 +14,43 @@
 
 class EndpointAppPBX *apppbx_first = NULL;
 
+int action_timeout(struct lcr_timer *timer, void *instance, int index);
+int match_timeout(struct lcr_timer *timer, void *instance, int index);
+int redial_timeout(struct lcr_timer *timer, void *instance, int index);
+int powerdial_timeout(struct lcr_timer *timer, void *instance, int index);
+int cfnr_timeout(struct lcr_timer *timer, void *instance, int index);
+int cfnr_call_timeout(struct lcr_timer *timer, void *instance, int index);
+int password_timeout(struct lcr_timer *timer, void *instance, int index);
+int callback_timeout(struct lcr_timer *timer, void *instance, int index);
+
 /*
  * EndpointAppPBX constructor
  */
 EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp(epoint, origin)
 {
 	class EndpointAppPBX **apppointer;
+
+	memset(&e_crypt_handler, 0, sizeof(e_crypt_handler));
+	add_timer(&e_crypt_handler, crypt_handler, this, 0);
+	memset(&e_vbox_refresh, 0, sizeof(e_vbox_refresh));
+	add_timer(&e_vbox_refresh, vbox_refresh, this, 0);
+	memset(&e_action_timeout, 0, sizeof(e_action_timeout));
+	add_timer(&e_action_timeout, action_timeout, this, 0);
+	memset(&e_match_timeout, 0, sizeof(e_match_timeout));
+	add_timer(&e_match_timeout, match_timeout, this, 0);
+	memset(&e_redial_timeout, 0, sizeof(e_redial_timeout));
+	add_timer(&e_redial_timeout, redial_timeout, this, 0);
+	memset(&e_powerdial_timeout, 0, sizeof(e_powerdial_timeout));
+	add_timer(&e_powerdial_timeout, powerdial_timeout, this, 0);
+	memset(&e_cfnr_timeout, 0, sizeof(e_cfnr_timeout));
+	add_timer(&e_cfnr_timeout, cfnr_timeout, this, 0);
+	memset(&e_cfnr_call_timeout, 0, sizeof(e_cfnr_call_timeout));
+	add_timer(&e_cfnr_call_timeout, cfnr_call_timeout, this, 0);
+	memset(&e_callback_timeout, 0, sizeof(e_callback_timeout));
+	add_timer(&e_callback_timeout, callback_timeout, this, 0);
+	memset(&e_password_timeout, 0, sizeof(e_password_timeout));
+	add_timer(&e_password_timeout, password_timeout, this, 0);
+	e_powerdial_on = 0;
 
 	/* add application to chain */
 	next = NULL;
@@ -48,8 +79,6 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         	e_rule = e_ruleset->rule_first;
 	e_rule_nesting = 0;
         e_action = NULL;
-	e_action_timeout = 0;
-	e_match_timeout = 0;
 	e_match_to_action = NULL;
         e_select = 0;
         e_extdialing = e_dialinginfo.id;
@@ -58,13 +87,10 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
 	e_hold = 0;
 //        e_join_tone[0] = e_hold_tone[0] = '\0';
         e_join_pattern /*= e_hold_pattern*/ = 0;
-        e_redial = 0;
 	e_tone[0] = '\0';
 	e_adminid = 0; // will be set, if call was initiated via admin socket
-        e_powerdialing = 0;
         e_powerdelay = 0;
         e_powerlimit = 0;
-        e_callback = 0;
         e_cbdialing[0] = '\0';
         e_cbcaller[0] = '\0';
 	e_cbto[0] = '\0';
@@ -74,9 +100,6 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         e_dtmf_time = 0;
         e_dtmf_last = 0;
 	e_enablekeypad = 0;
-	e_cfnr_release = 0;
-	e_cfnr_call = 0;
-	e_password_timeout = 0;
 	e_multipoint_cause = 0;
 	e_multipoint_location = 0;
 	e_dialing_queue[0] = '\0';
@@ -106,6 +129,17 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
 EndpointAppPBX::~EndpointAppPBX(void)
 {
 	class EndpointAppPBX *temp, **tempp;
+
+	del_timer(&e_crypt_handler);
+	del_timer(&e_vbox_refresh);
+	del_timer(&e_action_timeout);
+	del_timer(&e_match_timeout);
+	del_timer(&e_redial_timeout);
+	del_timer(&e_powerdial_timeout);
+	del_timer(&e_cfnr_timeout);
+	del_timer(&e_cfnr_call_timeout);
+	del_timer(&e_callback_timeout);
+	del_timer(&e_password_timeout);
 
 	/* detach */
 	temp =apppbx_first;
@@ -167,7 +201,7 @@ void EndpointAppPBX::new_state(int state)
 
 /* release join and port (as specified)
  */
-void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause)
+void EndpointAppPBX::release(int release, int joinlocation, int joincause, int portlocation, int portcause, int force)
 {
 	struct port_list *portlist;
 	struct lcr_msg *message;
@@ -204,6 +238,7 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
 				message->param.disconnectinfo.cause = portcause;
 				message->param.disconnectinfo.location = portlocation;
+				message->param.disconnectinfo.force = force; // set, if port should release imediately
 				message_put(message);
 				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 			}
@@ -211,7 +246,7 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 		}
 
 		/* if callback is enabled, call back with the given caller id */
-		if (e_callback) {
+		if (e_callback_timeout.active) {
 			/* reset some stuff */
 		        new_state(EPOINT_STATE_IDLE);
 			memset(&e_connectinfo, 0, sizeof(struct connect_info));
@@ -221,8 +256,10 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 			if (e_ruleset)
         			e_rule = e_ruleset->rule_first;
 			e_action = NULL;
-			e_action_timeout = 0;
-			e_match_timeout = 0;
+			unsched_timer(&e_action_timeout);
+			unsched_timer(&e_match_timeout);
+			unsched_timer(&e_cfnr_timeout);
+			unsched_timer(&e_cfnr_call_timeout);
 			e_match_to_action = NULL;
 			//e_select = 0;
         		e_extdialing = e_dialinginfo.id;
@@ -231,8 +268,6 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 			e_dtmf_time = 0;
 			e_dtmf_last = 0;
 			e_enablekeypad = 0;
-			e_cfnr_release = 0;
-			e_cfnr_call = 0;
 			e_multipoint_cause = 0;
 			e_multipoint_location = 0;
 			e_dialing_queue[0] = '\0';
@@ -273,7 +308,8 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 		}
 
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) do pending release of epoint itself.\n", ea_endpoint->ep_serial);
-		ea_endpoint->ep_use--; /* when e_lock is 0, the endpoint will be deleted */
+		if (--ea_endpoint->ep_use <= 0) /* when e_lock is 0, the endpoint will be deleted */
+			trigger_work(&ea_endpoint->ep_delete);
 		return;
 	}
 }
@@ -844,7 +880,7 @@ void EndpointAppPBX::out_setup(void)
 			}
 			if (atemp) {
 				PERROR("EPOINT(%d) noknocking and currently a call\n", ea_endpoint->ep_serial);
-				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYSPE_ join, port */
+				release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_BUSY, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYSPE_ join, port */
 				return; /* must exit here */
 			}
 		}
@@ -857,7 +893,7 @@ void EndpointAppPBX::out_setup(void)
 //		if (!read_extension(&e_ext, exten))
 		if (!read_extension(&e_ext, e_dialinginfo.id)) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) extension %s not configured\n", ea_endpoint->ep_serial, e_dialinginfo.id);
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 
@@ -901,7 +937,7 @@ void EndpointAppPBX::out_setup(void)
 		p = e_ext.cfnr;
 		if (*p) {
 			/* when cfnr is done, out_setup() will setup the call */
-			if (e_cfnr_call) {
+			if (e_cfnr_call_timeout.active) {
 				/* present to forwarded party */
 				if (e_ext.anon_ignore && e_callerinfo.id[0]) {
 					e_callerinfo.present = INFO_PRESENT_ALLOWED;
@@ -909,8 +945,8 @@ void EndpointAppPBX::out_setup(void)
 				goto cfnr_only;
 			}
 			if (!!strcmp(p, "vbox") || (e_capainfo.bearer_capa==INFO_BC_AUDIO) || (e_capainfo.bearer_capa==INFO_BC_SPEECH)) {
-				e_cfnr_release = now + e_ext.cfnr_delay;
-				e_cfnr_call = now + e_ext.cfnr_delay + 1; /* call one second after release */
+				schedule_timer(&e_cfnr_timeout, e_ext.cfnr_delay, 0);
+				schedule_timer(&e_cfnr_call_timeout, e_ext.cfnr_delay + 1, 0); /* call one second after release */
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) setting time for call-forward-busy to %s with delay %ld.\n", ea_endpoint->ep_serial, e_ext.cfnr, e_ext.cfnr_delay);
 			}
 		}
@@ -1121,7 +1157,7 @@ void EndpointAppPBX::out_setup(void)
 			end_trace();
 			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1210,7 +1246,7 @@ void EndpointAppPBX::out_setup(void)
 			end_trace();
 			if (!ea_endpoint->ep_join_id)
 				break;
-			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOCHANNEL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
 		break;
@@ -1218,163 +1254,157 @@ void EndpointAppPBX::out_setup(void)
 
 }
 
-
-/* handler for endpoint
- */
-
-extern int quit;
-int EndpointAppPBX::handler(void)
+int action_timeout(struct lcr_timer *timer, void *instance, int index)
 {
-	if (e_crypt_state!=CM_ST_NULL) {
-		cryptman_handler();
-	}
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
 
-	/* process answering machine (play) handling */
-	if (e_action) {
-		if (e_action->index == ACTION_VBOX_PLAY)
-			vbox_handler();
+	if (!ea->e_action || ea->e_state == EPOINT_STATE_CONNECT)
+		return 0;
 
-		/* process action timeout */
-		if (e_action_timeout)
-		if (now_d >= e_action_timeout) {
-			if (e_state!=EPOINT_STATE_CONNECT) {
-				e_redial = 0;
-				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) current action timed out.\n", ea_endpoint->ep_serial);
-				e_multipoint_cause = 0;
-				e_multipoint_location = 0;
-				new_state(EPOINT_STATE_IN_OVERLAP);
-				e_join_pattern = 0;
-				process_dialing();
-				return(1); /* we must exit, because our endpoint might be gone */
-			} else
-				e_action_timeout = 0;
-		}
-	} else {
-		/* process action timeout */
-		if (e_match_timeout)
-		if (now_d >= e_match_timeout) {
-			e_redial = 0;
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we got a match timeout.\n", ea_endpoint->ep_serial);
-			process_dialing();
-			return(1); /* we must exit, because our endpoint might be gone */
-		}
-	}
+	unsched_timer(&ea->e_redial_timeout);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) current action timed out.\n", ea->ea_endpoint->ep_serial);
+	ea->e_multipoint_cause = 0;
+	ea->e_multipoint_location = 0;
+	ea->new_state(EPOINT_STATE_IN_OVERLAP);
+	ea->e_join_pattern = 0;
+	ea->process_dialing(1);
+	/* we must exit, because our endpoint might be gone */
 
-
-	/* process redialing (epoint redials to port) */
-	if (e_redial) {
-		if (now_d >= e_redial) {
-			e_redial = 0;
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting redial.\n", ea_endpoint->ep_serial);
-
-			new_state(EPOINT_STATE_OUT_SETUP);
-			/* call special setup routine */
-			out_setup();
-
-			return(1);
-		}
-	}
-
-	/* process powerdialing (epoint redials to epoint) */
-	if (e_powerdialing > 0) {
-		if (now_d >= e_powerdialing) {
-			e_powerdialing = -1; /* leave power dialing on */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting redial of powerdial.\n", ea_endpoint->ep_serial);
-
-			/* redial */
-			e_ruleset = ruleset_main;
-			if (e_ruleset)
-	        		e_rule = e_ruleset->rule_first;
-			e_action = NULL;
-			new_state(EPOINT_STATE_IN_OVERLAP);
-			process_dialing();
-			return(1);
-		}
-	}
-
-	/* process call forward no response */
-	if (e_cfnr_release) {
-		struct port_list *portlist;
-		struct lcr_msg *message;
-
-		if (now >= e_cfnr_release) {
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call-forward-no-response time has expired, hanging up.\n", ea_endpoint->ep_serial);
-			e_cfnr_release = 0;
-
-			/* release all ports */
-			while((portlist = ea_endpoint->ep_portlist)) {
-				message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
-				message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal clearing */
-				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				message_put(message);
-				logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
-				ea_endpoint->free_portlist(portlist);
-			}
-			/* put on hold */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
-			message->param.audiopath = 0;
-			message_put(message);
-			/* indicate no patterns */
-			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
-			message_put(message);
-			/* set setup state, since we have no response from the new join */
-			new_state(EPOINT_STATE_OUT_SETUP);
-		}
-	} else
-	if (e_cfnr_call) {
-		if (now >= e_cfnr_call) {
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call-forward-busy time has expired, calling the forwarded number: %s.\n", ea_endpoint->ep_serial, e_ext.cfnr);
-			out_setup();
-			e_cfnr_call = 0;
-		}
-	}
-
-	/* handle connection to user */
-	if (e_state == EPOINT_STATE_IDLE) {
-		/* epoint is idle, check callback */
-		if (e_callback)
-		if (now_d >= e_callback) {
-			e_callback = 0; /* done with callback */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting callback.\n", ea_endpoint->ep_serial);
-			new_state(EPOINT_STATE_OUT_SETUP);
-			out_setup();
-			return(1);
-		}
-	}
-
-	/* check for password timeout */
-	if (e_action)
-	if (e_action->index==ACTION_PASSWORD || e_action->index==ACTION_PASSWORD_WRITE) {
-		struct port_list *portlist;
-
-		if (now >= e_password_timeout) {
-			e_ruleset = ruleset_main;
-			if (e_ruleset)
-	        		e_rule = e_ruleset->rule_first;
-			e_action = NULL;
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) password timeout %s\n", ea_endpoint->ep_serial, e_extdialing);
-			trace_header("PASSWORD timeout", DIRECTION_NONE);
-			end_trace();
-			e_connectedmode = 0;
-			e_dtmf = 0;
-			new_state(EPOINT_STATE_OUT_DISCONNECT);
-			portlist = ea_endpoint->ep_portlist;
-			if (portlist) {
-				message_disconnect_port(portlist, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, "");
-				set_tone(portlist, "cause_10");
-			}
-			return(1);
-		}
-	}
- 
-	return(0);
+	return 0;
 }
 
+int match_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	if (!ea->e_action) {
+		unsched_timer(&ea->e_redial_timeout);
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we got a match timeout.\n", ea->ea_endpoint->ep_serial);
+		ea->process_dialing(0);
+		/* we must exit, because our endpoint might be gone */
+	}
+
+	return 0;
+}
+
+int redial_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting redial.\n", ea->ea_endpoint->ep_serial);
+
+	ea->new_state(EPOINT_STATE_OUT_SETUP);
+	/* call special setup routine */
+	ea->out_setup();
+
+	return 0;
+}
+
+int powerdial_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	/* leave power dialing on */
+	ea->e_powerdial_on = 1;
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting redial of powerdial.\n", ea->ea_endpoint->ep_serial);
+
+	/* redial */
+	ea->e_ruleset = ruleset_main;
+	if (ea->e_ruleset)
+       		ea->e_rule = ea->e_ruleset->rule_first;
+	ea->e_action = NULL;
+	ea->new_state(EPOINT_STATE_IN_OVERLAP);
+	ea->process_dialing(0);
+
+	return 0;
+}
+
+int cfnr_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+	struct port_list *portlist;
+	struct lcr_msg *message;
+
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call-forward-no-response time has expired, hanging up.\n", ea->ea_endpoint->ep_serial);
+
+	/* release all ports */
+	while((portlist = ea->ea_endpoint->ep_portlist)) {
+		message = message_create(ea->ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal clearing */
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		ea->logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
+		ea->ea_endpoint->free_portlist(portlist);
+	}
+	/* put on hold */
+	message = message_create(ea->ea_endpoint->ep_serial, ea->ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
+	message->param.audiopath = 0;
+	message_put(message);
+	/* indicate no patterns */
+	message = message_create(ea->ea_endpoint->ep_serial, ea->ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_NOPATTERN);
+	message_put(message);
+	/* set setup state, since we have no response from the new join */
+	ea->new_state(EPOINT_STATE_OUT_SETUP);
+
+	return 0;
+}
+
+int cfnr_call_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call-forward-busy time has expired, calling the forwarded number: %s.\n", ea->ea_endpoint->ep_serial, ea->e_ext.cfnr);
+	ea->out_setup();
+
+	return 0;
+}
+
+int callback_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	if (ea->e_state == EPOINT_STATE_IDLE) {
+		/* epoint is idle, check callback */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting callback.\n", ea->ea_endpoint->ep_serial);
+		ea->new_state(EPOINT_STATE_OUT_SETUP);
+		ea->out_setup();
+	}
+
+	return 0;
+}
+
+int password_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
+
+	if (ea->e_action->index==ACTION_PASSWORD || ea->e_action->index==ACTION_PASSWORD_WRITE) {
+		struct port_list *portlist;
+
+		ea->e_ruleset = ruleset_main;
+		if (ea->e_ruleset)
+	       		ea->e_rule = ea->e_ruleset->rule_first;
+		ea->e_action = NULL;
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) password timeout %s\n", ea->ea_endpoint->ep_serial, ea->e_extdialing);
+		ea->trace_header("PASSWORD timeout", DIRECTION_NONE);
+		end_trace();
+		ea->e_connectedmode = 0;
+		ea->e_dtmf = 0;
+		ea->new_state(EPOINT_STATE_OUT_DISCONNECT);
+		portlist = ea->ea_endpoint->ep_portlist;
+		if (portlist) {
+			ea->message_disconnect_port(portlist, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, "");
+			ea->set_tone(portlist, "cause_10");
+		}
+	}
+
+	return 0;
+}
 
 /* doing a hookflash */
 void EndpointAppPBX::hookflash(void)
 {
 	class Port *port;
+	time_t now;
 
 	/* be sure that we are active */
 	notify_active();
@@ -1395,7 +1425,7 @@ void EndpointAppPBX::hookflash(void)
 		port->set_echotest(0);
 	}
 	if (ea_endpoint->ep_join_id) {
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 	}
 	e_ruleset = ruleset_main;
 	if (e_ruleset)
@@ -1408,10 +1438,11 @@ void EndpointAppPBX::hookflash(void)
 	e_join_pattern = 0;
 	if (e_dialinginfo.id[0]) {
 		set_tone(ea_endpoint->ep_portlist, "dialing");
-		process_dialing();
+		process_dialing(0);
 	} else {
 		set_tone(ea_endpoint->ep_portlist, "dialpbx");
 	}
+	time(&now);
 	e_dtmf_time = now;
 	e_dtmf_last = '\0';
 }
@@ -1566,7 +1597,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 		else
 			set_tone(portlist, "dialtone");
 	}
-	process_dialing();
+	process_dialing(0);
 	if (e_state == EPOINT_STATE_IN_SETUP) {
 		/* request MORE info, if not already at higher state */
 		new_state(EPOINT_STATE_IN_OVERLAP);
@@ -1599,7 +1630,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	if (e_action->index == ACTION_VBOX_PLAY) {
 		/* concat dialing string */
 		SCAT(e_dialinginfo.id, param->information.id);
-		process_dialing();
+		process_dialing(0);
 		return;
 	}
 
@@ -1656,12 +1687,16 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	}
 	/* concat dialing string */
 	SCAT(e_dialinginfo.id, param->information.id);
-	process_dialing();
+	process_dialing(0);
 }
 
 /* port MESSAGE_DTMF */
 void EndpointAppPBX::port_dtmf(struct port_list *portlist, int message_type, union parameter *param)
 {
+	time_t now;
+
+	time(&now);
+
 	/* only if dtmf detection is enabled */
 	if (!e_dtmf) {
 		trace_header("DTMF (disabled)", DIRECTION_IN);
@@ -1681,7 +1716,7 @@ NOTE: vbox is now handled due to overlap state
 		if (strlen(e_dialinginfo.id)+1 < sizeof(e_dialinginfo.id)) {
 			e_dialinginfo.id[strlen(e_dialinginfo.id)+1] = '\0';
 			e_dialinginfo.id[strlen(e_dialinginfo.id)] = param->dtmf;
-			process_dialing();
+			process_dialing(0);
 		}
 		/* continue to process *X# sequences */
 	}
@@ -1755,7 +1790,7 @@ NOTE: vbox is now handled due to overlap state
 		if (strlen(e_dialinginfo.id)+1 < sizeof(e_dialinginfo.id)) {
 			e_dialinginfo.id[strlen(e_dialinginfo.id)+1] = '\0';
 			e_dialinginfo.id[strlen(e_dialinginfo.id)] = param->dtmf;
-			process_dialing();
+			process_dialing(0);
 		}
 	}
 }
@@ -1909,6 +1944,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	struct port_list *tportlist;
 	class Port *port;
 	struct interface	*interface;
+	time_t now;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
@@ -1932,6 +1968,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	}
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removing all other ports (end)\n", ea_endpoint->ep_serial);
 
+	time(&now);
 	e_start = now;
 
 	/* screen incoming connected id */
@@ -1979,7 +2016,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 		message_put(message);
 	}
 
-	e_cfnr_call = e_cfnr_release = 0;
+	unsched_timer(&e_cfnr_timeout);
+	unsched_timer(&e_cfnr_call_timeout);
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
 
@@ -2053,12 +2091,12 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			/* make call state to enter password */
 			new_state(EPOINT_STATE_IN_OVERLAP);
 			e_action = &action_password_write;
-			e_match_timeout = 0;
+			unsched_timer(&e_match_timeout);
 			e_match_to_action = NULL;
 			e_dialinginfo.id[0] = '\0';
 			e_extdialing = strchr(e_dialinginfo.id, '\0');
-			e_password_timeout = now+20;
-			process_dialing();
+			schedule_timer(&e_password_timeout, 20, 0);
+			process_dialing(0);
 		} else {
 			/* incoming call (callback) */
 			e_ruleset = ruleset_main;
@@ -2068,7 +2106,7 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 			e_extdialing = e_dialinginfo.id;
 			if (e_dialinginfo.id[0]) {
 				set_tone(portlist, "dialing");
-				process_dialing();
+				process_dialing(0);
 			} else {
 				set_tone(portlist, "dialpbx");
 			}
@@ -2151,7 +2189,8 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 		}
 	}
 
-	e_cfnr_call = e_cfnr_release = 0;
+	unsched_timer(&e_cfnr_timeout);
+	unsched_timer(&e_cfnr_call_timeout);
 
 	/* process hangup */
 	process_hangup(e_join_cause, e_join_location);
@@ -2199,7 +2238,7 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 	}
 	if (message_type == MESSAGE_RELEASE)
 		ea_endpoint->free_portlist(portlist);
-	release(RELEASE_ALL, location, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, callcause, portcause */
+	release(RELEASE_ALL, location, cause, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, callcause, portcause */
 	return; /* must exit here */
 }
 
@@ -2216,7 +2255,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		add_trace("state", NULL, "outgoing setup/dialing");
 		end_trace();
 		/* no user responding */
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_SETUP:
@@ -2231,7 +2270,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOUSER; /* no user responding */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOUSER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_PROCEEDING:
@@ -2245,7 +2284,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NOANSWER; /* no answer */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NOANSWER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_CONNECT:
@@ -2253,7 +2292,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		end_trace();
 		param->disconnectinfo.cause = CAUSE_NORMAL; /* normal */
 		param->disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		case PORT_STATE_IN_ALERTING:
@@ -2267,7 +2306,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		add_trace("state", NULL, "disconnect");
 		end_trace();
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) in this special case, we release due to disconnect timeout.\n", ea_endpoint->ep_serial);
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL);
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 		return; /* must exit here */
 
 		default:
@@ -2285,7 +2324,7 @@ void EndpointAppPBX::port_timeout(struct port_list *portlist, int message_type, 
 		message_disconnect_port(portlist, param->disconnectinfo.cause, param->disconnectinfo.location, "");
 		portlist = portlist->next;
 	}
-	release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+	release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 }
 
 /* port MESSAGE_NOTIFY */
@@ -2816,6 +2855,7 @@ void EndpointAppPBX::join_alerting(struct port_list *portlist, int message_type,
 void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, union parameter *param)
 {
 	struct lcr_msg *message;
+	time_t now;
 
 	new_state(EPOINT_STATE_CONNECT);
 //			UCPY(e_join_tone, "");
@@ -2823,7 +2863,8 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 	if (e_ext.number[0])
 		e_dtmf = 1; /* allow dtmf */
 
-	e_powerdialing = 0;
+	e_powerdial_on = 0;
+	unsched_timer(&e_powerdial_timeout);
 	memcpy(&e_connectinfo, &param->connectinfo, sizeof(e_callerinfo));
 	if(portlist) {
 		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_CONNECT);
@@ -2860,6 +2901,7 @@ void EndpointAppPBX::join_connect(struct port_list *portlist, int message_type, 
 	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
 	message->param.audiopath = 1;
 	message_put(message);
+	time(&now);
 	e_start = now;
 }
 
@@ -2869,18 +2911,19 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	char cause[16];
 	struct lcr_msg *message;
 	struct port_list *portlist = NULL;
+	time_t now;
 
 
 	/* be sure that we are active */
 	notify_active();
 	e_tx_state = NOTIFY_STATE_ACTIVE;
 
-	/* we are powerdialing, if e_powerdialing is set and limit is not exceeded if given */
-	if (e_powerdialing && ((e_powercount+1)<e_powerlimit || e_powerlimit<1)) {
-		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+	/* we are powerdialing, if e_powerdial_on is set and limit is not exceeded if given */
+	if (e_powerdial_on && ((e_powercount+1)<e_powerlimit || e_powerlimit<1)) {
+		release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL,0 ); /* RELEASE_TYPE, join, port */
 
 		/* set time for power dialing */
-		e_powerdialing = now_d + e_powerdelay; /* set redial in the future */
+		schedule_timer(&e_powerdial_timeout, (int)e_powerdelay, 0); /* set redial in the future */
 		e_powercount++;
 
 		/* set redial tone */
@@ -2918,6 +2961,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	}
 
 	/* set stop time */
+	time(&now);
 	e_stop = now;
 
 	if ((e_state!=EPOINT_STATE_CONNECT
@@ -2927,7 +2971,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	  && e_state!=EPOINT_STATE_IN_ALERTING)
 	 || !ea_endpoint->ep_portlist) { /* or no port */
 		process_hangup(param->disconnectinfo.cause, param->disconnectinfo.location);
-		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause); /* RELEASE_TYPE, join, port */
+		release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, param->disconnectinfo.cause, 0); /* RELEASE_TYPE, join, port */
 		return; /* must exit here */
 	}
 	/* save cause */
@@ -2949,7 +2993,7 @@ void EndpointAppPBX::join_disconnect_release(int message_type, union parameter *
 	 || !e_join_pattern) { /* no patterns */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) we have own cause or we have no patterns. (own_cause=%d pattern=%d)\n", ea_endpoint->ep_serial, e_ext.own_cause, e_join_pattern);
 		if (message_type != MESSAGE_RELEASE)
-			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL); /* RELEASE_TYPE, join, port */
+			release(RELEASE_JOIN, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 		e_join_pattern = 0;
 	} else { /* else we enable audio */
 		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_AUDIOPATH);
@@ -3002,11 +3046,11 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 			new_state(EPOINT_STATE_OUT_OVERLAP);
 
 			/* get time */
-			e_redial = now_d + 1; /* set redial one second in the future */
+			schedule_timer(&e_redial_timeout, 1, 0);
 			return;
 		}
 		/* if we have a pending redial, so we just adjust the dialing number */
-		if (e_redial) {
+		if (e_redial_timeout.active) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) redial in progress, so we update the dialing number to %s.\n", ea_endpoint->ep_serial, param->setup.dialinginfo.id);
 			memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 			return;
@@ -3525,7 +3569,7 @@ reject:
 	message_put(message);
 
 	/* beeing paranoid, we make call update */
-	joinpbx->j_updatebridge = 1;
+	trigger_work(&joinpbx->j_updatebridge);
 
 	if (options.deb & DEBUG_EPOINT) {
 		class Join *debug_c = join_first;
@@ -3703,7 +3747,7 @@ void EndpointAppPBX::join_join(void)
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-join completely removed!\n");
 
 	/* mixer must update */
-	our_joinpbx->j_updatebridge = 1; /* update mixer flag */
+	trigger_work(&our_joinpbx->j_updatebridge);
 
 	/* we send a retrieve to that endpoint */
 	// mixer will update the hold-state of the join and send it to the endpoints is changes

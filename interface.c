@@ -916,6 +916,22 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	return(0);
 #endif
 }
+static int inter_nonotify(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->nonotify = 1;
+	return(0);
+}
 #ifdef WITH_SS5
 static int inter_ss5(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
@@ -1097,7 +1113,12 @@ struct interface_param interface_param[] = {
 	{"gsm", &inter_gsm, "",
 	"Sets up GSM interface for using OpenBSC.\n"
 	"This interface must be a loopback interface. The second loopback interface\n"
-	"must be assigned to OpenBSC"},
+	"must be assigned to OpenBSC."},
+
+	{"nonotify", &inter_nonotify, "",
+	"Prevents sending notify messages to this interface. A call placed on hold will\n"
+	"Not affect the remote end (phone or telcom switch).\n"
+	"This parameter must follow a 'port' parameter."},
 
 #ifdef WITH_SS5
 	{"ccitt5", &inter_ss5, "[<feature> [feature ...]]",
@@ -1430,7 +1451,7 @@ void load_port(struct interface_port *ifport)
 	struct mISDNport *mISDNport;
 
 	/* open new port */
-	mISDNport = mISDNport_open(ifport->portnum, ifport->portname, ifport->ptp, ifport->nt, ifport->tespecial, ifport->l1hold, ifport->l2hold, ifport->interface, ifport->gsm, ifport->ss5);
+	mISDNport = mISDNport_open(ifport);
 	if (mISDNport) {
 		/* link port */
 		ifport->mISDNport = mISDNport;

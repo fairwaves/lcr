@@ -67,6 +67,7 @@ struct interface_port {
 //	int			tout_park;
 	int			dialmax; /* maximum number of digits to dial */
 	char			tones_dir[128];
+	int			nonotify; /* blocks outgoing notify messages  */
 };
 
 struct interface_msn {

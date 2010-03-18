@@ -18,10 +18,10 @@ extern "C" {
 #include <getopt.h>
 
 #include <openbsc/db.h>
-#include <openbsc/select.h>
+#include <osmocore/select.h>
 #include <openbsc/debug.h>
 #include <openbsc/e1_input.h>
-#include <openbsc/talloc.h>
+#include <osmocore/talloc.h>
 #include <openbsc/mncc.h>
 #include <openbsc/trau_frame.h>
 struct gsm_network *bsc_gsmnet = 0;
@@ -32,21 +32,38 @@ extern int bsc_shutdown_net(struct gsm_network *net);
 void talloc_ctx_init(void);
 void on_dso_load_token(void);
 void on_dso_load_rrlp(void);
+void on_dso_load_ho_dec(void);
+int bts_model_unknown_init(void);
+int bts_model_bs11_init(void);
+int bts_model_nanobts_init(void);
 static struct debug_target *stderr_target;
+
+/* timer to store statistics */
+#define DB_SYNC_INTERVAL	60, 0
+static struct timer_list db_sync_timer;
 
 #include "gsm_audio.h"
 
-#undef AF_ISDN
-#undef PF_ISDN
-extern  int     AF_ISDN;
-#define PF_ISDN AF_ISDN
 }
 
+#include <mISDN/mISDNcompat.h>
 
 struct lcr_gsm *gsm = NULL;
 
 static unsigned int new_callref = 1;
 
+/* timer handling */
+static int _db_store_counter(struct counter *counter, void *data)
+{
+	return db_store_counter(counter);
+}
+
+static void db_sync_timer_cb(void *data)
+{
+	/* store counters to database and re-schedule */
+	counters_for_each(_db_store_counter, NULL);
+	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
+}
 
 /*
  * create and send mncc message
@@ -70,6 +87,7 @@ static int send_and_free_mncc(struct gsm_network *net, unsigned int msg_type, vo
 	return ret;
 }
 
+static int delete_event(struct lcr_work *work, void *instance, int index);
 
 /*
  * constructor
@@ -77,6 +95,8 @@ static int send_and_free_mncc(struct gsm_network *net, unsigned int msg_type, vo
 Pgsm::Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, channel, exclusive, mode)
 {
 	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
+	memset(&p_m_g_delete, 0, sizeof(p_m_g_delete));
+	add_work(&p_m_g_delete, delete_event, this, 0);
 	p_m_g_callref = 0;
 	p_m_g_mode = 0;
 	p_m_g_gsm_b_sock = -1;
@@ -87,7 +107,7 @@ Pgsm::Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_se
 	p_m_g_encoder = gsm_audio_create();
 	if (!p_m_g_encoder || !p_m_g_decoder) {
 		PERROR("Failed to create GSM audio codec instance\n");
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 	}
 	p_m_g_rxpos = 0;
 	p_m_g_tch_connected = 0;
@@ -101,6 +121,8 @@ Pgsm::Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_se
 Pgsm::~Pgsm()
 {
 	PDEBUG(DEBUG_GSM, "Destroyed GSM process(%s).\n", p_name);
+
+	del_work(&p_m_g_delete);
 
 	/* remove queued message */
 	if (p_m_g_notify_pending)
@@ -121,18 +143,21 @@ Pgsm::~Pgsm()
 /* close bsc side bchannel */
 void Pgsm::bchannel_close(void)
 {
-	if (p_m_g_gsm_b_sock > -1)
+	if (p_m_g_gsm_b_sock > -1) {
+		unregister_fd(&p_m_g_gsm_b_fd);
 		close(p_m_g_gsm_b_sock);
+	}
 	p_m_g_gsm_b_sock = -1;
 	p_m_g_gsm_b_index = -1;
 	p_m_g_gsm_b_active = 0;
 }
 
+static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int index);
+
 /* open bsc side bchannel */
 int Pgsm::bchannel_open(int index)
 {
 	int ret;
-	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 	struct mISDNhead act;
 
@@ -148,14 +173,10 @@ int Pgsm::bchannel_open(int index)
 		bchannel_close();
 		return(ret);
 	}
-	
-	/* set nonblocking io */
-	ret = ioctl(p_m_g_gsm_b_sock, FIONBIO, &on);
-	if (ret < 0) {
-		PERROR("Failed to set bchannel-socket index %d into nonblocking IO\n", index);
-		bchannel_close();
-		return(ret);
-	}
+	memset(&p_m_g_gsm_b_fd, 0, sizeof(p_m_g_gsm_b_fd));
+	p_m_g_gsm_b_fd.fd = p_m_g_gsm_b_sock;
+	register_fd(&p_m_g_gsm_b_fd, LCR_FD_READ, b_handler, this, 0);
+
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
@@ -374,7 +395,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		end_trace();
 		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 	p_m_g_callref = callref;
@@ -395,7 +416,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		end_trace();
 		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 
@@ -467,7 +488,7 @@ void Pgsm::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		end_trace();
 		send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
@@ -725,7 +746,7 @@ void Pgsm::disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 		free_epointlist(p_epointlist);
 	}
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_g_delete);
 }
 
 /* CC_RELEASE INDICATION */
@@ -754,7 +775,7 @@ void Pgsm::rel_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc 
 		free_epointlist(p_epointlist);
 	}
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_g_delete);
 }
 
 /* NOTIFY INDICATION */
@@ -985,7 +1006,7 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 	
@@ -999,7 +1020,7 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 
@@ -1019,7 +1040,7 @@ void Pgsm::message_setup(unsigned int epoint_id, int message_id, union parameter
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		p_m_delete = 1;
+		trigger_work(&p_m_g_delete);
 		return;
 	}
 	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
@@ -1351,7 +1372,7 @@ void Pgsm::message_release(unsigned int epoint_id, int message_id, union paramet
 	send_and_free_mncc((struct gsm_network *)gsm->network, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_RELEASE);
-	p_m_delete = 1;
+	trigger_work(&p_m_g_delete);
 	return;
 }
 
@@ -1434,28 +1455,29 @@ int Pgsm::message_epoint(unsigned int epoint_id, int message_id, union parameter
 }
 
 
-/*
- * handler
- */
-int Pgsm::handler(void)
+/* deletes only if l3id is release, otherwhise it will be triggered then */
+static int delete_event(struct lcr_work *work, void *instance, int index)
 {
+	class Pgsm *gsmport = (class Pgsm *)instance;
+
+	delete gsmport;
+
+	return 0;
+}
+
+/*
+ * handler of bchannel events
+ */
+static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int index)
+{
+	class Pgsm *gsmport = (class Pgsm *)instance;
 	int ret;
-	int work = 0;
 	unsigned char buffer[2048+MISDN_HEADER_LEN];
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
 
-	if ((ret = PmISDN::handler()))
-		return(ret);
-
-	/* handle destruction */
-	if (p_m_delete) {
-		delete this;
-		return(-1);
-	}
-
 	/* handle message from bchannel */
-	if (p_m_g_gsm_b_sock > -1) {
-		ret = recv(p_m_g_gsm_b_sock, buffer, sizeof(buffer), 0);
+	if (gsmport->p_m_g_gsm_b_sock > -1) {
+		ret = recv(gsmport->p_m_g_gsm_b_sock, buffer, sizeof(buffer), 0);
 		if (ret >= (int)MISDN_HEADER_LEN) {
 			switch(hh->prim) {
 				/* we don't care about confirms, we use rx data to sync tx */
@@ -1463,37 +1485,21 @@ int Pgsm::handler(void)
 				break;
 				/* we receive audio data, we respond to it AND we send tones */
 				case PH_DATA_IND:
-				bchannel_receive(hh, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
+				gsmport->bchannel_receive(hh, buffer+MISDN_HEADER_LEN, ret-MISDN_HEADER_LEN);
 				break;
 				case PH_ACTIVATE_IND:
-				p_m_g_gsm_b_active = 1;
+				gsmport->p_m_g_gsm_b_active = 1;
 				break;
 				case PH_DEACTIVATE_IND:
-				p_m_g_gsm_b_active = 0;
+				gsmport->p_m_g_gsm_b_active = 0;
 				break;
 			}
-			work = 1;
 		} else {
 			if (ret < 0 && errno != EWOULDBLOCK)
 				PERROR("Read from GSM port, index %d failed with return code %d\n", ret);
 		}
 	}
 
-	return(work);
-}
-
-
-/*
- * handles bsc select function within LCR's main loop
- */
-int handle_gsm(void)
-{
-	int ret1, ret2;
-
-	ret1 = bsc_upqueue((struct gsm_network *)gsm->network);
-	ret2 = bsc_select_main(1); /* polling */
-	if (ret1 || ret2)
-		return 1;
 	return 0;
 }
 
@@ -1598,11 +1604,24 @@ int gsm_init(void)
 	char hlr[128], cfg[128], filename[128];
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	int pcapfd, rc;
+	char conf_error[128] = "";
 
+
+	debug_init();
 	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
 	talloc_ctx_init();
 	on_dso_load_token();
 	on_dso_load_rrlp();
+	on_dso_load_ho_dec();
+	stderr_target = debug_target_create_stderr();
+	debug_add_target(stderr_target);
+
+	bts_model_unknown_init();
+	bts_model_bs11_init();
+	bts_model_nanobts_init();
+
+	/* enable filters */
+	debug_set_all_filter(stderr_target, 1);
 
 	/* seed the PRNG */
 	srand(time(NULL));
@@ -1612,13 +1631,12 @@ int gsm_init(void)
 	gsm->gsm_sock = -1;
 
 	/* parse options */
-	if (!gsm_conf(&gsm->conf)) {
-		PERROR("%s", gsm_conf_error);
+	if (!gsm_conf(&gsm->conf, conf_error)) {
+		PERROR("%s", conf_error);
 		return gsm_exit(-EINVAL);
 	}
 
 	/* set debug */
-	stderr_target = debug_target_create_stderr();
 	if (gsm->conf.debug[0])
 		debug_parse_category_mask(stderr_target, gsm->conf.debug);
 
@@ -1655,6 +1673,11 @@ int gsm_init(void)
 	}
 	printf("DB: Database prepared.\n");
 
+	/* setup the timer */
+	db_sync_timer.cb = db_sync_timer_cb;
+	db_sync_timer.data = NULL;
+	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
+
 	/* bootstrap network */
 	if (gsm->conf.openbsc_cfg[0] == '/')
 		SCPY(cfg, gsm->conf.openbsc_cfg);
@@ -1672,6 +1695,21 @@ int gsm_init(void)
 		return gsm_exit(-1);
 	}
 
+	return 0;
+}
+
+/*
+ * handles bsc select function within LCR's main loop
+ */
+int handle_gsm(void)
+{
+	int ret1, ret2;
+
+	ret1 = bsc_upqueue((struct gsm_network *)gsm->network);
+	debug_reset_context();
+	ret2 = bsc_select_main(1); /* polling */
+	if (ret1 || ret2)
+		return 1;
 	return 0;
 }
 

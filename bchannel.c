@@ -23,11 +23,11 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <mISDNif.h>
+#include <mISDN/mISDNif.h>
 
-#define AF_COMPATIBILITY_FUNC 1
-#define MISDN_OLD_AF_COMPATIBILITY 1
-#include <compat_af_isdn.h>
+#include <mISDN/mISDNcompat.h>
+int __af_isdn = MISDN_AF_ISDN;
+#include <mISDN/q931.h>
 
 #define HAVE_ATTRIBUTE_always_inline 1
 #define HAVE_ARPA_INET_H 1
@@ -50,9 +50,11 @@
 #include "message.h"
 #include "lcrsocket.h"
 #include "cause.h"
+#include "select.h"
 #include "bchannel.h"
 #include "chan_lcr.h"
 #include "callerid.h"
+#include "options.h"
 
 
 #ifndef ISDN_PID_L4_B_USER
@@ -68,12 +70,11 @@ enum {
 	BSTATE_DEACTIVATING,
 };
 
+static void bchannel_send_queue(struct bchannel *bchannel);
 
 int bchannel_initialize(void)
 {
-  	init_af_isdn();
-
-	return(0);
+	return 0;
 }
 
 void bchannel_deinitialize(void)
@@ -123,23 +124,23 @@ static void ph_control_block(int sock, unsigned int c1, void *c2, int c2_len, ch
 		CERROR(NULL, NULL, "Failed to send to socket %d\n", sock);
 }
 
+static int bchannel_handle(struct lcr_fd *fd, unsigned int what, void *instance, int index);
 
 /*
  * create stack
  */
-int bchannel_create(struct bchannel *bchannel, int mode)
+int bchannel_create(struct bchannel *bchannel, int mode, int queue)
 {
 	int ret;
-	unsigned int on = 1;
 	struct sockaddr_mISDN addr;
 
 	if (bchannel->b_sock > -1) {
 		CERROR(bchannel->call, NULL, "Socket already created for handle 0x%x\n", bchannel->handle);
-		return(0);
+		return 0;
 	}
 
 	/* open socket */
-	bchannel->b_mode = mode;
+	bchannel->b_mode = (mode & 3);
 	switch(bchannel->b_mode) {
 		case 0:
 		CDEBUG(bchannel->call, NULL, "Open DSP audio\n");
@@ -160,17 +161,13 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	}
 	if (bchannel->b_sock < 0) {
 		CERROR(bchannel->call, NULL, "Failed to open bchannel-socket for handle 0x%x with mISDN-DSP layer. Did you load mISDN_dsp.ko?\n", bchannel->handle);
-		return(0);
+		return 0;
 	}
-	
-	/* set nonblocking io */
-	ret = ioctl(bchannel->b_sock, FIONBIO, &on);
-	if (ret < 0) {
-		CERROR(bchannel->call, NULL, "Failed to set bchannel-socket handle 0x%x into nonblocking IO\n", bchannel->handle);
-		close(bchannel->b_sock);
-		bchannel->b_sock = -1;
-		return(0);
-	}
+
+	/* register fd */
+	memset(&bchannel->lcr_fd, 0, sizeof(bchannel->lcr_fd));
+	bchannel->lcr_fd.fd = bchannel->b_sock;
+	register_fd(&bchannel->lcr_fd, LCR_FD_READ | LCR_FD_EXCEPT, bchannel_handle, bchannel, 0);
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
@@ -179,11 +176,25 @@ int bchannel_create(struct bchannel *bchannel, int mode)
 	ret = bind(bchannel->b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0) {
 		CERROR(bchannel->call, NULL, "Failed to bind bchannel-socket for handle 0x%x with mISDN-DSP layer. (port %d, channel %d) Did you load mISDN_dsp.ko?\n", bchannel->handle, addr.dev, addr.channel);
+		unregister_fd(&bchannel->lcr_fd);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
-		return(0);
+		return 0;
 	}
-	return(1);
+
+	/* queue */
+	if (bchannel->b_mode == 1 && queue) {
+		bchannel->nodsp_queue_out = 0;
+		bchannel->nodsp_queue_in = queue * 8;
+		if (bchannel->nodsp_queue_in > QUEUE_BUFFER_MAX-1)
+			bchannel->nodsp_queue_in = QUEUE_BUFFER_MAX-1;
+		bchannel->nodsp_queue = bchannel->nodsp_queue_in; /* store initial load */
+		memset(&bchannel->nodsp_queue_buffer, (options.law=='a')?0x2a:0xff, QUEUE_BUFFER_SIZE);
+		bchannel->queue_sent = 0;
+	} else
+		bchannel->nodsp_queue = 0;
+										 
+	return 1;
 }
 
 
@@ -264,6 +275,7 @@ static void bchannel_activated(struct bchannel *bchannel)
 void bchannel_destroy(struct bchannel *bchannel)
 {
 	if (bchannel->b_sock > -1) {
+		unregister_fd(&bchannel->lcr_fd);
 		close(bchannel->b_sock);
 		bchannel->b_sock = -1;
 	}
@@ -400,35 +412,100 @@ void bchannel_transmit(struct bchannel *bchannel, unsigned char *data, int len)
 	struct mISDNhead *frm = (struct mISDNhead *)buff;
 	int ret;
 	int i;
+	int space, in;
 
 	if (bchannel->b_state != BSTATE_ACTIVE)
 		return;
 	if (len > 1024 || len < 1)
 		return;
-	switch(bchannel->b_mode) {
-	case 0:
-		for (i = 0; i < len; i++)
-			*p++ = flip_bits[*data++];
-		frm->prim = DL_DATA_REQ;
-		break;
-	case 1:
-		for (i = 0; i < len; i++)
-			*p++ = flip_bits[*data++];
-		frm->prim = PH_DATA_REQ;
-		break;
-	case 2:
-		memcpy(p, data, len);
-		frm->prim = DL_DATA_REQ;
-		break;
-	case 3:
-		memcpy(p, data, len);
-		frm->prim = PH_DATA_REQ;
-		break;
-	}
+	if (data) {
+		switch(bchannel->b_mode) {
+		case 0:
+			for (i = 0; i < len; i++)
+				*p++ = flip_bits[*data++];
+			frm->prim = DL_DATA_REQ;
+			break;
+		case 1:
+			for (i = 0; i < len; i++)
+				*p++ = flip_bits[*data++];
+			frm->prim = PH_DATA_REQ;
+			break;
+		case 2:
+			memcpy(p, data, len);
+			frm->prim = DL_DATA_REQ;
+			break;
+		case 3:
+			memcpy(p, data, len);
+			frm->prim = PH_DATA_REQ;
+			break;
+		}
+	} else
+		memset(p, flip_bits[(options.law=='a')?0x2a:0xff], len);
 	frm->id = 0;
+#ifdef SEAMLESS_TEST
+	unsigned char test_tone[8] = {0x2a, 0x24, 0xb4, 0x24, 0x2a, 0x25, 0xb5, 0x25};
+	p = buff + MISDN_HEADER_LEN;
+	for (i = 0; i < len; i++)
+		*p++ = test_tone[(bchannel->test + i) & 7];
+	bchannel->test = (bchannel->test + len) & 7;
+#endif
+	if (bchannel->nodsp_queue) {
+		space = (bchannel->nodsp_queue_out - bchannel->nodsp_queue_in - 1) & (QUEUE_BUFFER_SIZE - 1);
+		if (len > space) {
+			CERROR(bchannel->call, NULL, "Queue buffer overflow, space is %d, len is %d.\n", space, len);
+			return;
+		}
+		p = buff + MISDN_HEADER_LEN;
+		in = bchannel->nodsp_queue_in;
+		for (i = 0; i < len; i++) {
+			bchannel->nodsp_queue_buffer[in] = *p++;
+			in = (in + 1) & (QUEUE_BUFFER_SIZE - 1);
+		}
+		bchannel->nodsp_queue_in = in;
+		if (bchannel->queue_sent == 0) /* if there is no pending data */
+			bchannel_send_queue(bchannel);
+		return;
+	}
 	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
 	if (ret < 0)
 		CERROR(bchannel->call, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
+}
+
+
+/*
+ * in case of a send queue, we send from that queue rather directly
+ */
+static void bchannel_send_queue(struct bchannel *bchannel)
+{
+	unsigned char buff[1024 + MISDN_HEADER_LEN], *p = buff + MISDN_HEADER_LEN;
+	struct mISDNhead *frm = (struct mISDNhead *)buff;
+	int ret;
+	int i;
+	int len, out;
+
+	len = (bchannel->nodsp_queue_in - bchannel->nodsp_queue_out) & (QUEUE_BUFFER_SIZE - 1);
+	if (len == 0)
+		return; /* mISDN driver received all load */
+#if 0
+	printf("%4d:(%s|%s)\n", bchannel->nodsp_queue_out,
+		"----------------------------------------------------------------"+64-len/(8192/64),
+		"                                                                "+len/(8192/64));
+#endif
+	if (len > 1024)
+		len = 1024;
+	frm->prim = PH_DATA_REQ;
+	frm->id = 0;
+	out = bchannel->nodsp_queue_out;
+	for (i = 0; i < len; i++) {
+		*p++ = bchannel->nodsp_queue_buffer[out];
+		out = (out + 1) & (QUEUE_BUFFER_SIZE - 1);
+	}
+	bchannel->nodsp_queue_out = out;
+	ret = sendto(bchannel->b_sock, buff, MISDN_HEADER_LEN+len, 0, NULL, 0);
+	if (ret < 0)
+		CERROR(bchannel->call, NULL, "Failed to send to socket %d\n", bchannel->b_sock);
+	else
+		bchannel->queue_sent = 1;
 }
 
 
@@ -517,63 +594,58 @@ void bchannel_gain(struct bchannel *bchannel, int gain, int tx)
 /*
  * main loop for processing messages from mISDN
  */
-int bchannel_handle(void)
+static int bchannel_handle(struct lcr_fd *fd, unsigned int what, void *instance, int index)
 {
-	int ret, work = 0;
-	struct bchannel *bchannel;
+	struct bchannel *bchannel = (struct bchannel *)instance;
+	int ret;
 	unsigned char buffer[2048+MISDN_HEADER_LEN];
 	struct mISDNhead *hh = (struct mISDNhead *)buffer;
 
-	/* process all bchannels */
-	bchannel = bchannel_first;
-	while(bchannel) {
-		/* handle message from bchannel */
-		if (bchannel->b_sock > -1) {
-			ret = recv(bchannel->b_sock, buffer, sizeof(buffer), 0);
-			if (ret >= (int)MISDN_HEADER_LEN) {
-				work = 1;
-				switch(hh->prim) {
-					/* we don't care about confirms, we use rx data to sync tx */
-					case PH_DATA_CNF:
-					break;
-
-					/* we receive audio data, we respond to it AND we send tones */
-					case PH_DATA_IND:
-					case PH_DATA_REQ:
-					case DL_DATA_IND:
-					case PH_CONTROL_IND:
-					bchannel_receive(bchannel, buffer, ret-MISDN_HEADER_LEN);
-					break;
-
-					case PH_ACTIVATE_IND:
-					case DL_ESTABLISH_IND:
-					case PH_ACTIVATE_CNF:
-					case DL_ESTABLISH_CNF:
-					CDEBUG(bchannel->call, NULL, "DL_ESTABLISH confirm: bchannel is now activated (socket %d).\n", bchannel->b_sock);
-					bchannel_activated(bchannel);
-					break;
-
-					case PH_DEACTIVATE_IND:
-					case DL_RELEASE_IND:
-					case PH_DEACTIVATE_CNF:
-					case DL_RELEASE_CNF:
-					CDEBUG(bchannel->call, NULL, "DL_RELEASE confirm: bchannel is now de-activated (socket %d).\n", bchannel->b_sock);
-//					bchannel_deactivated(bchannel);
-					break;
-
-					default:
-					CERROR(bchannel->call, NULL, "child message not handled: prim(0x%x) socket(%d) data len(%d)\n", hh->prim, bchannel->b_sock, ret - MISDN_HEADER_LEN);
-				}
-			} else {
-				if (ret < 0 && errno != EWOULDBLOCK)
-					CERROR(bchannel->call, NULL, "Read from socket %d failed with return code %d\n", bchannel->b_sock, ret);
+	ret = recv(bchannel->b_sock, buffer, sizeof(buffer), 0);
+	if (ret >= (int)MISDN_HEADER_LEN) {
+		switch(hh->prim) {
+			/* after a confim, we can send more from queue */
+			case PH_DATA_CNF:
+			if (bchannel->nodsp_queue) {
+				bchannel->queue_sent = 0;
+				bchannel_send_queue(bchannel);
 			}
+			break;
+
+			/* we receive audio data, we respond to it AND we send tones */
+			case PH_DATA_IND:
+			case PH_DATA_REQ:
+			case DL_DATA_IND:
+			case PH_CONTROL_IND:
+			bchannel_receive(bchannel, buffer, ret-MISDN_HEADER_LEN);
+			break;
+
+			case PH_ACTIVATE_IND:
+			case DL_ESTABLISH_IND:
+			case PH_ACTIVATE_CNF:
+			case DL_ESTABLISH_CNF:
+			CDEBUG(bchannel->call, NULL, "DL_ESTABLISH confirm: bchannel is now activated (socket %d).\n", bchannel->b_sock);
+			bchannel_activated(bchannel);
+			break;
+
+			case PH_DEACTIVATE_IND:
+			case DL_RELEASE_IND:
+			case PH_DEACTIVATE_CNF:
+			case DL_RELEASE_CNF:
+			CDEBUG(bchannel->call, NULL, "DL_RELEASE confirm: bchannel is now de-activated (socket %d).\n", bchannel->b_sock);
+//					bchannel_deactivated(bchannel);
+			break;
+
+			default:
+			CERROR(bchannel->call, NULL, "child message not handled: prim(0x%x) socket(%d) data len(%d)\n", hh->prim, bchannel->b_sock, ret - MISDN_HEADER_LEN);
 		}
-		bchannel = bchannel->next;
+	} else {
+//		if (ret < 0 && errno != EWOULDBLOCK)
+		CERROR(bchannel->call, NULL, "Read from socket %d failed with return code %d\n", bchannel->b_sock, ret);
 	}
 
 	/* if we received at least one b-frame, we will return 1 */
-	return(work);
+	return 0;
 }
 
 
@@ -590,7 +662,7 @@ struct bchannel *find_bchannel_handle(unsigned int handle)
 			break;
 		bchannel = bchannel->next;
 	}
-	return(bchannel);
+	return bchannel;
 }
 
 #if 0
@@ -603,7 +675,7 @@ struct bchannel *find_bchannel_ref(unsigned int ref)
 			break;
 		bchannel = bchannel->next;
 	}
-	return(bchannel);
+	return bchannel;
 }
 #endif
 
@@ -616,12 +688,12 @@ struct bchannel *alloc_bchannel(unsigned int handle)
 
 	*bchannelp = (struct bchannel *)calloc(1, sizeof(struct bchannel));
 	if (!*bchannelp)
-		return(NULL);
+		return NULL;
 	(*bchannelp)->handle = handle;
 	(*bchannelp)->b_state = BSTATE_IDLE;
 	(*bchannelp)->b_sock = -1;
 		
-	return(*bchannelp);
+	return *bchannelp;
 }
 
 void free_bchannel(struct bchannel *bchannel)

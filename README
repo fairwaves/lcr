@@ -526,5 +526,22 @@ Changes after Version 1.6
  -> New option for chan_lcr: 'k'
  -> New dialing parameter for LCR: keypad
 - Keep up with current OpenBSC API
+- Fixed DTMF detection option with chan_lcr
+
+New release Version 1.7
+
+Changes after Version 1.7
+- Added new option to interface.conf: "nonotify" to disable notify messages.
+- Replaced polling main loop by event driven "select()" loop.
+- Also replaced polling main loop by event driven "select()" loop on chan_lcr.
+- Added "release" action and timeout to "execute" action.
+- Added queue buffer for chan_lcr sending faxes without interruption.
+  -> Use options "t:q250" for disabling mISDN_dsp and adding a 250ms delay.
+- Fixed HLC (higher layer capability) modification to LCR routing.
+- Fixed chan_lcr fax queue buffer. Added LCR_TRANSFERCAPABILITY environment.
+- Fixed compiler warnings when compiling with gcc 4.3.4.
+- Fixed includes to latest mISDNuser structures.
+- Fix by Peter: NULL pointer issue in asterisk frame.
+
 
 

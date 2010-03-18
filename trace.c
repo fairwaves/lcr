@@ -22,6 +22,8 @@ static const char *spaces = "          ";
  */
 void _start_trace(const char *__file, int __line, int port, struct interface *interface, const char *caller, const char *dialing, int direction, int category, int serial, const char *name)
 {
+	struct timeval current_time;
+
 	if (trace.name[0])
 		PERROR("trace already started (name=%s) in file %s line %d\n", trace.name, __file, __line);
 	memset(&trace, 0, sizeof(struct trace));
@@ -39,8 +41,9 @@ void _start_trace(const char *__file, int __line, int port, struct interface *in
 		SCPY(trace.name, name);
 	if (!trace.name[0])
 		SCPY(trace.name, "<unknown>");
-	trace.sec = now_tv.tv_sec;
-	trace.usec = now_tv.tv_usec;
+	gettimeofday(&current_time, NULL);
+	trace.sec = current_time.tv_sec;
+	trace.usec = current_time.tv_usec;
 }
 
 
@@ -261,6 +264,7 @@ void _end_trace(const char *__file, int __line)
 	FILE *fp;
 	struct admin_list	*admin;
 	struct admin_queue	*response, **responsep;	/* response pointer */
+	int ret;
 
 	if (!trace.name[0])
 		PERROR("trace not started in file %s line %d\n", __file, __line);
@@ -270,12 +274,12 @@ void _end_trace(const char *__file, int __line)
 		if (string) {
 			/* process debug */
 			if (options.deb)
-				debug(NULL, 0, "trace", string);
+				debug(NULL, 0, "TRACE", string);
 			/* process log */
 			if (options.log[0]) {
 				fp = fopen(options.log, "a");
 				if (fp) {
-					fwrite(string, strlen(string), 1, fp);
+					ret = fwrite(string, strlen(string), 1, fp);
 					fclose(fp);
 				}
 			}

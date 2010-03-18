@@ -39,6 +39,7 @@ int main(void)
 	FILE *fp;
 	int i = 0, j, jj, n;
 	char input[256], file[256];
+	int ret;
 
 	printf("\n\nThis program generates a script, which is used to start/stop/restart mISDN\n");
 	printf("driver. Please select card only once. Mode and options are given by LCR.\n");
@@ -52,7 +53,7 @@ int main(void)
 		}
 		do {
 			printf("\nSelect driver number[1-n] (or enter 'done'): "); fflush(stdout);
-			scanf("%s", input);
+			ret = scanf("%s", input);
 		} while (atoi(input) <= 0 && !!strcmp(input, "done"));
 		type[i] = atoi(input);
 		i++;
@@ -66,22 +67,22 @@ int main(void)
 	}
 
 	printf("\nEnter LAW audio mode. For a-LAW (default), just enter 0. For u-LAW enter 1.\n[0..n | 0xn]: "); fflush(stdout);
-	scanf("%s", input);
+	ret = scanf("%s", input);
 	lawopt = strtoul(input, NULL, 0);
 	printf("\nEnter debugging flags of mISDN core. For no debug, just enter 0.\n[0..n | 0xn]: "); fflush(stdout);
-	scanf("%s", input);
+	ret = scanf("%s", input);
 	coredebug = strtoul(input, NULL, 0);
 	printf("\nEnter debugging flags of cards. For no debug, just enter 0.\n[0..n | 0xn]: "); fflush(stdout);
-	scanf("%s", input);
+	ret = scanf("%s", input);
 	carddebug = strtoul(input, NULL, 0);
 	printf("\nEnter dsp debugging flags of driver. For no debug, just enter 0.\n[0..n | 0xn]: "); fflush(stdout);
-	scanf("%s", input);
+	ret = scanf("%s", input);
 	dspdebug = strtoul(input, NULL, 0);
 
 	n = i;
 
 	printf("\nWhere do you like to load the modules from, enter 0 for default, 1 for\n'/usr/local/lcr/modules/' or the full path.\n[0 | 1 | <path>]: "); fflush(stdout);
-	scanf("%s", input);
+	ret = scanf("%s", input);
 	if (!strcmp(input, "0"))
 		SCPY(input, "");
 	if (!strcmp(input, "1"))
@@ -90,7 +91,7 @@ int main(void)
 		SCAT(input, "/");
 
 	printf("\n\nFinally tell me where to write the mISDN rc file.\nEnter the name 'mISDN' for current directory.\nYou may want to say '/usr/local/lcr/mISDN' or '/etc/rc.d/mISDN'\n: "); fflush(stdout);
-	scanf("%s", file);
+	ret = scanf("%s", file);
 	if (!(fp=fopen(file, "w"))) {
 		fprintf(stderr, "\nError: Failed to open '%s', try again.\n", file);
 		exit(EXIT_FAILURE);

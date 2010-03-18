@@ -17,6 +17,9 @@
 
 /* note: recording log is written at endpoint */
 
+int announce_timer(struct lcr_timer *timer, void *instance, int index);
+int record_timeout(struct lcr_timer *timer, void *instance, int index);
+
 /*
  * initialize vbox port
  */
@@ -26,8 +29,11 @@ VBoxPort::VBoxPort(int type, struct port_settings *settings) : Port(type, "vbox"
 	p_vbox_announce_fh = -1;
 	p_vbox_audio_start = 0;
 	p_vbox_audio_transferred = 0;
-	p_vbox_record_start = 0;
 	p_vbox_record_limit = 0;
+	memset(&p_vbox_announce_timer, 0, sizeof(p_vbox_announce_timer));
+	add_timer(&p_vbox_announce_timer, announce_timer, this, 0);
+	memset(&p_vbox_record_timeout, 0, sizeof(p_vbox_record_timeout));
+	add_timer(&p_vbox_record_timeout, record_timeout, this, 0);
 }
 
 
@@ -36,6 +42,8 @@ VBoxPort::VBoxPort(int type, struct port_settings *settings) : Port(type, "vbox"
  */
 VBoxPort::~VBoxPort()
 {
+	del_timer(&p_vbox_announce_timer);
+	del_timer(&p_vbox_record_timeout);
 	if (p_vbox_announce_fh >= 0) {
 		close(p_vbox_announce_fh);
 		p_vbox_announce_fh = -1;
@@ -58,119 +66,130 @@ static void vbox_trace_header(class VBoxPort *vbox, const char *message, int dir
 }
 
 
-/*
- * handler of vbox
- */
-int VBoxPort::handler(void)
+int record_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class VBoxPort *vboxport = (class VBoxPort *)instance;
+	struct lcr_msg	*message;
+
+	while(vboxport->p_epointlist) {
+		/* send release */
+		message = message_create(vboxport->p_serial, vboxport->p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = 16;
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		vbox_trace_header(vboxport, "RELEASE from VBox (recoding limit reached)", DIRECTION_IN);
+		add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
+		add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+		end_trace();
+		/* remove epoint */
+		vboxport->free_epointlist(vboxport->p_epointlist);
+	}
+	/* recording is close during destruction */
+	delete vboxport;
+	return 0;
+}
+
+int announce_timer(struct lcr_timer *timer, void *instance, int index)
+{
+	class VBoxPort *vboxport = (class VBoxPort *)instance;
+
+	/* port my self destruct here */
+	vboxport->send_announcement();
+
+	return 0;
+}
+
+void VBoxPort::send_announcement(void)
 {
 	struct lcr_msg	*message;
 	unsigned int	tosend;
 	unsigned char	buffer[ISDN_TRANSMIT];
-	time_t		currenttime;
 	class Endpoint	*epoint;
-	int		ret;
+	int		temp;
+	struct timeval current_time;
+	long long	now;
 
-	if ((ret = Port::handler()))
-		return(ret);
+	/* don't restart timer, if announcement is played */
+	if (p_vbox_announce_fh < 0)
+		return;
 
-	if (p_vbox_record_start && p_vbox_record_limit) {
-		time(&currenttime);
-		if (currenttime > (p_vbox_record_limit+p_vbox_record_start)) {
-			while(p_epointlist) {
-				/* send release */
-				message = message_create(p_serial, p_epointlist->epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-				message->param.disconnectinfo.cause = 16;
-				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				message_put(message);
-				vbox_trace_header(this, "RELEASE from VBox (recoding limit reached)", DIRECTION_IN);
-				add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
-				add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
-				end_trace();
-				/* remove epoint */
-				free_epointlist(p_epointlist);
-			}
-			/* recording is close during destruction */
-			delete this;
-			return(-1); /* must return because port is gone */
-		}
-	}
+	gettimeofday(&current_time, NULL);
+	now = current_time.tv_sec * MICRO_SECONDS + current_time.tv_usec;
 
 	/* set time the first time */
-	if (p_vbox_audio_start < 1) {
-		p_vbox_audio_start = now_d;
-		return(0);
-	}
+	if (!p_vbox_audio_start)
+		p_vbox_audio_start = now - ISDN_TRANSMIT;
 	
 	/* calculate the number of bytes */
-	tosend = (unsigned int)((now_d-p_vbox_audio_start)*8000) - p_vbox_audio_transferred;
+	tosend = (unsigned int)(now - p_vbox_audio_start) - p_vbox_audio_transferred;
 
-	/* wait for more */
-	if (tosend < sizeof(buffer))
-		return(0);
-	tosend = sizeof(buffer);
+	/* schedule next event */
+	temp = ISDN_TRANSMIT + ISDN_TRANSMIT - tosend;
+	if (temp < 0)
+		temp = 0;
+	schedule_timer(&p_vbox_announce_timer, 0, temp*125);
+
+	if (tosend > sizeof(buffer))
+		tosend = sizeof(buffer);
 
 	/* add the number of samples elapsed */
 	p_vbox_audio_transferred += tosend;
 
 	/* if announcement is currently played, send audio data */
-	if (p_vbox_announce_fh >=0) {
-		tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
-		if (tosend <= 0) {
-			/* end of file */
-			close(p_vbox_announce_fh);
-			p_vbox_announce_fh = -1;
-			fhuse--;
+	tosend = read_tone(p_vbox_announce_fh, buffer, p_vbox_announce_codec, tosend, p_vbox_announce_size, &p_vbox_announce_left, 1);
+	if (tosend <= 0) {
+		/* end of file */
+		close(p_vbox_announce_fh);
+		p_vbox_announce_fh = -1;
+		fhuse--;
 
-			time(&currenttime);
-			p_vbox_record_start = currenttime;
+		if (p_vbox_record_limit)
+			schedule_timer(&p_vbox_record_timeout, p_vbox_record_limit, 0);
 
-			/* connect if not already */
-			epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
-			if (epoint) {
-				/* if we sent our announcement during ringing, we must now connect */
-				if (p_vbox_ext.vbox_free) {
-					/* send connect message */
-					message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
-					memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
-					message_put(message);
-					vbox_trace_header(this, "CONNECT from VBox (announcement is over)", DIRECTION_IN);
-					end_trace();
-					new_state(PORT_STATE_CONNECT);
-				}
-			}
-
-			/* start recording, if not already */
-			if (p_vbox_mode == VBOX_MODE_NORMAL) {
-				/* recording start */
-				open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
-				vbox_trace_header(this, "RECORDING (announcement is over)", DIRECTION_IN);
-				end_trace();
-			} else // else!!
-			if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT) {
-				/* send release */
-				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
-				message->param.disconnectinfo.cause = 16;
-				message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		/* connect if not already */
+		epoint = find_epoint_id(ACTIVE_EPOINT(p_epointlist));
+		if (epoint) {
+			/* if we sent our announcement during ringing, we must now connect */
+			if (p_vbox_ext.vbox_free) {
+				/* send connect message */
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
+				memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
 				message_put(message);
-				vbox_trace_header(this, "RELEASE from VBox (after annoucement)", DIRECTION_IN);
-				add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
-				add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+				vbox_trace_header(this, "CONNECT from VBox (announcement is over)", DIRECTION_IN);
 				end_trace();
-				/* recording is close during destruction */
-				delete this;
-				return(-1); /* must return because port is gone */
+				new_state(PORT_STATE_CONNECT);
 			}
-		} else {
-			if (p_record)
-				record(buffer, tosend, 0); // from down
-			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-			message->param.data.len = tosend;
-			memcpy(message->param.data.data, buffer, tosend);
-			message_put(message);
 		}
-	}
 
-        return(1);
+		/* start recording, if not already */
+		if (p_vbox_mode == VBOX_MODE_NORMAL) {
+			/* recording start */
+			open_record(p_vbox_ext.vbox_codec, 2, 0, p_vbox_ext.number, p_vbox_ext.anon_ignore, p_vbox_ext.vbox_email, p_vbox_ext.vbox_email_file);
+			vbox_trace_header(this, "RECORDING (announcement is over)", DIRECTION_IN);
+			end_trace();
+		} else // else!!
+		if (p_vbox_mode == VBOX_MODE_ANNOUNCEMENT) {
+			/* send release */
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 16;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			vbox_trace_header(this, "RELEASE from VBox (after annoucement)", DIRECTION_IN);
+			add_trace("cause", "value", "%d", message->param.disconnectinfo.cause);
+			add_trace("cause", "location", "%d", message->param.disconnectinfo.location);
+			end_trace();
+			/* recording is close during destruction */
+			delete this;
+			return; /* must return because port is gone */
+		}
+	} else {
+		if (p_record)
+			record(buffer, tosend, 0); // from down
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
+		message->param.data.len = tosend;
+		memcpy(message->param.data.data, buffer, tosend);
+		message_put(message);
+	}
 }
 
 
@@ -288,6 +307,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		/* play the announcement */
 		if ((p_vbox_announce_fh = open_tone(filename, &p_vbox_announce_codec, &p_vbox_announce_size, &p_vbox_announce_left)) >= 0) {
 			fhuse++;
+			schedule_timer(&p_vbox_announce_timer, 0, 300000);
 		} 
 		vbox_trace_header(this, "ANNOUNCEMENT", DIRECTION_OUT);
 		add_trace("file", "name", "%s", filename);

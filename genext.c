@@ -52,8 +52,9 @@ int main(int argc, char *argv[])
 	struct extension ext;
 	char pathname[256];
 	FILE *fp;
+	char options_error[256];
 
-	if (!read_options()) {
+	if (!read_options(options_error)) {
 		PERROR("%s", options_error);
 		return(-1);
 	}

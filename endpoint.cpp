@@ -33,6 +33,7 @@ class Endpoint *find_epoint_id(unsigned int epoint_id)
 	return(NULL);
 }
 
+int delete_endpoint(struct lcr_work *work, void *instance, int index);
 
 /*
  * endpoint constructor (link with either port or join id)
@@ -48,6 +49,8 @@ Endpoint::Endpoint(unsigned int port_id, unsigned int join_id)
 
         ep_portlist = NULL;
 	ep_app = NULL;
+	memset(&ep_delete, 0, sizeof(ep_delete));
+	add_work(&ep_delete, delete_endpoint, this, 0);
 	ep_use = 1;
 
 	/* add endpoint to chain */
@@ -125,6 +128,8 @@ Endpoint::~Endpoint(void)
 		FATAL("Endpoint not in Endpoint's list.\n");
 	*tempp = next;
 
+	del_work(&ep_delete);
+
 	/* free */
 	PDEBUG(DEBUG_EPOINT, "removed endpoint %d.\n", ep_serial);
 }
@@ -183,17 +188,13 @@ void Endpoint::free_portlist(struct port_list *portlist)
 }
 
 
-/* handler for endpoint
- */
-int Endpoint::handler(void)
+int delete_endpoint(struct lcr_work *work, void *instance, int index)
 {
-	if (ep_use <= 0) {
-		delete this;
-		return(-1);
-	}
+	class Endpoint *ep = (class Endpoint *)instance;
 
-	/* call application handler */
-	if (ep_app)
-		return(ep_app->handler());
-	return(0);
+	if (ep->ep_use <= 0)
+		delete ep;
+
+	return 0;
 }
+

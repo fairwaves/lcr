@@ -28,11 +28,6 @@ EndpointApp::~EndpointApp(void)
 	classuse--;
 }
 
-int EndpointApp::handler(void)
-{
-	return(0);
-}
-
 /* mini application for test purpose only */
 
 void EndpointApp::ea_message_port(unsigned int port_id, int message_type, union parameter *param)
