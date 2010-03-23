@@ -246,7 +246,7 @@ void Pgsm::bchannel_send(unsigned int prim, unsigned int id, unsigned char *data
 	memcpy(buf+MISDN_HEADER_LEN, data, len);
 	ret = sendto(p_m_g_gsm_b_sock, buf, MISDN_HEADER_LEN+len, 0, NULL, 0);
 	if (ret <= 0)
-		PERROR("Failed to send to socket index %d\n", index);
+		PERROR("Failed to send to socket index %d\n", p_m_g_gsm_b_index);
 }
 
 void Pgsm::frame_send(void *_frame)
