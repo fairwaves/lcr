@@ -1953,7 +1953,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				goto match_string_prefix;
 
 				case MATCH_EXTENSION:
-				string = e_ext.name;
+				string = e_ext.number;
 				goto match_string;
 
 				case MATCH_DIALING:
