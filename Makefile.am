@@ -20,23 +20,22 @@
 ##    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 ##    Boston, MA 02110-1301, USA.
 
-#INSTALLdir = $(DESTDIR)/usr/local/lcr
+INSTALLdir = $(DESTDIR)/usr/local/lcr
 
 pkglogdir=$(localstatedir)/log/@PACKAGE@
 pkgsysconfdir=$(sysconfdir)/@PACKAGE@
 
-CONFIGdir=$(DESTDIR)$(pkgsysconfdir)
-SHAREdir=$(DESTDIR)$(pkgdatadir)
-LOGdir=$(DESTDIR)$(pkglogdir)
-EXTENSIONdir=$(DESTDIR)$(localstatedir)/lib/lcr/extensions
+#CONFIGdir=$(DESTDIR)$(pkgsysconfdir)
+#SHAREdir=$(DESTDIR)$(pkgdatadir)
+#LOGdir=$(DESTDIR)$(pkglogdir)
+#EXTENSIONdir=$(DESTDIR)$(localstatedir)/lib/lcr
 
+CONFIGdir=$(INSTALLdir)
+SHAREdir=$(INSTALLdir)
+LOGdir=$(INSTALLdir)
+EXTENSIONdir=$(INSTALLdir)/extensions
 
-#CONFIGdir=$(INSTALLdir)
-#SHAREdir=$(INSTALLdir)
-#LOGdir=$(INSTALLdir)
-#EXTENSIONdir=$(INSTALLdir)/extensions
-
-astmoddir = $(DESTDIR)/$(libdir)/asterisk/modules
+astmoddir = $(DESTDIR)/usr/lib/asterisk/modules
 
 INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(CONFIGdir)\"" \
