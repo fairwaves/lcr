@@ -88,7 +88,7 @@ struct interface_screen {
 struct interface {
 	struct interface	*next;
 	char			name[64]; /* name of interface */
-	int			external; /* interface used for extranl calls */
+	int			external; /* interface used for external calls */
 	int			extension; /* calls are handled as extension */
 	int			is_tones; /* generate tones */
 	int			is_earlyb; /* bridge tones during call setup */

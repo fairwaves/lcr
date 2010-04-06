@@ -595,7 +595,7 @@ struct mISDNport *EndpointAppPBX::hunt_port(char *ifname, int *channel)
 	if (!interface) {
 		if (!there_is_an_external && !(ifname && ifname[0])) {
 			trace_header("CHANNEL SELECTION (no external interface specified)", DIRECTION_NONE);
-			add_trace("info", NULL, "Add 'external' parameter to interface.conf.");
+			add_trace("info", NULL, "Add 'extern' parameter to interface.conf.");
 			end_trace();
 		}
 		return(NULL);
