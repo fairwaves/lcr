@@ -2417,7 +2417,7 @@ static int lcr_send_text(struct ast_channel *ast, const char *text)
 	memset(&newparam, 0, sizeof(union parameter));
 	strncpy(newparam.notifyinfo.display, text, sizeof(newparam.notifyinfo.display)-1);
 	send_message(MESSAGE_NOTIFY, call->ref, &newparam);
-	ast_mutex_lock(&chan_lock);
+	ast_mutex_unlock(&chan_lock);
 	return 0;
 }
 
