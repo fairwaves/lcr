@@ -896,6 +896,7 @@ void EndpointAppPBX::out_setup(void)
 			release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_OUTOFORDER, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0); /* RELEASE_TYPE, join, port */
 			return; /* must exit here */
 		}
+		e_dialinginfo.sending_complete = 1;
 
 		if (e_dialinginfo.itype == INFO_ITYPE_VBOX) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) dialing directly to VBOX\n", ea_endpoint->ep_serial);
@@ -1213,6 +1214,7 @@ void EndpointAppPBX::out_setup(void)
 				SCPY(dialinginfo.id, number);
 			dialinginfo.itype = INFO_ITYPE_ISDN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
+			dialinginfo.sending_complete = e_dialinginfo.sending_complete;
 			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
 			if (!portlist) {
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);

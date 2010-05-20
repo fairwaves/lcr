@@ -208,7 +208,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 	dialinginfo.itype = INFO_ITYPE_ISDN;
-	dialinginfo.sending_complete = 0;
+//	dialinginfo.sending_complete = 0;
 	SCPY(dialinginfo.id, e_extdialing);
 
 	/* process prefix */
@@ -223,8 +223,6 @@ void EndpointAppPBX::action_dialing_external(void)
 
 	/* process number complete */
 	if ((rparam = routeparam(e_action, PARAM_COMPLETE)))
-		if ((rparam = routeparam(e_action, PARAM_PREFIX)))
-			SCPY(dialinginfo.id, rparam->string_value);
 		dialinginfo.sending_complete = 1;
 
 	/* process number type */
@@ -313,6 +311,8 @@ void EndpointAppPBX::action_dialing_external(void)
 	/* add or update outgoing call */
 	trace_header("ACTION extern (calling)", DIRECTION_NONE);
 	add_trace("number", NULL, dialinginfo.id);
+	if (dialinginfo.sending_complete)
+	add_trace("number", "complete", "yes");
 	if (dialinginfo.interfaces[0])
 		add_trace("interfaces", NULL, dialinginfo.interfaces);
 	end_trace();

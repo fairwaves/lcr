@@ -542,6 +542,8 @@ Changes after Version 1.7
 - Fixed compiler warnings when compiling with gcc 4.3.4.
 - Fixed includes to latest mISDNuser structures.
 - Fix by Peter: NULL pointer issue in asterisk frame.
+- Fixes a locking bug in chan_lcr. Thanx to WIMPy for that report.
+- Fixed forwarding of sending-complete information.
 
 
 
