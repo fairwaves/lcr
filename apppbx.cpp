@@ -2469,6 +2469,25 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 
 }
 
+/* port MESSAGE_PROGRESS */
+void EndpointAppPBX::port_progress(struct port_list *portlist, int message_type, union parameter *param)
+{
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
+	struct lcr_msg *message;
+
+	/* signal to call tool */
+	admin_call_response(e_adminid, ADMIN_CALL_PROGRESS, "", 0, param->progressinfo.location, param->progressinfo.progress);
+
+	/* send progress to call if available */
+	if (ea_endpoint->ep_join_id) {
+		message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_PROGRESS);
+		memcpy(&message->param.progressinfo, &param->progressinfo, sizeof(struct progress_info));
+		message_put(message);
+	}
+
+}
+
 /* port MESSAGE_FACILITY */
 void EndpointAppPBX::port_facility(struct port_list *portlist, int message_type, union parameter *param)
 {
@@ -2663,6 +2682,12 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 		case MESSAGE_NOTIFY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received notify.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_notify(portlist, message_type, param);
+		break;
+
+		/* PORT sends a PROGRESS message */
+		case MESSAGE_PROGRESS:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received progress.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		port_progress(portlist, message_type, param);
 		break;
 
 		/* PORT sends a SUSPEND message */
@@ -4105,6 +4130,65 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		}
 		if (param->notifyinfo.display[0])
 			add_trace("display", NULL, "%s", param->notifyinfo.display);
+		end_trace();
+		break;
+
+		case MESSAGE_PROGRESS:
+		switch(param->progressinfo.progress) {
+			case 0x01:
+			logtext = "Call is not end to end ISDN";
+			break;
+			case 0x02:
+			logtext = "Destination address is non-ISDN";
+			break;
+			case 0x03:
+			logtext = "Origination address is non-ISDN";
+			break;
+			case 0x04:
+			logtext = "Call has returned to the ISDN";
+			break;
+			case 0x08:
+			logtext = "In-band info or pattern available";
+			break;
+			default:
+			SPRINT(buffer, "%d", param->progressinfo.progress);
+			logtext = buffer;
+
+		}
+		trace_header("PROGRESS", dir);
+		if (dir == DIRECTION_OUT)
+			add_trace("to", NULL, "CH(%lu)", port_id);
+		if (dir == DIRECTION_IN)
+			add_trace("from", NULL, "CH(%lu)", port_id);
+		add_trace("indicator", NULL, "%s", logtext);
+		switch(param->progressinfo.location) {
+			case LOCATION_USER:
+			add_trace("cause", "location", "0-User");
+			break;
+			case LOCATION_PRIVATE_LOCAL:
+			add_trace("cause", "location", "1-Local-PBX");
+			break;
+			case LOCATION_PUBLIC_LOCAL:
+			add_trace("cause", "location", "2-Local-Exchange");
+			break;
+			case LOCATION_TRANSIT:
+			add_trace("cause", "location", "3-Transit");
+			break;
+			case LOCATION_PUBLIC_REMOTE:
+			add_trace("cause", "location", "4-Remote-Exchange");
+			break;
+			case LOCATION_PRIVATE_REMOTE:
+			add_trace("cause", "location", "5-Remote-PBX");
+			break;
+			case LOCATION_INTERNATIONAL:
+			add_trace("cause", "location", "7-International-Exchange");
+			break;
+			case LOCATION_BEYOND:
+			add_trace("cause", "location", "10-Beyond-Interworking");
+			break;
+			default:
+			add_trace("cause", "location", "%d", param->progressinfo.location);
+		}
 		end_trace();
 		break;
 

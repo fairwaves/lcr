@@ -206,6 +206,7 @@ class EndpointAppPBX : public EndpointApp
 	void port_disconnect_release(struct port_list *portlist, int message_type, union parameter *param);
 	void port_timeout(struct port_list *portlist, int message_type, union parameter *param);
 	void port_notify(struct port_list *portlist, int message_type, union parameter *param);
+	void port_progress(struct port_list *portlist, int message_type, union parameter *param);
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);

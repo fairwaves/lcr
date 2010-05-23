@@ -538,7 +538,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 /*
  * this function is called for response whenever a call state changes.
  */
-void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify)
+void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify_progress)
 {
 	struct admin_list	*admin;
 	struct admin_queue	*response, **responsep;	/* response pointer */
@@ -573,7 +573,7 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
 	SCPY(response->am[0].u.call.callerid, connected);
 	response->am[0].u.call.cause = cause;
 	response->am[0].u.call.location = location;
-	response->am[0].u.call.notify = notify;
+	response->am[0].u.call.notify_progress = notify_progress;
 
 	/* attach to response chain */
 	*responsep = response;

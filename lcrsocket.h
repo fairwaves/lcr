@@ -39,6 +39,7 @@ enum { /* messages */
 	ADMIN_CALL_DISCONNECT,
 	ADMIN_CALL_RELEASE,
 	ADMIN_CALL_NOTIFY,
+	ADMIN_CALL_PROGRESS,
 	ADMIN_TRACE_REQUEST,
 	ADMIN_TRACE_RESPONSE,
 	ADMIN_MESSAGE,
@@ -130,7 +131,7 @@ struct admin_call {
 	int		present; /* presentation */
 	int		cause; /* cause to send */
 	int		location;
-	int		notify;
+	int		notify_progress;
 	int		bc_capa;
 	int		bc_mode;
 	int		bc_info1;

@@ -801,6 +801,13 @@ void Pdss1::setup_acknowledge_ind(unsigned int cmd, unsigned int pid, struct l3_
 	dec_ie_progress(l3m, &coding, &location, &progress);
 	end_trace();
 
+	if (progress >= 0) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROGRESS);
+		message->param.progressinfo.progress = progress;
+		message->param.progressinfo.location = location;
+		message_put(message);
+	}
+
 	/* process channel */
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
 	if (ret < 0) {
@@ -849,6 +856,13 @@ void Pdss1::proceeding_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	dec_ie_notify(l3m, &notify);
 	dec_ie_redir_dn(l3m, &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
 	end_trace();
+
+	if (progress >= 0) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROGRESS);
+		message->param.progressinfo.progress = progress;
+		message->param.progressinfo.location = location;
+		message_put(message);
+	}
 
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
 	if (ret < 0) {
@@ -925,6 +939,13 @@ void Pdss1::alerting_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	dec_ie_notify(l3m, &notify);
 	dec_ie_redir_dn(l3m, &type, &plan, &present, (unsigned char *)redir, sizeof(redir));
 	end_trace();
+
+	if (progress >= 0) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROGRESS);
+		message->param.progressinfo.progress = progress;
+		message->param.progressinfo.location = location;
+		message_put(message);
+	}
 
 	/* process channel */
 	ret = received_first_reply_to_setup(cmd, channel, exclusive);
@@ -1097,6 +1118,13 @@ void Pdss1::disconnect_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3
 	if (cause < 0) {
 		cause = 16;
 		location = LOCATION_PRIVATE_LOCAL;
+	}
+
+	if (progress >= 0) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROGRESS);
+		message->param.progressinfo.progress = progress;
+		message->param.progressinfo.location = proglocation;
+		message_put(message);
 	}
 
 	/* release if remote sends us no tones */
@@ -1639,6 +1667,13 @@ void Pdss1::progress_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_PROGRESS_IND, DIRECTION_IN);
 	dec_ie_progress(l3m, &coding, &location, &progress);
 	end_trace();
+
+	if (progress >= 0) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROGRESS);
+		message->param.progressinfo.progress = progress;
+		message->param.progressinfo.location = location;
+		message_put(message);
+	}
 }
 
 

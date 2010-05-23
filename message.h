@@ -237,6 +237,12 @@ struct notify_info {
 	int local;			/* if set, endpoints gets information about audio channel (open/close) */
 };
 
+/* call-info structure PROGRESS */
+struct progress_info {
+	int progress;			/* progress indicator */
+	int location;			/* progress location */
+};
+
 /* call-info structure FACILITY */
 struct facility_info {
 	char data[256];			/* data info about facility */
@@ -333,6 +339,7 @@ union parameter {
 	struct connect_info connectinfo; /* CONNECT INFO */
 	struct disconnect_info disconnectinfo; /* DISCONNECT INFO */
 	struct notify_info notifyinfo; /* some notifications */
+	struct progress_info progressinfo; /* some progress */
 	struct facility_info facilityinfo; /* some notifications */
 	struct park_info parkinfo; /* MESSAGE_SUSPEND, MESSAGE_RESUME */
 	int state; /* MESSAGE_TIMEOUT */
@@ -383,7 +390,8 @@ enum { /* messages between entities */
 	MESSAGE_DISCONNECT,	/* disconnect with cause */
 	MESSAGE_RELEASE,	/* release with cause */
 	MESSAGE_TIMEOUT,	/* protocol state has timed out (port->epoint) */
-	MESSAGE_NOTIFY,		/* used to send progress and notify infos */
+	MESSAGE_NOTIFY,		/* used to send notify info */
+	MESSAGE_PROGRESS,	/* used to send progress info */
 	MESSAGE_FACILITY,	/* used to facility infos, like aocd */
 	MESSAGE_SUSPEND,	/* suspend port */
 	MESSAGE_RESUME,		/* resume port */

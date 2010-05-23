@@ -1579,7 +1579,11 @@ next:
 		goto next;
 
 		case ADMIN_CALL_NOTIFY:
-		printf("NOTIFY\n notify=%d\n number=%s\n", msg.u.call.notify, msg.u.call.callerid); fflush(stdout);
+		printf("NOTIFY\n notify=%d\n number=%s\n", msg.u.call.notify_progress, msg.u.call.callerid); fflush(stdout);
+		goto next;
+
+		case ADMIN_CALL_PROGRESS:
+		printf("PROGRESS\n progress=%d\n location=%d\n", msg.u.call.notify_progress, msg.u.call.location); fflush(stdout);
 		goto next;
 
 		case ADMIN_CALL_DISCONNECT:
