@@ -2247,6 +2247,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 	union parameter newparam;
         int res = 0;
         struct chan_call *call;
+	const struct tone_zone_sound *ts = NULL;
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
@@ -2268,6 +2269,9 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				send_message(MESSAGE_DISCONNECT, call->ref, &newparam);
 				/* change state */
 				call->state = CHAN_LCR_STATE_OUT_DISCONNECT;
+			} else {
+				CDEBUG(call, ast, "Using Asterisk 'busy' indication\n");
+				ts = ast_get_indication_tone(ast->zone, "busy");
 			}
 			break;
                 case AST_CONTROL_CONGESTION:
@@ -2280,6 +2284,9 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				send_message(MESSAGE_DISCONNECT, call->ref, &newparam);
 				/* change state */
 				call->state = CHAN_LCR_STATE_OUT_DISCONNECT;
+			} else {
+				CDEBUG(call, ast, "Using Asterisk 'congestion' indication\n");
+				ts = ast_get_indication_tone(ast->zone, "congestion");
 			}
 			break;
                 case AST_CONTROL_PROCEEDING:
@@ -2304,6 +2311,9 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				send_message(MESSAGE_ALERTING, call->ref, &newparam);
 				/* change state */
 				call->state = CHAN_LCR_STATE_IN_ALERTING;
+			} else {
+				CDEBUG(call, ast, "Using Asterisk 'ring' indication\n");
+				ts = ast_get_indication_tone(ast->zone, "ring");
 			}
 			break;
 		case AST_CONTROL_PROGRESS:
@@ -2318,6 +2328,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			break;
                 case -1:
 			CDEBUG(call, ast, "Received indicate -1.\n");
+			ast_playtones_stop(ast);
                         res = -1;
 			break;
 
@@ -2366,6 +2377,10 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
                         res = -1;
 			break;
         }
+
+	if (ts && ts->data[0]) {
+		ast_playtones_start(ast, 0, ts->data, 1);
+	}
 
 	/* return */
 	ast_mutex_unlock(&chan_lock);
