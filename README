@@ -545,5 +545,5 @@ Changes after Version 1.7
 - Fixes a locking bug in chan_lcr. Thanx to WIMPy for that report.
 - Fixed forwarding of sending-complete information.
 - Added progress messages (receive only).
-
+- Fixed redirection info in chan_lcr. Thanx to Dennis for the fix.
 

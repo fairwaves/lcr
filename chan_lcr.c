@@ -884,7 +884,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	if (param->setup.callerinfo.name[0])
 		ast->cid.cid_name = strdup(param->setup.callerinfo.name);
 	if (param->setup.redirinfo.id[0])
-		ast->cid.cid_name = strdup(numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international));
+		ast->cid.cid_rdnis = strdup(numberrize_callerinfo(param->setup.redirinfo.id, param->setup.redirinfo.ntype, options.national, options.international));
 	switch (param->setup.callerinfo.present) {
 		case INFO_PRESENT_ALLOWED:
 			ast->cid.cid_pres = AST_PRES_ALLOWED;
