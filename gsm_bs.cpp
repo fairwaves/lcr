@@ -24,6 +24,7 @@ extern "C" {
 #include <osmocore/talloc.h>
 #include <openbsc/mncc.h>
 #include <openbsc/trau_frame.h>
+//#include <osmocom/vty/command.h>
 struct gsm_network *bsc_gsmnet = 0;
 extern int ipacc_rtp_direct;
 extern int bsc_bootstrap_network(int (*mmc_rev)(struct gsm_network *, int, void *),
@@ -41,6 +42,26 @@ static struct log_target *stderr_target;
 /* timer to store statistics */
 #define DB_SYNC_INTERVAL	60, 0
 static struct timer_list db_sync_timer;
+
+/* FIXME: copied from the include file, because it will con compile with C++ */
+struct vty_app_info {
+	const char *name;
+	const char *version;
+	char *copyright;
+	void *tall_ctx;
+	int (*go_parent_cb)(struct vty *vty);
+};
+extern int bsc_vty_go_parent(struct vty *vty);
+static struct vty_app_info vty_info = {
+	"OpenBSC",
+	PACKAGE_VERSION,
+	NULL,
+	NULL,
+	bsc_vty_go_parent,
+};
+void vty_init(struct vty_app_info *app_info);
+int bsc_vty_init(void);
+
 }
 
 /* timer handling */
@@ -811,6 +832,10 @@ int gsm_bs_init(void)
 	db_sync_timer.cb = db_sync_timer_cb;
 	db_sync_timer.data = NULL;
 	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
+
+	/* Init VTY */
+	vty_init(&vty_info);
+	bsc_vty_init();
 
 	/* bootstrap network */
 	if (gsm->conf.openbsc_cfg[0] == '/')
