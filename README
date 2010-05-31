@@ -548,5 +548,5 @@ Changes after Version 1.7
 - Fixed redirection info in chan_lcr. Thanx to Dennis for the fix.
 - Added patch to play ringing tone when connected but the call is forwarded
   and ringing again. Thanx to Jacek for this patch.
-
+- Fixed LCR to work with the current API of OpenBSC.
 

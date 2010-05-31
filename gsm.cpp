@@ -36,7 +36,7 @@ void on_dso_load_ho_dec(void);
 int bts_model_unknown_init(void);
 int bts_model_bs11_init(void);
 int bts_model_nanobts_init(void);
-static struct debug_target *stderr_target;
+static struct log_target *stderr_target;
 
 /* timer to store statistics */
 #define DB_SYNC_INTERVAL	60, 0
@@ -1607,21 +1607,21 @@ int gsm_init(void)
 	char conf_error[128] = "";
 
 
-	debug_init();
+	log_init(&log_info);
 	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
 	talloc_ctx_init();
 	on_dso_load_token();
 	on_dso_load_rrlp();
 	on_dso_load_ho_dec();
-	stderr_target = debug_target_create_stderr();
-	debug_add_target(stderr_target);
+	stderr_target = log_target_create_stderr();
+	log_add_target(stderr_target);
 
 	bts_model_unknown_init();
 	bts_model_bs11_init();
 	bts_model_nanobts_init();
 
 	/* enable filters */
-	debug_set_all_filter(stderr_target, 1);
+	log_set_all_filter(stderr_target, 1);
 
 	/* seed the PRNG */
 	srand(time(NULL));
@@ -1638,7 +1638,7 @@ int gsm_init(void)
 
 	/* set debug */
 	if (gsm->conf.debug[0])
-		debug_parse_category_mask(stderr_target, gsm->conf.debug);
+		log_parse_category_mask(stderr_target, gsm->conf.debug);
 
 	/* open pcap file */
 	if (gsm->conf.pcapfile[0]) {
@@ -1706,7 +1706,7 @@ int handle_gsm(void)
 	int ret1, ret2;
 
 	ret1 = bsc_upqueue((struct gsm_network *)gsm->network);
-	debug_reset_context();
+	log_reset_context();
 	ret2 = bsc_select_main(1); /* polling */
 	if (ret1 || ret2)
 		return 1;

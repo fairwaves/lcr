@@ -45,11 +45,11 @@ INSTALLATION_DEFINES = \
 
 if ENABLE_GSM
 
-GSM_INCLUDE = -DWITH_GSM -I./openbsc/include -I./libosmocore/include
+GSM_INCLUDE = -DWITH_GSM -I./openbsc/include -I./libosmocore/include -I./openbsc
 
-GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/vty_interface.c openbsc/src/vty_interface_layer3.c
+GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
 
-GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -L./libosmocore/src/ -losmocore -ldbi -lcrypt
+GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
