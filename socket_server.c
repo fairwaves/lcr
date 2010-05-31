@@ -1049,7 +1049,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.p.state = ADMIN_STATE_IDLE;
 		}
 		/* isdn */
-		if ((port->p_type&PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1) {
+		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_DSS1) {
 			response->am[num].u.p.isdn = 1;
 			pdss1 = (class Pdss1 *)port;
 			response->am[num].u.p.isdn_chan = pdss1->p_m_b_channel;

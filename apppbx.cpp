@@ -979,16 +979,19 @@ void EndpointAppPBX::out_setup(void)
 				port = ss5_hunt_line(mISDNport);
 			else
 #endif
-			if (!mISDNport->gsm)
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+#ifdef WITH_GSM_BS
+			if (mISDNport->gsm_bs)
+				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
-#ifdef WITH_GSM
-				port = new Pgsm(PORT_TYPE_GSM_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-#else
-				port = NULL;
 #endif
+#ifdef WITH_GSM_MS
+			if (mISDNport->gsm_ms)
+				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			else
+#endif
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			if (!port)
-				FATAL("No memory for Port instance\n");
+				FATAL("Failed to create Port instance\n");
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			SCPY(dialinginfo.id, e_dialinginfo.id);
@@ -1195,14 +1198,17 @@ void EndpointAppPBX::out_setup(void)
 				port = ss5_hunt_line(mISDNport);
 			else
 #endif
-			if (!mISDNport->gsm)
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+#ifdef WITH_GSM_BS
+			if (mISDNport->gsm_bs)
+				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
-#ifdef WITH_GSM
-				port = new Pgsm(PORT_TYPE_GSM_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-#else
-				port = NULL;
 #endif
+#ifdef WITH_GSM_MS
+			if (mISDNport->gsm_ms)
+				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			else
+#endif
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			if (!port)
 				FATAL("No memory for Port instance\n");
 			earlyb = mISDNport->earlyb;
@@ -2027,7 +2033,10 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	/* other calls with no caller id (or not available for the extension) and force colp */
 	if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE) {
 		e_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
-		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT || portlist->port_type==PORT_TYPE_DSS1_NT_OUT || portlist->port_type==PORT_TYPE_GSM_OUT) { /* external extension answered */
+		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT
+		 || portlist->port_type==PORT_TYPE_DSS1_NT_OUT
+		 || portlist->port_type==PORT_TYPE_GSM_BS_OUT
+		 || portlist->port_type==PORT_TYPE_GSM_MS_OUT) { /* external extension answered */
 			port = find_port_id(portlist->port_id);
 			if (port) {
 				SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype, options.national, options.international));
@@ -3469,7 +3478,10 @@ void EndpointAppPBX::pick_join(char *extensions)
 							break;
 						}
 					}
-					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT || port->p_type==PORT_TYPE_DSS1_TE_OUT || port->p_type==PORT_TYPE_GSM_OUT)
+					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT
+					  || port->p_type==PORT_TYPE_DSS1_TE_OUT
+					  || port->p_type==PORT_TYPE_GSM_BS_OUT
+					  || port->p_type==PORT_TYPE_GSM_MS_OUT)
 					 && port->p_state==PORT_STATE_OUT_ALERTING)
 						if (match_list(extensions, eapp->e_ext.number)) {
 							found = eapp;
@@ -3661,7 +3673,7 @@ void EndpointAppPBX::join_join(void)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port doesn't exist anymore.\n", ea_endpoint->ep_serial);
 		return;
 	}
-	if ((our_port->p_type&PORT_CLASS_mISDN_MASK) != PORT_CLASS_mISDN_DSS1) {
+	if ((our_port->p_type & PORT_CLASS_mISDN_MASK) != PORT_CLASS_DSS1) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port is not isdn.\n", ea_endpoint->ep_serial);
 		return;
 	}
@@ -3859,7 +3871,7 @@ int EndpointAppPBX::check_external(const char **errstr, class Port **port)
 		*errstr = "No Call";
 		return(1);
 	}
-	if (((*port)->p_type&PORT_CLASS_mISDN_MASK)!=PORT_CLASS_mISDN_DSS1) { /* port is not external isdn */
+	if (((*port)->p_type & PORT_CLASS_mISDN_MASK) != PORT_CLASS_DSS1) { /* port is not external isdn */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) 2nd endpoint has not an external port.\n", ea_endpoint->ep_serial);
 		*errstr = "No Ext Call";
 		return(1);

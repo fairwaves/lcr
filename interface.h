@@ -51,7 +51,15 @@ struct interface_port {
 	int			tespecial; /* special TE-mode behavior */
 	int			l1hold; /* hold layer 1 (1=on, 0=off) */
 	int			l2hold; /* hold layer 2 (1=force, -1=disable, 0=default) */
-	int			gsm; /* interface is an GSM interface */
+#ifdef WITH_GSM_BS
+	int			gsm_bs; /* interface is an GSM BS interface */
+#endif
+#ifdef WITH_GSM_MS
+	int			gsm_ms; /* interface is an GSM MS interface */
+	char			gsm_ms_name[32]; /* name of ms */
+	char			gsm_ms_socket[128]; /* layer1 socket name */
+	char			gsm_ms_service; /* see GSM_SERVICE_* */
+#endif
 	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */

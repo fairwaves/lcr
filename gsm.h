@@ -1,6 +1,4 @@
-extern "C" {
-#include <openbsc/gsm_data.h>
-}
+extern int new_callref;
 
 struct gsm_conf {
 	char debug[128];		/* debug info */
@@ -12,7 +10,6 @@ struct gsm_conf {
 	char hlr[64];			/* database name */
 	int allow_all;			/* accept unknown subscribers */
 	int keep_l2;			/* keep layer 2 after exit */
-	int noemergshut;		/* don't shut down on emergency */
 	char pcapfile[128];		/* open capture file for BS11 links */
 	int reject_cause;		/* reject cause for unsubcribed IMSIs */
 };
@@ -20,7 +17,7 @@ struct gsm_conf {
 struct lcr_gsm {
 	void		*network;	/* OpenBSC network handle */
 	struct gsm_conf	conf;		/* gsm.conf options */
-	int		gsm_sock;	/* loopback interface BSC side */
+	int		gsm_sock;	/* loopback interface GSM side */
 	int		gsm_port;	/* loopback interface port number */
 };
 
@@ -33,8 +30,9 @@ class Pgsm : public PmISDN
 	Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pgsm();
 
+	void *p_m_g_instance; /* pointer to network/ms instance */
+	unsigned int p_m_g_callref; /* ref by OpenBSC/Osmocom-BB */
 	struct lcr_work p_m_g_delete;		/* timer for audio transmission */
-	unsigned int p_m_g_callref; /* ref by OpenBSC */
 	unsigned int p_m_g_mode; /* data/transparent mode */
 	int p_m_g_gsm_b_sock; /* gsm bchannel socket */
 	struct lcr_fd p_m_g_gsm_b_fd; /* event node */
@@ -55,9 +53,6 @@ class Pgsm : public PmISDN
 	void frame_receive(void *_frame);
 
 	int hunt_bchannel(void);
-	void setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
-	void start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
-	void stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *gsm);
 	void alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
@@ -65,9 +60,6 @@ class Pgsm : public PmISDN
 	void disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void rel_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void notify_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
-	void hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
-	void retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
-	void message_setup(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_notify(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_alerting(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_connect(unsigned int epoint_id, int message_id, union parameter *param);
@@ -76,8 +68,11 @@ class Pgsm : public PmISDN
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 };
 
-int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error);
+struct gsm_mncc *create_mncc(int msg_type, unsigned int callref);
+int send_and_free_mncc(void *instance, unsigned int msg_type, void *data);
+void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg_type, int direction);
 int handle_gsm(void);
+int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int gsm_exit(int rc);
 int gsm_init(void);
 

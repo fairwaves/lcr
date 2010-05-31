@@ -65,8 +65,15 @@ struct mISDNport {
 	int los, ais, rdi, slip_rx, slip_tx;
 
 	/* gsm */
-	int gsm; /* this is the (only) GSM interface */
+#ifdef WITH_GSM_BS
+	int gsm_bs; /* this is the (only) GSM BS interface */
+#endif
+#ifdef WITH_GSM_MS
+	int gsm_ms; /* this is the an GSM MS interface */
+#endif
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	int lcr_sock; /* socket of loopback on LCR side */
+#endif
 
 	/* ss5 */
 	unsigned int ss5; /* set, if SS5 signalling enabled, also holds feature bits */

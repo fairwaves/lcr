@@ -95,25 +95,47 @@ AS_IF([test "x$with_ssl" != xno],
       ]
      )
 
-# check for gsm
-AC_ARG_WITH([gsm],
-	[AS_HELP_STRING([--with-gsm],
+# check for gsm-bs
+AC_ARG_WITH([gsm-bs],
+	[AS_HELP_STRING([--with-gsm-bs],
 			[compile with OpenBSC support @<:@default=check@:>@])
 	],
 	[],
-	[with_gsm="check"])
+	[with_gsm_bs="check"])
 
-AS_IF([test "x$with_gsm" != xno],
+AS_IF([test "x$with_gsm_bs" != xno],
       [AC_CHECK_FILE([openbsc/include/openbsc/gsm_data.h],
-			[with_gsm="yes"],
-			[if test "x$with_gsm" != xcheck ; then
+			[with_gsm_bs="yes"],
+			[if test "x$with_gsm_bs" != xcheck ; then
 			  AC_MSG_FAILURE(
-			    [--with-gsm was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore osmocore])
+			    [--with-gsm-bs was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore libosmocore])
                      fi
 		     ])
       ])
 
-AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm" == "xyes" )
+AM_CONDITIONAL(ENABLE_GSM_BS, test "x$with_gsm_bs" == "xyes" )
+
+# check for gsm-ms
+AC_ARG_WITH([gsm-ms],
+	[AS_HELP_STRING([--with-gsm-ms],
+			[compile with Osmocom-bb support @<:@default=check@:>@])
+	],
+	[],
+	[with_gsm_ms="check"])
+
+AS_IF([test "x$with_gsm_ms" != xno],
+      [AC_CHECK_FILE([layer23/include/osmocom/osmocom_data.h],
+			[with_gsm_ms="yes"],
+			[if test "x$with_gsm_ms" != xcheck ; then
+			  AC_MSG_FAILURE(
+			    [--with-gsm-ms was given, but osmocom-bb/include/osmocom/osmocom_data.h was not found! Pleas link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore])
+                     fi
+		     ])
+      ])
+
+AM_CONDITIONAL(ENABLE_GSM_MS, test "x$with_gsm_ms" == "xyes" )
+
+AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm_bs" == "xyes" -o "x$with_gsm_ms" == "xyes")
 
 # check for ss5
 AC_ARG_WITH([ss5],

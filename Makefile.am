@@ -43,16 +43,40 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
+GSM_INCLUDE =
+GSM_SOURCE =
+GSM_LIB =
+
 if ENABLE_GSM
 
-GSM_INCLUDE = -DWITH_GSM -I./openbsc/include -I./libosmocore/include -I./openbsc
+GSM_INCLUDE +=
 
-GSM_SOURCE = gsm_audio.c gsm.cpp gsm_conf.c openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
-
-GSM_LIB = /usr/lib/libgsm.a ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
+GSM_SOURCE += gsm_audio.c gsm.cpp gsm_conf.c
+  
+GSM_LIB += /usr/lib/libgsm.a
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
+
+endif
+
+if ENABLE_GSM_BS
+
+GSM_INCLUDE += -DWITH_GSM_BS -I./openbsc/include -I./libosmocore/include -I./openbsc
+
+GSM_SOURCE += gsm_bs.cpp openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
+
+GSM_LIB +=  ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
+
+endif
+
+if ENABLE_GSM_MS
+
+GSM_INCLUDE += -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
+
+GSM_SOURCE += gsm_ms.cpp layer23/src/app_mobile.c
+
+GSM_LIB += ./layer23/src/liblayer23.a ./layer23/src/libvty.a ./libosmocore/build-host/src/.libs/libosmocore.a
 
 endif
 

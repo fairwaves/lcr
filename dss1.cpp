@@ -2897,7 +2897,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 	port = port_first;
 	while(port) {
 		/* are we ISDN ? */
-		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_mISDN_DSS1) {
+		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_DSS1) {
 			pdss1 = (class Pdss1 *)port;
 			/* check out correct stack and id */
 			if (pdss1->p_m_mISDNport == mISDNport) {

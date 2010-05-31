@@ -149,8 +149,14 @@ extern "C" {
 #include "port.h"
 #include "mISDN.h"
 #include "dss1.h"
-#ifdef WITH_GSM
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 #include "gsm.h"
+#endif
+#ifdef WITH_GSM_BS
+#include "gsm_bs.h"
+#endif
+#ifdef WITH_GSM_MS
+#include "gsm_ms.h"
 #endif
 #ifdef WITH_SS5
 #include "ss5_encode.h"

@@ -22,7 +22,7 @@ struct timezone now_tz;
 	}
 
 FILE *debug_fp = NULL;
-int quit=0;
+int quit = 0;
 
 #if 0
 struct lcr_fdset lcr_fdset[FD_SETSIZE];
@@ -161,7 +161,7 @@ void sighandler(int sigset)
  */
 int main(int argc, char *argv[])
 {
-#ifdef WITH_GSM
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	double			now_d, last_d;
 	int			all_idle;
 #endif
@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 
-#ifdef WITH_GSM
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	/* handle gsm */
 	if (options.gsm && gsm_init()) {
 		fprintf(stderr, "GSM initialization failed.\n");
@@ -370,7 +370,19 @@ int main(int argc, char *argv[])
 	}
 #else
 	if (options.gsm) {
-		fprintf(stderr, "GSM is enabled, but not compiled. Use --with-gsm while configure!\n");
+		fprintf(stderr, "GSM is enabled, but not compiled. Use --with-gsm-bs or --with-gsm-ms while configure!\n");
+		goto free;
+	}
+#endif
+#ifdef WITH_GSM_BS
+	if (options.gsm && gsm_bs_init()) {
+		fprintf(stderr, "GSM BS initialization failed.\n");
+		goto free;
+	}
+#endif
+#ifdef WITH_GSM_MS
+	if (options.gsm && gsm_ms_init()) {
+		fprintf(stderr, "GSM MS initialization failed.\n");
 		goto free;
 	}
 #endif
@@ -436,11 +448,11 @@ int main(int argc, char *argv[])
 	printf("%s\n", tracetext);
 	end_trace();
 	quit = 0;
-#ifdef WITH_GSM
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	GET_NOW();
 #endif
 	while(!quit) {
-#ifdef WITH_GSM
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 		last_d = now_d;
 		GET_NOW();
 		if (now_d-last_d > 1.0) {
@@ -453,9 +465,18 @@ int main(int argc, char *argv[])
 		if (select_main(1, NULL, NULL, NULL))
 			all_idle = 0;
 		/* handle gsm */
-		if (options.gsm)
-			while(handle_gsm())
+		if (options.gsm) {
+			if (handle_gsm())
 				all_idle = 0;
+#ifdef WITH_GSM_BS
+			if (handle_gsm_bs())
+				all_idle = 0;
+#endif
+#ifdef WITH_GSM_MS
+			if (handle_gsm_ms())
+				all_idle = 0;
+#endif
+		}
 		if (all_idle) {
 			usleep(10000);
 		}
@@ -470,8 +491,10 @@ int main(int argc, char *argv[])
 	SPRINT(tracetext, "%s terminated", NAME);
 	printf("%s\n", tracetext);
 	start_trace(-1, NULL, NULL, NULL, 0, 0, 0, tracetext);
-	if (quit)
+	if (quit > 0)
 		add_trace((char *)"signal", NULL, "%d", quit);
+	if (quit < 0)
+		add_trace((char *)"errno", NULL, "%d", quit);
 	end_trace();
 	ret=0;
 
@@ -565,11 +588,18 @@ free:
 	if (created_misdn)
 		mISDN_deinitialize();
 
-#ifdef WITH_GSM
 	/* free gsm */
-	if (options.gsm)
+	if (options.gsm) {
+#ifdef WITH_GSM_BS
+		gsm_bs_exit(0);
+#endif
+#ifdef WITH_GSM_MS
+		gsm_ms_exit(0);
+#endif
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 		gsm_exit(0);
 #endif
+	}
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \

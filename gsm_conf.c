@@ -35,7 +35,6 @@ int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error)
 	SCPY(gsm_conf->openbsc_cfg, "openbsc.cfg");
 	gsm_conf->reject_cause = 0;
 	gsm_conf->keep_l2 = 0;
-	gsm_conf->noemergshut = 0;
 
 	SPRINT(filename, "%s/gsm.conf", CONFIG_DATA);
 
@@ -148,9 +147,6 @@ int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error)
 		if (!strcmp(option,"keep-l2")) {
 			gsm_conf->keep_l2 = 1;
 
-		} else
-		if (!strcmp(option,"no-mergency-shutdown")) {
-			gsm_conf->noemergshut = 1;
 		} else
 		if (!strcmp(option,"pcapfile")) {
 			if (params[0][0]==0) {

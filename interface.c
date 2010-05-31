@@ -318,23 +318,30 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 	struct interface_port *ifport, **ifportp;
 	struct interface *searchif;
 
-	/* check for port already assigned */
-	searchif = interface_newlist;
-	while(searchif) {
-		ifport = searchif->ifport;
-		while(ifport) {
-			if (!strcasecmp(ifport->portname, value)) {
-				SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
-				return(-1);
-			}
-//			/* check for use as GSM */
-//			if (ifport->gsm) {
-//				SPRINT(interface_error, "Error in %s (line %d): Interface already used for GSM.\n", filename, line);
-//				return(-1);
-//			}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	if (ifport) {
+		while(ifport->next)
 			ifport = ifport->next;
+	}
+
+	/* check for port already assigned, but not for shared gsm interface */
+	searchif = interface_newlist;
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
+	if (!strcmp(value, gsm->conf.interface_lcr))
+#endif
+	{
+		while(searchif) {
+			ifport = searchif->ifport;
+			while(ifport) {
+				if (!strcasecmp(ifport->portname, value)) {
+					SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
+					return(-1);
+				}
+				ifport = ifport->next;
+			}
+			searchif = searchif->next;
 		}
-		searchif = searchif->next;
 	}
 	/* alloc port substructure */
 	ifport = (struct interface_port *)MALLOC(sizeof(struct interface_port));
@@ -880,8 +887,13 @@ static int inter_tones_dir(struct interface *interface, char *filename, int line
 }
 static int inter_gsm(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-#ifndef WITH_GSM
-	SPRINT(interface_error, "Error in %s (line %d): GSM not compiled in.\n", filename, line);
+	SPRINT(interface_error, "Error in %s (line %d): parameter '%s' is outdated.\nPlease use 'gsm-bs' for base station or 'gsm-ms' for mobile station interface!\n", filename, line, parameter);
+	return(-1);
+}
+static int inter_gsm_bs(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_GSM_BS
+	SPRINT(interface_error, "Error in %s (line %d): GSM BS side not compiled in.\n", filename, line);
 	return(-1);
 #else
 	struct interface_port *ifport;
@@ -896,8 +908,8 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	while(searchif) {
 		ifport = searchif->ifport;
 		while(ifport) {
-			if (ifport->gsm) {
-				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses gsm\n", filename, line, value);
+			if (ifport->gsm_bs) {
+				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses gsm BS side.\n", filename, line, ifport->portname);
 				return(-1);
 			}
 			ifport = ifport->next;
@@ -908,11 +920,71 @@ static int inter_gsm(struct interface *interface, char *filename, int line, char
 	/* set portname */
 	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
 		return(-1);
-	/* goto end of chain again to set gsmflag*/
+
+	/* goto end of chain again to set gsmflag */
 	ifport = interface->ifport;
 	while(ifport->next)
 		ifport = ifport->next;
-	ifport->gsm = 1;
+	ifport->gsm_bs = 1;
+
+	return(0);
+#endif
+}
+static int inter_gsm_ms(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_GSM_MS
+	SPRINT(interface_error, "Error in %s (line %d): GSM MS side not compiled in.\n", filename, line);
+	return(-1);
+#else
+	struct interface_port *ifport, *searchifport;
+	struct interface *searchif;
+	char *element;
+
+	/* check gsm */
+	if (!gsm) {
+		SPRINT(interface_error, "Error in %s (line %d): GSM is not activated.\n", filename, line);
+		return(-1);
+	}
+
+	/* set portname */
+	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
+		return(-1);
+
+	/* goto end of chain again to set gsmflag and socket */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->gsm_ms = 1;
+
+	/* copy values */
+	element = strsep(&value, " ");
+	if (!element || !element[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): Missing MS name and socket name.\n", filename, line);
+		return(-1);
+	}
+	SCPY(ifport->gsm_ms_name, element);
+	element = strsep(&value, " ");
+	if (!element || !element[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): Missing socket name after MS name.\n", filename, line);
+		return(-1);
+	}
+	SCPY(ifport->gsm_ms_socket, element);
+
+	/* check if socket is used multiple times */
+	searchif = interface_newlist;
+	while(searchif) {
+		searchifport = searchif->ifport;
+		while(searchifport) {
+			if (searchifport != ifport 
+			 && !strcmp(searchifport->gsm_ms_socket, ifport->gsm_ms_socket)) {
+				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given socket '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_socket);
+				return(-1);
+			}
+			searchifport = searchifport->next;
+		}
+		searchif = searchif->next;
+	}
+
 	return(0);
 #endif
 }
@@ -1111,10 +1183,16 @@ struct interface_param interface_param[] = {
 	"To used kernel tones in mISDN_dsp.ko, say 'american', 'german', or 'oldgerman'."},
 
 	{"gsm", &inter_gsm, "",
-	"Sets up GSM interface for using OpenBSC.\n"
-	"This interface must be a loopback interface. The second loopback interface\n"
-	"must be assigned to OpenBSC."},
-
+	""},
+	{"gsm-bs", &inter_gsm_bs, "",
+	"Sets up GSM base station interface for using OpenBSC.\n"
+	"See the default/gsm.conf for configuration for this version."},
+	{"gsm-ms", &inter_gsm_ms, "[<socket>]",
+	"Sets up GSM mobile station interface for using Osmocom-BB.\n"
+	"See the default/gsm.conf for configuration for this version.\n"
+	"The name of the MS folows the interface name.\n"
+	"The socket is /tmp/osmocom_l2 by default and need to be changed when multiple\n"
+	"MS interfaces are used."},
 	{"nonotify", &inter_nonotify, "",
 	"Prevents sending notify messages to this interface. A call placed on hold will\n"
 	"Not affect the remote end (phone or telcom switch).\n"
@@ -1421,6 +1499,10 @@ void relink_interfaces(void)
 		if (mISDNport->ifport == NULL) {
 			PDEBUG(DEBUG_ISDN, "Port %d is not used anymore and will be closed\n", mISDNport->portnum);
 			/* remove all port objects and destroy port */
+#ifdef WITH_GSM_MS
+			if (ifport->gsm_ms)
+				gsm_ms_delete(ifport->gsm_ms_name);
+#endif
 			mISDNport_close(mISDNport);
 			goto closeagain;
 		}
@@ -1463,6 +1545,10 @@ void load_port(struct interface_port *ifport)
 		set_defaults(ifport);
 		/* load static port instances */
 		mISDNport_static(mISDNport);
+#ifdef WITH_GSM_MS
+		if (ifport->gsm_ms)
+			gsm_ms_new(ifport->gsm_ms_name, ifport->gsm_ms_socket);
+#endif
 	} else {
 		ifport->block = 2; /* not available */
 	}

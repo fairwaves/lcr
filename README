@@ -549,4 +549,5 @@ Changes after Version 1.7
 - Added patch to play ringing tone when connected but the call is forwarded
   and ringing again. Thanx to Jacek for this patch.
 - Fixed LCR to work with the current API of OpenBSC.
+- Splitted GSM support into BS (network) and MS (mobile) part.
 

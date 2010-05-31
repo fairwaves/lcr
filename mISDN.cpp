@@ -33,6 +33,21 @@ int __af_isdn = MISDN_AF_ISDN;
 #define B_TIMER_ACTIVATING 1 // seconds
 #define B_TIMER_DEACTIVATING 1 // seconds
 
+/* GSM condition */
+#if defined WITH_GSM_BS && defined WITH_GSM_MS
+ #define MISDNPORT_GSM (mISDNport->gsm_bs || mISDNport->gsm_ms)
+#else
+ #ifdef WITH_GSM_BS
+  #define MISDNPORT_GSM (mISDNport->gsm_bs)
+ #endif
+ #ifdef WITH_GSM_MS
+  #define MISDNPORT_GSM (mISDNport->gsm_ms)
+ #endif
+#endif
+#ifndef MISDNPORT_GSM
+ #define MISDNPORT_GSM (0)
+#endif
+
 /* list of mISDN ports */
 struct mISDNport *mISDNport_first;
 
@@ -1841,7 +1856,7 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
 		/* handle queued up-messages (d-channel) */
-		if (!mISDNport->gsm) {
+		if (!MISDNPORT_GSM) {
 			while ((mb = mdequeue(&mISDNport->upqueue))) {
 				l3m = &mb->l3;
 				switch(l3m->type) {
@@ -1917,7 +1932,7 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 						if (!mISDNport->ntmode || mISDNport->ptp)
 							mISDNport->l2link = 0;
 					}
-					if (!mISDNport->gsm && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
+					if (!MISDNPORT_GSM && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
 						if (!mISDNport->l2establish.active && mISDNport->l2hold) {
 							PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
 							schedule_timer(&mISDNport->l2establish, 5, 0);
@@ -1944,7 +1959,7 @@ static int l2establish_timeout(struct lcr_timer *timer, void *instance, int i)
 {
 	struct mISDNport *mISDNport = (struct mISDNport *)instance;
 
-	if (!mISDNport->gsm && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (!MISDNPORT_GSM && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 //		PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		schedule_timer(&mISDNport->l2establish, 5, 0); /* 5 seconds */
@@ -2104,7 +2119,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	int force_nt = ifport->nt;
 	int l1hold = ifport->l1hold;
 	int l2hold = ifport->l2hold;
-	int gsm = ifport->gsm;
+	int gsm = 0;
 	int ss5 = ifport->ss5;
 	int i, cnt;
 	int pri, bri, pots;
@@ -2112,6 +2127,17 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 //	struct mlayer3 *ml3;
 	struct mISDN_devinfo devinfo;
 	unsigned int protocol, prop;
+
+#if defined WITH_GSM_BS && defined WITH_GSM_MS
+	gsm = ifport->gsm_ms | ifport->gsm_bs;
+#else
+#ifdef WITH_GSM_BS
+	gsm = ifport->gsm_bs;
+#endif
+#ifdef WITH_GSM_MS
+	gsm = ifport->gsm_ms;
+#endif
+#endif
 
 	/* check port counts */
 	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
@@ -2252,7 +2278,12 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		mISDNport->l1link = -1;
 		mISDNport->l2link = -1;
 	}
-	mISDNport->gsm = gsm;
+#ifdef WITH_GSM_BS
+	mISDNport->gsm_bs = ifport->gsm_bs;
+#endif
+#ifdef WITH_GSM_MS
+	mISDNport->gsm_ms = ifport->gsm_ms;
+#endif
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
@@ -2295,6 +2326,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	/* open layer 3 and init upqueue */
 	if (gsm) {
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 		unsigned long on = 1;
 		struct sockaddr_mISDN addr;
 
@@ -2325,6 +2357,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 			mISDNport_close(mISDNport);
 			return(NULL);
 		}
+#endif
 	} else {
 		/* queue must be initializes, because l3-thread may send messages during open_layer3() */
 		mqueue_init(&mISDNport->upqueue);
@@ -2365,7 +2398,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	}
 
 	/* if ptp, pull up the link */
-	if (!mISDNport->gsm && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (!MISDNPORT_GSM && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		add_trace("tei", NULL, "%d", 0);
@@ -2478,17 +2511,19 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	del_timer(&mISDNport->l2establish);
 
 	/* close layer 3, if open */
-	if (!mISDNport->gsm && mISDNport->ml3) {
+	if (!MISDNPORT_GSM && mISDNport->ml3) {
 		close_layer3(mISDNport->ml3);
 	}
 
+#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	/* close gsm socket, if open */
-	if (mISDNport->gsm && mISDNport->lcr_sock > -1) {
+	if (MISDNPORT_GSM && mISDNport->lcr_sock > -1) {
 		close(mISDNport->lcr_sock);
 	}
+#endif
 
 	/* purge upqueue */
-	if (!mISDNport->gsm)
+	if (!MISDNPORT_GSM)
 		mqueue_purge(&mISDNport->upqueue);
 
 	/* remove from list */
