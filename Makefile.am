@@ -99,7 +99,7 @@ chan_lcr_so_LDFLAGS = -shared
 chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
+	$(CC) $(INCLUDES) $(AST_CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
 
 bchannel.po: bchannel.c bchannel.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c bchannel.c -o bchannel.po

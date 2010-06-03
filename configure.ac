@@ -68,6 +68,49 @@ AS_IF([test "x$with_asterisk" != xno],
 		     ])
       ])
 
+if test "x$with_asterisk" = "xyes"; then
+	ast_tone_zone_sound=
+
+	AC_MSG_CHECKING([for struct tone_zone_sound in asterisk/indications.h])
+	tzs_test_result=no
+	AC_COMPILE_IFELSE([
+		AC_LANG_PROGRAM(
+			[[#include <asterisk.h>],
+			[#include <asterisk/linkedlists.h>],
+			[#include <asterisk/indications.h>]],
+			[[struct tone_zone_sound * ts = NULL; (void) ts->data;]])],
+		[tzs_test_result=yes])
+	AC_MSG_RESULT([$tzs_test_result])
+
+	if test "x$tzs_test_result" = "xyes"; then
+		ast_tone_zone_sound=tone_zone_sound
+	fi
+
+	if test "x$ast_tone_zone_sound" = "x"; then
+		AC_MSG_CHECKING([for struct ast_tone_zone_sound in asterisk/indications.h])
+		tzs_test_result=no
+		AC_COMPILE_IFELSE([
+			AC_LANG_PROGRAM(
+				[[#include <asterisk.h>],
+				[#include <asterisk/linkedlists.h>],
+				[#include <asterisk/indications.h>]],
+				[[struct ast_tone_zone_sound * ts = NULL; (void) ts->name;]])],
+			[tzs_test_result=yes])
+		AC_MSG_RESULT([$tzs_test_result])
+
+		if test "x$tzs_test_result" = "xyes"; then
+			ast_tone_zone_sound=ast_tone_zone_sound
+		fi
+	fi
+
+	if test "x$ast_tone_zone_sound" = "x"; then
+		AC_MSG_FAILURE([No ast_tone_zone_sound, confused...])
+	fi
+
+	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound"
+	AC_SUBST([AST_CFLAGS])
+fi
+
 AM_CONDITIONAL(ENABLE_ASTERISK_CHANNEL_DRIVER, test "x$with_asterisk" == "xyes" )
 
 # check for crypto

@@ -651,6 +651,7 @@ ENABLE_GSM_BS_TRUE
 LIBCRYPTO
 ENABLE_ASTERISK_CHANNEL_DRIVER_FALSE
 ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE
+AST_CFLAGS
 am__fastdepCXX_FALSE
 am__fastdepCXX_TRUE
 CXXDEPMODE
@@ -6009,6 +6010,135 @@ done
 
 fi
 
+
+if test "x$with_asterisk" = "xyes"; then
+	ast_tone_zone_sound=
+
+	{ $as_echo "$as_me:$LINENO: checking for struct tone_zone_sound in asterisk/indications.h" >&5
+$as_echo_n "checking for struct tone_zone_sound in asterisk/indications.h... " >&6; }
+	tzs_test_result=no
+	cat >conftest.$ac_ext <<_ACEOF
+
+		/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <asterisk.h>,
+			#include <asterisk/linkedlists.h>,
+			#include <asterisk/indications.h>
+int
+main ()
+{
+struct tone_zone_sound * ts = NULL; (void) ts->data;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  tzs_test_result=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	{ $as_echo "$as_me:$LINENO: result: $tzs_test_result" >&5
+$as_echo "$tzs_test_result" >&6; }
+
+	if test "x$tzs_test_result" = "xyes"; then
+		ast_tone_zone_sound=tone_zone_sound
+	fi
+
+	if test "x$ast_tone_zone_sound" = "x"; then
+		{ $as_echo "$as_me:$LINENO: checking for struct ast_tone_zone_sound in asterisk/indications.h" >&5
+$as_echo_n "checking for struct ast_tone_zone_sound in asterisk/indications.h... " >&6; }
+		tzs_test_result=no
+		cat >conftest.$ac_ext <<_ACEOF
+
+			/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <asterisk.h>,
+				#include <asterisk/linkedlists.h>,
+				#include <asterisk/indications.h>
+int
+main ()
+{
+struct ast_tone_zone_sound * ts = NULL; (void) ts->name;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  tzs_test_result=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+		{ $as_echo "$as_me:$LINENO: result: $tzs_test_result" >&5
+$as_echo "$tzs_test_result" >&6; }
+
+		if test "x$tzs_test_result" = "xyes"; then
+			ast_tone_zone_sound=ast_tone_zone_sound
+		fi
+	fi
+
+	if test "x$ast_tone_zone_sound" = "x"; then
+		{ { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { $as_echo "$as_me:$LINENO: error: No ast_tone_zone_sound, confused...
+See \`config.log' for more details." >&5
+$as_echo "$as_me: error: No ast_tone_zone_sound, confused...
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }; }
+	fi
+
+	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound"
+
+fi
 
 
 
