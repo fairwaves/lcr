@@ -225,7 +225,9 @@ static struct ast_channel_tech lcr_tech;
 
 void lock_debug(char *text)
 {
-	printf("%s", text); fflush(stdout);
+	pthread_t tid = pthread_self();
+//	printf("%s|%03x\n", text, ((tid>>6) | (tid>>3) | tid) & 0xfff); fflush(stdout);
+	printf("%s|%x\n", text, tid); fflush(stdout);
 }
 
 /*
