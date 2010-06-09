@@ -227,7 +227,7 @@ void lock_debug(char *text)
 {
 	pthread_t tid = pthread_self();
 //	printf("%s|%03x\n", text, ((tid>>6) | (tid>>3) | tid) & 0xfff); fflush(stdout);
-	printf("%s|%x", text, tid); fflush(stdout);
+	printf("%s|%x", text, (int)tid); fflush(stdout);
 }
 
 /*
@@ -2238,13 +2238,16 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	if (call->pipe[0] > -1) {
 		if (call->rebuffer && !call->hdlc) {
 			/* Make sure we have a complete 20ms (160byte) frame */
+			lock_debug("*1");
 			len=read(call->pipe[0],call->read_buff + call->framepos, 160 - call->framepos);
 			if (len > 0) {
 				call->framepos += len;
 			}
 		} else {
+			lock_debug("*2");
 			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
 		}
+		lock_debug("*3");
 		if (len < 0 && errno == EAGAIN) {
 			ast_mutex_unlock(&chan_lock);
 			lock_debug("a9");
