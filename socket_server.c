@@ -530,7 +530,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 	apppbx->e_dialinginfo.sending_complete = 1;
 
 	apppbx->new_state(PORT_STATE_OUT_SETUP);
-	apppbx->out_setup();
+	apppbx->out_setup(0);
 	return(0);
 }
 

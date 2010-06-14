@@ -829,7 +829,7 @@ foundif:
  * ports will be created and a setup is sent if everything is ok. otherwhise
  * the endpoint is destroyed.
  */
-void EndpointAppPBX::out_setup(void)
+void EndpointAppPBX::out_setup(int cfnr)
 {
 	struct dialing_info	dialinginfo;
 	class Port		*port;
@@ -938,7 +938,7 @@ void EndpointAppPBX::out_setup(void)
 		p = e_ext.cfnr;
 		if (*p) {
 			/* when cfnr is done, out_setup() will setup the call */
-			if (e_cfnr_call_timeout.active) {
+			if (cfnr) {
 				/* present to forwarded party */
 				if (e_ext.anon_ignore && e_callerinfo.id[0]) {
 					e_callerinfo.present = INFO_PRESENT_ALLOWED;
@@ -1303,7 +1303,7 @@ int redial_timeout(struct lcr_timer *timer, void *instance, int index)
 
 	ea->new_state(EPOINT_STATE_OUT_SETUP);
 	/* call special setup routine */
-	ea->out_setup();
+	ea->out_setup(0);
 
 	return 0;
 }
@@ -1362,7 +1362,7 @@ int cfnr_call_timeout(struct lcr_timer *timer, void *instance, int index)
 	class EndpointAppPBX *ea = (class EndpointAppPBX *)instance;
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) call-forward-busy time has expired, calling the forwarded number: %s.\n", ea->ea_endpoint->ep_serial, ea->e_ext.cfnr);
-	ea->out_setup();
+	ea->out_setup(1);
 
 	return 0;
 }
@@ -1375,7 +1375,7 @@ int callback_timeout(struct lcr_timer *timer, void *instance, int index)
 		/* epoint is idle, check callback */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) starting callback.\n", ea->ea_endpoint->ep_serial);
 		ea->new_state(EPOINT_STATE_OUT_SETUP);
-		ea->out_setup();
+		ea->out_setup(0);
 	}
 
 	return 0;
@@ -3147,7 +3147,7 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 
 	new_state(EPOINT_STATE_OUT_SETUP);
 	/* call special setup routine */
-	out_setup();
+	out_setup(0);
 }
 
 /* join MESSAGE_mISDNSIGNAL */
