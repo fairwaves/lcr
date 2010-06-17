@@ -88,9 +88,12 @@ int select_main(int polling, int *global_change, void (*lock)(void), void (*unlo
 	 * if no future timeout exists, select will wait infinit.
 	 */
 
+printf("-"); fflush(stdout);
 again:
+printf("1"); fflush(stdout);
 	/* process all work events */
 	if (next_work()) {
+printf("2"); fflush(stdout);
 		work = 1;
 		goto again;
 	}
@@ -98,7 +101,9 @@ again:
 	/* process timer events and get timeout for next timer event */
 	temp = 0;
 	timer = nearest_timer(&select_timer, &temp);
+printf("3"); fflush(stdout);
 	if (temp) {
+printf("4"); fflush(stdout);
 		work = 1;
 		goto again;
 	}
@@ -112,6 +117,7 @@ again:
 	FD_ZERO(&writeset);
 	FD_ZERO(&exceptset);
 
+printf("5"); fflush(stdout);
 	/* prepare read and write fdsets */
 	lcr_fd = fd_first;
 	while(lcr_fd) {
@@ -123,6 +129,7 @@ again:
 			FD_SET(lcr_fd->fd, &exceptset);
 		lcr_fd = lcr_fd->next;
 	}
+printf("6"); fflush(stdout);
 
 	if (unlock)
 		unlock();
@@ -138,6 +145,7 @@ again:
 		*global_change = 0;
 		return 1;
 	}
+printf("7"); fflush(stdout);
 
 	/* fire timers */
 #if 0
@@ -146,6 +154,7 @@ again:
 
 	/* call registered callback functions */
 restart:
+printf("8"); fflush(stdout);
 	unregistered = 0;
 	lcr_fd = fd_first;
 	while(lcr_fd) {
@@ -164,10 +173,12 @@ restart:
 			FD_CLR(lcr_fd->fd, &exceptset);
 		}
 		if (flags) {
+printf("9"); fflush(stdout);
 			work = 1;
 			lcr_fd->cb(lcr_fd, flags, lcr_fd->cb_instance, lcr_fd->cb_index);
 			if (unregistered)
 				goto restart;
+printf("-"); fflush(stdout);
 			return 1;
 		}
 		lcr_fd = lcr_fd->next;
