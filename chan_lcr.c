@@ -1528,6 +1528,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 	struct admin_list *admin;
 	struct admin_message msg;
 
+	lock_debug("handle+");
 	if ((what & LCR_FD_READ)) {
 		/* read from socket */
 		len = read(lcr_sock, &msg, sizeof(msg));
@@ -1538,6 +1539,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 			close_socket();
 			release_all_calls();
 			schedule_timer(&socket_retry, SOCKET_RETRY_TIMER, 0);
+			lock_debug("handle-");
 			return 0;
 		}
 		if (len > 0) {
@@ -1560,6 +1562,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 		/* write to socket */
 		if (!admin_first) {
 			socket_fd.when &= ~LCR_FD_WRITE;
+			lock_debug("handle-");
 			return 0;
 		}
 		admin = admin_first;
@@ -1583,6 +1586,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 		}
 	}
 
+	lock_debug("handle-");
 	return 0;
 }
 
@@ -1655,9 +1659,11 @@ static int wake_event(struct lcr_fd *fd, unsigned int what, void *instance, int 
 {
 	char byte;
 
+	lock_debug("wake+");
 	read(wake_pipe[0], &byte, 1);
 
 	wake_global = 0;
+	lock_debug("wake-");
 
 	return 0;
 }

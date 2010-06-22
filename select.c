@@ -176,6 +176,7 @@ printf("8"); fflush(stdout);
 printf("9"); fflush(stdout);
 			work = 1;
 			lcr_fd->cb(lcr_fd, flags, lcr_fd->cb_instance, lcr_fd->cb_index);
+printf("0"); fflush(stdout);
 			if (unregistered)
 				goto restart;
 printf("-"); fflush(stdout);
