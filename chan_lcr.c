@@ -1531,13 +1531,18 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 	lock_debug("handle+");
 	if ((what & LCR_FD_READ)) {
 		/* read from socket */
+		lock_debug("handle1");
 		len = read(lcr_sock, &msg, sizeof(msg));
+		lock_debug("handle2");
 		if (len == 0) {
 			CERROR(NULL, NULL, "Socket closed.\n");
 			error:
 			CERROR(NULL, NULL, "Handling of socket failed - closing for some seconds.\n");
+			lock_debug("handle3");
 			close_socket();
+			lock_debug("handle4");
 			release_all_calls();
+			lock_debug("handle5");
 			schedule_timer(&socket_retry, SOCKET_RETRY_TIMER, 0);
 			lock_debug("handle-");
 			return 0;
@@ -1565,8 +1570,10 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 			lock_debug("handle-");
 			return 0;
 		}
+		lock_debug("handle6");
 		admin = admin_first;
 		len = write(lcr_sock, &admin->msg, sizeof(msg));
+		lock_debug("handle7");
 		if (len == 0) {
 			CERROR(NULL, NULL, "Socket closed.\n");
 			goto error;
@@ -1577,6 +1584,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 				goto error;
 			}
 			/* free head */
+			lock_debug("handle8");
 			admin_first = admin->next;
 			free(admin);
 			global_change = 1;
