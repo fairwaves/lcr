@@ -1264,6 +1264,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 	if (message_type == MESSAGE_BCHANNEL) {
 		switch(param->bchannel.type) {
 			case BCHANNEL_ASSIGN:
+lock_debug("rx1");
 			CDEBUG(NULL, NULL, "Received BCHANNEL_ASSIGN message. (handle=%08lx) for ref %d\n", param->bchannel.handle, ref);
 			if ((bchannel = find_bchannel_handle(param->bchannel.handle))) {
 				CERROR(NULL, NULL, "bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
@@ -1556,7 +1557,9 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 				CERROR(NULL, NULL, "Socket received illegal message %d.\n", msg.message);
 				goto error;
 			}
+			lock_debug("handleX");
 			receive_message(msg.u.msg.type, msg.u.msg.ref, &msg.u.msg.param);
+			lock_debug("handleY");
 		} else {
 			CERROR(NULL, NULL, "Socket failed (errno %d).\n", errno);
 			goto error;
@@ -1689,7 +1692,7 @@ static void handle_queue()
 		ast = call->ast;
 		if (*p && ast) {
 			lock_debug("A1+");
-			ast_channel_lock(ast);
+//			ast_channel_lock(ast);
 			lock_debug("A1-");
 			while(*p) {
 				switch (*p) {
@@ -1746,7 +1749,7 @@ static void handle_queue()
 				p++;
 			}
 			call->queue_string[0] = '\0';
-			ast_channel_unlock(ast);
+//			ast_channel_unlock(ast);
 			lock_debug("a1");
 		}
 		call = call->next;
