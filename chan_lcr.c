@@ -1693,7 +1693,11 @@ static void handle_queue()
 		ast = call->ast;
 		if (*p && ast) {
 			lock_debug("A1+");
-//			ast_channel_lock(ast);
+			while (ast_channel_trylock(ast)) {
+				lock_debug("<trylock failed>");
+				usleep(1000);
+				lock_debug("A1++");
+			}
 			lock_debug("A1-");
 			while(*p) {
 				switch (*p) {
@@ -1750,7 +1754,7 @@ static void handle_queue()
 				p++;
 			}
 			call->queue_string[0] = '\0';
-//			ast_channel_unlock(ast);
+			ast_channel_unlock(ast);
 			lock_debug("a1");
 		}
 		call = call->next;
