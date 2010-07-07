@@ -1687,16 +1687,21 @@ static void handle_queue()
 	struct ast_frame fr;
 	char *p;
 
+again:
 	call = call_first;
 	while(call) {
 		p = call->queue_string;
 		ast = call->ast;
 		if (*p && ast) {
 			lock_debug("A1+");
-			while (ast_channel_trylock(ast)) {
+			if (ast_channel_trylock(ast)) {
 				lock_debug("<trylock failed>");
+				ast_mutex_unlock(&log_lock);
 				usleep(1000);
 				lock_debug("A1++");
+				ast_mutex_lock(&log_lock);
+				lock_debug("A1+-");
+				goto again;
 			}
 			lock_debug("A1-");
 			while(*p) {
