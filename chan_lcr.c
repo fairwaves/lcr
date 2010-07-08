@@ -1696,10 +1696,10 @@ again:
 			lock_debug("A1+");
 			if (ast_channel_trylock(ast)) {
 				lock_debug("<trylock failed>");
-				ast_mutex_unlock(&log_lock);
+				ast_mutex_unlock(&chan_lock);
 				usleep(1000);
 				lock_debug("A1++");
-				ast_mutex_lock(&log_lock);
+				ast_mutex_lock(&chan_lock);
 				lock_debug("A1+-");
 				goto again;
 			}
