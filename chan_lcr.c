@@ -623,7 +623,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 {
 	union parameter newparam;
 	struct ast_channel *ast = call->ast;
-	const char *tmp;
+//	const char *tmp;
 
 	if (!call->ast || !call->ref)
 		return;
@@ -676,9 +676,10 @@ static void send_setup_to_lcr(struct chan_call *call)
 		default:
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
-	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
-	if (tmp && *tmp)
-		ast->transfercapability = atoi(tmp);
+#warning DISABLED DUE TO DOUBLE LOCKING PROBLEM
+//	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
+//	if (tmp && *tmp)
+//		ast->transfercapability = atoi(tmp);
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	if (call->hdlc)
