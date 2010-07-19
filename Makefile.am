@@ -72,11 +72,11 @@ endif
 
 if ENABLE_GSM_MS
 
-GSM_INCLUDE += -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
+GSM_INCLUDE += -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
 
 GSM_SOURCE += gsm_ms.cpp layer23/src/app_mobile.c
 
-GSM_LIB += ./layer23/src/liblayer23.a ./layer23/src/libvty.a ./libosmocore/build-host/src/.libs/libosmocore.a
+GSM_LIB += ./layer23/src/liblayer23.a ./libosmocore/build-host/src/.libs/libosmocore.a ./libosmocore/build-host/src/vty/.libs/libosmovty.a
 
 endif
 

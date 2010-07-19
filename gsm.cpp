@@ -266,20 +266,23 @@ void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned 
 	SCPY(msgtext, get_mncc_name(msg_type));
 
 	/* add direction */
-	switch(port->p_type) {
-	case PORT_TYPE_GSM_BS_OUT:
-		SCAT(msgtext, " LCR->BSC");
-		break;
-	case PORT_TYPE_GSM_BS_IN:
-		SCAT(msgtext, " LCR<-BSC");
-		break;
-	case PORT_TYPE_GSM_MS_OUT:
-		SCAT(msgtext, " LCR->MS");
-		break;
-	case PORT_TYPE_GSM_MS_IN:
-		SCAT(msgtext, " LCR<-MS");
-		break;
-	}
+	if (port) {
+		switch(port->p_type) {
+		case PORT_TYPE_GSM_BS_OUT:
+			SCAT(msgtext, " LCR->BSC");
+			break;
+		case PORT_TYPE_GSM_BS_IN:
+			SCAT(msgtext, " LCR<-BSC");
+			break;
+		case PORT_TYPE_GSM_MS_OUT:
+			SCAT(msgtext, " LCR->MS");
+			break;
+		case PORT_TYPE_GSM_MS_IN:
+			SCAT(msgtext, " LCR<-MS");
+			break;
+		}
+	} else
+		SCAT(msgtext, " ----");
 
 	/* init trace with given values */
 	start_trace(mISDNport?mISDNport->portnum:-1,
