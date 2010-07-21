@@ -246,8 +246,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
 	ast_text[sizeof(ast_text)-1] = '\0';
 
-printf("\n[call=%s ast=%s] %s\n", call_text, ast_text, buffer);
-//	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
 
 	ast_mutex_unlock(&log_lock);
 }
@@ -1669,7 +1668,7 @@ again:
 		if (*p && ast) {
 			if (ast_channel_trylock(ast)) {
 				ast_mutex_unlock(&chan_lock);
-				usleep(1000);
+				usleep(1);
 				ast_mutex_lock(&chan_lock);
 				goto again;
 			}
@@ -1977,8 +1976,8 @@ static void send_digit_to_chan(struct ast_channel * ast, char digit )
                 ast_playtones_start(ast,0,dtmf_tones[15], 0);
         else {
                 /* not handled */
-//                ast_log(LOG_DEBUG, "Unable to handle DTMF tone "
-//			"'%c' for '%s'\n", digit, ast->name);
+		CDEBUG(NULL, ast, "Unable to handle DTMF tone "
+			"'%c' for '%s'\n", digit, ast->name);
         }
 }
 
