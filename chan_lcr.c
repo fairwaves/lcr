@@ -223,13 +223,6 @@ struct admin_list {
 
 static struct ast_channel_tech lcr_tech;
 
-void lock_debug(char *text)
-{
-	pthread_t tid = pthread_self();
-//	printf("%s|%03x\n", text, ((tid>>6) | (tid>>3) | tid) & 0xfff); fflush(stdout);
-	printf(" %s(%x) ", text, (int)tid); fflush(stdout);
-}
-
 /*
  * logging
  */
@@ -240,9 +233,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	char ast_text[128] = "NULL";
 	va_list args;
 
-	lock_debug("L+");
 	ast_mutex_lock(&log_lock);
-	lock_debug("L-");
 
 	va_start(args,fmt);
 	vsnprintf(buffer,sizeof(buffer)-1,fmt,args);
@@ -259,7 +250,6 @@ printf("\n[call=%s ast=%s] %s\n", call_text, ast_text, buffer);
 //	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
 
 	ast_mutex_unlock(&log_lock);
-	lock_debug("l");
 }
 
 /*
@@ -1266,7 +1256,6 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 	if (message_type == MESSAGE_BCHANNEL) {
 		switch(param->bchannel.type) {
 			case BCHANNEL_ASSIGN:
-lock_debug("rx1");
 			CDEBUG(NULL, NULL, "Received BCHANNEL_ASSIGN message. (handle=%08lx) for ref %d\n", param->bchannel.handle, ref);
 			if ((bchannel = find_bchannel_handle(param->bchannel.handle))) {
 				CERROR(NULL, NULL, "bchannel handle %x already assigned.\n", (int)param->bchannel.handle);
@@ -1531,23 +1520,16 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 	struct admin_list *admin;
 	struct admin_message msg;
 
-	lock_debug("handle+");
 	if ((what & LCR_FD_READ)) {
 		/* read from socket */
-		lock_debug("handle1");
 		len = read(lcr_sock, &msg, sizeof(msg));
-		lock_debug("handle2");
 		if (len == 0) {
 			CERROR(NULL, NULL, "Socket closed.\n");
 			error:
 			CERROR(NULL, NULL, "Handling of socket failed - closing for some seconds.\n");
-			lock_debug("handle3");
 			close_socket();
-			lock_debug("handle4");
 			release_all_calls();
-			lock_debug("handle5");
 			schedule_timer(&socket_retry, SOCKET_RETRY_TIMER, 0);
-			lock_debug("handle-");
 			return 0;
 		}
 		if (len > 0) {
@@ -1559,9 +1541,7 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 				CERROR(NULL, NULL, "Socket received illegal message %d.\n", msg.message);
 				goto error;
 			}
-			lock_debug("handleX");
 			receive_message(msg.u.msg.type, msg.u.msg.ref, &msg.u.msg.param);
-			lock_debug("handleY");
 		} else {
 			CERROR(NULL, NULL, "Socket failed (errno %d).\n", errno);
 			goto error;
@@ -1572,13 +1552,10 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 		/* write to socket */
 		if (!admin_first) {
 			socket_fd.when &= ~LCR_FD_WRITE;
-			lock_debug("handle-");
 			return 0;
 		}
-		lock_debug("handle6");
 		admin = admin_first;
 		len = write(lcr_sock, &admin->msg, sizeof(msg));
-		lock_debug("handle7");
 		if (len == 0) {
 			CERROR(NULL, NULL, "Socket closed.\n");
 			goto error;
@@ -1589,7 +1566,6 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 				goto error;
 			}
 			/* free head */
-			lock_debug("handle8");
 			admin_first = admin->next;
 			free(admin);
 			global_change = 1;
@@ -1599,7 +1575,6 @@ static int handle_socket(struct lcr_fd *fd, unsigned int what, void *instance, i
 		}
 	}
 
-	lock_debug("handle-");
 	return 0;
 }
 
@@ -1672,11 +1647,9 @@ static int wake_event(struct lcr_fd *fd, unsigned int what, void *instance, int 
 {
 	char byte;
 
-	lock_debug("wake+");
 	read(wake_pipe[0], &byte, 1);
 
 	wake_global = 0;
-	lock_debug("wake-");
 
 	return 0;
 }
@@ -1694,17 +1667,12 @@ again:
 		p = call->queue_string;
 		ast = call->ast;
 		if (*p && ast) {
-			lock_debug("A1+");
 			if (ast_channel_trylock(ast)) {
-				lock_debug("<trylock failed>");
 				ast_mutex_unlock(&chan_lock);
 				usleep(1000);
-				lock_debug("A1++");
 				ast_mutex_lock(&chan_lock);
-				lock_debug("A1+-");
 				goto again;
 			}
-			lock_debug("A1-");
 			while(*p) {
 				switch (*p) {
 				case 'T':
@@ -1761,7 +1729,6 @@ again:
 			}
 			call->queue_string[0] = '\0';
 			ast_channel_unlock(ast);
-			lock_debug("a1");
 		}
 		call = call->next;
 	}
@@ -1778,15 +1745,12 @@ static int handle_retry(struct lcr_timer *timer, void *instance, int index)
 
 void lock_chan(void)
 {
-	lock_debug("C+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("C-");
 }
 
 void unlock_chan(void)
 {
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("c");
 }
 
 /* chan_lcr thread */
@@ -1808,9 +1772,7 @@ static void *chan_thread(void *arg)
 	/* open socket the first time */
 	handle_retry(NULL, NULL, 0);
 
-	lock_debug("A2+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A2-");
 
 	while(!quit) {
 		handle_queue();
@@ -1828,7 +1790,6 @@ static void *chan_thread(void *arg)
 	CERROR(NULL, NULL, "Thread exit.\n");
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a2");
 
 	return NULL;
 }
@@ -1843,16 +1804,13 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	struct ast_channel *ast;
         struct chan_call *call;
 
-	lock_debug("A3+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A3-");
 	CDEBUG(NULL, NULL, "Received request from Asterisk. (data=%s)\n", (char *)data);
 
 	/* if socket is closed */
 	if (lcr_sock < 0) {
 		CERROR(NULL, NULL, "Rejecting call from Asterisk, because LCR not running.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a3");
 		return NULL;
 	}
 
@@ -1861,7 +1819,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	if (!call) {
 		/* failed to create instance */
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a3");
 		return NULL;
 	}
 
@@ -1880,7 +1837,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		free_call(call);
 		/* failed to create instance */
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a3");
 		return NULL;
 	}
 	ast->tech = &lcr_tech;
@@ -1926,7 +1882,6 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	apply_opt(call, (char *)opt);
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a3");
 	return ast;
 }
 
@@ -1938,9 +1893,7 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	union parameter newparam;
         struct chan_call *call;
 
-	lock_debug("A4+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A4-");
         call = ast->tech_pvt;
         
         #ifdef LCR_FOR_CALLWEAVER
@@ -1951,7 +1904,6 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	if (!call) {
 		CERROR(NULL, ast, "Received call from Asterisk, but call instance does not exist.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a4");
 		return -1;
 	}
 
@@ -1992,7 +1944,6 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 			sizeof(call->cid_rdnis)-1);
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a4");
 	return 0; 
 }
 
@@ -2050,14 +2001,11 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	if (digit > 126 || digit < 32)
 		return 0;
 
-	lock_debug("A5+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A5-");
         call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received digit from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a5");
 		return -1;
 	}
 
@@ -2084,7 +2032,6 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 	}
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a5");
 
 #ifdef LCR_FOR_ASTERISK
 	return 0;
@@ -2096,9 +2043,7 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
         struct chan_call *call;
 #endif
 
-	lock_debug("A6+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A6-");
 
         call = ast->tech_pvt;
 
@@ -2107,7 +2052,6 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 		       "Received digit from Asterisk, "
 		       "but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a6");
 		return -1;
 	}
 
@@ -2118,7 +2062,6 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 	}
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a6");
 
 	if (inband_dtmf) {
 		CDEBUG(call, ast, "-> sending '%c' inband.\n", digit);
@@ -2133,14 +2076,11 @@ static int lcr_answer(struct ast_channel *ast)
 	union parameter newparam;
         struct chan_call *call;
 
-	lock_debug("A7+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A7-");
         call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received answer from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a7");
 		return -1;
 	}
 	
@@ -2169,7 +2109,6 @@ static int lcr_answer(struct ast_channel *ast)
 //	send_message(MESSAGE_ENABLEKEYPAD, call->ref, &newparam);
 	
    	ast_mutex_unlock(&chan_lock);
-	lock_debug("a7");
         return 0;
 }
 
@@ -2179,16 +2118,13 @@ static int lcr_hangup(struct ast_channel *ast)
 	pthread_t tid = pthread_self();
 
 	if (!pthread_equal(tid, chan_tid)) {
-		lock_debug("H+");
 		ast_mutex_lock(&chan_lock);
-		lock_debug("H-");
 	}
         call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received hangup from Asterisk, but no call instance exists.\n");
 		if (!pthread_equal(tid, chan_tid)) {
 			ast_mutex_unlock(&chan_lock);
-			lock_debug("h");
 		}
 		return -1;
 	}
@@ -2212,7 +2148,6 @@ static int lcr_hangup(struct ast_channel *ast)
 		free_call(call);
 		if (!pthread_equal(tid, chan_tid)) {
 			ast_mutex_unlock(&chan_lock);
-			lock_debug("h");
 		}
 		return 0;
 	} else {
@@ -2230,7 +2165,6 @@ static int lcr_hangup(struct ast_channel *ast)
 	} 
 	if (!pthread_equal(tid, chan_tid)) {
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("h");
 	}
 	return 0;
 }
@@ -2244,19 +2178,15 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 	if (!(f->subclass & ast->nativeformats))
 		CDEBUG(NULL, ast, "Unexpected format.\n");
 	
-	lock_debug("A8+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A8-");
         call = ast->tech_pvt;
 	if (!call) {
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a8");
 		return -1;
 	}
 	if (call->bchannel && f->samples)
 		bchannel_transmit(call->bchannel, *((unsigned char **)&(f->data)), f->samples);
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a8");
 	return 0;
 }
 
@@ -2266,31 +2196,24 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
         struct chan_call *call;
 	int len;
 
-	lock_debug("A9+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A9-");
         call = ast->tech_pvt;
 	if (!call) {
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a9");
 		return NULL;
 	}
 	if (call->pipe[0] > -1) {
 		if (call->rebuffer && !call->hdlc) {
 			/* Make sure we have a complete 20ms (160byte) frame */
-			lock_debug("*1");
 			len=read(call->pipe[0],call->read_buff + call->framepos, 160 - call->framepos);
 			if (len > 0) {
 				call->framepos += len;
 			}
 		} else {
-			lock_debug("*2");
 			len = read(call->pipe[0], call->read_buff, sizeof(call->read_buff));
 		}
-		lock_debug("*3");
 		if (len < 0 && errno == EAGAIN) {
 			ast_mutex_unlock(&chan_lock);
-			lock_debug("a9");
 
 			#ifdef LCR_FOR_ASTERISK
 			return &ast_null_frame;
@@ -2306,12 +2229,10 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 			call->pipe[0] = -1;
 			global_change = 1;
 			ast_mutex_unlock(&chan_lock);
-			lock_debug("a9");
 			return NULL;
 		} else if (call->rebuffer && call->framepos < 160) {
 			/* Not a complete frame, so we send a null-frame */
 			ast_mutex_unlock(&chan_lock);
-			lock_debug("a9");
 			return &ast_null_frame;
 		}
 	}
@@ -2329,7 +2250,6 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	call->read_fr.delivery = ast_tv(0,0);
 	*((unsigned char **)&(call->read_fr.data)) = call->read_buff;
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a9");
 
 	return &call->read_fr;
 }
@@ -2341,14 +2261,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
         struct chan_call *call;
 	const struct tone_zone_sound *ts = NULL;
 
-	lock_debug("A0+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("A0-");
         call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received indicate from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("a0");
 		return -1;
 	}
 
@@ -2479,7 +2396,6 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 
 	/* return */
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("a0");
         return res;
 }
 
@@ -2494,21 +2410,17 @@ static int lcr_fixup(struct ast_channel *oldast, struct ast_channel *ast)
 		return -1;
 	}
 
-	lock_debug("Af+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("Af-");
 	call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received fixup from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("af");
 		return -1;
 	}
 
 	CDEBUG(call, ast, "Received fixup from Asterisk.\n");
 	call->ast = ast;
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("af");
 	return 0;
 }
 
@@ -2520,14 +2432,11 @@ static int lcr_send_text(struct ast_channel *ast, const char *text)
         struct chan_call *call;
 	union parameter newparam;
 
-	lock_debug("At+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("At-");
 	call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received send_text from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("at");
 		return -1;
 	}
 
@@ -2536,7 +2445,6 @@ static int lcr_send_text(struct ast_channel *ast, const char *text)
 	strncpy(newparam.notifyinfo.display, text, sizeof(newparam.notifyinfo.display)-1);
 	send_message(MESSAGE_NOTIFY, call->ref, &newparam);
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("at");
 	return 0;
 }
 
@@ -2561,15 +2469,12 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	carr[1] = ast2;
 
 	/* join via dsp (if the channels are currently open) */
-	lock_debug("Ab+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("Ab-");
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
 	if (!call1 || !call2) {
 		CDEBUG(NULL, NULL, "Bridge, but we don't have two call instances, exitting.\n");
 		ast_mutex_unlock(&chan_lock);
-		lock_debug("ab");
 		return AST_BRIDGE_COMPLETE;
 	}
 
@@ -2637,7 +2542,6 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	}
 	
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("ab");
 	
 	while(1) {
 		to = -1;
@@ -2680,9 +2584,7 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	CDEBUG(NULL, NULL, "Releasing bridge.\n");
 
 	/* split channels */
-	lock_debug("Ab+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("Ab-");
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
 	if (call1 && call1->bridge_id) {
@@ -2703,7 +2605,6 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	call2->bridge_call = NULL;
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("ab");
 	return AST_BRIDGE_COMPLETE;
 }
 static struct ast_channel_tech lcr_tech = {
@@ -2834,9 +2735,7 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 {
 	struct chan_call *call;
 
-	lock_debug("Ae+");
 	ast_mutex_lock(&chan_lock);
-	lock_debug("Ae-");
 
 	#ifdef LCR_FOR_ASTERISK
 	CDEBUG(NULL, ast, "Received lcr_config (data=%s)\n", (char *)data);
@@ -2867,7 +2766,6 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 		CERROR(NULL, ast, "lcr_config app not called by chan_lcr channel.\n");
 
 	ast_mutex_unlock(&chan_lock);
-	lock_debug("ae");
 	return 0;
 }
 
@@ -3038,12 +2936,9 @@ int usecount(void)
 hae
 {
 	int res;
-	lock_debug("U+");
 	ast_mutex_lock(&usecnt_lock);
-	lock_debug("U-");
 	res = usecnt;
 	ast_mutex_unlock(&usecnt_lock);
-	lock_debug("u");
 	return res;
 }
 #endif
