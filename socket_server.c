@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <curses.h>
+#include "config.h"
 
 
 char socket_name[128];

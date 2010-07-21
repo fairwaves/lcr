@@ -26,6 +26,9 @@ extern "C" {
 #include <osmocom/l23_app.h>
 }
 
+const char *openbsc_copyright = "";
+short vty_port = 4247;
+
 struct llist_head ms_list;
 struct log_target *stderr_target;
 void *l23_ctx = NULL;
@@ -120,6 +123,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		return;
 	}
 
+	l1l2l3_trace_header(p_m_mISDNport, this, MNCC_SETUP_IND, DIRECTION_IN);
 	/* caller information */
 	p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
 	if (mncc->fields & MNCC_F_CALLING) {
@@ -272,6 +276,8 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 			p_capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 			break;
 		}
+		add_trace("bearer", "transfer", "%d", mncc->bearer_cap.transfer);
+		add_trace("bearer", "mode", "%d", mncc->bearer_cap.mode);
 	} else {
 		p_capainfo.bearer_capa = INFO_BC_SPEECH;
 		p_capainfo.bearer_info1 = (options.law=='a')?3:2;
@@ -279,6 +285,8 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	}
 	/* if packet mode works some day, see dss1.cpp for conditions */
 	p_capainfo.source_mode = B_MODE_TRANSPARENT;
+
+	end_trace();
 
 	/* hunt channel */
 	ret = channel = hunt_bchannel();
@@ -416,7 +424,7 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 		/* find gsm ms port */
 		mISDNport = mISDNport_first;
 		while(mISDNport) {
-			if (mISDNport->gsm_ms && !strcmp(mISDNport->ifport->interface->name, ms->name))
+			if (mISDNport->gsm_ms && !strcmp(mISDNport->ifport->gsm_ms_name, ms->name))
 				break;
 			mISDNport = mISDNport->next;
 		}
@@ -720,6 +728,9 @@ int gsm_ms_delete(const char *name)
 	}
 
 	l23_app_exit(ms);
+	lapdm_exit(&ms->l2_entity.lapdm_dcch);
+	lapdm_exit(&ms->l2_entity.lapdm_acch);
+
 	llist_del(&ms->entity);
 
 	return 0;

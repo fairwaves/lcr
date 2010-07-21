@@ -29,7 +29,6 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
-#include <config.h>
 
 #define NAME		"LCR"
 
