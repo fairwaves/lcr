@@ -5491,33 +5491,18 @@ fi
 
 
 if test "x$with_gsm_bs" != xno; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for openbsc/include/openbsc/gsm_data.h" >&5
-$as_echo_n "checking for openbsc/include/openbsc/gsm_data.h... " >&6; }
-if test "${ac_cv_file_openbsc_include_openbsc_gsm_data_h+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "openbsc/include/openbsc/gsm_data.h"; then
-  ac_cv_file_openbsc_include_openbsc_gsm_data_h=yes
-else
-  ac_cv_file_openbsc_include_openbsc_gsm_data_h=no
-fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_file_openbsc_include_openbsc_gsm_data_h" >&5
-$as_echo "$ac_cv_file_openbsc_include_openbsc_gsm_data_h" >&6; }
-if test "x$ac_cv_file_openbsc_include_openbsc_gsm_data_h" = x""yes; then :
-  with_gsm_bs="yes"
-else
-  if test "x$with_gsm_bs" != xcheck ; then
-			  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking openbsc/include/openbsc/gsm_data.h" >&5
+$as_echo_n "checking openbsc/include/openbsc/gsm_data.h... " >&6; }
+       if test -d openbsc/include/openbsc/gsm_data.h; then
+		with_gsm_bs="yes"
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+       elif test "x$with_gsm_bs" != xcheck ; then
+		{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error "--with-gsm-bs was given, but openbsc/include/openbsc/gsm_data.h was not found! Pleas link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore libosmocore
+as_fn_error "--with-gsm-bs was given, but openbsc/include/openbsc/gsm_data.h was not found! Please link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore libosmocore
 See \`config.log' for more details." "$LINENO" 5; }
-                     fi
-
-fi
-
+       fi
 
 fi
 
@@ -5541,33 +5526,18 @@ fi
 
 
 if test "x$with_gsm_ms" != xno; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for layer23/include/osmocom/osmocom_data.h" >&5
-$as_echo_n "checking for layer23/include/osmocom/osmocom_data.h... " >&6; }
-if test "${ac_cv_file_layer23_include_osmocom_osmocom_data_h+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "layer23/include/osmocom/osmocom_data.h"; then
-  ac_cv_file_layer23_include_osmocom_osmocom_data_h=yes
-else
-  ac_cv_file_layer23_include_osmocom_osmocom_data_h=no
-fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_file_layer23_include_osmocom_osmocom_data_h" >&5
-$as_echo "$ac_cv_file_layer23_include_osmocom_osmocom_data_h" >&6; }
-if test "x$ac_cv_file_layer23_include_osmocom_osmocom_data_h" = x""yes; then :
-  with_gsm_ms="yes"
-else
-  if test "x$with_gsm_ms" != xcheck ; then
-			  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking layer23/include/osmocom/osmocom_data.h" >&5
+$as_echo_n "checking layer23/include/osmocom/osmocom_data.h... " >&6; }
+       if test -d layer23/include/osmocom/osmocom_data.h; then
+		with_gsm_ms="yes"
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+       elif test "x$with_gsm_bs" != xcheck ; then
+		{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error "--with-gsm-ms was given, but osmocom-bb/include/osmocom/osmocom_data.h was not found! Pleas link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore
+as_fn_error "--with-gsm-ms was given, but layer23/include/osmocom/osmocom_data.h was not found! Please link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore
 See \`config.log' for more details." "$LINENO" 5; }
-                     fi
-
-fi
-
+       fi
 
 fi
 
