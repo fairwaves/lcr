@@ -246,7 +246,8 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
 	ast_text[sizeof(ast_text)-1] = '\0';
 
-	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+//	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+	printf("[call=%s ast=%s] %s", call_text, ast_text, buffer);
 
 	ast_mutex_unlock(&log_lock);
 }
