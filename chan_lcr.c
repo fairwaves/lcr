@@ -245,8 +245,11 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	if (ast)
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
 	ast_text[sizeof(ast_text)-1] = '\0';
-	
-	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+
+//	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+#if 0
+	printf("[call=%s ast=%s] %s", call_text, ast_text, buffer);
+#endif
 
 	ast_mutex_unlock(&log_lock);
 }
@@ -612,7 +615,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 {
 	union parameter newparam;
 	struct ast_channel *ast = call->ast;
-	const char *tmp;
+//	const char *tmp;
 
 	if (!call->ast || !call->ref)
 		return;
@@ -665,9 +668,10 @@ static void send_setup_to_lcr(struct chan_call *call)
 		default:
 		newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	}
-	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
-	if (tmp && *tmp)
-		ast->transfercapability = atoi(tmp);
+#warning DISABLED DUE TO DOUBLE LOCKING PROBLEM
+//	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
+//	if (tmp && *tmp)
+//		ast->transfercapability = atoi(tmp);
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	if (call->hdlc)
@@ -1659,12 +1663,18 @@ static void handle_queue()
 	struct ast_frame fr;
 	char *p;
 
+again:
 	call = call_first;
 	while(call) {
 		p = call->queue_string;
 		ast = call->ast;
 		if (*p && ast) {
-			ast_channel_lock(ast);
+			if (ast_channel_trylock(ast)) {
+				ast_mutex_unlock(&chan_lock);
+				usleep(1);
+				ast_mutex_lock(&chan_lock);
+				goto again;
+			}
 			while(*p) {
 				switch (*p) {
 				case 'T':
@@ -1969,7 +1979,7 @@ static void send_digit_to_chan(struct ast_channel * ast, char digit )
                 ast_playtones_start(ast,0,dtmf_tones[15], 0);
         else {
                 /* not handled */
-                ast_log(LOG_DEBUG, "Unable to handle DTMF tone "
+		CDEBUG(NULL, ast, "Unable to handle DTMF tone "
 			"'%c' for '%s'\n", digit, ast->name);
         }
 }
@@ -2109,13 +2119,15 @@ static int lcr_hangup(struct ast_channel *ast)
         struct chan_call *call;
 	pthread_t tid = pthread_self();
 
-	if (!pthread_equal(tid, chan_tid))
+	if (!pthread_equal(tid, chan_tid)) {
 		ast_mutex_lock(&chan_lock);
+	}
         call = ast->tech_pvt;
 	if (!call) {
 		CERROR(NULL, ast, "Received hangup from Asterisk, but no call instance exists.\n");
-		if (!pthread_equal(tid, chan_tid))
+		if (!pthread_equal(tid, chan_tid)) {
 			ast_mutex_unlock(&chan_lock);
+		}
 		return -1;
 	}
 
@@ -2136,8 +2148,9 @@ static int lcr_hangup(struct ast_channel *ast)
 			send_release_and_import(call, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL);
 		/* remove call */
 		free_call(call);
-		if (!pthread_equal(tid, chan_tid))
+		if (!pthread_equal(tid, chan_tid)) {
 			ast_mutex_unlock(&chan_lock);
+		}
 		return 0;
 	} else {
 		/* ref is not set, due to prepare setup or release */
@@ -2152,8 +2165,9 @@ static int lcr_hangup(struct ast_channel *ast)
 			call->ast = NULL;
 		}
 	} 
-	if (!pthread_equal(tid, chan_tid))
+	if (!pthread_equal(tid, chan_tid)) {
 		ast_mutex_unlock(&chan_lock);
+	}
 	return 0;
 }
 
