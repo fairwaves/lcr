@@ -107,14 +107,14 @@ void VBoxPort::send_announcement(void)
 	class Endpoint	*epoint;
 	int		temp;
 	struct timeval current_time;
-	long long	now;
+	long long	now;  /* Time in samples */
 
 	/* don't restart timer, if announcement is played */
 	if (p_vbox_announce_fh < 0)
 		return;
 
 	gettimeofday(&current_time, NULL);
-	now = current_time.tv_sec * MICRO_SECONDS + current_time.tv_usec;
+	now = (current_time.tv_sec * MICRO_SECONDS + current_time.tv_usec)/125;
 
 	/* set time the first time */
 	if (!p_vbox_audio_start)
@@ -122,15 +122,14 @@ void VBoxPort::send_announcement(void)
 	
 	/* calculate the number of bytes */
 	tosend = (unsigned int)(now - p_vbox_audio_start) - p_vbox_audio_transferred;
+	if (tosend > sizeof(buffer))
+		tosend = sizeof(buffer);
 
 	/* schedule next event */
 	temp = ISDN_TRANSMIT + ISDN_TRANSMIT - tosend;
 	if (temp < 0)
 		temp = 0;
 	schedule_timer(&p_vbox_announce_timer, 0, temp*125);
-
-	if (tosend > sizeof(buffer))
-		tosend = sizeof(buffer);
 
 	/* add the number of samples elapsed */
 	p_vbox_audio_transferred += tosend;
