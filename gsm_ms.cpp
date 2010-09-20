@@ -585,13 +585,10 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 		}
 		/* dialing information (mandatory) */
 		mncc->fields |= MNCC_F_CALLED;
-		if (!strncmp(p_dialinginfo.id, "imsi-", 5)) {
-			SCPY(mncc->imsi, p_dialinginfo.id+5);
-			add_trace("dialing", "imsi", "%s", mncc->imsi);
-		} else {
-			SCPY(mncc->called.number, p_dialinginfo.id);
-			add_trace("dialing", "number", "%s", mncc->called.number);
-		}
+		mncc->called.type = 0; /* unknown */
+		mncc->called.plan = 1; /* isdn */
+		SCPY(mncc->called.number, p_dialinginfo.id);
+		add_trace("dialing", "number", "%s", mncc->called.number);
 		
 		/* bearer capability (mandatory) */
 		mncc->fields |= MNCC_F_BEARER_CAP;
