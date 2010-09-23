@@ -247,9 +247,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	ast_text[sizeof(ast_text)-1] = '\0';
 
 //	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
-#if 0
 	printf("[call=%s ast=%s] %s", call_text, ast_text, buffer);
-#endif
 
 	ast_mutex_unlock(&log_lock);
 }
@@ -885,6 +883,8 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 		strncpy(ast->context, param->setup.callerinfo.interface, AST_MAX_CONTEXT-1);
 	if (param->setup.callerinfo.id[0])
 		ast->cid.cid_num = strdup(param->setup.callerinfo.id);
+	if (param->setup.callerinfo.id2[0])
+		ast->cid.cid_ani = strdup(param->setup.callerinfo.id2);
 	if (param->setup.callerinfo.name[0])
 		ast->cid.cid_name = strdup(param->setup.callerinfo.name);
 	if (param->setup.redirinfo.id[0])
