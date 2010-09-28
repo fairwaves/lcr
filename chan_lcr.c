@@ -2196,7 +2196,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
 static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
         struct chan_call *call;
-	int len;
+	int len = 0;
 
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
