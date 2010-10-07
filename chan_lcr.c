@@ -881,6 +881,7 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 		strncpy(ast->context, param->setup.context, AST_MAX_CONTEXT-1);
 	else
 		strncpy(ast->context, param->setup.callerinfo.interface, AST_MAX_CONTEXT-1);
+	memset(&ast->cid, 0, sizeof(ast->cid));
 	if (param->setup.callerinfo.id[0])
 		ast->cid.cid_num = strdup(param->setup.callerinfo.id);
 	if (param->setup.callerinfo.id2[0])
