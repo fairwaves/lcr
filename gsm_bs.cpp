@@ -10,6 +10,7 @@
 \*****************************************************************************/ 
 
 #include "main.h"
+#include "config.h"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -24,6 +25,7 @@ extern "C" {
 #include <osmocore/talloc.h>
 #include <openbsc/mncc.h>
 #include <openbsc/trau_frame.h>
+#include <openbsc/osmo_msc.h>
 //#include <osmocom/vty/command.h>
 struct gsm_network *bsc_gsmnet = 0;
 extern int ipacc_rtp_direct;
@@ -38,6 +40,7 @@ int bts_model_unknown_init(void);
 int bts_model_bs11_init(void);
 int bts_model_nanobts_init(void);
 static struct log_target *stderr_target;
+extern const char *openbsc_copyright;
 
 /* timer to store statistics */
 #define DB_SYNC_INTERVAL	60, 0
@@ -47,18 +50,23 @@ static struct timer_list db_sync_timer;
 struct vty_app_info {
 	const char *name;
 	const char *version;
-	char *copyright;
+	const char *copyright;
 	void *tall_ctx;
 	int (*go_parent_cb)(struct vty *vty);
+	int (*is_config_node)(struct vty *vty, int node);
 };
+
 extern int bsc_vty_go_parent(struct vty *vty);
+extern int bsc_vty_is_config_node(struct vty *vty, int node);
 static struct vty_app_info vty_info = {
 	"OpenBSC",
 	PACKAGE_VERSION,
 	NULL,
 	NULL,
 	bsc_vty_go_parent,
+	bsc_vty_is_config_node,
 };
+
 void vty_init(struct vty_app_info *app_info);
 int bsc_vty_init(void);
 
@@ -775,6 +783,8 @@ int gsm_bs_init(void)
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	int pcapfd, rc;
 
+	vty_info.copyright = openbsc_copyright;
+
 	log_init(&log_info);
 	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
 	talloc_ctx_init();
@@ -790,6 +800,10 @@ int gsm_bs_init(void)
 
 	/* enable filters */
 	log_set_all_filter(stderr_target, 1);
+
+	/* Init VTY (need to preceed options) */
+	vty_init(&vty_info);
+	bsc_vty_init();
 
 	/* set debug */
 	if (gsm->conf.debug[0])
@@ -812,6 +826,19 @@ int gsm_bs_init(void)
 	/* use RTP proxy for audio streaming */
 	ipacc_rtp_direct = 0;
 
+	/* bootstrap network */
+	if (gsm->conf.openbsc_cfg[0] == '/')
+		SCPY(cfg, gsm->conf.openbsc_cfg);
+	else
+		SPRINT(cfg, "%s/%s", CONFIG_DATA, gsm->conf.openbsc_cfg);
+	rc = bsc_bootstrap_network(&message_bsc, cfg);
+	if (rc < 0) {
+		PERROR("Failed to bootstrap GSM network.\n");
+		return gsm_exit(-1);
+	}
+	bsc_api_init(bsc_gsmnet, msc_bsc_api());
+	gsm->network = bsc_gsmnet;
+
 	/* init database */
 	if (gsm->conf.hlr[0] == '/')
 		SCPY(hlr, gsm->conf.hlr);
@@ -832,22 +859,6 @@ int gsm_bs_init(void)
 	db_sync_timer.cb = db_sync_timer_cb;
 	db_sync_timer.data = NULL;
 	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
-
-	/* Init VTY */
-	vty_init(&vty_info);
-	bsc_vty_init();
-
-	/* bootstrap network */
-	if (gsm->conf.openbsc_cfg[0] == '/')
-		SCPY(cfg, gsm->conf.openbsc_cfg);
-	else
-		SPRINT(cfg, "%s/%s", CONFIG_DATA, gsm->conf.openbsc_cfg);
-	rc = bsc_bootstrap_network(&message_bsc, cfg);
-	if (rc < 0) {
-		PERROR("Failed to bootstrap GSM network.\n");
-		return gsm_exit(-1);
-	}
-	gsm->network = bsc_gsmnet;
 
 	return 0;
 }
