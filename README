@@ -551,3 +551,7 @@ Changes after Version 1.7
 - Fixed LCR to work with the current API of OpenBSC.
 - Splitted GSM support into BS (network) and MS (mobile) part.
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! there is no more update here, see "git log" !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
