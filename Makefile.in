@@ -42,8 +42,13 @@ POST_UNINSTALL = :
 @ENABLE_GSM_BS_TRUE@am__append_5 = gsm_bs.cpp openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
 @ENABLE_GSM_BS_TRUE@am__append_6 = ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
 @ENABLE_GSM_MS_TRUE@am__append_7 = -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
-@ENABLE_GSM_MS_TRUE@am__append_8 = gsm_ms.cpp layer23/src/app_mobile.c
-@ENABLE_GSM_MS_TRUE@am__append_9 = ./layer23/src/liblayer23.a ./libosmocore/build-host/src/.libs/libosmocore.a ./libosmocore/build-host/src/vty/.libs/libosmovty.a
+@ENABLE_GSM_MS_TRUE@am__append_8 = gsm_ms.cpp layer23/src/mobile/app_mobile.c
+@ENABLE_GSM_MS_TRUE@am__append_9 = ./layer23/src/mobile/libmobile.a \
+@ENABLE_GSM_MS_TRUE@	./layer23/src/common/liblayer23.a \
+@ENABLE_GSM_MS_TRUE@	./libosmocore/build-host/src/.libs/libosmocore.a \
+@ENABLE_GSM_MS_TRUE@	./libosmocore/build-host/src/vty/.libs/libosmovty.a \
+@ENABLE_GSM_MS_TRUE@	./libosmocore/build-host/src/codec/.libs/libosmocodec.a
+
 bin_PROGRAMS = lcradmin$(EXEEXT) gentones$(EXEEXT) genwave$(EXEEXT)
 sbin_PROGRAMS = lcr$(EXEEXT) genrc$(EXEEXT) genextension$(EXEEXT)
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@noinst_PROGRAMS =  \
@@ -90,13 +95,14 @@ genwave_LDADD = $(LDADD)
 am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c gsm_bs.cpp \
 	openbsc/src/bsc_init.c openbsc/src/bsc_vty.c \
 	openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c \
-	openbsc/src/bsc_version.c gsm_ms.cpp layer23/src/app_mobile.c \
-	ss5.cpp ss5_encode.c ss5_decode.c select.c action.cpp \
-	mISDN.cpp tones.c action_efi.cpp crypt.cpp mail.c trace.c \
-	action_vbox.cpp dss1.cpp main.c vbox.cpp alawulaw.c \
-	endpoint.cpp interface.c message.c apppbx.cpp endpointapp.cpp \
-	join.cpp options.c extension.c joinpbx.cpp port.cpp callerid.c \
-	joinremote.cpp route.c cause.c socket_server.c
+	openbsc/src/bsc_version.c gsm_ms.cpp \
+	layer23/src/mobile/app_mobile.c ss5.cpp ss5_encode.c \
+	ss5_decode.c select.c action.cpp mISDN.cpp tones.c \
+	action_efi.cpp crypt.cpp mail.c trace.c action_vbox.cpp \
+	dss1.cpp main.c vbox.cpp alawulaw.c endpoint.cpp interface.c \
+	message.c apppbx.cpp endpointapp.cpp join.cpp options.c \
+	extension.c joinpbx.cpp port.cpp callerid.c joinremote.cpp \
+	route.c cause.c socket_server.c
 @ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT)
 @ENABLE_GSM_BS_TRUE@am__objects_2 = gsm_bs.$(OBJEXT) \
@@ -200,6 +206,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 POW_LIB = @POW_LIB@
@@ -593,19 +600,19 @@ bsc_version.obj: openbsc/src/bsc_version.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_version.obj `if test -f 'openbsc/src/bsc_version.c'; then $(CYGPATH_W) 'openbsc/src/bsc_version.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_version.c'; fi`
 
-app_mobile.o: layer23/src/app_mobile.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT app_mobile.o -MD -MP -MF $(DEPDIR)/app_mobile.Tpo -c -o app_mobile.o `test -f 'layer23/src/app_mobile.c' || echo '$(srcdir)/'`layer23/src/app_mobile.c
+app_mobile.o: layer23/src/mobile/app_mobile.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT app_mobile.o -MD -MP -MF $(DEPDIR)/app_mobile.Tpo -c -o app_mobile.o `test -f 'layer23/src/mobile/app_mobile.c' || echo '$(srcdir)/'`layer23/src/mobile/app_mobile.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/app_mobile.Tpo $(DEPDIR)/app_mobile.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='layer23/src/app_mobile.c' object='app_mobile.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='layer23/src/mobile/app_mobile.c' object='app_mobile.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o app_mobile.o `test -f 'layer23/src/app_mobile.c' || echo '$(srcdir)/'`layer23/src/app_mobile.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o app_mobile.o `test -f 'layer23/src/mobile/app_mobile.c' || echo '$(srcdir)/'`layer23/src/mobile/app_mobile.c
 
-app_mobile.obj: layer23/src/app_mobile.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT app_mobile.obj -MD -MP -MF $(DEPDIR)/app_mobile.Tpo -c -o app_mobile.obj `if test -f 'layer23/src/app_mobile.c'; then $(CYGPATH_W) 'layer23/src/app_mobile.c'; else $(CYGPATH_W) '$(srcdir)/layer23/src/app_mobile.c'; fi`
+app_mobile.obj: layer23/src/mobile/app_mobile.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT app_mobile.obj -MD -MP -MF $(DEPDIR)/app_mobile.Tpo -c -o app_mobile.obj `if test -f 'layer23/src/mobile/app_mobile.c'; then $(CYGPATH_W) 'layer23/src/mobile/app_mobile.c'; else $(CYGPATH_W) '$(srcdir)/layer23/src/mobile/app_mobile.c'; fi`
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/app_mobile.Tpo $(DEPDIR)/app_mobile.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='layer23/src/app_mobile.c' object='app_mobile.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='layer23/src/mobile/app_mobile.c' object='app_mobile.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o app_mobile.obj `if test -f 'layer23/src/app_mobile.c'; then $(CYGPATH_W) 'layer23/src/app_mobile.c'; else $(CYGPATH_W) '$(srcdir)/layer23/src/app_mobile.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o app_mobile.obj `if test -f 'layer23/src/mobile/app_mobile.c'; then $(CYGPATH_W) 'layer23/src/mobile/app_mobile.c'; else $(CYGPATH_W) '$(srcdir)/layer23/src/mobile/app_mobile.c'; fi`
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

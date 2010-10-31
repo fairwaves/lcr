@@ -20,10 +20,10 @@ extern "C" {
 #include <osmocore/select.h>
 #include <osmocore/talloc.h>
 
-#include <osmocom/osmocom_data.h>
-#include <osmocom/logging.h>
-#include <osmocom/l1l2_interface.h>
-#include <osmocom/l23_app.h>
+#include <osmocom/bb/common/osmocom_data.h>
+#include <osmocom/bb/common/logging.h>
+#include <osmocom/bb/common/l1l2_interface.h>
+#include <osmocom/bb/common/l23_app.h>
 }
 
 const char *openbsc_copyright = "";
@@ -34,6 +34,8 @@ struct log_target *stderr_target;
 void *l23_ctx = NULL;
 int (*l23_app_work) (struct osmocom_ms *ms) = NULL;
 int (*l23_app_exit) (struct osmocom_ms *ms) = NULL;
+
+static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
 
 /*
  * constructor
@@ -55,6 +57,12 @@ Pgsm_ms::Pgsm_ms(int type, struct mISDNport *mISDNport, char *portname, struct p
 	if (!p_m_g_instance)
 		FATAL("MS name %s does not exists. Please fix!");
 
+	p_m_g_dtmf_state = DTMF_ST_IDLE;
+	p_m_g_dtmf_index = 0;
+	p_m_g_dtmf[0] = '\0';
+	memset(&p_m_g_dtmf_timer, 0, sizeof(p_m_g_dtmf_timer));
+	add_timer(&p_m_g_dtmf_timer, dtmf_timeout, this, 0);
+
 	PDEBUG(DEBUG_GSM, "Created new GSMMSPort(%s %s).\n", portname, ms_name);
 }
 
@@ -64,6 +72,7 @@ Pgsm_ms::Pgsm_ms(int type, struct mISDNport *mISDNport, char *portname, struct p
 Pgsm_ms::~Pgsm_ms()
 {
 	PDEBUG(DEBUG_GSM, "Destroyed GSM MS process(%s).\n", p_name);
+	del_timer(&p_m_g_dtmf_timer);
 }
 
 /*
@@ -123,7 +132,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		return;
 	}
 
-	l1l2l3_trace_header(p_m_mISDNport, this, MNCC_SETUP_IND, DIRECTION_IN);
+	gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_IND, DIRECTION_IN);
 	/* caller information */
 	p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
 	if (mncc->fields & MNCC_F_CALLING) {
@@ -199,6 +208,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("dialing", "plan", "%d", mncc->called.plan);
 		add_trace("dialing", "number", "%s", mncc->called.number);
 	}
+	p_dialinginfo.sending_complete = 1;
 	/* redir info */
 	p_redirinfo.ntype = INFO_NTYPE_NOTPRESENT;
 	if (mncc->fields & MNCC_F_REDIRECTING) {
@@ -317,16 +327,6 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	if (bchannel_open(p_m_b_index))
 		goto no_channel;
 
-	/* what infos did we got ... */
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
-	if (p_callerinfo.id[0])
-		add_trace("calling", "number", "%s", p_callerinfo.id);
-	else
-		SPRINT(p_callerinfo.id, "imsi-%s", p_callerinfo.imsi);
-	add_trace("calling", "imsi", "%s", p_callerinfo.imsi);
-	add_trace("dialing", "number", "%s", p_dialinginfo.id);
-	end_trace();
-
 	/* create endpoint */
 	if (p_epointlist)
 		FATAL("Incoming call but already got an endpoint.\n");
@@ -345,17 +345,12 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	send_and_free_mncc(p_m_g_instance, mode->msg_type, mode);
 
 	/* send call proceeding */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
-	proceeding = create_mncc(MNCC_CALL_PROC_REQ, p_m_g_callref);
-	if (p_m_mISDNport->tones) {
-		proceeding->fields |= MNCC_F_PROGRESS;
-		proceeding->progress.coding = 3; /* GSM */
-		proceeding->progress.location = 1;
-		proceeding->progress.descr = 8;
-		add_trace("progress", "coding", "%d", proceeding->progress.coding);
-		add_trace("progress", "location", "%d", proceeding->progress.location);
-		add_trace("progress", "descr", "%d", proceeding->progress.descr);
-	}
+	gsm_trace_header(p_m_mISDNport, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);
+	proceeding = create_mncc(MNCC_CALL_CONF_REQ, p_m_g_callref);
+	// FIXME: bearer
+	/* DTMF supported */
+	proceeding->fields |= MNCC_F_CCCAP;
+	proceeding->cccap.dtmf = 1;
 	end_trace();
 	send_and_free_mncc(p_m_g_instance, proceeding->msg_type, proceeding);
 
@@ -414,7 +409,7 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 
 	if (msg_type == GSM_TCHF_FRAME) {
 		if (port)
-			pgsm_ms->frame_receive((struct gsm_trau_frame *)arg);
+			pgsm_ms->frame_receive(arg);
 		return 0;
 	}
 
@@ -456,6 +451,10 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 		pgsm_ms->setup_ind(msg_type, callref, mncc);
 		break;
 
+		case MNCC_CALL_PROC_IND:
+		pgsm_ms->call_proc_ind(msg_type, callref, mncc);
+		break;
+
 		case MNCC_ALERT_IND:
 		pgsm_ms->alert_ind(msg_type, callref, mncc);
 		break;
@@ -480,6 +479,12 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 
 		case MNCC_NOTIFY_IND:
 		pgsm_ms->notify_ind(msg_type, callref, mncc);
+		break;
+
+		case MNCC_START_DTMF_RSP:
+		case MNCC_START_DTMF_REJ:
+		case MNCC_STOP_DTMF_RSP:
+		pgsm_ms->dtmf_statemachine(mncc);
 		break;
 
 		default:
@@ -617,6 +622,13 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 			mncc->bearer_cap.mode = 0;
 			break;
 		}
+		/* DTMF supported */
+		mncc->fields |= MNCC_F_CCCAP;
+		mncc->cccap.dtmf = 1;
+
+		/* request keypad from remote */
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_ENABLEKEYPAD);
+		message_put(message);
 	}
 
 	end_trace();
@@ -630,11 +642,119 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 	new_state(PORT_STATE_OUT_PROCEEDING);
 }
 
+void Pgsm_ms::dtmf_statemachine(struct gsm_mncc *mncc)
+{
+	struct gsm_mncc *dtmf;
+
+	switch (p_m_g_dtmf_state) {
+	case DTMF_ST_SPACE:
+	case DTMF_ST_IDLE:
+		/* end of string */
+		if (!p_m_g_dtmf[p_m_g_dtmf_index]) {
+			PDEBUG(DEBUG_GSM, "done with DTMF\n");
+			p_m_g_dtmf_state = DTMF_ST_IDLE;
+			return;
+		}
+		gsm_trace_header(p_m_mISDNport, this, MNCC_START_DTMF_REQ, DIRECTION_OUT);
+		dtmf = create_mncc(MNCC_START_DTMF_REQ, p_m_g_callref);
+		dtmf->keypad = p_m_g_dtmf[p_m_g_dtmf_index++];
+		p_m_g_dtmf_state = DTMF_ST_START;
+		PDEBUG(DEBUG_GSM, "start DTMF (keypad %c)\n",
+			dtmf->keypad);
+		end_trace();
+		send_and_free_mncc(p_m_g_instance, dtmf->msg_type, dtmf);
+		return;
+	case DTMF_ST_START:
+		if (mncc->msg_type != MNCC_START_DTMF_RSP) {
+			PDEBUG(DEBUG_GSM, "DTMF was rejected\n");
+			return;
+		}
+		schedule_timer(&p_m_g_dtmf_timer, 0, 70 * 1000);
+		p_m_g_dtmf_state = DTMF_ST_MARK;
+		PDEBUG(DEBUG_GSM, "DTMF is on\n");
+		break;
+	case DTMF_ST_MARK:
+		gsm_trace_header(p_m_mISDNport, this, MNCC_STOP_DTMF_REQ, DIRECTION_OUT);
+		dtmf = create_mncc(MNCC_STOP_DTMF_REQ, p_m_g_callref);
+		p_m_g_dtmf_state = DTMF_ST_STOP;
+		end_trace();
+		send_and_free_mncc(p_m_g_instance, dtmf->msg_type, dtmf);
+		return;
+	case DTMF_ST_STOP:
+		schedule_timer(&p_m_g_dtmf_timer, 0, 120 * 1000);
+		p_m_g_dtmf_state = DTMF_ST_SPACE;
+		PDEBUG(DEBUG_GSM, "DTMF is off\n");
+		break;
+	}
+}
+
+static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	class Pgsm_ms *pgsm_ms = (class Pgsm_ms *)instance;
+
+	PDEBUG(DEBUG_GSM, "DTMF timer has fired\n");
+	pgsm_ms->dtmf_statemachine(NULL);
+
+	return 0;
+}
+
+/* MESSAGE_DTMF */
+void Pgsm_ms::message_dtmf(unsigned int epoint_id, int message_id, union parameter *param)
+{
+	char digit = param->dtmf;
+
+	if (digit >= 'a' && digit <= 'c')
+		digit = digit - 'a' + 'A';
+	if (!strchr("01234567890*#ABC", digit))
+		return;
+
+	/* schedule */
+	if (p_m_g_dtmf_state == DTMF_ST_IDLE) {
+		p_m_g_dtmf_index = 0;
+		p_m_g_dtmf[0] = '\0';
+	}
+	SCCAT(p_m_g_dtmf, digit);
+	if (p_m_g_dtmf_state == DTMF_ST_IDLE)
+		dtmf_statemachine(NULL);
+}
+
+/* MESSAGE_INFORMATION */
+void Pgsm_ms::message_information(unsigned int epoint_id, int message_id, union parameter *param)
+{
+	char digit;
+	int i;
+
+	for (i = 0; i < (int)strlen(param->information.id); i++) {
+		digit = param->information.id[i];
+		if (digit >= 'a' && digit <= 'c')
+			digit = digit - 'a' + 'A';
+		if (!strchr("01234567890*#ABC", digit))
+			continue;
+
+		/* schedule */
+		if (p_m_g_dtmf_state == DTMF_ST_IDLE) {
+			p_m_g_dtmf_index = 0;
+			p_m_g_dtmf[0] = '\0';
+		}
+		SCCAT(p_m_g_dtmf, digit);
+		if (p_m_g_dtmf_state == DTMF_ST_IDLE)
+			dtmf_statemachine(NULL);
+	}
+}
+
 /*
  * endpoint sends messages to the port
  */
 int Pgsm_ms::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
+	struct lcr_msg *message;
+
+	if (message_id == MESSAGE_CONNECT) {
+		/* request keypad from remote */
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_ENABLEKEYPAD);
+		message_put(message);
+	}
+
 	if (Pgsm::message_epoint(epoint_id, message_id, param))
 		return(1);
 
@@ -643,6 +763,14 @@ int Pgsm_ms::message_epoint(unsigned int epoint_id, int message_id, union parame
 		if (p_state!=PORT_STATE_IDLE)
 			break;
 		message_setup(epoint_id, message_id, param);
+		break;
+
+		case MESSAGE_DTMF:
+		message_dtmf(epoint_id, message_id, param);
+		break;
+
+		case MESSAGE_INFORMATION:
+		message_information(epoint_id, message_id, param);
 		break;
 
 		default:
@@ -701,7 +829,7 @@ int gsm_ms_new(const char *name, const char *socket_path)
 	if (rc < 0) {
 		FATAL("Failed to init layer23\n");
 	}
-	ms->cclayer.mncc_recv = message_ms;
+	ms->mncc_entity.mncc_recv = message_ms;
 
 	return 0;
 }

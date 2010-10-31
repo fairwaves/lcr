@@ -170,12 +170,12 @@ AC_ARG_WITH([gsm-ms],
 	[with_gsm_ms="check"])
 
 AS_IF([test "x$with_gsm_ms" != xno],
-      [AC_MSG_CHECKING(layer23/include/osmocom/osmocom_data.h)
-       if test -e layer23/include/osmocom/osmocom_data.h; then
+      [AC_MSG_CHECKING(layer23/include/osmocom/bb/common/osmocom_data.h)
+       if test -e layer23/include/osmocom/bb/common/osmocom_data.h; then
 		with_gsm_ms="yes"
 		AC_MSG_RESULT(yes)
        elif test "x$with_gsm_ms" != xcheck ; then
-		AC_MSG_FAILURE([--with-gsm-ms was given, but layer23/include/osmocom/osmocom_data.h was not found! Please link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore])
+		AC_MSG_FAILURE([--with-gsm-ms was given, but layer23/include/osmocom/bb/common/osmocom_data.h was not found! Please link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore])
        else
 		AC_MSG_RESULT(no)
        fi
