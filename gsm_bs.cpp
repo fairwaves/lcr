@@ -436,7 +436,7 @@ static int message_bsc(struct gsm_network *net, int msg_type, void *arg)
 
 	if (msg_type == GSM_TCHF_FRAME) {
 		if (port)
-			pgsm_bs->frame_receive((struct gsm_trau_frame *)arg);
+			pgsm_bs->frame_receive(arg);
 		return 0;
 	}
 

@@ -74,9 +74,13 @@ if ENABLE_GSM_MS
 
 GSM_INCLUDE += -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
 
-GSM_SOURCE += gsm_ms.cpp layer23/src/app_mobile.c
+GSM_SOURCE += gsm_ms.cpp layer23/src/mobile/app_mobile.c
 
-GSM_LIB += ./layer23/src/liblayer23.a ./libosmocore/build-host/src/.libs/libosmocore.a ./libosmocore/build-host/src/vty/.libs/libosmovty.a
+GSM_LIB += ./layer23/src/mobile/libmobile.a \
+	./layer23/src/common/liblayer23.a \
+	./libosmocore/build-host/src/.libs/libosmocore.a \
+	./libosmocore/build-host/src/vty/.libs/libosmovty.a \
+	./libosmocore/build-host/src/codec/.libs/libosmocodec.a
 
 endif
 
