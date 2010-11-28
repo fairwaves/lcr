@@ -740,6 +740,7 @@ int admin_state(struct admin_queue **responsep)
 	struct interface	*interface;
 	struct interface_port	*ifport;
 	struct mISDNport	*mISDNport;
+	struct select_channel	*selchannel;
 	int			i;
 	int			num;
 	int			anybusy;
@@ -872,7 +873,40 @@ int admin_state(struct admin_queue **responsep)
 				response->am[num].u.i.slip_rx = mISDNport->slip_rx;
 				/* channels */
 				response->am[num].u.i.channels = mISDNport->b_num;
-				/* channel info */
+				/* channel selection */
+				selchannel = ifport->out_channel;
+				if (ifport->channel_force)
+					SCAT(response->am[num].u.i.out_channel, "force");
+				while (selchannel) {
+					if (response->am[num].u.i.out_channel[0])
+						SCAT(response->am[num].u.i.out_channel, ",");
+					switch (selchannel->channel) {
+					case CHANNEL_NO:
+						SCAT(response->am[num].u.i.out_channel, "no");
+						break;
+					case CHANNEL_ANY:
+						SCAT(response->am[num].u.i.out_channel, "any");
+						break;
+					case CHANNEL_FREE:
+						SCAT(response->am[num].u.i.out_channel, "free");
+						break;
+					default:
+						SPRINT(strchr(response->am[num].u.i.out_channel, '\0'), "%d", selchannel->channel);
+					}
+					selchannel = selchannel->next;
+				}
+				selchannel = ifport->in_channel;
+				while (selchannel) {
+					switch (selchannel->channel) {
+					case CHANNEL_FREE:
+						SCAT(response->am[num].u.i.in_channel, "free");
+						break;
+					default:
+						SPRINT(strchr(response->am[num].u.i.in_channel, '\0'), "%d", selchannel->channel);
+					}
+					selchannel = selchannel->next;
+				}
+				/* channel state */
 				i = 0;
 				anybusy = 0;
 				while(i < mISDNport->b_num) {

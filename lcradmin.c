@@ -1301,6 +1301,8 @@ const char *admin_portinfo(int sock, int argc, char *argv[])
 			else
 				printf("\t status = unblocked\n");
 			printf("\t mode = %s %s%s%s\n", (m[i].u.i.ntmode)?"NT-mode":"TE-mode", (m[i].u.i.ptp)?"ptp":"ptmp", (m[i].u.i.l1hold)?" l1hold":"", (m[i].u.i.l2hold)?" l2hold":"");
+			printf("\t out-channel = %s\n", m[i].u.i.out_channel);
+			printf("\t in-channel = %s\n", m[i].u.i.in_channel);
 			if (m[i].u.i.l1link < 0)
 				printf("\t l1 link = unknown\n");
 			else

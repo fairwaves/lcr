@@ -1127,7 +1127,8 @@ struct interface_param interface_param[] = {
 	"Channel selection list for all outgoing calls to the interface.\n"
 	"A free channels is searched in order of appearance.\n"
 	"This parameter must follow a 'port' parameter.\n"
-	" force - Forces the selected port with no acceptable alternative (see DSS1).\n"
+	" force - Forces the selected port with no acceptable alternative (see Q.931).\n"
+	"  -> this will be automatically set for multipoint (ptmp) NT-mode ports\n"
 	" <number>[,...] - List of channels to search.\n"
 	" free - Select any free channel\n"
 	" any - On outgoing calls, signal 'any channel acceptable'. (see DSS1)\n"
@@ -1434,6 +1435,9 @@ static void set_defaults(struct interface_port *ifport)
 		default_out_channel(ifport);
 	if (!ifport->in_channel)
 		default_in_channel(ifport);
+	/* must force the channel on PTMP/NT ports */
+	if (!ifport->mISDNport->ptp && ifport->mISDNport->ntmode)
+		ifport->channel_force = 1;
 	/* default is_tones */
 	if (ifport->interface->is_tones)
 		ifport->mISDNport->tones = (ifport->interface->is_tones==IS_YES);
