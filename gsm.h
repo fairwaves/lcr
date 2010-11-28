@@ -54,6 +54,7 @@ class Pgsm : public PmISDN
 
 	int hunt_bchannel(void);
 	void call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *gsm);
+	void call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void setup_compl_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);

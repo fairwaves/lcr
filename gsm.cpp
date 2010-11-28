@@ -231,9 +231,9 @@ void Pgsm::frame_send(void *_frame)
 }
 
 
-void Pgsm::frame_receive(void *_frame)
+void Pgsm::frame_receive(void *arg)
 {
-	struct gsm_data_frame *frame = (struct gsm_data_frame *)_frame;
+	struct gsm_data_frame *frame = (struct gsm_data_frame *)arg;
 	signed short samples[160];
 	unsigned char data[160];
 	int i;
@@ -384,10 +384,34 @@ void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm
 
 }
 
+/* CALL PROCEEDING INDICATION */
+void Pgsm::call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
+{
+	struct lcr_msg *message;
+	struct gsm_mncc *frame;
+
+	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	end_trace();
+
+	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
+	message_put(message);
+
+	new_state(PORT_STATE_OUT_PROCEEDING);
+
+	if (p_m_mISDNport->earlyb && !p_m_g_tch_connected) { /* only if ... */
+		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		end_trace();
+		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
+		send_and_free_mncc(p_m_g_instance, frame->msg_type, frame);
+		p_m_g_tch_connected = 1;
+	}
+}
+
 /* ALERTING INDICATION */
 void Pgsm::alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
 	struct lcr_msg *message;
+	struct gsm_mncc *frame;
 
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
 	end_trace();
@@ -397,6 +421,13 @@ void Pgsm::alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 
 	new_state(PORT_STATE_OUT_ALERTING);
 
+	if (p_m_mISDNport->earlyb && !p_m_g_tch_connected) { /* only if ... */
+		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		end_trace();
+		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
+		send_and_free_mncc(p_m_g_instance, frame->msg_type, frame);
+		p_m_g_tch_connected = 1;
+	}
 }
 
 /* CONNECT INDICATION */

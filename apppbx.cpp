@@ -1618,6 +1618,8 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 /* port MESSAGE_INFORMATION */
 void EndpointAppPBX::port_information(struct port_list *portlist, int message_type, union parameter *param)
 {
+	struct lcr_msg		*message;
+
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
 	/* ignore information message without digit information */
@@ -1654,7 +1656,13 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 
 	/* keypad when connected */
 	if (e_state == EPOINT_STATE_CONNECT || e_state == EPOINT_STATE_IN_ALERTING) {
-		if (e_ext.keypad || e_enablekeypad) {
+		if (e_enablekeypad) {
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
+			memcpy(&message->param, param, sizeof(union parameter));
+			message_put(message);
+			return;
+		}
+		if (e_ext.keypad) {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) keypad information received during connect: %s.\n", ea_endpoint->ep_serial, param->information.id);
 			/* processing keypad function */
 			if (param->information.id[0] == '0') {
@@ -1702,6 +1710,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 void EndpointAppPBX::port_dtmf(struct port_list *portlist, int message_type, union parameter *param)
 {
 	time_t now;
+	struct lcr_msg		*message;
 
 	time(&now);
 
@@ -1732,6 +1741,12 @@ NOTE: vbox is now handled due to overlap state
 
 	/* check for *X# sequence */
 	if (e_state == EPOINT_STATE_CONNECT || e_state == EPOINT_STATE_IN_ALERTING) {
+		if (e_enablekeypad) {
+			message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, message_type);
+			memcpy(&message->param, param, sizeof(union parameter));
+			message_put(message);
+			return;
+		}
 		if (e_dtmf_time+3 < now) {
 			/* the last digit was too far in the past to be a sequence */
 			if (param->dtmf == '*')
@@ -2535,6 +2550,18 @@ void EndpointAppPBX::port_resume(struct port_list *portlist, int message_type, u
 
 }
 
+/* port MESSAGE_ENABLEKEYPAD */
+void EndpointAppPBX::port_enablekeypad(struct port_list *portlist, int message_type, union parameter *param)
+{
+	struct lcr_msg *message;
+
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_ENABLEKEYPAD);
+	memcpy(&message->param, param, sizeof(union parameter));
+	message_put(message);
+}
+
 
 /* port sends message to the endpoint
  */
@@ -2721,6 +2748,12 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_IN);
 		break;
 #endif
+
+		/* PORT requests DTMF */
+		case MESSAGE_ENABLEKEYPAD:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') requests DTMF/KEYPAD.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		port_enablekeypad(portlist, message_type, param);
+		break;
 
 
 		default:
@@ -3217,6 +3250,19 @@ void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, u
 	}
 }
 
+/* join MESSAGE_DTMF */
+void EndpointAppPBX::join_dtmf(struct port_list *portlist, int message_type, union parameter *param)
+{
+	struct lcr_msg *message;
+
+	while(portlist) {
+		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DTMF);
+		memcpy(&message->param, param, sizeof(union parameter));
+		message_put(message);
+		portlist = portlist->next;
+	}
+}
+
 /* JOIN sends messages to the endpoint
  */
 void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, union parameter *param)
@@ -3407,6 +3453,12 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 		e_dtmf = 1;
 		trace_header("ENABLE KEYPAD", DIRECTION_NONE);
 		end_trace();
+		break;
+
+		/* JOIN sends a DTMF message */
+		case MESSAGE_DTMF:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received dtmf.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		join_dtmf(portlist, message_type, param);
 		break;
 
 		default:

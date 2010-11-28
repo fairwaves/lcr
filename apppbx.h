@@ -210,6 +210,7 @@ class EndpointAppPBX : public EndpointApp
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);
+	void port_enablekeypad(struct port_list *portlist, int message_type, union parameter *param);
 	void ea_message_join(unsigned int join_id, int message, union parameter *param);
 	void join_crypt(struct port_list *portlist, int message_type, union parameter *param);
 	void join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param);
@@ -222,6 +223,7 @@ class EndpointAppPBX : public EndpointApp
 	void join_disconnect_release(int message_type, union parameter *param);
 	void join_notify(struct port_list *portlist, int message_type, union parameter *param);
 	void join_facility(struct port_list *portlist, int message_type, union parameter *param);
+	void join_dtmf(struct port_list *portlist, int message_type, union parameter *param);
 
 	/* epoint */
 	void new_state(int state);
