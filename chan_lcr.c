@@ -2172,24 +2172,38 @@ static int lcr_hangup(struct ast_channel *ast)
 	return 0;
 }
 
-static int lcr_write(struct ast_channel *ast, struct ast_frame *f)
+static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 {
         struct chan_call *call;
+	struct ast_frame * f = fr;
 
 	if (!f->subclass)
 		CDEBUG(NULL, ast, "No subclass\n");
-	if (!(f->subclass & ast->nativeformats))
-		CDEBUG(NULL, ast, "Unexpected format.\n");
+	if (!(f->subclass & ast->nativeformats)) {
+		CDEBUG(NULL, ast, 
+		       "Unexpected format. "
+		       "Activating emergency conversion...\n");
+
+		ast_set_write_format(ast, f->subclass);
+		f = (ast->writetrans) ? ast_translate(
+			ast->writetrans, fr, 0) : fr;
+	}
 	
 	ast_mutex_lock(&chan_lock);
         call = ast->tech_pvt;
 	if (!call) {
 		ast_mutex_unlock(&chan_lock);
+		if (f != fr) {
+			ast_frfree(f);
+		}
 		return -1;
 	}
 	if (call->bchannel && f->samples)
 		bchannel_transmit(call->bchannel, *((unsigned char **)&(f->data)), f->samples);
 	ast_mutex_unlock(&chan_lock);
+	if (f != fr) {
+		ast_frfree(f);
+	}
 	return 0;
 }
 
