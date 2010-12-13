@@ -1,3 +1,4 @@
+core
 *.o
 *.po
 *.so
@@ -6,10 +7,16 @@
 stamp-h1
 .deps/
 Makefile
-autom4te.cache/
 config.h
 config.log
 config.status
+*.in
+aclocal.m4
+autom4te.cache/
+configure
+depcomp
+install-sh
+missing
 genextension
 genrc
 gentones
