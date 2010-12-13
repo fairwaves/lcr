@@ -97,12 +97,12 @@ am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c gsm_bs.cpp \
 	openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c \
 	openbsc/src/bsc_version.c gsm_ms.cpp \
 	layer23/src/mobile/app_mobile.c ss5.cpp ss5_encode.c \
-	ss5_decode.c select.c action.cpp mISDN.cpp tones.c \
-	action_efi.cpp crypt.cpp mail.c trace.c action_vbox.cpp \
-	dss1.cpp main.c vbox.cpp alawulaw.c endpoint.cpp interface.c \
-	message.c apppbx.cpp endpointapp.cpp join.cpp options.c \
-	extension.c joinpbx.cpp port.cpp callerid.c joinremote.cpp \
-	route.c cause.c socket_server.c
+	ss5_decode.c select.c action.cpp mISDN.cpp tones.c loop.c \
+	remote.c action_efi.cpp crypt.cpp mail.c trace.c \
+	action_vbox.cpp dss1.cpp main.c vbox.cpp alawulaw.c \
+	endpoint.cpp interface.c message.c apppbx.cpp endpointapp.cpp \
+	join.cpp options.c extension.c joinpbx.cpp port.cpp callerid.c \
+	joinremote.cpp route.c cause.c socket_server.c
 @ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
 @ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT)
 @ENABLE_GSM_BS_TRUE@am__objects_2 = gsm_bs.$(OBJEXT) \
@@ -116,14 +116,15 @@ am__objects_4 = $(am__objects_1) $(am__objects_2) $(am__objects_3)
 @ENABLE_SS5_TRUE@	ss5_decode.$(OBJEXT)
 am_lcr_OBJECTS = $(am__objects_4) $(am__objects_5) select.$(OBJEXT) \
 	action.$(OBJEXT) mISDN.$(OBJEXT) tones.$(OBJEXT) \
-	action_efi.$(OBJEXT) crypt.$(OBJEXT) mail.$(OBJEXT) \
-	trace.$(OBJEXT) action_vbox.$(OBJEXT) dss1.$(OBJEXT) \
-	main.$(OBJEXT) vbox.$(OBJEXT) alawulaw.$(OBJEXT) \
-	endpoint.$(OBJEXT) interface.$(OBJEXT) message.$(OBJEXT) \
-	apppbx.$(OBJEXT) endpointapp.$(OBJEXT) join.$(OBJEXT) \
-	options.$(OBJEXT) extension.$(OBJEXT) joinpbx.$(OBJEXT) \
-	port.$(OBJEXT) callerid.$(OBJEXT) joinremote.$(OBJEXT) \
-	route.$(OBJEXT) cause.$(OBJEXT) socket_server.$(OBJEXT)
+	loop.$(OBJEXT) remote.$(OBJEXT) action_efi.$(OBJEXT) \
+	crypt.$(OBJEXT) mail.$(OBJEXT) trace.$(OBJEXT) \
+	action_vbox.$(OBJEXT) dss1.$(OBJEXT) main.$(OBJEXT) \
+	vbox.$(OBJEXT) alawulaw.$(OBJEXT) endpoint.$(OBJEXT) \
+	interface.$(OBJEXT) message.$(OBJEXT) apppbx.$(OBJEXT) \
+	endpointapp.$(OBJEXT) join.$(OBJEXT) options.$(OBJEXT) \
+	extension.$(OBJEXT) joinpbx.$(OBJEXT) port.$(OBJEXT) \
+	callerid.$(OBJEXT) joinremote.$(OBJEXT) route.$(OBJEXT) \
+	cause.$(OBJEXT) socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
 @ENABLE_GSM_BS_TRUE@am__DEPENDENCIES_2 = ./openbsc/src/libbsc.a \
@@ -285,8 +286,8 @@ GSM_LIB = $(am__append_3) $(am__append_6) $(am__append_9)
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
-	action_efi.cpp   crypt.cpp        mail.c           trace.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
+	tones.c loop.c remote.c action_efi.cpp crypt.cpp mail.c trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
 	apppbx.cpp       endpointapp.cpp  join.cpp        options.c       \
@@ -318,15 +319,15 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
-	      echo ' cd $(srcdir) && $(AUTOMAKE) --gnu'; \
-	      $(am__cd) $(srcdir) && $(AUTOMAKE) --gnu \
+	      echo ' cd $(srcdir) && $(AUTOMAKE) --foreign'; \
+	      $(am__cd) $(srcdir) && $(AUTOMAKE) --foreign \
 		&& exit 0; \
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu Makefile
+	  $(AUTOMAKE) --foreign Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -499,12 +500,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/joinpbx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/joinremote.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lcradmin.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/loop.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mISDN.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mail.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remote.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/select.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_server.Po@am__quote@

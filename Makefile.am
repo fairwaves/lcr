@@ -125,8 +125,8 @@ endif
 
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
-	action_efi.cpp   crypt.cpp        mail.c           trace.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
+	tones.c loop.c remote.c action_efi.cpp crypt.cpp mail.c trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
 	apppbx.cpp       endpointapp.cpp  join.cpp        options.c       \

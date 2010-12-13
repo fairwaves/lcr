@@ -33,21 +33,6 @@ int __af_isdn = MISDN_AF_ISDN;
 #define B_TIMER_ACTIVATING 1 // seconds
 #define B_TIMER_DEACTIVATING 1 // seconds
 
-/* GSM condition */
-#if defined WITH_GSM_BS && defined WITH_GSM_MS
- #define MISDNPORT_GSM (mISDNport->gsm_bs || mISDNport->gsm_ms)
-#else
- #ifdef WITH_GSM_BS
-  #define MISDNPORT_GSM (mISDNport->gsm_bs)
- #endif
- #ifdef WITH_GSM_MS
-  #define MISDNPORT_GSM (mISDNport->gsm_ms)
- #endif
-#endif
-#ifndef MISDNPORT_GSM
- #define MISDNPORT_GSM (0)
-#endif
-
 /* list of mISDN ports */
 struct mISDNport *mISDNport_first;
 
@@ -671,7 +656,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			case B_STATE_IDLE:
 			if (p_m_remote_ref) {
 				/* export bchannel */
-				message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
+				message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
 				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 				add_trace("type", NULL, "assign");
 				add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -719,7 +704,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			/* in case, the bchannel is exported right after seize_bchannel */
 			/* export bchannel */
 			/* p_m_remote_id is set, when this event happens. */
-			message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
+			message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
 			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 			add_trace("type", NULL, "assign");
 			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -774,7 +759,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 			case B_STATE_REMOTE:
 			/* bchannel is exported, so we re-import */
-			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0);
+			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
 			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 			add_trace("type", NULL, "remove");
 			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -825,7 +810,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				 * OR bchannel is not used anymore
 				 * OR bchannel has been exported to an obsolete ref,
 				 * so reimport, to later export to new remote */
-				message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0);
+				message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
 				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 				add_trace("type", NULL, "remove");
 				add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -861,7 +846,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 
 			case B_STATE_REMOTE:
 			/* bchannel is exported, so we re-import */
-			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0);
+			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
 			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 			add_trace("type", NULL, "remove");
 			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -892,7 +877,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			if (b_port) {
 				/* bchannel is now deactivate, but is requied by Port class, so we reactivate / export */
 				if (p_m_remote_ref) {
-					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
+					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 					add_trace("type", NULL, "assign");
 					add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -924,7 +909,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			if (b_port) {
 				/* bchannel is now imported, but is requied by Port class, so we reactivate / export */
 				if (p_m_remote_ref) {
-					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type);
+					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
 					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
 					add_trace("type", NULL, "assign");
 					add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
@@ -1856,7 +1841,7 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
 		/* handle queued up-messages (d-channel) */
-		if (!MISDNPORT_GSM) {
+		if (!mISDNport->isloopback) {
 			while ((mb = mdequeue(&mISDNport->upqueue))) {
 				l3m = &mb->l3;
 				switch(l3m->type) {
@@ -1932,7 +1917,7 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 						if (!mISDNport->ntmode || mISDNport->ptp)
 							mISDNport->l2link = 0;
 					}
-					if (!MISDNPORT_GSM && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
+					if (!mISDNport->isloopback && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
 						if (!mISDNport->l2establish.active && mISDNport->l2hold) {
 							PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
 							schedule_timer(&mISDNport->l2establish, 5, 0);
@@ -1959,7 +1944,7 @@ static int l2establish_timeout(struct lcr_timer *timer, void *instance, int i)
 {
 	struct mISDNport *mISDNport = (struct mISDNport *)instance;
 
-	if (!MISDNPORT_GSM && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (!mISDNport->isloopback && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 //		PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		schedule_timer(&mISDNport->l2establish, 5, 0); /* 5 seconds */
@@ -2119,7 +2104,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	int force_nt = ifport->nt;
 	int l1hold = ifport->l1hold;
 	int l2hold = ifport->l2hold;
-	int gsm = 0;
+	int loop = 0;
 	int ss5 = ifport->ss5;
 	int i, cnt;
 	int pri, bri, pots;
@@ -2129,15 +2114,23 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	unsigned int protocol, prop;
 
 #if defined WITH_GSM_BS && defined WITH_GSM_MS
-	gsm = ifport->gsm_ms | ifport->gsm_bs;
+	loop = ifport->gsm_ms | ifport->gsm_bs;
 #else
 #ifdef WITH_GSM_BS
-	gsm = ifport->gsm_bs;
+	loop = ifport->gsm_bs;
 #endif
 #ifdef WITH_GSM_MS
-	gsm = ifport->gsm_ms;
+	loop = ifport->gsm_ms;
 #endif
 #endif
+//printf("%s == %s\n", ifport->portname, options.loopback_int);
+	if (!strcmp(ifport->portname, options.loopback_lcr))
+		loop = 1;
+
+	if (loop) {
+		if (mISDNloop_open())
+			return NULL;
+	}
 
 	/* check port counts */
 	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
@@ -2153,8 +2146,8 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	if (port < 0) {
 		port = mISDN_getportbyname(mISDNsocket, cnt, ifport->portname);
 		if (port < 0) {
-			if (gsm)
-				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", ifport->portname);
+			if (loop)
+				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface?.\n", ifport->portname);
 			else
 				PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", ifport->portname);
 			return(NULL);
@@ -2270,8 +2263,8 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
 	add_timer(&mISDNport->l2establish, l2establish_timeout, mISDNport, 0);
-	if (gsm | ss5) {
-		/* gsm/ss5 link is always active */
+	if (loop | ss5) {
+		/* loop/ss5 link is always active */
 		mISDNport->l1link = 1;
 		mISDNport->l2link = 1;
 	} else {
@@ -2284,6 +2277,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 #ifdef WITH_GSM_MS
 	mISDNport->gsm_ms = ifport->gsm_ms;
 #endif
+	mISDNport->isloopback = loop;
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
@@ -2325,25 +2319,24 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	if (l2hold) // supports layer 2 hold
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	/* open layer 3 and init upqueue */
-	if (gsm) {
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
+	if (loop) {
 		unsigned long on = 1;
 		struct sockaddr_mISDN addr;
 
 		if (devinfo.nrbchan < 8) {
-			PERROR_RUNTIME("GSM port %d must have at least 8 b-channels.\n", port);
-			mISDNport_close(mISDNport);
-			return(NULL);
+			printf("loop port %d has a low number of bchannels. (only %d) remember that all interfaces that requires a loopback could run out of channels\n", port, devinfo.nrbchan);
+//			mISDNport_close(mISDNport);
+//			return(NULL);
 		}
 
-		if ((mISDNport->lcr_sock = socket(PF_ISDN, SOCK_DGRAM, ISDN_P_NT_S0)) < 0) {
-			PERROR_RUNTIME("GSM port %d failed to open socket.\n", port);
+		if ((mISDNport->lcr_sock = socket(PF_ISDN, SOCK_DGRAM, (bri) ? ISDN_P_TE_S0 : ISDN_P_TE_E1)) < 0) {
+			PERROR_RUNTIME("loop port %d failed to open socket.\n", port);
 			mISDNport_close(mISDNport);
 			return(NULL);
 		}
 		/* set nonblocking io */
 		if (ioctl(mISDNport->lcr_sock, FIONBIO, &on) < 0) {
-			PERROR_RUNTIME("GSM port %d failed to set socket into nonblocking io.\n", port);
+			PERROR_RUNTIME("loop port %d failed to set socket into nonblocking io.\n", port);
 			mISDNport_close(mISDNport);
 			return(NULL);
 		}
@@ -2353,11 +2346,10 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		addr.dev = port;
 		addr.channel = 0;
 		if (bind(mISDNport->lcr_sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-			PERROR_RUNTIME("GSM port %d failed to bind socket. (errno %d)\n", port, errno);
+			PERROR_RUNTIME("loop port %d failed to bind socket. (errno %d)\n", port, errno);
 			mISDNport_close(mISDNport);
 			return(NULL);
 		}
-#endif
 	} else {
 		/* queue must be initializes, because l3-thread may send messages during open_layer3() */
 		mqueue_init(&mISDNport->upqueue);
@@ -2398,7 +2390,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	}
 
 	/* if ptp, pull up the link */
-	if (!MISDNPORT_GSM && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (!mISDNport->isloopback && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		add_trace("tei", NULL, "%d", 0);
@@ -2511,19 +2503,17 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	del_timer(&mISDNport->l2establish);
 
 	/* close layer 3, if open */
-	if (!MISDNPORT_GSM && mISDNport->ml3) {
+	if (!mISDNport->isloopback && mISDNport->ml3) {
 		close_layer3(mISDNport->ml3);
 	}
 
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	/* close gsm socket, if open */
-	if (MISDNPORT_GSM && mISDNport->lcr_sock > -1) {
+	if (mISDNport->isloopback && mISDNport->lcr_sock > -1) {
 		close(mISDNport->lcr_sock);
 	}
-#endif
 
 	/* purge upqueue */
-	if (!MISDNPORT_GSM)
+	if (!mISDNport->isloopback)
 		mqueue_purge(&mISDNport->upqueue);
 
 	/* remove from list */

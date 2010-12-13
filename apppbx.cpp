@@ -851,6 +851,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 	int			channel = 0;
 	int			earlyb;
 	int			mode = B_MODE_TRANSPARENT;
+	struct admin_list	*admin;
 
 	/* set bchannel mode */
 	mode = e_capainfo.source_mode;
@@ -989,6 +990,21 @@ void EndpointAppPBX::out_setup(int cfnr)
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
 #endif
+			if (mISDNport->ifport->remote) {
+				admin = admin_first;
+				while(admin) {
+					if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
+						break;
+					admin = admin->next;
+				}
+				if (!admin) {
+					trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+					add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
+					end_trace();
+					continue;
+				}
+				port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
+			} else
 				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			if (!port)
 				FATAL("Failed to create Port instance\n");
@@ -1208,6 +1224,21 @@ void EndpointAppPBX::out_setup(int cfnr)
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
 #endif
+			if (mISDNport->ifport->remote) {
+				admin = admin_first;
+				while(admin) {
+					if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
+						break;
+					admin = admin->next;
+				}
+				if (!admin) {
+					trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+					add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
+					end_trace();
+					continue;
+				}
+				port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
+			} else
 				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			if (!port)
 				FATAL("No memory for Port instance\n");
@@ -2048,10 +2079,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	/* other calls with no caller id (or not available for the extension) and force colp */
 	if ((e_connectinfo.id[0]=='\0' || (e_connectinfo.present==INFO_PRESENT_RESTRICTED && !e_ext.anon_ignore))&& e_ext.colp==COLP_FORCE) {
 		e_connectinfo.ntype = INFO_NTYPE_NOTPRESENT;
-		if (portlist->port_type==PORT_TYPE_DSS1_TE_OUT
-		 || portlist->port_type==PORT_TYPE_DSS1_NT_OUT
-		 || portlist->port_type==PORT_TYPE_GSM_BS_OUT
-		 || portlist->port_type==PORT_TYPE_GSM_MS_OUT) { /* external extension answered */
+		if ((portlist->port_type & PORT_CLASS_DIR_MASK) == PORT_CLASS_DIR_OUT) {
+			/* external extension answered */
 			port = find_port_id(portlist->port_id);
 			if (port) {
 				SCPY(e_connectinfo.id, nationalize_callerinfo(port->p_dialinginfo.id, &e_connectinfo.ntype, options.national, options.international));
@@ -3530,10 +3559,7 @@ void EndpointAppPBX::pick_join(char *extensions)
 							break;
 						}
 					}
-					if ((port->p_type==PORT_TYPE_DSS1_NT_OUT
-					  || port->p_type==PORT_TYPE_DSS1_TE_OUT
-					  || port->p_type==PORT_TYPE_GSM_BS_OUT
-					  || port->p_type==PORT_TYPE_GSM_MS_OUT)
+					if ((portlist->port_type & PORT_CLASS_DIR_MASK) == PORT_CLASS_DIR_OUT
 					 && port->p_state==PORT_STATE_OUT_ALERTING)
 						if (match_list(extensions, eapp->e_ext.number)) {
 							found = eapp;

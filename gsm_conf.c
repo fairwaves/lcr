@@ -29,8 +29,6 @@ int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error)
 
 	/* set defaults */
 	SCPY(gsm_conf->debug, "");
-	SCPY(gsm_conf->interface_bsc, "mISDN_l1loop.1");
-	SCPY(gsm_conf->interface_lcr, "mISDN_l1loop.2");
 	SCPY(gsm_conf->hlr, "hlr.sqlite3");
 	SCPY(gsm_conf->openbsc_cfg, "openbsc.cfg");
 	gsm_conf->reject_cause = 0;
@@ -103,22 +101,6 @@ int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error)
 				goto error;
 			}
 			SCPY(gsm_conf->debug, params[0]);
-
-		} else
-		if (!strcmp(option,"interface-bsc")) {
-			if (params[0][0]==0) {
-				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			SCPY(gsm_conf->interface_bsc, params[0]);
-
-		} else
-		if (!strcmp(option,"interface-lcr")) {
-			if (params[0][0]==0) {
-				UPRINT(conf_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
-				goto error;
-			}
-			SCPY(gsm_conf->interface_lcr, params[0]);
 
 		} else
 		if (!strcmp(option,"config")) {

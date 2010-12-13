@@ -327,9 +327,7 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 
 	/* check for port already assigned, but not for shared gsm interface */
 	searchif = interface_newlist;
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
-	if (!strcmp(value, gsm->conf.interface_lcr))
-#endif
+	if (!strcmp(value, options.loopback_lcr))
 	{
 		while(searchif) {
 			ifport = searchif->ifport;
@@ -918,7 +916,7 @@ static int inter_gsm_bs(struct interface *interface, char *filename, int line, c
 	}
 
 	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
 		return(-1);
 
 	/* goto end of chain again to set gsmflag */
@@ -947,7 +945,7 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	}
 
 	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
 		return(-1);
 
 	/* goto end of chain again to set gsmflag and socket */
@@ -1054,6 +1052,42 @@ static int inter_ss5(struct interface *interface, char *filename, int line, char
 	return(0);
 }
 #endif
+static int inter_remote(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+	struct interface *searchif;
+
+	if (!value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects application name as value.\n", filename, line, parameter);
+		return(-1);
+	}
+	searchif = interface_newlist;
+	while(searchif) {
+		ifport = searchif->ifport;
+		while(ifport) {
+			if (ifport->remote && !strcmp(ifport->remote_app, value)) {
+				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses remote application '%s'.\n", filename, line, ifport->portname, value);
+				return(-1);
+			}
+			ifport = ifport->next;
+		}
+		searchif = searchif->next;
+	}
+
+	/* set portname */
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
+		return(-1);
+
+	/* goto end of chain again to set application name */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->remote = 1;
+	SCPY(ifport->remote_app, value);
+
+
+	return(0);
+}
 
 
 /*
@@ -1214,6 +1248,10 @@ struct interface_param interface_param[] = {
 	" starrelease - Pulse dialing a star (11 pulses per digit) clears current call.\n"
 	" suppress - Suppress received tones, as they will be recognized."},
 #endif
+
+	{"remote", &inter_remote, "<application>",
+	"Sets up an interface that communicates with the remote application.\n"
+	"Use \"asterisk\" to use chan_lcr as remote application."},
 
 	{NULL, NULL, NULL, NULL}
 };

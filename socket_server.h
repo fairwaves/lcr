@@ -33,8 +33,9 @@ extern struct admin_list *admin_first;
 int admin_init(void);
 void admin_cleanup(void);
 void admin_call_response(int adminid, int message, const char *connected, int cause, int location, int notify);
-int admin_message_to_join(struct admin_message *msg, int remote_id);
-int admin_message_from_join(int remote_id, unsigned int ref, int message_type, union parameter *param);
+int admin_message_to_lcr(struct admin_message *msg, int remote_id);
+int admin_message_from_lcr(int remote_id, unsigned int ref, int message_type, union parameter *param);
+void message_bchannel_to_remote(unsigned int remote_id, unsigned int ref, int type, unsigned int handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type, int isloopback);
 
 
 

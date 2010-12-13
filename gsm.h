@@ -2,8 +2,6 @@ extern int new_callref;
 
 struct gsm_conf {
 	char debug[128];		/* debug info */
-	char interface_bsc[64];		/* loopback interface BSC side */
-	char interface_lcr[64];		/* loopback interface LCR side */
 	char openbsc_cfg[128];		/* openbsc config file */
 	char short_name[64];		/* short network name */
 	char long_name[64];		/* long network name */
@@ -17,8 +15,6 @@ struct gsm_conf {
 struct lcr_gsm {
 	void		*network;	/* OpenBSC network handle */
 	struct gsm_conf	conf;		/* gsm.conf options */
-	int		gsm_sock;	/* loopback interface GSM side */
-	int		gsm_port;	/* loopback interface port number */
 };
 
 extern struct lcr_gsm *gsm;

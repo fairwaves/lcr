@@ -602,6 +602,10 @@ free:
 #endif
 	}
 
+	/* close loopback, if used by GSM or remote */
+	if (mISDNloop.sock > -1)
+		mISDNloop_close();
+
 	/* display memory leak */
 #define MEMCHECK(a, b) \
 	if (b) { \

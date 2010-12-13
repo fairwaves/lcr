@@ -324,11 +324,17 @@ struct param_hello {
 struct param_bchannel {
 	int type; /* BCHANNEL_* */
 	unsigned int handle; /* bchannel stack/portid */
+	int isloopback; /* in this case the application behaves like an interface, dsp should not be used */
 	int tx_gain, rx_gain;
 	char pipeline[256];
 	unsigned char crypt[128];
 	int crypt_len;
 	int crypt_type; /* 1 = blowfish */
+};
+
+struct param_newref {
+        int direction; /* who requests a refe? */
+	int mode; /* 0 = direct-mode, 1 = PBX mode */
 };
 
 /* structure of message parameter */
@@ -355,7 +361,7 @@ union parameter {
 	struct param_crypt crypt; /* MESSAGE_CRYPT */
 	struct param_hello hello; /* MESSAGE_HELLO */
 	struct param_bchannel bchannel; /* MESSAGE_BCHANNEL */
-	int direction; /* MESSAGE_NEWREF */
+	struct param_newref newref; /* MESSAGE_NEWREF */
 };
 
 enum { /* message flow */
@@ -428,6 +434,7 @@ enum { /* messages between entities */
 	"MESSAGE_RELEASE", \
 	"MESSAGE_TIMEOUT", \
 	"MESSAGE_NOTIFY", \
+	"MESSAGE_PROGRESS", \
 	"MESSAGE_FACILITY", \
 	"MESSAGE_SUSPEND", \
 	"MESSAGE_RESUME", \

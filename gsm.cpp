@@ -119,7 +119,7 @@ void Pgsm::bchannel_close(void)
 
 static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int index);
 
-/* open bsc side bchannel */
+/* open external side bchannel */
 int Pgsm::bchannel_open(int index)
 {
 	int ret;
@@ -295,70 +295,10 @@ void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned 
 		    msgtext);
 }
 
-/* select bchannel */
+/* select free bchannel from loopback interface */
 int Pgsm::hunt_bchannel(void)
 {
-	int channel;
-	int i;
-	char map[p_m_mISDNport->b_num];
-	struct interface *interface;
-	struct interface_port *ifport;
-
-	chan_trace_header(p_m_mISDNport, this, "CHANNEL SELECTION (setup)", DIRECTION_NONE);
-	add_trace("channel", "reserved", "%d", p_m_mISDNport->b_reserved);
-	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) { // of out chan..
-		add_trace("conclusion", NULL, "all channels are reserved");
-		end_trace();
-		return(-34); // no channel
-	}
-
-	/* map all used ports of shared loopback interface */
-	memset(map, 0, sizeof(map));
-	interface = interface_first;
-	while(interface) {
-		ifport = interface->ifport;
-		while(ifport) {
-#if defined WITH_GSM_BS && defined WITH_GSM_MS
-			if ((ifport->gsm_bs || ifport->gsm_ms) && ifport->mISDNport) {
-#else
-#ifdef WITH_GSM_BS
-			if (ifport->gsm_bs && ifport->mISDNport) {
-#endif
-#ifdef WITH_GSM_MS
-			if (ifport->gsm_ms && ifport->mISDNport) {
-#endif
-#endif
-				i = 0;
-				while(i < p_m_mISDNport->b_num) {
-					if (p_m_mISDNport->b_port[i])
-						map[i] = 1;
-					i++;
-				}
-			}
-			ifport = ifport->next;
-		}
-		interface = interface->next;
-	}
-
-	/* find channel */
-	i = 0;
-	channel = 0;
-	while(i < p_m_mISDNport->b_num) {
-		if (!map[i]) {
-			channel = i+1+(i>=15);
-			break;
-		}
-		i++;
-	}
-	if (!channel) {
-		add_trace("conclusion", NULL, "no channel available");
-		end_trace();
-		return(-6); // channel unacceptable
-	}
-	add_trace("conclusion", NULL, "channel available");
-	add_trace("connect", "channel", "%d", channel);
-	end_trace();
-	return(channel);
+	return loop_hunt_bchannel(this, p_m_mISDNport);
 }
 
 /* PROCEEDING INDICATION */
@@ -884,87 +824,10 @@ static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int i
 	return 0;
 }
 
-static void gsm_sock_close(void)
-{
-	if (gsm->gsm_sock > -1)
-		close(gsm->gsm_sock);
-	gsm->gsm_sock = -1;
-}
-
-static int gsm_sock_open(char *portname)
-{
-	int ret;
-	int cnt;
-	unsigned long on = 1;
-	struct sockaddr_mISDN addr;
-	struct mISDN_devinfo devinfo;
-	int pri, bri;
-
-	/* check port counts */
-	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
-	if (ret < 0) {
-		fprintf(stderr, "Cannot get number of mISDN devices. (ioctl IMGETCOUNT failed ret=%d)\n", ret);
-		return(ret);
-	}
-
-	if (cnt <= 0) {
-		PERROR_RUNTIME("Found no card. Please be sure to load card drivers.\n");
-		return -EIO;
-	}
-	gsm->gsm_port = mISDN_getportbyname(mISDNsocket, cnt, portname);
-	if (gsm->gsm_port < 0) {
-		PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", portname);
-		return gsm->gsm_port;
-	}
-	/* get protocol */
-	bri = pri = 0;
-	devinfo.id = gsm->gsm_port;
-	ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
-	if (ret < 0) {
-		PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", gsm->gsm_port, ret);
-		return ret;
-	}
-	if (devinfo.Dprotocols & (1 << ISDN_P_TE_S0)) {
-		bri = 1;
-	}
-	if (devinfo.Dprotocols & (1 << ISDN_P_TE_E1)) {
-		pri = 1;
-	}
-	if (!pri && !pri) {
-		PERROR_RUNTIME("GSM port %d does not support TE PRI or TE BRI.\n", gsm->gsm_port);
-	}
-	/* open socket */
-	if ((gsm->gsm_sock = socket(PF_ISDN, SOCK_DGRAM, (pri)?ISDN_P_TE_E1:ISDN_P_TE_S0)) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to open socket.\n", gsm->gsm_port);
-		gsm_sock_close();
-		return gsm->gsm_sock;
-	}
-	/* set nonblocking io */
-	if ((ret = ioctl(gsm->gsm_sock, FIONBIO, &on)) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to set socket into nonblocking io.\n", gsm->gsm_port);
-		gsm_sock_close();
-		return ret;
-	}
-	/* bind socket to dchannel */
-	memset(&addr, 0, sizeof(addr));
-	addr.family = AF_ISDN;
-	addr.dev = gsm->gsm_port;
-	addr.channel = 0;
-	if ((ret = bind(gsm->gsm_sock, (struct sockaddr *)&addr, sizeof(addr))) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to bind socket. (name = %s errno=%d)\n", gsm->gsm_port, portname, errno);
-		gsm_sock_close();
-		return (ret);
-	}
-
-	return 0;
-}
-
 int gsm_exit(int rc)
 {
 	/* free gsm instance */
 	if (gsm) {
-		if (gsm->gsm_sock > -1)
-			gsm_sock_close();
 		free(gsm);
 		gsm = NULL;
 	}
@@ -996,7 +859,7 @@ int gsm_init(void)
 	}
 
 	/* open gsm loop interface */
-	if (gsm_sock_open(gsm->conf.interface_bsc)) {
+	if (loopback_open()) {
 		return gsm_exit(-1);
 	}
 
