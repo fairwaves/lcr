@@ -1890,6 +1890,8 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	struct route_action	*action = NULL;
 	unsigned long		comp_len;
 	int			j, jj;
+	char			isdn_port[10];
+	char			*argv[11]; /* check also number of args below */
 	char			callerid[64], callerid2[64], redirid[64];
 	int			integer;
 	char			*string;
@@ -2068,7 +2070,20 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				case MATCH_EXECUTE:
-				if (system(cond->string_value) == 0)
+				j = 0;
+				argv[j++] = (char *)"/bin/sh";
+				argv[j++] = (char *)"-c";
+				argv[j++] = cond->string_value;
+				argv[j++] = cond->string_value;
+				argv[j++] = e_extdialing;
+				argv[j++] = (char *)numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international);
+				argv[j++] = e_callerinfo.extension;
+				argv[j++] = e_callerinfo.name;
+				SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
+				argv[j++] = isdn_port;
+				argv[j++] = e_callerinfo.imsi;
+				argv[j++] = NULL; /* check also number of args above */
+				if (execve("/bin/sh", argv, environ) == 0)
 					istrue = 1;
 				break;
 

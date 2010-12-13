@@ -1965,7 +1965,7 @@ void EndpointAppPBX::action_execute(void)
 	int iWaitStatus;
 	char *command = (char *)"";
 	char isdn_port[10];
-	char *argv[11]; /* check also number of args below */
+	char *argv[12]; /* check also number of args below */
 	int i = 0;
 
 	/* get script / command */
@@ -1989,6 +1989,7 @@ void EndpointAppPBX::action_execute(void)
 	argv[i++] = e_callerinfo.name;
 	SPRINT(isdn_port, "%d", e_callerinfo.isdn_port);
 	argv[i++] = isdn_port;
+	argv[i++] = e_callerinfo.imsi;
 	argv[i++] = NULL; /* check also number of args above */
 	switch (pid = fork ()) {
 		case -1:
