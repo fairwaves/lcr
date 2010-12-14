@@ -71,6 +71,7 @@ AS_IF([test "x$with_asterisk" != xno],
 
 if test "x$with_asterisk" = "xyes"; then
 	ast_tone_zone_sound=
+	ast_1_8_or_higher=
 
 	AC_MSG_CHECKING([for struct tone_zone_sound in asterisk/indications.h])
 	tzs_test_result=no
@@ -108,7 +109,22 @@ if test "x$with_asterisk" = "xyes"; then
 		AC_MSG_FAILURE([No ast_tone_zone_sound, confused...])
 	fi
 
-	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound"
+	AC_MSG_CHECKING([for struct ast_party_caller in asterisk/channel.h])
+	apc_test_result=no
+	AC_COMPILE_IFELSE([
+		AC_LANG_PROGRAM(
+			[[#include <asterisk.h>],
+			[#include <asterisk/channel.h>]],
+			[[struct ast_party_caller * caller = NULL; (void) caller->id;]])],
+		[apc_test_result=yes])
+	AC_MSG_RESULT([$apc_test_result])
+
+	if test "x$apc_test_result" = "xyes"; then
+		ast_1_8_or_higher="-DAST_1_8_OR_HIGHER"
+	fi
+
+	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound $ast_1_8_or_higher"
+
 	AC_SUBST([AST_CFLAGS])
 fi
 
