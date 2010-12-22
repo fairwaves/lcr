@@ -12,9 +12,21 @@ struct gsm_conf {
 	int reject_cause;		/* reject cause for unsubcribed IMSIs */
 };
 
+struct mncc_q_entry {
+	struct mncc_q_entry *next;
+	unsigned int len;
+	char data[0];			/* struct gsm_mncc */
+};
+
 struct lcr_gsm {
 	void		*network;	/* OpenBSC network handle */
 	struct gsm_conf	conf;		/* gsm.conf options */
+	int		gsm_sock;	/* loopback interface GSM side */
+	int		gsm_port;	/* loopback interface port number */
+
+	struct lcr_fd	mncc_lfd;	/* Unix domain socket to OpenBSC MNCC */
+	struct mncc_q_entry *mncc_q_hd;
+	struct mncc_q_entry *mncc_q_tail;
 };
 
 extern struct lcr_gsm *gsm;

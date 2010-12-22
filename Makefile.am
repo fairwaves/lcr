@@ -64,9 +64,7 @@ if ENABLE_GSM_BS
 
 GSM_INCLUDE += -DWITH_GSM_BS -I./openbsc/include -I./libosmocore/include -I./openbsc
 
-GSM_SOURCE += gsm_bs.cpp openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
-
-GSM_LIB +=  ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
+GSM_SOURCE += gsm_bs.cpp
 
 endif
 

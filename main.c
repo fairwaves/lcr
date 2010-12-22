@@ -469,10 +469,6 @@ int main(int argc, char *argv[])
 		if (options.gsm) {
 			if (handle_gsm())
 				all_idle = 0;
-#ifdef WITH_GSM_BS
-			if (handle_gsm_bs())
-				all_idle = 0;
-#endif
 #ifdef WITH_GSM_MS
 			if (handle_gsm_ms())
 				all_idle = 0;

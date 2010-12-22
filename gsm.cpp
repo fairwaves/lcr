@@ -263,7 +263,7 @@ void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned 
 	char msgtext[64];
 
 	/* select message and primitive text */
-	SCPY(msgtext, get_mncc_name(msg_type));
+	//SCPY(msgtext, get_mncc_name(msg_type));
 
 	/* add direction */
 	if (port) {
