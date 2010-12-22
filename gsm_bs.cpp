@@ -846,7 +846,7 @@ int mncc_send(struct gsm_network *instance, int msg_type, void *data)
 	/* FIXME: the caller should provide this */
 	switch (msg_type) {
 	case GSM_TCHF_FRAME:
-		len = 33;
+		len = sizeof(struct gsm_data_frame) + 33;
 		break;
 	default:
 		len = sizeof(struct gsm_mncc);
@@ -861,6 +861,7 @@ int mncc_send(struct gsm_network *instance, int msg_type, void *data)
 /* close MNCC socket */
 static int mncc_fd_close(struct lcr_fd *lfd)
 {
+	printf("mncc_sock: closing\n");
 	close(lfd->fd);
 	unregister_fd(lfd);
 	lfd->fd = -1;
