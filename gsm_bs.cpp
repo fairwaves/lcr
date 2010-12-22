@@ -815,6 +815,7 @@ static int mncc_q_enqueue(struct gsm_mncc *mncc, unsigned int len)
 	} else {
 		/* append to tail of list */
 		gsm->mncc_q_tail->next = qe;
+		gsm->mncc_q_tail = qe;
 	}
 
 	gsm->mncc_lfd.when |= LCR_FD_WRITE;
