@@ -93,6 +93,7 @@ void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	resp = create_mncc(MNCC_START_DTMF_RSP, p_m_g_callref);
+	resp->fields |= MNCC_F_KEYPAD;
 	resp->keypad = mncc->keypad;
 	send_and_free_mncc(p_m_g_instance, resp->msg_type, resp);
 
