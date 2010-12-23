@@ -26,6 +26,8 @@ extern "C" {
 #include <openbsc/trau_frame.h>
 }
 
+#define SOCKET_RETRY_TIMER	5
+
 /*
  * DTMF stuff
  */
@@ -866,14 +868,10 @@ static int mncc_fd_close(struct lcr_fd *lfd)
 	class Pgsm_bs *pgsm_bs = NULL;
 	struct lcr_msg *message;
 
-	printf("mncc_sock: closing\n");
+	PERROR("Lost MNCC socket, retrying in %u seconds\n", SOCKET_RETRY_TIMER);
 	close(lfd->fd);
 	unregister_fd(lfd);
 	lfd->fd = -1;
-
-	/* flush the queue */
-	while (mncc_q_dequeue())
-		;
 
 	/* free all the calls that were running through the MNCC interface */
 	port = port_first;
@@ -890,7 +888,12 @@ static int mncc_fd_close(struct lcr_fd *lfd)
 		port = port->next;
 	}
 
-	/* FIXME: start a re-connect timer */
+	/* flush the queue */
+	while (mncc_q_dequeue())
+		;
+
+	/* start the re-connect timer */
+	schedule_timer(&gsm->socket_retry, SOCKET_RETRY_TIMER, 0);
 
 	generate_dtmf();
 
@@ -958,24 +961,42 @@ static int mncc_fd_cb(struct lcr_fd *lfd, unsigned int what, void *instance, int
 	return rc;
 }
 
+static int socket_retry_cb(struct lcr_timer *timer, void *instance, int index)
+{
+	int fd, rc;
+
+	fd = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	if (fd < 0) {
+		PERROR("Cannot create SEQPACKET socket, giving up!\n");
+		return fd;
+	}
+
+	rc = connect(fd, (struct sockaddr *) &gsm->sun,
+		     sizeof(gsm->sun));
+	if (rc < 0) {
+		PERROR("Could not connect to MNCC socket, "
+			"retrying in %u seconds\n", SOCKET_RETRY_TIMER);
+		close(fd);
+		schedule_timer(&gsm->socket_retry, SOCKET_RETRY_TIMER, 0);
+	} else {
+		PDEBUG(DEBUG_GSM, "Connected to MNCC socket!\n");
+		gsm->mncc_lfd.fd = fd;
+		register_fd(&gsm->mncc_lfd, LCR_FD_READ, &mncc_fd_cb, NULL, 0);
+	}
+
+	return 0;
+}
+
 int gsm_bs_init(void)
 {
-	struct sockaddr_un sun;
-	int rc;
+	gsm->sun.sun_family = AF_UNIX;
+	strcpy(gsm->sun.sun_path, "/tmp/bsc_mncc");
 
-	rc = socket(PF_UNIX, SOCK_SEQPACKET, 0);
-	if (rc < 0)
-		return rc;
+	memset(&gsm->socket_retry, 0, sizeof(gsm->socket_retry));
+	add_timer(&gsm->socket_retry, socket_retry_cb, NULL, 0);
 
-	gsm->mncc_lfd.fd = rc;
+	/* do the initial connect */
+	socket_retry_cb(&gsm->socket_retry, NULL, 0);
 
-	sun.sun_family = AF_UNIX;
-	strcpy(sun.sun_path, "/tmp/bsc_mncc");
-	rc = connect(rc, (struct sockaddr *)&sun, sizeof(sun));
-	if (rc < 0)
-		return rc;
-
-	rc = register_fd(&gsm->mncc_lfd, LCR_FD_READ, &mncc_fd_cb, NULL, 0);
-
-	return rc;
+	return 0;
 }

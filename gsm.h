@@ -1,3 +1,6 @@
+
+#include <sys/un.h>
+
 extern int new_callref;
 
 struct gsm_conf {
@@ -27,6 +30,8 @@ struct lcr_gsm {
 	struct lcr_fd	mncc_lfd;	/* Unix domain socket to OpenBSC MNCC */
 	struct mncc_q_entry *mncc_q_hd;
 	struct mncc_q_entry *mncc_q_tail;
+	struct lcr_timer socket_retry;	/* Timer to re-try connecting to BSC socket */
+	struct sockaddr_un sun;		/* Socket address of MNCC socket */
 };
 
 extern struct lcr_gsm *gsm;
