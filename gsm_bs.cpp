@@ -563,6 +563,20 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 
+	/* no GSM MNCC connection */
+	if (gsm->mncc_lfd.fd < 0) {
+		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		add_trace("failure", NULL, "No MNCC connection.");
+		end_trace();
+		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = 27; // temp. unavail.
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		new_state(PORT_STATE_RELEASE);
+		trigger_work(&p_m_g_delete);
+		return;
+	}
+
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
 		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
