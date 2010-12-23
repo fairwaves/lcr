@@ -862,6 +862,10 @@ int mncc_send(struct gsm_network *instance, int msg_type, void *data)
 /* close MNCC socket */
 static int mncc_fd_close(struct lcr_fd *lfd)
 {
+	class Port *port;
+	class Pgsm_bs *pgsm_bs = NULL;
+	struct lcr_msg *message;
+
 	printf("mncc_sock: closing\n");
 	close(lfd->fd);
 	unregister_fd(lfd);
@@ -871,7 +875,20 @@ static int mncc_fd_close(struct lcr_fd *lfd)
 	while (mncc_q_dequeue())
 		;
 
-	/* FIXME: free all the calls that were running through the MNCC interface */
+	/* free all the calls that were running through the MNCC interface */
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_BS) {
+			pgsm_bs = (class Pgsm_bs *)port;
+			message = message_create(pgsm_bs->p_serial, ACTIVE_EPOINT(pgsm_bs->p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 27; // temp. unavail.
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			pgsm_bs->new_state(PORT_STATE_RELEASE);
+			trigger_work(&pgsm_bs->p_m_g_delete);
+		}
+		port = port->next;
+	}
 
 	/* FIXME: start a re-connect timer */
 
