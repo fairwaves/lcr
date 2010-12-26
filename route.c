@@ -1902,6 +1902,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	struct admin_list	*admin;
 	time_t			now;
 	struct tm		*now_tm;
+	int			pid2;
 
 	/* reset timeout action */
 	e_match_to_action = NULL;
@@ -2071,9 +2072,11 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_EXECUTE:
 				j = 0;
+#if 0
 				argv[j++] = (char *)"/bin/sh";
 				argv[j++] = (char *)"-c";
 				argv[j++] = cond->string_value;
+#endif
 				argv[j++] = cond->string_value;
 				argv[j++] = e_extdialing;
 				argv[j++] = (char *)numberrize_callerinfo(e_callerinfo.id, e_callerinfo.ntype, options.national, options.international);
@@ -2083,8 +2086,11 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				argv[j++] = isdn_port;
 				argv[j++] = e_callerinfo.imsi;
 				argv[j++] = NULL; /* check also number of args above */
-				if (execve("/bin/sh", argv, environ) == 0)
-					istrue = 1;
+				if (fork() == 0) {
+					if ((pid2 = fork()) == 0) {
+						execve(cond->string_value, argv, environ);
+					}
+				}
 				break;
 
 				case MATCH_DEFAULT:
