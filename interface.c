@@ -328,7 +328,7 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 	/* check for port already assigned, but not for shared gsm interface */
 	searchif = interface_newlist;
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
-	if (!strcmp(value, gsm->conf.interface_lcr))
+	if (options.gsm && !strcmp(value, gsm->conf.interface_lcr))
 #endif
 	{
 		while(searchif) {
