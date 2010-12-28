@@ -3480,7 +3480,7 @@ int match_list(char *list, char *item)
 
 	while(42) {
 		/* eliminate white spaces */
-		while (*list <= ' ')
+		while (*list > '\0' && *list <= ' ')
 			list++;
 		if (*list == ',') {
 			list++;
