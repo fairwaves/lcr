@@ -311,6 +311,7 @@ void _end_trace(const char *__file, int __line)
 				/* attach to response chain */
 				*responsep = response;
 				responsep = &response->next;
+				admin->fd.when |= LCR_FD_WRITE;
 			}
 		}
 		admin = admin->next;
