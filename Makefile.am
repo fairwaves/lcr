@@ -103,19 +103,19 @@ chan_lcr_so_LDFLAGS = -shared
 chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
-	$(CC) $(INCLUDES) $(AST_CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
+	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
 
 bchannel.po: bchannel.c bchannel.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c bchannel.c -o bchannel.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c bchannel.c -o bchannel.po
 
 callerid.po: callerid.c callerid.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c callerid.c -o callerid.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c callerid.c -o callerid.po
 
 options.po: options.c options.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c options.c -o options.po
 
 select.po: select.c select.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c select.c -o select.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c select.c -o select.po
 
 install-exec-hook:
 	mkdir -p $(astmoddir)
