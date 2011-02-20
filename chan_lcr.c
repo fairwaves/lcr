@@ -1522,8 +1522,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			call = find_call_ref(0);
 			if (!call) {
 				/* send release, if ref does not exist */
-				CDEBUG(NULL, NULL, "No call found, that requests a ref.\n");
-				send_release_and_import(call, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL);
+				CERROR(NULL, NULL, "No call found, that requests a ref.\n");
 				return 0;
 			}
 			/* store new ref */

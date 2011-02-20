@@ -19,7 +19,6 @@
 char socket_name[128];
 int sock = -1;
 struct sockaddr_un sock_address;
-extern unsigned int new_remote;
 
 struct admin_list *admin_first = NULL;
 static struct lcr_fd admin_fd;
@@ -664,15 +663,18 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 				mISDNport = mISDNport->next;
 			}
 			if (!mISDNport) {
-				unsigned int remote_ref = new_remote++;
 				union parameter param;
 
-				memset(&param, 0, sizeof(union parameter));
-				admin_message_from_lcr(mISDNport->ifport->remote, remote_ref, MESSAGE_NEWREF, &param);
+				/* create new join instance */
+				join = joinremote = new JoinRemote(0, admin->remote_name, admin->sock); // must have no serial, because no endpoint is connected
+				if (!join) {
+					FATAL("No memory for remote join instance\n");
+					return(-1);
+				}
 				memset(&param, 0, sizeof(union parameter));
 				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 				param.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
-				admin_message_from_lcr(mISDNport->ifport->remote, remote_ref, MESSAGE_RELEASE, &param);
+				admin_message_from_lcr(joinremote->j_remote_id, joinremote->j_remote_ref, MESSAGE_RELEASE, &param);
 				return 0;
 			}
 			/* creating port object, transparent until setup with hdlc */
@@ -712,7 +714,7 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 	/* find join instance */
 	join = join_first;
 	while(join) {
-		if (join->j_type != JOIN_TYPE_REMOTE) {
+		if (join->j_type == JOIN_TYPE_REMOTE) {
 			joinremote = (class JoinRemote *)join;
 			if (joinremote->j_remote_ref == msg->ref)
 				break;
