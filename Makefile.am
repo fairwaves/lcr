@@ -51,7 +51,7 @@ if ENABLE_GSM
 
 GSM_INCLUDE +=
 
-GSM_SOURCE += gsm_audio.c gsm.cpp gsm_conf.c
+GSM_SOURCE += gsm_audio.c gsm.cpp
   
 GSM_LIB += /usr/lib/libgsm.a
 

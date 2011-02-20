@@ -699,7 +699,6 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 	if (msg->param.bchannel.type == BCHANNEL_ASSIGN_ACK
 	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK
 	 || msg->param.bchannel.type == BCHANNEL_RELEASE) {
-#warning TODO: depending on the mode (join / remoteport) forward message
 		/* no ref, but address */
 		message_bchannel_from_remote(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
 		return(0);

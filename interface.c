@@ -325,11 +325,9 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 			ifport = ifport->next;
 	}
 
-	/* check for port already assigned, but not for shared gsm interface */
+	/* check for port already assigned, but not for shared loop interface */
 	searchif = interface_newlist;
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
-	if (options.gsm && !strcmp(value, gsm->conf.interface_lcr))
-#endif
+	if (!!strcmp(value, options.loopback_lcr))
 	{
 		while(searchif) {
 			ifport = searchif->ifport;

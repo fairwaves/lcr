@@ -3,18 +3,6 @@
 
 extern int new_callref;
 
-struct gsm_conf {
-	char debug[128];		/* debug info */
-	char openbsc_cfg[128];		/* openbsc config file */
-	char short_name[64];		/* short network name */
-	char long_name[64];		/* long network name */
-	char hlr[64];			/* database name */
-	int allow_all;			/* accept unknown subscribers */
-	int keep_l2;			/* keep layer 2 after exit */
-	char pcapfile[128];		/* open capture file for BS11 links */
-	int reject_cause;		/* reject cause for unsubcribed IMSIs */
-};
-
 struct mncc_q_entry {
 	struct mncc_q_entry *next;
 	unsigned int len;
@@ -23,9 +11,6 @@ struct mncc_q_entry {
 
 struct lcr_gsm {
 	void		*network;	/* OpenBSC network handle */
-	struct gsm_conf	conf;		/* gsm.conf options */
-	int		gsm_sock;	/* loopback interface GSM side */
-	int		gsm_port;	/* loopback interface port number */
 
 	struct lcr_fd	mncc_lfd;	/* Unix domain socket to OpenBSC MNCC */
 	struct mncc_q_entry *mncc_q_hd;

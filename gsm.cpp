@@ -24,6 +24,167 @@ struct lcr_gsm *gsm = NULL;
 
 int new_callref = 1;
 
+/* names of MNCC-SAP */
+static const struct _value_string {
+	int msg_type;
+	const char *name;
+} mncc_names[] = {
+#if defined(MNCC_SETUP_REQ)
+	{ MNCC_SETUP_REQ,	"MNCC_SETUP_REQ" },
+#endif
+#if defined(MNCC_SETUP_IND)
+	{ MNCC_SETUP_IND,	"MNCC_SETUP_IND" },
+#endif
+#if defined(MNCC_SETUP_RSP)
+	{ MNCC_SETUP_RSP,	"MNCC_SETUP_RSP" },
+#endif
+#if defined(MNCC_SETUP_CNF)
+	{ MNCC_SETUP_CNF,	"MNCC_SETUP_CNF" },
+#endif
+#if defined(MNCC_SETUP_COMPL_REQ)
+	{ MNCC_SETUP_COMPL_REQ,	"MNCC_SETUP_COMPL_REQ" },
+#endif
+#if defined(MNCC_SETUP_COMPL_IND)
+	{ MNCC_SETUP_COMPL_IND,	"MNCC_SETUP_COMPL_IND" },
+#endif
+#if defined(MNCC_CALL_CONF_IND)
+	{ MNCC_CALL_CONF_IND,	"MNCC_CALL_CONF_IND" },
+#endif
+#if defined(MNCC_CALL_PROC_REQ)
+	{ MNCC_CALL_PROC_REQ,	"MNCC_CALL_PROC_REQ" },
+#endif
+#if defined(MNCC_PROGRESS_REQ)
+	{ MNCC_PROGRESS_REQ,	"MNCC_PROGRESS_REQ" },
+#endif
+#if defined(MNCC_ALERT_REQ)
+	{ MNCC_ALERT_REQ,	"MNCC_ALERT_REQ" },
+#endif
+#if defined(MNCC_ALERT_IND)
+	{ MNCC_ALERT_IND,	"MNCC_ALERT_IND" },
+#endif
+#if defined(MNCC_NOTIFY_REQ)
+	{ MNCC_NOTIFY_REQ,	"MNCC_NOTIFY_REQ" },
+#endif
+#if defined(MNCC_NOTIFY_IND)
+	{ MNCC_NOTIFY_IND,	"MNCC_NOTIFY_IND" },
+#endif
+#if defined(MNCC_DISC_REQ)
+	{ MNCC_DISC_REQ,	"MNCC_DISC_REQ" },
+#endif
+#if defined(MNCC_DISC_IND)
+	{ MNCC_DISC_IND,	"MNCC_DISC_IND" },
+#endif
+#if defined(MNCC_REL_REQ)
+	{ MNCC_REL_REQ,		"MNCC_REL_REQ" },
+#endif
+#if defined(MNCC_REL_IND)
+	{ MNCC_REL_IND,		"MNCC_REL_IND" },
+#endif
+#if defined(MNCC_REL_CNF)
+	{ MNCC_REL_CNF,		"MNCC_REL_CNF" },
+#endif
+#if defined(MNCC_FACILITY_REQ)
+	{ MNCC_FACILITY_REQ,	"MNCC_FACILITY_REQ" },
+#endif
+#if defined(MNCC_FACILITY_IND)
+	{ MNCC_FACILITY_IND,	"MNCC_FACILITY_IND" },
+#endif
+#if defined(MNCC_START_DTMF_IND)
+	{ MNCC_START_DTMF_IND,	"MNCC_START_DTMF_IND" },
+#endif
+#if defined(MNCC_START_DTMF_RSP)
+	{ MNCC_START_DTMF_RSP,	"MNCC_START_DTMF_RSP" },
+#endif
+#if defined(MNCC_START_DTMF_REJ)
+	{ MNCC_START_DTMF_REJ,	"MNCC_START_DTMF_REJ" },
+#endif
+#if defined(MNCC_STOP_DTMF_IND)
+	{ MNCC_STOP_DTMF_IND,	"MNCC_STOP_DTMF_IND" },
+#endif
+#if defined(MNCC_STOP_DTMF_RSP)
+	{ MNCC_STOP_DTMF_RSP,	"MNCC_STOP_DTMF_RSP" },
+#endif
+#if defined(MNCC_MODIFY_REQ)
+	{ MNCC_MODIFY_REQ,	"MNCC_MODIFY_REQ" },
+#endif
+#if defined(MNCC_MODIFY_IND)
+	{ MNCC_MODIFY_IND,	"MNCC_MODIFY_IND" },
+#endif
+#if defined(MNCC_MODIFY_RSP)
+	{ MNCC_MODIFY_RSP,	"MNCC_MODIFY_RSP" },
+#endif
+#if defined(MNCC_MODIFY_CNF)
+	{ MNCC_MODIFY_CNF,	"MNCC_MODIFY_CNF" },
+#endif
+#if defined(MNCC_MODIFY_REJ)
+	{ MNCC_MODIFY_REJ,	"MNCC_MODIFY_REJ" },
+#endif
+#if defined(MNCC_HOLD_IND)
+	{ MNCC_HOLD_IND,	"MNCC_HOLD_IND" },
+#endif
+#if defined(MNCC_HOLD_CNF)
+	{ MNCC_HOLD_CNF,	"MNCC_HOLD_CNF" },
+#endif
+#if defined(MNCC_HOLD_REJ)
+	{ MNCC_HOLD_REJ,	"MNCC_HOLD_REJ" },
+#endif
+#if defined(MNCC_RETRIEVE_IND)
+	{ MNCC_RETRIEVE_IND,	"MNCC_RETRIEVE_IND" },
+#endif
+#if defined(MNCC_RETRIEVE_CNF)
+	{ MNCC_RETRIEVE_CNF,	"MNCC_RETRIEVE_CNF" },
+#endif
+#if defined(MNCC_RETRIEVE_REJ)
+	{ MNCC_RETRIEVE_REJ,	"MNCC_RETRIEVE_REJ" },
+#endif
+#if defined(MNCC_USERINFO_REQ)
+	{ MNCC_USERINFO_REQ,	"MNCC_USERINFO_REQ" },
+#endif
+#if defined(MNCC_USERINFO_IND)
+	{ MNCC_USERINFO_IND,	"MNCC_USERINFO_IND" },
+#endif
+#if defined(MNCC_REJ_REQ)
+	{ MNCC_REJ_REQ,		"MNCC_REJ_REQ" },
+#endif
+#if defined(MNCC_REJ_IND)
+	{ MNCC_REJ_IND,		"MNCC_REJ_IND" },
+#endif
+#if defined(MNCC_PROGRESS_IND)
+	{ MNCC_PROGRESS_IND,	"MNCC_PROGRESS_IND" },
+#endif
+#if defined(MNCC_CALL_PROC_IND)
+	{ MNCC_CALL_PROC_IND,	"MNCC_CALL_PROC_IND" },
+#endif
+#if defined(MNCC_CALL_CONF_REQ)
+	{ MNCC_CALL_CONF_REQ,	"MNCC_CALL_CONF_REQ" },
+#endif
+#if defined(MNCC_START_DTMF_REQ)
+	{ MNCC_START_DTMF_REQ,	"MNCC_START_DTMF_REQ" },
+#endif
+#if defined(MNCC_STOP_DTMF_REQ)
+	{ MNCC_STOP_DTMF_REQ,	"MNCC_STOP_DTMF_REQ" },
+#endif
+#if defined(MNCC_HOLD_REQ)
+	{ MNCC_HOLD_REQ,	"MNCC_HOLD_REQ " },
+#endif
+#if defined(MNCC_RETRIEVE_REQ)
+	{ MNCC_RETRIEVE_REQ,	"MNCC_RETRIEVE_REQ" },
+#endif
+	{ 0,			NULL }
+};
+
+const char *mncc_name(int value)
+{
+	int i = 0;
+
+	while (mncc_names[i].name) {
+		if (mncc_names[i].msg_type == value)
+			return mncc_names[i].name;
+		i++;
+	}
+	return "unknown";
+}
+
 /*
  * create and send mncc message
  */
@@ -145,7 +306,7 @@ int Pgsm::bchannel_open(int index)
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
-	addr.dev = gsm->gsm_port;
+	addr.dev = mISDNloop.port;
 	addr.channel = index+1+(index>15);
 	ret = bind(p_m_g_gsm_b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0) {
@@ -257,13 +418,13 @@ void Pgsm::frame_receive(void *arg)
 
 /*
  * create trace
- **/
+ */
 void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg_type, int direction)
 {
 	char msgtext[64];
 
 	/* select message and primitive text */
-	SCPY(msgtext, "gsmnet");
+	SCPY(msgtext, mncc_name(msg_type));
 
 	/* add direction */
 	if (port) {
@@ -837,31 +998,11 @@ int gsm_exit(int rc)
 
 int gsm_init(void)
 {
-	char conf_error[256] = "";
-
 	/* seed the PRNG */
 	srand(time(NULL));
 
 	/* create gsm instance */
 	gsm = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
-	gsm->gsm_sock = -1;
-
-	/* parse options */
-	if (!gsm_conf(&gsm->conf, conf_error)) {
-		PERROR("%s", conf_error);
-#ifdef WITH_GSM_BS
-		gsm_bs_exit(-EINVAL);
-#endif
-#ifdef WITH_GSM_MS
-		gsm_ms_exit(-EINVAL);
-#endif
-		return gsm_exit(-EINVAL);
-	}
-
-	/* open gsm loop interface */
-	if (loopback_open()) {
-		return gsm_exit(-1);
-	}
 
 	return 0;
 }

@@ -932,7 +932,7 @@ static int mncc_fd_write(struct lcr_fd *lfd, void *inst, int idx)
 			return mncc_fd_close(lfd);
 		if (rc < 0)
 			return rc;
-		if (rc < qe->len)
+		if (rc < (int)qe->len)
 			return -1;
 		/* dequeue the successfully sent message */
 		qe2 = mncc_q_dequeue();
