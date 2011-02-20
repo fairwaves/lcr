@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 	}
 
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
-	/* handle gsm */
+	/* init gsm */
 	if (options.gsm && gsm_init()) {
 		fprintf(stderr, "GSM initialization failed.\n");
 		goto free;

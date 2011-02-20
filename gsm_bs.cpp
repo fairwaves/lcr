@@ -86,11 +86,42 @@ static void db_sync_timer_cb(void *data)
 }
 
 /*
+ * DTMF stuff
+ */
+unsigned char dtmf_samples[16][8000];
+static int dtmf_x[4] = { 1209, 1336, 1477, 1633 };
+static int dtmf_y[4] = { 697, 770, 852, 941 };
+
+void generate_dtmf(void)
+{
+	double fx, fy, sample;
+	int i, x, y;
+	unsigned char *law;
+
+	for (y = 0; y < 4; y++) {
+		fy = 2 * 3.1415927 * ((double)dtmf_y[y]) / 8000.0;
+		for (x = 0; x < 4; x++) {
+			fx = 2 * 3.1415927 * ((double)dtmf_x[x]) / 8000.0;
+			law = dtmf_samples[y << 2 | x];
+			for (i = 0; i < 8000; i++) {
+				sample = sin(fy * ((double)i)) * 0.251 * 32767.0; /* -6 dB */
+				sample += sin(fx * ((double)i)) * 0.158 * 32767.0; /* -8 dB */
+				*law++ = audio_s16_to_law[(int)sample & 0xffff];
+			}
+		}
+	}
+}
+
+
+/*
  * constructor
  */
 Pgsm_bs::Pgsm_bs(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Pgsm(type, mISDNport, portname, settings, channel, exclusive, mode)
 {
 	p_m_g_instance = gsm->network;
+	p_m_g_dtmf = NULL;
+	p_m_g_dtmf_index = 0;
+
 	PDEBUG(DEBUG_GSM, "Created new GSMBSPort(%s).\n", portname);
 }
 
@@ -105,7 +136,7 @@ Pgsm_bs::~Pgsm_bs()
 /* DTMF INDICATION */
 void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
-	struct lcr_msg *message;
+//	struct lcr_msg *message;
 	struct gsm_mncc *resp;
 
 	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
@@ -122,10 +153,37 @@ void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct
 	resp->keypad = mncc->keypad;
 	send_and_free_mncc(p_m_g_instance, resp->msg_type, resp);
 
+#if 0
 	/* send dialing information */
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
 	memcpy(&message->param.information, &p_dialinginfo, sizeof(struct dialing_info));
 	message_put(message);
+#endif
+
+	/* generate DTMF tones */
+	switch (mncc->keypad) {
+		case '1': p_m_g_dtmf = dtmf_samples[0]; break;
+		case '2': p_m_g_dtmf = dtmf_samples[1]; break;
+		case '3': p_m_g_dtmf = dtmf_samples[2]; break;
+		case 'a':
+		case 'A': p_m_g_dtmf = dtmf_samples[3]; break;
+		case '4': p_m_g_dtmf = dtmf_samples[4]; break;
+		case '5': p_m_g_dtmf = dtmf_samples[5]; break;
+		case '6': p_m_g_dtmf = dtmf_samples[6]; break;
+		case 'b':
+		case 'B': p_m_g_dtmf = dtmf_samples[7]; break;
+		case '7': p_m_g_dtmf = dtmf_samples[8]; break;
+		case '8': p_m_g_dtmf = dtmf_samples[9]; break;
+		case '9': p_m_g_dtmf = dtmf_samples[10]; break;
+		case 'c':
+		case 'C': p_m_g_dtmf = dtmf_samples[11]; break;
+		case '*': p_m_g_dtmf = dtmf_samples[12]; break;
+		case '0': p_m_g_dtmf = dtmf_samples[13]; break;
+		case '#': p_m_g_dtmf = dtmf_samples[14]; break;
+		case 'd':
+		case 'D': p_m_g_dtmf = dtmf_samples[15]; break;
+	}
+	p_m_g_dtmf_index = 0;
 }
 void Pgsm_bs::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
@@ -142,6 +200,9 @@ void Pgsm_bs::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct 
 	resp = create_mncc(MNCC_STOP_DTMF_RSP, p_m_g_callref);
 	resp->keypad = mncc->keypad;
 	send_and_free_mncc(p_m_g_instance, resp->msg_type, resp);
+	
+	/* stop DTMF */
+	p_m_g_dtmf = NULL;
 }
 
 /* HOLD INDICATION */
@@ -435,8 +496,22 @@ static int message_bsc(struct gsm_network *net, int msg_type, void *arg)
 	}
 
 	if (msg_type == GSM_TCHF_FRAME) {
-		if (port)
-			pgsm_bs->frame_receive(arg);
+		if (port) {
+			/* inject DTMF, if enabled */
+			if (pgsm_bs->p_m_g_dtmf) {
+				unsigned char data[160];
+				int i;
+
+				for (i = 0; i < 160; i++) {
+					data[i] = pgsm_bs->p_m_g_dtmf[pgsm_bs->p_m_g_dtmf_index++];
+					if (pgsm_bs->p_m_g_dtmf_index == 8000)
+						pgsm_bs->p_m_g_dtmf_index = 0;
+				}
+				/* send */
+				pgsm_bs->bchannel_send(PH_DATA_REQ, 0, data, 160);
+			} else
+				pgsm_bs->frame_receive(arg);
+		}
 		return 0;
 	}
 
@@ -859,6 +934,8 @@ int gsm_bs_init(void)
 	db_sync_timer.cb = db_sync_timer_cb;
 	db_sync_timer.data = NULL;
 	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
+
+	generate_dtmf();
 
 	return 0;
 }

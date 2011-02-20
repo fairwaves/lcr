@@ -9,6 +9,9 @@ class Pgsm_bs : public Pgsm
 	Pgsm_bs(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pgsm_bs();
 
+	unsigned char *p_m_g_dtmf; /* DTMF tone generation (MS only) */
+	int p_m_g_dtmf_index; /* DTMF tone generation index */
+
 	void setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
