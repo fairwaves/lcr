@@ -29,6 +29,8 @@ struct chan_call {
 					/* queue dialing prior setup ack */
 	char			oad[64];/* caller id in number format */
 
+	struct caller_info	callerinfo;
+	struct redir_info	redirinfo;
 	struct connect_info	connectinfo;
 					/* store connectinfo form lcr */
 	int			bridge_id;

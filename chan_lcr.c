@@ -247,7 +247,7 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	ast_text[sizeof(ast_text)-1] = '\0';
 
 //	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
-	printf("[call=%s ast=%s] %s", call_text, ast_text, buffer);
+	printf("[call=%s ast=%s line=%d] %s", call_text, ast_text, line, buffer);
 
 	ast_mutex_unlock(&log_lock);
 }
@@ -619,7 +619,7 @@ static void send_setup_to_lcr(struct chan_call *call)
 		return;
 
 #ifdef AST_1_8_OR_HIGHER
-	CDEBUG(call, call->ast, "Sending setup to LCR. (interface=%s dialstring=%s, cid=%s)\n", call->interface, call->dialstring, ast->caller.id.number.str);
+	CDEBUG(call, call->ast, "Sending setup to LCR. (interface=%s dialstring=%s, cid=%s)\n", call->interface, call->dialstring, call->callerinfo.id);
 #else
 	CDEBUG(call, call->ast, "Sending setup to LCR. (interface=%s dialstring=%s, cid=%s)\n", call->interface, call->dialstring, call->cid_num);
 #endif
@@ -640,143 +640,9 @@ static void send_setup_to_lcr(struct chan_call *call)
 	call->display[0] = '\0';
 
 #ifdef AST_1_8_OR_HIGHER
-	/* caller ID */
-	if (ast->caller.id.number.valid) {
-		if (ast->caller.id.number.str)
-			strncpy(newparam.setup.callerinfo.id, ast->caller.id.number.str, sizeof(newparam.setup.callerinfo.id)-1);
-		switch(ast->caller.id.number.presentation & AST_PRES_RESTRICTION) {
-			case AST_PRES_RESTRICTED:
-			newparam.setup.callerinfo.present = INFO_PRESENT_RESTRICTED;
-			break;
-			case AST_PRES_UNAVAILABLE:
-			newparam.setup.callerinfo.present = INFO_PRESENT_NOTAVAIL;
-			break;
-			case AST_PRES_ALLOWED:
-			default:
-			newparam.setup.callerinfo.present = INFO_PRESENT_ALLOWED;
-		}
-		switch(ast->caller.id.number.presentation & AST_PRES_NUMBER_TYPE) {
-			case AST_PRES_USER_NUMBER_UNSCREENED:
-			newparam.setup.callerinfo.screen = INFO_SCREEN_USER;
-			break;
-			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
-			newparam.setup.callerinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
-			break;
-			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
-			newparam.setup.callerinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
-			break;
-			default:
-			newparam.setup.callerinfo.screen = INFO_SCREEN_NETWORK;
-		}
-		switch((ast->caller.id.number.plan >> 4) & 7) {
-			case 4:
-			newparam.setup.callerinfo.ntype = INFO_NTYPE_SUBSCRIBER;
-			break;
-			case 2:
-			newparam.setup.callerinfo.ntype = INFO_NTYPE_NATIONAL;
-			break;
-			case 1:
-			newparam.setup.callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
-			break;
-			default:
-			newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
-		}
-	} else
-		newparam.setup.callerinfo.present = INFO_PRESENT_NOTAVAIL;
-
-	/* caller ID 2 */
-	if (ast->caller.ani.number.valid) {
-		if (ast->caller.ani.number.str)
-			strncpy(newparam.setup.callerinfo.id2, ast->caller.ani.number.str, sizeof(newparam.setup.callerinfo.id2)-1);
-		switch(ast->caller.ani.number.presentation & AST_PRES_RESTRICTION) {
-			case AST_PRES_RESTRICTED:
-			newparam.setup.callerinfo.present2 = INFO_PRESENT_RESTRICTED;
-			break;
-			case AST_PRES_UNAVAILABLE:
-			newparam.setup.callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
-			break;
-			case AST_PRES_ALLOWED:
-			default:
-			newparam.setup.callerinfo.present2 = INFO_PRESENT_ALLOWED;
-		}
-		switch(ast->caller.ani.number.presentation & AST_PRES_NUMBER_TYPE) {
-			case AST_PRES_USER_NUMBER_UNSCREENED:
-			newparam.setup.callerinfo.screen2 = INFO_SCREEN_USER;
-			break;
-			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
-			newparam.setup.callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_PASSED;
-			break;
-			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
-			newparam.setup.callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_FAILED;
-			break;
-			default:
-			newparam.setup.callerinfo.screen2 = INFO_SCREEN_NETWORK;
-		}
-		switch((ast->caller.ani.number.plan >> 4) & 7) {
-			case 4:
-			newparam.setup.callerinfo.ntype2 = INFO_NTYPE_SUBSCRIBER;
-			break;
-			case 2:
-			newparam.setup.callerinfo.ntype2 = INFO_NTYPE_NATIONAL;
-			break;
-			case 1:
-			newparam.setup.callerinfo.ntype2 = INFO_NTYPE_INTERNATIONAL;
-			break;
-			default:
-			newparam.setup.callerinfo.ntype2 = INFO_NTYPE_UNKNOWN;
-		}
-	} else
-		newparam.setup.callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
-
-	/* caller name */
-	if (ast->caller.id.name.valid) {
-		if (ast->caller.id.name.str)
-			strncpy(newparam.setup.callerinfo.name, ast->caller.id.name.str, sizeof(newparam.setup.callerinfo.name)-1);
-	}
-
-	/* redir number */
-	if (ast->redirecting.from.number.valid) {
-		newparam.setup.redirinfo.itype = INFO_ITYPE_CHAN;
-		if (ast->redirecting.from.number.str)
-			strncpy(newparam.setup.redirinfo.id, ast->redirecting.from.number.str, sizeof(newparam.setup.redirinfo.id)-1);
-		switch(ast->redirecting.from.number.presentation & AST_PRES_RESTRICTION) {
-			case AST_PRES_RESTRICTED:
-			newparam.setup.redirinfo.present = INFO_PRESENT_RESTRICTED;
-			break;
-			case AST_PRES_UNAVAILABLE:
-			newparam.setup.redirinfo.present = INFO_PRESENT_NOTAVAIL;
-			break;
-			case AST_PRES_ALLOWED:
-			default:
-			newparam.setup.redirinfo.present = INFO_PRESENT_ALLOWED;
-		}
-		switch(ast->redirecting.from.number.presentation & AST_PRES_NUMBER_TYPE) {
-			case AST_PRES_USER_NUMBER_UNSCREENED:
-			newparam.setup.redirinfo.screen = INFO_SCREEN_USER;
-			break;
-			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
-			newparam.setup.redirinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
-			break;
-			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
-			newparam.setup.redirinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
-			break;
-			default:
-			newparam.setup.redirinfo.screen = INFO_SCREEN_NETWORK;
-		}
-		switch((ast->redirecting.from.number.plan >> 4) & 7) {
-			case 4:
-			newparam.setup.redirinfo.ntype = INFO_NTYPE_SUBSCRIBER;
-			break;
-			case 2:
-			newparam.setup.redirinfo.ntype = INFO_NTYPE_NATIONAL;
-			break;
-			case 1:
-			newparam.setup.redirinfo.ntype = INFO_NTYPE_INTERNATIONAL;
-			break;
-			default:
-			newparam.setup.redirinfo.ntype = INFO_NTYPE_UNKNOWN;
-		}
-	}
+	/* set stored call information */
+	memcpy(&newparam.setup.callerinfo, &call->callerinfo, sizeof(struct caller_info));
+	memcpy(&newparam.setup.redirinfo, &call->redirinfo, sizeof(struct redir_info));
 #else
 	if (call->cid_num[0])
 		strncpy(newparam.setup.callerinfo.id, call->cid_num, sizeof(newparam.setup.callerinfo.id)-1);
@@ -2188,6 +2054,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 #ifdef AST_1_8_OR_HIGHER
 //	clone_variables(requestor, ast);
 
+#if 0
 	ast->caller.ani.number.valid=			requestor->caller.ani.number.valid;
 	if (requestor->caller.ani.number.valid)
 	  if (requestor->caller.ani.number.str)
@@ -2263,6 +2130,146 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		ast->redirecting.to.number.str=		strdup(requestor->redirecting.to.number.str);
 	ast->redirecting.to.number.plan=		requestor->redirecting.to.number.plan;
 	ast->redirecting.to.number.presentation=	requestor->redirecting.to.number.presentation;
+#endif
+	/* store call information for setup */
+
+	/* caller ID */
+	if (requestor->caller.id.number.valid) {
+		if (requestor->caller.id.number.str)
+			strncpy(call->callerinfo.id, requestor->caller.id.number.str, sizeof(call->callerinfo.id)-1);
+		switch(requestor->caller.id.number.presentation & AST_PRES_RESTRICTION) {
+			case AST_PRES_RESTRICTED:
+			call->callerinfo.present = INFO_PRESENT_RESTRICTED;
+			break;
+			case AST_PRES_UNAVAILABLE:
+			call->callerinfo.present = INFO_PRESENT_NOTAVAIL;
+			break;
+			case AST_PRES_ALLOWED:
+			default:
+			call->callerinfo.present = INFO_PRESENT_ALLOWED;
+		}
+		switch(requestor->caller.id.number.presentation & AST_PRES_NUMBER_TYPE) {
+			case AST_PRES_USER_NUMBER_UNSCREENED:
+			call->callerinfo.screen = INFO_SCREEN_USER;
+			break;
+			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
+			call->callerinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
+			break;
+			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
+			call->callerinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
+			break;
+			default:
+			call->callerinfo.screen = INFO_SCREEN_NETWORK;
+		}
+		switch((requestor->caller.id.number.plan >> 4) & 7) {
+			case 4:
+			call->callerinfo.ntype = INFO_NTYPE_SUBSCRIBER;
+			break;
+			case 2:
+			call->callerinfo.ntype = INFO_NTYPE_NATIONAL;
+			break;
+			case 1:
+			call->callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
+			break;
+			default:
+			call->callerinfo.ntype = INFO_NTYPE_UNKNOWN;
+		}
+	} else
+		call->callerinfo.present = INFO_PRESENT_NOTAVAIL;
+
+	/* caller ID 2 */
+	if (requestor->caller.ani.number.valid) {
+		if (requestor->caller.ani.number.str)
+			strncpy(call->callerinfo.id2, requestor->caller.ani.number.str, sizeof(call->callerinfo.id2)-1);
+		switch(requestor->caller.ani.number.presentation & AST_PRES_RESTRICTION) {
+			case AST_PRES_RESTRICTED:
+			call->callerinfo.present2 = INFO_PRESENT_RESTRICTED;
+			break;
+			case AST_PRES_UNAVAILABLE:
+			call->callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
+			break;
+			case AST_PRES_ALLOWED:
+			default:
+			call->callerinfo.present2 = INFO_PRESENT_ALLOWED;
+		}
+		switch(requestor->caller.ani.number.presentation & AST_PRES_NUMBER_TYPE) {
+			case AST_PRES_USER_NUMBER_UNSCREENED:
+			call->callerinfo.screen2 = INFO_SCREEN_USER;
+			break;
+			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
+			call->callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_PASSED;
+			break;
+			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
+			call->callerinfo.screen2 = INFO_SCREEN_USER_VERIFIED_FAILED;
+			break;
+			default:
+			call->callerinfo.screen2 = INFO_SCREEN_NETWORK;
+		}
+		switch((requestor->caller.ani.number.plan >> 4) & 7) {
+			case 4:
+			call->callerinfo.ntype2 = INFO_NTYPE_SUBSCRIBER;
+			break;
+			case 2:
+			call->callerinfo.ntype2 = INFO_NTYPE_NATIONAL;
+			break;
+			case 1:
+			call->callerinfo.ntype2 = INFO_NTYPE_INTERNATIONAL;
+			break;
+			default:
+			call->callerinfo.ntype2 = INFO_NTYPE_UNKNOWN;
+		}
+	} else
+		call->callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
+
+	/* caller name */
+	if (requestor->caller.id.name.valid) {
+		if (requestor->caller.id.name.str)
+			strncpy(call->callerinfo.name, requestor->caller.id.name.str, sizeof(call->callerinfo.name)-1);
+	}
+
+	/* redir number */
+	if (requestor->redirecting.from.number.valid) {
+		call->redirinfo.itype = INFO_ITYPE_CHAN;
+		if (requestor->redirecting.from.number.str)
+			strncpy(call->redirinfo.id, requestor->redirecting.from.number.str, sizeof(call->redirinfo.id)-1);
+		switch(requestor->redirecting.from.number.presentation & AST_PRES_RESTRICTION) {
+			case AST_PRES_RESTRICTED:
+			call->redirinfo.present = INFO_PRESENT_RESTRICTED;
+			break;
+			case AST_PRES_UNAVAILABLE:
+			call->redirinfo.present = INFO_PRESENT_NOTAVAIL;
+			break;
+			case AST_PRES_ALLOWED:
+			default:
+			call->redirinfo.present = INFO_PRESENT_ALLOWED;
+		}
+		switch(requestor->redirecting.from.number.presentation & AST_PRES_NUMBER_TYPE) {
+			case AST_PRES_USER_NUMBER_UNSCREENED:
+			call->redirinfo.screen = INFO_SCREEN_USER;
+			break;
+			case AST_PRES_USER_NUMBER_PASSED_SCREEN:
+			call->redirinfo.screen = INFO_SCREEN_USER_VERIFIED_PASSED;
+			break;
+			case AST_PRES_USER_NUMBER_FAILED_SCREEN:
+			call->redirinfo.screen = INFO_SCREEN_USER_VERIFIED_FAILED;
+			break;
+			default:
+			call->redirinfo.screen = INFO_SCREEN_NETWORK;
+		}
+		switch((requestor->redirecting.from.number.plan >> 4) & 7) {
+			case 4:
+			call->redirinfo.ntype = INFO_NTYPE_SUBSCRIBER;
+			break;
+			case 2:
+			call->redirinfo.ntype = INFO_NTYPE_NATIONAL;
+			break;
+			case 1:
+			call->redirinfo.ntype = INFO_NTYPE_INTERNATIONAL;
+			break;
+			default:
+			call->redirinfo.ntype = INFO_NTYPE_UNKNOWN;
+		}
+	}
 #endif
 
 	ast_mutex_unlock(&chan_lock);
