@@ -208,8 +208,6 @@ int wake_global = 0;
 int wake_pipe[2];
 struct lcr_fd wake_fd;
 
-int quit;
-
 int glob_channel = 0;
 
 int lcr_sock = -1;
@@ -1935,22 +1933,10 @@ static void *chan_thread(void *arg)
 
 	ast_mutex_lock(&chan_lock);
 
-	while(!quit) {
+	while(1) {
 		handle_queue();
 		select_main(0, &global_change, lock_chan, unlock_chan);
 	}
-
-	close_socket();
-
-	del_timer(&socket_retry);
-
-	unregister_fd(&wake_fd);
-	close(wake_pipe[0]);
-	close(wake_pipe[1]);
-
-	CERROR(NULL, NULL, "Thread exit.\n");
-
-	ast_mutex_unlock(&chan_lock);
 
 	return NULL;
 }
@@ -3303,7 +3289,6 @@ int load_module(void)
 	ast_cli_register(&cli_port_unload);
 #endif
 
-	quit = 0;
 	if ((pthread_create(&chan_tid, NULL, chan_thread, NULL)<0)) {
 		/* failed to create thread */
 		bchannel_deinitialize();
@@ -3325,15 +3310,23 @@ int load_module(void)
 int unload_module(void)
 {
 	/* First, take us out of the channel loop */
-	CDEBUG(NULL, NULL, "-- Unregistering mISDN Channel Driver --\n");
+	CDEBUG(NULL, NULL, "-- Unregistering Linux-Call-Router Channel Driver --\n");
 
-	quit = 1;
-	pthread_join(chan_tid, NULL);
+	pthread_cancel(chan_tid);
+
+	close_socket();
+
+	del_timer(&socket_retry);
+
+	unregister_fd(&wake_fd);
+	close(wake_pipe[0]);
+	close(wake_pipe[1]);
+
+//	ast_mutex_unlock(&chan_lock);
 
 	ast_channel_unregister(&lcr_tech);
 
 	ast_unregister_application("lcr_config");
-
 
 	if (mISDN_created) {
 		bchannel_deinitialize();
