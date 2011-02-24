@@ -99,7 +99,8 @@ static void *mail_child(void *arg)
  	fprintf(ph, "\n * date: %s %d %d %d:%02d\n\n", months[mon], mday, year+1900, hour, min);
 
 	/* attach audio file */
-	if ((filename[0]) && ((fh = open(filename, O_RDONLY)))) {
+	if (filename[0]) {
+   	    if ((fh = open(filename, O_RDONLY))) {
 		while(strchr(filename, '/'))
 			filename = strchr(filename, '/')+1;
 		fprintf(ph, "--next_part\n");
@@ -144,11 +145,12 @@ static void *mail_child(void *arg)
 
 		fprintf(ph, "\n\n");
 		close(fh);
-	} else {
+    	    } else {
 		SPRINT(buffer, "-Error- Failed to read audio file: '%s'.\n\n", filename);
 		fprintf(ph, "%s", buffer);
 		PERROR("%s", buffer);
-	}
+	    }
+        }
 
 	/* finish mail */
 	fprintf(ph, ".\n");
