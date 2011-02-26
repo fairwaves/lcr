@@ -199,14 +199,16 @@ struct gsm_mncc *create_mncc(int msg_type, unsigned int callref)
 }
 int send_and_free_mncc(void *instance, unsigned int msg_type, void *data)
 {
-	int ret;
+	int ret = 0;
 
+	if (instance) {
 #ifdef WITH_GSM_BS
-	ret = mncc_send((struct gsm_network *)instance, msg_type, data);
+		ret = mncc_send((struct gsm_network *)instance, msg_type, data);
 #endif
 #ifdef WITH_GSM_MS
-	ret = mncc_send((struct osmocom_ms *)instance, msg_type, data);
+		ret = mncc_send((struct osmocom_ms *)instance, msg_type, data);
 #endif
+	}
 	free(data);
 
 	return ret;

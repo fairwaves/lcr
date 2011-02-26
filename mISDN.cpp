@@ -1367,7 +1367,11 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 		if ((cont&(~DTMF_TONE_MASK)) == DTMF_TONE_VAL) {
 			chan_trace_header(p_m_mISDNport, this, "BCHANNEL control", DIRECTION_IN);
 			add_trace("DTMF", NULL, "%c", cont & DTMF_TONE_MASK);
+			if (!p_m_dtmf)
+				add_trace("info", NULL, "DTMF is disabled");
 			end_trace();
+			if (!p_m_dtmf)
+				return;
 			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
 			message->param.dtmf = cont & DTMF_TONE_MASK;
 			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);

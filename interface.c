@@ -961,21 +961,15 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 		return(-1);
 	}
 	SCPY(ifport->gsm_ms_name, element);
-	element = strsep(&value, " ");
-	if (!element || !element[0]) {
-		SPRINT(interface_error, "Error in %s (line %d): Missing socket name after MS name.\n", filename, line);
-		return(-1);
-	}
-	SCPY(ifport->gsm_ms_socket, element);
 
-	/* check if socket is used multiple times */
+	/* check if name is used multiple times */
 	searchif = interface_newlist;
 	while(searchif) {
 		searchifport = searchif->ifport;
 		while(searchifport) {
 			if (searchifport != ifport 
-			 && !strcmp(searchifport->gsm_ms_socket, ifport->gsm_ms_socket)) {
-				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given socket '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_socket);
+			 && !strcmp(searchifport->gsm_ms_name, ifport->gsm_ms_name)) {
+				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given MS name '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_name);
 				return(-1);
 			}
 			searchifport = searchifport->next;
@@ -1589,7 +1583,7 @@ void load_port(struct interface_port *ifport)
 		mISDNport_static(mISDNport);
 #ifdef WITH_GSM_MS
 		if (ifport->gsm_ms)
-			gsm_ms_new(ifport->gsm_ms_name, ifport->gsm_ms_socket);
+			gsm_ms_new(ifport->gsm_ms_name);
 #endif
 	} else {
 		ifport->block = 2; /* not available */

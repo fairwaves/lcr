@@ -16,24 +16,24 @@
 #endif
 extern "C" {
 #include <getopt.h>
+#include <arpa/inet.h>
 
 #include <osmocore/select.h>
 #include <osmocore/talloc.h>
+#include <osmocore/gsmtap_util.h>
 
 #include <osmocom/bb/common/osmocom_data.h>
 #include <osmocom/bb/common/logging.h>
 #include <osmocom/bb/common/l1l2_interface.h>
-#include <osmocom/bb/common/l23_app.h>
+#include <osmocom/bb/mobile/app_mobile.h>
 }
 
-const char *openbsc_copyright = "";
+static const char *config_file = "/etc/osmocom/osmocom.cfg";
 short vty_port = 4247;
 
 struct llist_head ms_list;
 struct log_target *stderr_target;
 void *l23_ctx = NULL;
-int (*l23_app_work) (struct osmocom_ms *ms) = NULL;
-int (*l23_app_exit) (struct osmocom_ms *ms) = NULL;
 
 static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
 
@@ -53,9 +53,6 @@ Pgsm_ms::Pgsm_ms(int type, struct mISDNport *mISDNport, char *portname, struct p
 			break;
 		}
 	}
-
-	if (!p_m_g_instance)
-		FATAL("MS name %s does not exists. Please fix!");
 
 	p_m_g_dtmf_state = DTMF_ST_IDLE;
 	p_m_g_dtmf_index = 0;
@@ -391,7 +388,31 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 	struct mISDNport *mISDNport;
 
 	/* Special messages */
-	if (msg_type) {
+	switch (msg_type) {
+	case MS_NEW:
+		PDEBUG(DEBUG_GSM, "MS %s comes available\n", ms->name);
+		return 0;
+	case MS_DELETE:
+		PDEBUG(DEBUG_GSM, "MS %s is removed\n", ms->name);
+		port = port_first;
+		while(port) {
+			if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_MS) {
+				pgsm_ms = (class Pgsm_ms *)port;
+				if (pgsm_ms->p_m_g_instance == ms) {
+					struct lcr_msg *message;
+
+					pgsm_ms->p_m_g_instance = 0;
+					message = message_create(pgsm_ms->p_serial, ACTIVE_EPOINT(pgsm_ms->p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+					message->param.disconnectinfo.cause = 27;
+					message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+					message_put(message);
+					pgsm_ms->new_state(PORT_STATE_RELEASE);
+					trigger_work(&pgsm_ms->p_m_g_delete);
+				}
+			}
+			port = port->next;
+		}
+		return 0;
 	}
 
 	/* find callref */
@@ -508,6 +529,20 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 
+	/* no instance */
+	if (!p_m_g_instance) {
+		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		add_trace("failure", NULL, "MS %s instance is unavailable", p_m_mISDNport->ifport->gsm_ms_name);
+		end_trace();
+		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = 27;
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		new_state(PORT_STATE_RELEASE);
+		trigger_work(&p_m_g_delete);
+		return;
+	}
+	
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
 		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
@@ -782,6 +817,7 @@ int Pgsm_ms::message_epoint(unsigned int epoint_id, int message_id, union parame
 
 int gsm_ms_exit(int rc)
 {
+	l23_app_exit();
 
 	return(rc);
 }
@@ -796,50 +832,40 @@ int gsm_ms_init(void)
 
 	l23_ctx = talloc_named_const(NULL, 1, "layer2 context");
 
+	log_parse_category_mask(stderr_target, "DCS:DPLMN:DRR:DMM:DSIM:DCC:DMNCC:DPAG:DSUM");
+	log_set_log_level(stderr_target, LOGL_INFO);
+
+#if 0
+	if (gsmtap_ip) {
+		rc = gsmtap_init(gsmtap_ip);
+		if (rc < 0) {
+			fprintf(stderr, "Failed during gsmtap_init()\n");
+			exit(1);
+		}
+	}
+#endif
+
+	l23_app_init(message_ms, config_file, vty_port);
+
 	return 0;
 }
 
 /* add a new GSM mobile instance */
-int gsm_ms_new(const char *name, const char *socket_path)
+int gsm_ms_new(const char *name)
 {
-	struct osmocom_ms *ms = NULL;
-	int rc;
-
-	PDEBUG(DEBUG_GSM, "GSM: creating new instance '%s' on '%s'\n", name, socket_path);
-
-	ms = talloc_zero(l23_ctx, struct osmocom_ms);
-	if (!ms) {
-		FATAL("Failed to allocate MS\n");
-	}
-	/* must add here, because other init processes may search in the list */
-	llist_add_tail(&ms->entity, &ms_list);
-
-
-	SPRINT(ms->name, name);
-
-	rc = layer2_open(ms, socket_path);
-	if (rc < 0) {
-		FATAL("Failed during layer2_open()\n");
-	}
-
-	lapdm_init(&ms->l2_entity.lapdm_dcch, ms);
-	lapdm_init(&ms->l2_entity.lapdm_acch, ms);
-
-	rc = l23_app_init(ms);
-	if (rc < 0) {
-		FATAL("Failed to init layer23\n");
-	}
-	ms->mncc_entity.mncc_recv = message_ms;
+	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is up\n", name);
 
 	return 0;
 }
 
 int gsm_ms_delete(const char *name)
 {
-	struct osmocom_ms *ms = NULL;
+	struct osmocom_ms *ms;
 	int found = 0;
+	class Port *port;
+	class Pgsm_ms *pgsm_ms = NULL;
 
-	PDEBUG(DEBUG_GSM, "GSM: destroying instance '%s'\n", name);
+	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is down\n", name);
 
 	llist_for_each_entry(ms, &ms_list, entity) {
 		if (!strcmp(ms->name, name)) {
@@ -848,15 +874,29 @@ int gsm_ms_delete(const char *name)
 		}
 	}
 
-	if (!found) {
-		FATAL("Failed delete layer23, instance '%s' not found\n", name);
+	if (!found)
+		return 0;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_MS) {
+			pgsm_ms = (class Pgsm_ms *)port;
+			if (pgsm_ms->p_m_g_instance == ms && pgsm_ms->p_m_g_callref) {
+				struct gsm_mncc *rej;
+
+				rej = create_mncc(MNCC_REL_REQ, pgsm_ms->p_m_g_callref);
+				rej->fields |= MNCC_F_CAUSE;
+				rej->cause.coding = 3;
+				rej->cause.location = 1;
+				rej->cause.value = 27;
+				gsm_trace_header(NULL, NULL, MNCC_REJ_REQ, DIRECTION_OUT);
+				add_trace("cause", "coding", "%d", rej->cause.coding);
+				add_trace("cause", "location", "%d", rej->cause.location);
+				add_trace("cause", "value", "%d", rej->cause.value);
+				end_trace();
+			}
+		}
 	}
-
-	l23_app_exit(ms);
-	lapdm_exit(&ms->l2_entity.lapdm_dcch);
-	lapdm_exit(&ms->l2_entity.lapdm_acch);
-
-	llist_del(&ms->entity);
 
 	return 0;
 }
@@ -864,18 +904,17 @@ int gsm_ms_delete(const char *name)
 /*
  * handles bsc select function within LCR's main loop
  */
-int handle_gsm_ms(void)
+int handle_gsm_ms(int *_quit)
 {
-	struct osmocom_ms *ms = NULL;
-	int work = 0;
+	int work = 0, quit = 0;
 
-	llist_for_each_entry(ms, &ms_list, entity) {
-		if (l23_app_work(ms))
-			work = 1;
-//		debug_reset_context();
-		if (bsc_select_main(1)) /* polling */
-			work = 1;
-	}
+	if (l23_app_work(&quit))
+		work = 1;
+	if (quit && llist_empty(&ms_list))
+		*_quit = 1;
+//	debug_reset_context();
+	if (bsc_select_main(1)) /* polling */
+		work = 1;
 
 	return work;
 }
