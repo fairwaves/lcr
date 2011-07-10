@@ -1005,7 +1005,7 @@ static int socket_retry_cb(struct lcr_timer *timer, void *instance, int index)
 int gsm_bs_init(void)
 {
 	gsm->sun.sun_family = AF_UNIX;
-	strcpy(gsm->sun.sun_path, "/tmp/bsc_mncc");
+	SCPY(gsm->sun.sun_path, "/tmp/bsc_mncc");
 
 	memset(&gsm->socket_retry, 0, sizeof(gsm->socket_retry));
 	add_timer(&gsm->socket_retry, socket_retry_cb, NULL, 0);
