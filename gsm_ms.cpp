@@ -37,8 +37,6 @@ void *l23_ctx = NULL;
 
 static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
 
-static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
-
 /*
  * constructor
  */
@@ -55,12 +53,6 @@ Pgsm_ms::Pgsm_ms(int type, struct mISDNport *mISDNport, char *portname, struct p
 			break;
 		}
 	}
-
-	p_m_g_dtmf_state = DTMF_ST_IDLE;
-	p_m_g_dtmf_index = 0;
-	p_m_g_dtmf[0] = '\0';
-	memset(&p_m_g_dtmf_timer, 0, sizeof(p_m_g_dtmf_timer));
-	add_timer(&p_m_g_dtmf_timer, dtmf_timeout, this, 0);
 
 	p_m_g_dtmf_state = DTMF_ST_IDLE;
 	p_m_g_dtmf_index = 0;

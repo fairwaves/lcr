@@ -57,34 +57,6 @@ void generate_dtmf(void)
 
 
 /*
- * DTMF stuff
- */
-unsigned char dtmf_samples[16][8000];
-static int dtmf_x[4] = { 1209, 1336, 1477, 1633 };
-static int dtmf_y[4] = { 697, 770, 852, 941 };
-
-void generate_dtmf(void)
-{
-	double fx, fy, sample;
-	int i, x, y;
-	unsigned char *law;
-
-	for (y = 0; y < 4; y++) {
-		fy = 2 * 3.1415927 * ((double)dtmf_y[y]) / 8000.0;
-		for (x = 0; x < 4; x++) {
-			fx = 2 * 3.1415927 * ((double)dtmf_x[x]) / 8000.0;
-			law = dtmf_samples[y << 2 | x];
-			for (i = 0; i < 8000; i++) {
-				sample = sin(fy * ((double)i)) * 0.251 * 32767.0; /* -6 dB */
-				sample += sin(fx * ((double)i)) * 0.158 * 32767.0; /* -8 dB */
-				*law++ = audio_s16_to_law[(int)sample & 0xffff];
-			}
-		}
-	}
-}
-
-
-/*
  * constructor
  */
 Pgsm_bs::Pgsm_bs(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Pgsm(type, mISDNport, portname, settings, channel, exclusive, mode)
