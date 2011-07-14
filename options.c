@@ -36,7 +36,9 @@ struct options options = {
 	-1,                             /* socket user (-1= no change) */
 	-1,                             /* socket group (-1= no change) */
 	0,				/* enable gsm */
-	1				/* use polling of main loop */
+	1,				/* use polling of main loop */
+	"mISDN_l1loop.1",		/* GSM/Asterisk side */
+	"mISDN_l1loop.2",		/* LCR side */
 };
 
 char options_error[256];
@@ -239,6 +241,22 @@ int read_options(char *options_error)
 		} else
 		if (!strcmp(option,"polling")) {
 			options.polling = 1;
+		} else
+		if (!strcmp(option,"loopback-ext")) {
+			if (param[0]==0) {
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				goto error;
+			}
+			SCPY(options.loopback_ext, param);
+
+		} else
+		if (!strcmp(option,"loopback-lcr")) {
+			if (param[0]==0) {
+				UPRINT(options_error, "Error in %s (line %d): parameter for option %s missing.\n",filename,line, option);
+				goto error;
+			}
+			SCPY(options.loopback_lcr, param);
+
 		} else {
 			UPRINT(options_error, "Error in %s (line %d): wrong option keyword %s.\n", filename,line,option);
 			goto error;

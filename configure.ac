@@ -25,7 +25,7 @@ dnl    Boston, MA 02110-1301, USA.
 dnl This keeps being the first instruction.
 dnl Change the 2nd argument if the version increases
 dnl 1st + 2nd argument is used for distribution package name
-AC_INIT(lcr, 1.7, andreas@eversberg.eu)
+AC_INIT(lcr, 1.8, andreas@eversberg.eu)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR([main.c])
 AM_CONFIG_HEADER(config.h)
@@ -33,7 +33,7 @@ AM_CONFIG_HEADER(config.h)
 # fix warnings from autoconf + automake
 AC_GNU_SOURCE
 # AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE(lcr,1.7)
+AM_INIT_AUTOMAKE(lcr,1.8)
 
 
 
@@ -71,6 +71,7 @@ AS_IF([test "x$with_asterisk" != xno],
 
 if test "x$with_asterisk" = "xyes"; then
 	ast_tone_zone_sound=
+	ast_1_8_or_higher=
 
 	AC_MSG_CHECKING([for struct tone_zone_sound in asterisk/indications.h])
 	tzs_test_result=no
@@ -108,7 +109,22 @@ if test "x$with_asterisk" = "xyes"; then
 		AC_MSG_FAILURE([No ast_tone_zone_sound, confused...])
 	fi
 
-	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound"
+	AC_MSG_CHECKING([for struct ast_party_caller in asterisk/channel.h])
+	apc_test_result=no
+	AC_COMPILE_IFELSE([
+		AC_LANG_PROGRAM(
+			[[#include <asterisk.h>],
+			[#include <asterisk/channel.h>]],
+			[[struct ast_party_caller * caller = NULL; (void) caller->id;]])],
+		[apc_test_result=yes])
+	AC_MSG_RESULT([$apc_test_result])
+
+	if test "x$apc_test_result" = "xyes"; then
+		ast_1_8_or_higher="-DAST_1_8_OR_HIGHER"
+	fi
+
+	AST_CFLAGS="-Dtone_zone_sound=$ast_tone_zone_sound $ast_1_8_or_higher"
+
 	AC_SUBST([AST_CFLAGS])
 fi
 

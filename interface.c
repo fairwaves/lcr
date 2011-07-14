@@ -325,11 +325,9 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 			ifport = ifport->next;
 	}
 
-	/* check for port already assigned, but not for shared gsm interface */
+	/* check for port already assigned, but not for shared loop interface */
 	searchif = interface_newlist;
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
-	if (options.gsm && !strcmp(value, gsm->conf.interface_lcr))
-#endif
+	if (!!strcmp(value, options.loopback_lcr))
 	{
 		while(searchif) {
 			ifport = searchif->ifport;
@@ -918,7 +916,7 @@ static int inter_gsm_bs(struct interface *interface, char *filename, int line, c
 	}
 
 	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
 		return(-1);
 
 	/* goto end of chain again to set gsmflag */
@@ -947,7 +945,7 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	}
 
 	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", gsm->conf.interface_lcr))
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
 		return(-1);
 
 	/* goto end of chain again to set gsmflag and socket */
@@ -963,21 +961,15 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 		return(-1);
 	}
 	SCPY(ifport->gsm_ms_name, element);
-	element = strsep(&value, " ");
-	if (!element || !element[0]) {
-		SPRINT(interface_error, "Error in %s (line %d): Missing socket name after MS name.\n", filename, line);
-		return(-1);
-	}
-	SCPY(ifport->gsm_ms_socket, element);
 
-	/* check if socket is used multiple times */
+	/* check if name is used multiple times */
 	searchif = interface_newlist;
 	while(searchif) {
 		searchifport = searchif->ifport;
 		while(searchifport) {
 			if (searchifport != ifport 
-			 && !strcmp(searchifport->gsm_ms_socket, ifport->gsm_ms_socket)) {
-				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given socket '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_socket);
+			 && !strcmp(searchifport->gsm_ms_name, ifport->gsm_ms_name)) {
+				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given MS name '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_name);
 				return(-1);
 			}
 			searchifport = searchifport->next;
@@ -1054,6 +1046,42 @@ static int inter_ss5(struct interface *interface, char *filename, int line, char
 	return(0);
 }
 #endif
+static int inter_remote(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+	struct interface *searchif;
+
+	if (!value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects application name as value.\n", filename, line, parameter);
+		return(-1);
+	}
+	searchif = interface_newlist;
+	while(searchif) {
+		ifport = searchif->ifport;
+		while(ifport) {
+			if (ifport->remote && !strcmp(ifport->remote_app, value)) {
+				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses remote application '%s'.\n", filename, line, ifport->portname, value);
+				return(-1);
+			}
+			ifport = ifport->next;
+		}
+		searchif = searchif->next;
+	}
+
+	/* set portname */
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
+		return(-1);
+
+	/* goto end of chain again to set application name */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->remote = 1;
+	SCPY(ifport->remote_app, value);
+
+
+	return(0);
+}
 
 
 /*
@@ -1214,6 +1242,10 @@ struct interface_param interface_param[] = {
 	" starrelease - Pulse dialing a star (11 pulses per digit) clears current call.\n"
 	" suppress - Suppress received tones, as they will be recognized."},
 #endif
+
+	{"remote", &inter_remote, "<application>",
+	"Sets up an interface that communicates with the remote application.\n"
+	"Use \"asterisk\" to use chan_lcr as remote application."},
 
 	{NULL, NULL, NULL, NULL}
 };
@@ -1551,7 +1583,7 @@ void load_port(struct interface_port *ifport)
 		mISDNport_static(mISDNport);
 #ifdef WITH_GSM_MS
 		if (ifport->gsm_ms)
-			gsm_ms_new(ifport->gsm_ms_name, ifport->gsm_ms_socket);
+			gsm_ms_new(ifport->gsm_ms_name);
 #endif
 	} else {
 		ifport->block = 2; /* not available */

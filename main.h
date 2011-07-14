@@ -148,6 +148,8 @@ extern "C" {
 #include "port.h"
 #include "mISDN.h"
 #include "dss1.h"
+#include "loop.h"
+#include "remote.h"
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 #include "gsm.h"
 #endif

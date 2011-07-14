@@ -14,6 +14,7 @@
 //#define __u16 unsigned short
 //#define __u32 unsigned int
 
+extern unsigned int new_remote;
 
 /*
  * constructor for a new join 
@@ -27,6 +28,7 @@ JoinRemote::JoinRemote(unsigned int serial, char *remote_name, int remote_id) : 
 	SCPY(j_remote_name, remote_name);
 	j_remote_id = remote_id;
 	j_type = JOIN_TYPE_REMOTE;
+	j_remote_ref = new_remote++;
 
 	j_epoint_id = serial; /* this is the endpoint, if created by epoint */
 	if (j_epoint_id)
@@ -35,9 +37,8 @@ JoinRemote::JoinRemote(unsigned int serial, char *remote_name, int remote_id) : 
 	/* send new ref to remote socket */
 	memset(&param, 0, sizeof(union parameter));
 	if (serial)
-		param.direction = 1; /* new ref from lcr */
-	/* the j_serial is assigned by Join() parent. this is sent as new ref */
-	if (admin_message_from_join(j_remote_id, j_serial, MESSAGE_NEWREF, &param)<0)
+		param.newref.direction = 1; /* new ref from lcr */
+	if (admin_message_from_lcr(j_remote_id, j_remote_ref, MESSAGE_NEWREF, &param)<0)
 		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", j_remote_name);
 }
 
@@ -56,7 +57,7 @@ void JoinRemote::message_epoint(unsigned int epoint_id, int message_type, union 
 		return;
 	
 	/* look for Remote's interface */
-	if (admin_message_from_join(j_remote_id, j_serial, message_type, param)<0) {
+	if (admin_message_from_lcr(j_remote_id, j_remote_ref, message_type, param)<0) {
 		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote_name);
 		return;		
 	}
@@ -97,26 +98,6 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 	if (message_type == MESSAGE_RELEASE) {
 		delete this;
 		return;
-	}
-}
-
-void message_bchannel_to_remote(unsigned int remote_id, unsigned int ref, int type, unsigned int handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type)
-{
-	union parameter param;
-
-	memset(&param, 0, sizeof(union parameter));
-	param.bchannel.type = type;
-	param.bchannel.handle = handle;
-	param.bchannel.tx_gain = tx_gain;
-	param.bchannel.rx_gain = rx_gain;
-	if (pipeline)
-		SCPY(param.bchannel.pipeline, pipeline);
-	if (crypt_len)
-		memcpy(param.bchannel.crypt, crypt, crypt_len);
-	param.bchannel.crypt_type = crypt_type;
-	if (admin_message_from_join(remote_id, ref, MESSAGE_BCHANNEL, &param)<0) {
-		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);
-		return;		
 	}
 }
 

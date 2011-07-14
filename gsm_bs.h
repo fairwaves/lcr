@@ -25,3 +25,7 @@ int handle_gsm_bs(void);
 int gsm_bs_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int gsm_bs_exit(int rc);
 int gsm_bs_init(void);
+
+extern "C" {
+int mncc_send(struct gsm_network *instance, int msg_type, void *data);
+};

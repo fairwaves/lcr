@@ -11,6 +11,11 @@
 
 #include "main.h"
 #include "config.h"
+#ifdef WITH_GSM_MS
+extern "C" {
+#include <osmocore/signal.h>
+}
+#endif
 
 //MESSAGES
 
@@ -138,11 +143,23 @@ void _printerror(const char *function, int line, const char *fmt, ...)
 void sighandler(int sigset)
 {
 	struct sched_param schedp;
+#ifdef WITH_GSM_MS
+	int wait_ms = 0;
+#endif
 
 	if (sigset == SIGHUP)
 		return;
 	if (sigset == SIGPIPE)
 		return;
+	fprintf(stderr, "LCR: Signal received: %d\n", sigset);
+	PDEBUG(DEBUG_LOG, "Signal received: %d\n", sigset);
+#ifdef WITH_GSM_MS
+	if (!wait_ms) {
+		wait_ms = 1;
+		dispatch_signal(SS_GLOBAL, S_GLOBAL_SHUTDOWN, NULL);
+		return;
+	}
+#endif
 	if (!quit) {
 		quit = sigset;
 		/* set scheduler & priority */
@@ -151,8 +168,6 @@ void sighandler(int sigset)
 			schedp.sched_priority = 0;
 			sched_setscheduler(0, SCHED_OTHER, &schedp);
 		}
-		fprintf(stderr, "LCR: Signal received: %d\n", sigset);
-		PDEBUG(DEBUG_LOG, "Signal received: %d\n", sigset);
 	}
 }
 
@@ -469,12 +484,8 @@ int main(int argc, char *argv[])
 		if (options.gsm) {
 			if (handle_gsm())
 				all_idle = 0;
-#ifdef WITH_GSM_BS
-			if (handle_gsm_bs())
-				all_idle = 0;
-#endif
 #ifdef WITH_GSM_MS
-			if (handle_gsm_ms())
+			if (handle_gsm_ms(&quit))
 				all_idle = 0;
 #endif
 		}
@@ -601,6 +612,10 @@ free:
 		gsm_exit(0);
 #endif
 	}
+
+	/* close loopback, if used by GSM or remote */
+	if (mISDNloop.sock > -1)
+		mISDNloop_close();
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \

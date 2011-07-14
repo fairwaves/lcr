@@ -57,10 +57,10 @@ struct interface_port {
 #ifdef WITH_GSM_MS
 	int			gsm_ms; /* interface is an GSM MS interface */
 	char			gsm_ms_name[32]; /* name of ms */
-	char			gsm_ms_socket[128]; /* layer1 socket name */
-	char			gsm_ms_service; /* see GSM_SERVICE_* */
 #endif
 	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
+	int			remote; /* interface is a remote app interface */
+	char			remote_app[32]; /* name of remote application */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */

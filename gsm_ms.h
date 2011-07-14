@@ -23,10 +23,10 @@ class Pgsm_ms : public Pgsm
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 };
 
-int handle_gsm_ms(void);
+int handle_gsm_ms(int *quit);
 int gsm_ms_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int gsm_ms_exit(int rc);
 int gsm_ms_init(void);
-int gsm_ms_new(const char *name, const char *socket_path);
+int gsm_ms_new(const char *name);
 int gsm_ms_delete(const char *name);
 

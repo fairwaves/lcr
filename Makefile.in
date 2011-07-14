@@ -33,17 +33,16 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 @ENABLE_GSM_TRUE@am__append_1 = 
-@ENABLE_GSM_TRUE@am__append_2 = gsm_audio.c gsm.cpp gsm_conf.c
+@ENABLE_GSM_TRUE@am__append_2 = gsm_audio.c gsm.cpp
 @ENABLE_GSM_TRUE@am__append_3 = /usr/lib/libgsm.a
 
 #gsm_audio.po: gsm_audio.c gsm_audio.h
 #	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
 @ENABLE_GSM_BS_TRUE@am__append_4 = -DWITH_GSM_BS -I./openbsc/include -I./libosmocore/include -I./openbsc
-@ENABLE_GSM_BS_TRUE@am__append_5 = gsm_bs.cpp openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
-@ENABLE_GSM_BS_TRUE@am__append_6 = ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
-@ENABLE_GSM_MS_TRUE@am__append_7 = -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
-@ENABLE_GSM_MS_TRUE@am__append_8 = gsm_ms.cpp layer23/src/mobile/app_mobile.c
-@ENABLE_GSM_MS_TRUE@am__append_9 = ./layer23/src/mobile/libmobile.a \
+@ENABLE_GSM_BS_TRUE@am__append_5 = gsm_bs.cpp
+@ENABLE_GSM_MS_TRUE@am__append_6 = -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
+@ENABLE_GSM_MS_TRUE@am__append_7 = gsm_ms.cpp layer23/src/mobile/app_mobile.c
+@ENABLE_GSM_MS_TRUE@am__append_8 = ./layer23/src/mobile/libmobile.a \
 @ENABLE_GSM_MS_TRUE@	./layer23/src/common/liblayer23.a \
 @ENABLE_GSM_MS_TRUE@	./libosmocore/build-host/src/.libs/libosmocore.a \
 @ENABLE_GSM_MS_TRUE@	./libosmocore/build-host/src/vty/.libs/libosmovty.a \
@@ -92,23 +91,16 @@ gentones_LDADD = $(LDADD)
 genwave_SOURCES = genwave.c
 genwave_OBJECTS = genwave.$(OBJEXT)
 genwave_LDADD = $(LDADD)
-am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_conf.c gsm_bs.cpp \
-	openbsc/src/bsc_init.c openbsc/src/bsc_vty.c \
-	openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c \
-	openbsc/src/bsc_version.c gsm_ms.cpp \
+am__lcr_SOURCES_DIST = gsm_audio.c gsm.cpp gsm_bs.cpp gsm_ms.cpp \
 	layer23/src/mobile/app_mobile.c ss5.cpp ss5_encode.c \
-	ss5_decode.c select.c action.cpp mISDN.cpp tones.c \
-	action_efi.cpp crypt.cpp mail.c trace.c action_vbox.cpp \
-	dss1.cpp main.c vbox.cpp alawulaw.c endpoint.cpp interface.c \
-	message.c apppbx.cpp endpointapp.cpp join.cpp options.c \
-	extension.c joinpbx.cpp port.cpp callerid.c joinremote.cpp \
-	route.c cause.c socket_server.c
-@ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT) \
-@ENABLE_GSM_TRUE@	gsm_conf.$(OBJEXT)
-@ENABLE_GSM_BS_TRUE@am__objects_2 = gsm_bs.$(OBJEXT) \
-@ENABLE_GSM_BS_TRUE@	bsc_init.$(OBJEXT) bsc_vty.$(OBJEXT) \
-@ENABLE_GSM_BS_TRUE@	vty_interface_layer3.$(OBJEXT) \
-@ENABLE_GSM_BS_TRUE@	bsc_api.$(OBJEXT) bsc_version.$(OBJEXT)
+	ss5_decode.c select.c action.cpp mISDN.cpp tones.c loop.c \
+	remote.c action_efi.cpp crypt.cpp mail.c trace.c \
+	action_vbox.cpp dss1.cpp main.c vbox.cpp alawulaw.c \
+	endpoint.cpp interface.c message.c apppbx.cpp endpointapp.cpp \
+	join.cpp options.c extension.c joinpbx.cpp port.cpp callerid.c \
+	joinremote.cpp route.c cause.c socket_server.c
+@ENABLE_GSM_TRUE@am__objects_1 = gsm_audio.$(OBJEXT) gsm.$(OBJEXT)
+@ENABLE_GSM_BS_TRUE@am__objects_2 = gsm_bs.$(OBJEXT)
 @ENABLE_GSM_MS_TRUE@am__objects_3 = gsm_ms.$(OBJEXT) \
 @ENABLE_GSM_MS_TRUE@	app_mobile.$(OBJEXT)
 am__objects_4 = $(am__objects_1) $(am__objects_2) $(am__objects_3)
@@ -116,22 +108,18 @@ am__objects_4 = $(am__objects_1) $(am__objects_2) $(am__objects_3)
 @ENABLE_SS5_TRUE@	ss5_decode.$(OBJEXT)
 am_lcr_OBJECTS = $(am__objects_4) $(am__objects_5) select.$(OBJEXT) \
 	action.$(OBJEXT) mISDN.$(OBJEXT) tones.$(OBJEXT) \
-	action_efi.$(OBJEXT) crypt.$(OBJEXT) mail.$(OBJEXT) \
-	trace.$(OBJEXT) action_vbox.$(OBJEXT) dss1.$(OBJEXT) \
-	main.$(OBJEXT) vbox.$(OBJEXT) alawulaw.$(OBJEXT) \
-	endpoint.$(OBJEXT) interface.$(OBJEXT) message.$(OBJEXT) \
-	apppbx.$(OBJEXT) endpointapp.$(OBJEXT) join.$(OBJEXT) \
-	options.$(OBJEXT) extension.$(OBJEXT) joinpbx.$(OBJEXT) \
-	port.$(OBJEXT) callerid.$(OBJEXT) joinremote.$(OBJEXT) \
-	route.$(OBJEXT) cause.$(OBJEXT) socket_server.$(OBJEXT)
+	loop.$(OBJEXT) remote.$(OBJEXT) action_efi.$(OBJEXT) \
+	crypt.$(OBJEXT) mail.$(OBJEXT) trace.$(OBJEXT) \
+	action_vbox.$(OBJEXT) dss1.$(OBJEXT) main.$(OBJEXT) \
+	vbox.$(OBJEXT) alawulaw.$(OBJEXT) endpoint.$(OBJEXT) \
+	interface.$(OBJEXT) message.$(OBJEXT) apppbx.$(OBJEXT) \
+	endpointapp.$(OBJEXT) join.$(OBJEXT) options.$(OBJEXT) \
+	extension.$(OBJEXT) joinpbx.$(OBJEXT) port.$(OBJEXT) \
+	callerid.$(OBJEXT) joinremote.$(OBJEXT) route.$(OBJEXT) \
+	cause.$(OBJEXT) socket_server.$(OBJEXT)
 lcr_OBJECTS = $(am_lcr_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_GSM_BS_TRUE@am__DEPENDENCIES_2 = ./openbsc/src/libbsc.a \
-@ENABLE_GSM_BS_TRUE@	./openbsc/src/libmsc.a \
-@ENABLE_GSM_BS_TRUE@	./openbsc/src/libvty.a
-am__DEPENDENCIES_3 = $(am__append_3) $(am__DEPENDENCIES_2) \
-	$(am__append_9)
-lcr_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_3)
+lcr_DEPENDENCIES = $(am__DEPENDENCIES_1) $(GSM_LIB)
 am_lcradmin_OBJECTS = lcradmin.$(OBJEXT) cause.$(OBJEXT) \
 	options.$(OBJEXT)
 lcradmin_OBJECTS = $(am_lcradmin_OBJECTS)
@@ -276,17 +264,17 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
-GSM_INCLUDE = $(am__append_1) $(am__append_4) $(am__append_7)
-GSM_SOURCE = $(am__append_2) $(am__append_5) $(am__append_8)
-GSM_LIB = $(am__append_3) $(am__append_6) $(am__append_9)
+GSM_INCLUDE = $(am__append_1) $(am__append_4) $(am__append_6)
+GSM_SOURCE = $(am__append_2) $(am__append_5) $(am__append_7)
+GSM_LIB = $(am__append_3) $(am__append_8)
 @ENABLE_SS5_TRUE@SS5_INCLUDE = -DWITH_SS5
 @ENABLE_SS5_TRUE@SS5_SOURCE = ss5.cpp ss5_encode.c ss5_decode.c
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_SOURCES = 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDFLAGS = -shared
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
-	action_efi.cpp   crypt.cpp        mail.c           trace.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
+	tones.c loop.c remote.c action_efi.cpp crypt.cpp mail.c trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
 	apppbx.cpp       endpointapp.cpp  join.cpp        options.c       \
@@ -474,10 +462,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alawulaw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/app_mobile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/apppbx.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bsc_api.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bsc_init.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bsc_version.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bsc_vty.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callerid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cause.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crypt.Po@am__quote@
@@ -492,19 +476,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_audio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_bs.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gsm_ms.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/join.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/joinpbx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/joinremote.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lcradmin.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/loop.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mISDN.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mail.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remote.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/select.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_server.Po@am__quote@
@@ -514,7 +499,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tones.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vbox.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vty_interface_layer3.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -529,76 +513,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-bsc_init.o: openbsc/src/bsc_init.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_init.o -MD -MP -MF $(DEPDIR)/bsc_init.Tpo -c -o bsc_init.o `test -f 'openbsc/src/bsc_init.c' || echo '$(srcdir)/'`openbsc/src/bsc_init.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_init.Tpo $(DEPDIR)/bsc_init.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_init.c' object='bsc_init.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_init.o `test -f 'openbsc/src/bsc_init.c' || echo '$(srcdir)/'`openbsc/src/bsc_init.c
-
-bsc_init.obj: openbsc/src/bsc_init.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_init.obj -MD -MP -MF $(DEPDIR)/bsc_init.Tpo -c -o bsc_init.obj `if test -f 'openbsc/src/bsc_init.c'; then $(CYGPATH_W) 'openbsc/src/bsc_init.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_init.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_init.Tpo $(DEPDIR)/bsc_init.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_init.c' object='bsc_init.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_init.obj `if test -f 'openbsc/src/bsc_init.c'; then $(CYGPATH_W) 'openbsc/src/bsc_init.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_init.c'; fi`
-
-bsc_vty.o: openbsc/src/bsc_vty.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_vty.o -MD -MP -MF $(DEPDIR)/bsc_vty.Tpo -c -o bsc_vty.o `test -f 'openbsc/src/bsc_vty.c' || echo '$(srcdir)/'`openbsc/src/bsc_vty.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_vty.Tpo $(DEPDIR)/bsc_vty.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_vty.c' object='bsc_vty.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_vty.o `test -f 'openbsc/src/bsc_vty.c' || echo '$(srcdir)/'`openbsc/src/bsc_vty.c
-
-bsc_vty.obj: openbsc/src/bsc_vty.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_vty.obj -MD -MP -MF $(DEPDIR)/bsc_vty.Tpo -c -o bsc_vty.obj `if test -f 'openbsc/src/bsc_vty.c'; then $(CYGPATH_W) 'openbsc/src/bsc_vty.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_vty.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_vty.Tpo $(DEPDIR)/bsc_vty.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_vty.c' object='bsc_vty.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_vty.obj `if test -f 'openbsc/src/bsc_vty.c'; then $(CYGPATH_W) 'openbsc/src/bsc_vty.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_vty.c'; fi`
-
-vty_interface_layer3.o: openbsc/src/vty_interface_layer3.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vty_interface_layer3.o -MD -MP -MF $(DEPDIR)/vty_interface_layer3.Tpo -c -o vty_interface_layer3.o `test -f 'openbsc/src/vty_interface_layer3.c' || echo '$(srcdir)/'`openbsc/src/vty_interface_layer3.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vty_interface_layer3.Tpo $(DEPDIR)/vty_interface_layer3.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/vty_interface_layer3.c' object='vty_interface_layer3.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vty_interface_layer3.o `test -f 'openbsc/src/vty_interface_layer3.c' || echo '$(srcdir)/'`openbsc/src/vty_interface_layer3.c
-
-vty_interface_layer3.obj: openbsc/src/vty_interface_layer3.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT vty_interface_layer3.obj -MD -MP -MF $(DEPDIR)/vty_interface_layer3.Tpo -c -o vty_interface_layer3.obj `if test -f 'openbsc/src/vty_interface_layer3.c'; then $(CYGPATH_W) 'openbsc/src/vty_interface_layer3.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/vty_interface_layer3.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vty_interface_layer3.Tpo $(DEPDIR)/vty_interface_layer3.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/vty_interface_layer3.c' object='vty_interface_layer3.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o vty_interface_layer3.obj `if test -f 'openbsc/src/vty_interface_layer3.c'; then $(CYGPATH_W) 'openbsc/src/vty_interface_layer3.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/vty_interface_layer3.c'; fi`
-
-bsc_api.o: openbsc/src/bsc_api.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_api.o -MD -MP -MF $(DEPDIR)/bsc_api.Tpo -c -o bsc_api.o `test -f 'openbsc/src/bsc_api.c' || echo '$(srcdir)/'`openbsc/src/bsc_api.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_api.Tpo $(DEPDIR)/bsc_api.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_api.c' object='bsc_api.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_api.o `test -f 'openbsc/src/bsc_api.c' || echo '$(srcdir)/'`openbsc/src/bsc_api.c
-
-bsc_api.obj: openbsc/src/bsc_api.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_api.obj -MD -MP -MF $(DEPDIR)/bsc_api.Tpo -c -o bsc_api.obj `if test -f 'openbsc/src/bsc_api.c'; then $(CYGPATH_W) 'openbsc/src/bsc_api.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_api.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_api.Tpo $(DEPDIR)/bsc_api.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_api.c' object='bsc_api.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_api.obj `if test -f 'openbsc/src/bsc_api.c'; then $(CYGPATH_W) 'openbsc/src/bsc_api.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_api.c'; fi`
-
-bsc_version.o: openbsc/src/bsc_version.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_version.o -MD -MP -MF $(DEPDIR)/bsc_version.Tpo -c -o bsc_version.o `test -f 'openbsc/src/bsc_version.c' || echo '$(srcdir)/'`openbsc/src/bsc_version.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_version.Tpo $(DEPDIR)/bsc_version.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_version.c' object='bsc_version.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_version.o `test -f 'openbsc/src/bsc_version.c' || echo '$(srcdir)/'`openbsc/src/bsc_version.c
-
-bsc_version.obj: openbsc/src/bsc_version.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT bsc_version.obj -MD -MP -MF $(DEPDIR)/bsc_version.Tpo -c -o bsc_version.obj `if test -f 'openbsc/src/bsc_version.c'; then $(CYGPATH_W) 'openbsc/src/bsc_version.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_version.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bsc_version.Tpo $(DEPDIR)/bsc_version.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='openbsc/src/bsc_version.c' object='bsc_version.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o bsc_version.obj `if test -f 'openbsc/src/bsc_version.c'; then $(CYGPATH_W) 'openbsc/src/bsc_version.c'; else $(CYGPATH_W) '$(srcdir)/openbsc/src/bsc_version.c'; fi`
 
 app_mobile.o: layer23/src/mobile/app_mobile.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT app_mobile.o -MD -MP -MF $(DEPDIR)/app_mobile.Tpo -c -o app_mobile.o `test -f 'layer23/src/mobile/app_mobile.c' || echo '$(srcdir)/'`layer23/src/mobile/app_mobile.c
@@ -955,19 +869,19 @@ uninstall-am: uninstall-binPROGRAMS uninstall-sbinPROGRAMS
 
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@chan_lcr.po: chan_lcr.c chan_lcr.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) $(AST_CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@bchannel.po: bchannel.c bchannel.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c bchannel.c -o bchannel.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c bchannel.c -o bchannel.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@callerid.po: callerid.c callerid.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c callerid.c -o callerid.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c callerid.c -o callerid.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@options.po: options.c options.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c options.c -o options.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c options.c -o options.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@select.po: select.c select.h
-@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE -fPIC -c select.c -o select.po
+@ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c select.c -o select.po
 
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@install-exec-hook:
 @ENABLE_ASTERISK_CHANNEL_DRIVER_TRUE@	mkdir -p $(astmoddir)

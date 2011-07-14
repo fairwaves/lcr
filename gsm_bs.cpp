@@ -16,74 +16,45 @@
 #define _GNU_SOURCE
 #endif
 extern "C" {
+#include <assert.h>
 #include <getopt.h>
 
-#include <openbsc/db.h>
-#include <osmocore/select.h>
-#include <openbsc/debug.h>
-#include <openbsc/e1_input.h>
-#include <osmocore/talloc.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
 #include <openbsc/mncc.h>
 #include <openbsc/trau_frame.h>
-#include <openbsc/osmo_msc.h>
-//#include <osmocom/vty/command.h>
-struct gsm_network *bsc_gsmnet = 0;
-extern int ipacc_rtp_direct;
-extern int bsc_bootstrap_network(int (*mmc_rev)(struct gsm_network *, int, void *),
-				 const char *cfg_file);
-extern int bsc_shutdown_net(struct gsm_network *net);
-void talloc_ctx_init(void);
-void on_dso_load_token(void);
-void on_dso_load_rrlp(void);
-void on_dso_load_ho_dec(void);
-int bts_model_unknown_init(void);
-int bts_model_bs11_init(void);
-int bts_model_nanobts_init(void);
-static struct log_target *stderr_target;
-extern const char *openbsc_copyright;
-
-/* timer to store statistics */
-#define DB_SYNC_INTERVAL	60, 0
-static struct timer_list db_sync_timer;
-
-/* FIXME: copied from the include file, because it will con compile with C++ */
-struct vty_app_info {
-	const char *name;
-	const char *version;
-	const char *copyright;
-	void *tall_ctx;
-	int (*go_parent_cb)(struct vty *vty);
-	int (*is_config_node)(struct vty *vty, int node);
-};
-
-extern int bsc_vty_go_parent(struct vty *vty);
-extern int bsc_vty_is_config_node(struct vty *vty, int node);
-static struct vty_app_info vty_info = {
-	"OpenBSC",
-	PACKAGE_VERSION,
-	NULL,
-	NULL,
-	bsc_vty_go_parent,
-	bsc_vty_is_config_node,
-};
-
-void vty_init(struct vty_app_info *app_info);
-int bsc_vty_init(void);
-
 }
 
-/* timer handling */
-static int _db_store_counter(struct counter *counter, void *data)
+#define SOCKET_RETRY_TIMER	5
+
+/*
+ * DTMF stuff
+ */
+unsigned char dtmf_samples[16][8000];
+static int dtmf_x[4] = { 1209, 1336, 1477, 1633 };
+static int dtmf_y[4] = { 697, 770, 852, 941 };
+
+void generate_dtmf(void)
 {
-	return db_store_counter(counter);
+	double fx, fy, sample;
+	int i, x, y;
+	unsigned char *law;
+
+	for (y = 0; y < 4; y++) {
+		fy = 2 * 3.1415927 * ((double)dtmf_y[y]) / 8000.0;
+		for (x = 0; x < 4; x++) {
+			fx = 2 * 3.1415927 * ((double)dtmf_x[x]) / 8000.0;
+			law = dtmf_samples[y << 2 | x];
+			for (i = 0; i < 8000; i++) {
+				sample = sin(fy * ((double)i)) * 0.251 * 32767.0; /* -6 dB */
+				sample += sin(fx * ((double)i)) * 0.158 * 32767.0; /* -8 dB */
+				*law++ = audio_s16_to_law[(int)sample & 0xffff];
+			}
+		}
+	}
 }
 
-static void db_sync_timer_cb(void *data)
-{
-	/* store counters to database and re-schedule */
-	counters_for_each(_db_store_counter, NULL);
-	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
-}
 
 /*
  * DTMF stuff
@@ -150,6 +121,7 @@ void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	resp = create_mncc(MNCC_START_DTMF_RSP, p_m_g_callref);
+	resp->fields |= MNCC_F_KEYPAD;
 	resp->keypad = mncc->keypad;
 	send_and_free_mncc(p_m_g_instance, resp->msg_type, resp);
 
@@ -620,6 +592,20 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 
+	/* no GSM MNCC connection */
+	if (gsm->mncc_lfd.fd < 0) {
+		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		add_trace("failure", NULL, "No MNCC connection.");
+		end_trace();
+		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
+		message->param.disconnectinfo.cause = 27; // temp. unavail.
+		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+		message_put(message);
+		new_state(PORT_STATE_RELEASE);
+		trigger_work(&p_m_g_delete);
+		return;
+	}
+
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
 		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
@@ -838,6 +824,7 @@ int Pgsm_bs::message_epoint(unsigned int epoint_id, int message_id, union parame
 
 int gsm_bs_exit(int rc)
 {
+#if 0
 	/* free gsm instance */
 	if (gsm) {
 		/* shutdown network */
@@ -848,110 +835,211 @@ int gsm_bs_exit(int rc)
 //			free((struct gsm_network *)gsm->network); /* TBD */
 //		}
 	}
-
+#endif
 	return(rc);
 }
 
-int gsm_bs_init(void)
+extern "C" {
+
+static int mncc_q_enqueue(struct gsm_mncc *mncc, unsigned int len)
 {
-	char hlr[128], cfg[128], filename[128];
-        mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-	int pcapfd, rc;
+	struct mncc_q_entry *qe;
 
-	vty_info.copyright = openbsc_copyright;
+	qe = (struct mncc_q_entry *) MALLOC(sizeof(*qe)+sizeof(*mncc)+len);
+	if (!qe)
+		return -ENOMEM;
 
-	log_init(&log_info);
-	tall_bsc_ctx = talloc_named_const(NULL, 1, "openbsc");
-	talloc_ctx_init();
-	on_dso_load_token();
-	on_dso_load_rrlp();
-	on_dso_load_ho_dec();
-	stderr_target = log_target_create_stderr();
-	log_add_target(stderr_target);
+	qe->next = NULL;
+	qe->len = len;
+	memcpy(qe->data, mncc, len);
 
-	bts_model_unknown_init();
-	bts_model_bs11_init();
-	bts_model_nanobts_init();
+	/* in case of empty list ... */
+	if (!gsm->mncc_q_hd && !gsm->mncc_q_tail) {
+		/* the list head and tail both point to the new qe */
+		gsm->mncc_q_hd = gsm->mncc_q_tail = qe;
+	} else {
+		/* append to tail of list */
+		gsm->mncc_q_tail->next = qe;
+		gsm->mncc_q_tail = qe;
+	}
 
-	/* enable filters */
-	log_set_all_filter(stderr_target, 1);
+	gsm->mncc_lfd.when |= LCR_FD_WRITE;
 
-	/* Init VTY (need to preceed options) */
-	vty_init(&vty_info);
-	bsc_vty_init();
+	return 0;
+}
 
-	/* set debug */
-	if (gsm->conf.debug[0])
-		log_parse_category_mask(stderr_target, gsm->conf.debug);
+static struct mncc_q_entry *mncc_q_dequeue(void)
+{
+	struct mncc_q_entry *qe = gsm->mncc_q_hd;
+	if (!qe)
+		return NULL;
 
-	/* open pcap file */
-	if (gsm->conf.pcapfile[0]) {
-		if (gsm->conf.pcapfile[0] == '/')
-			SCPY(filename, gsm->conf.pcapfile);
-		else
-			SPRINT(filename, "%s/%s", CONFIG_DATA, gsm->conf.pcapfile);
-		pcapfd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, mode);
-		if (pcapfd < 0) {
-			PERROR("Failed to open file for pcap\n");
-			return gsm_exit(-1);
+	/* dequeue the successfully sent message */
+	gsm->mncc_q_hd = qe->next;
+	if (!qe)
+		return NULL;
+	if (qe == gsm->mncc_q_tail)
+		gsm->mncc_q_tail = NULL;
+
+	return qe;
+}
+
+/* routine called by LCR code if it wants to send a message to OpenBSC */
+int mncc_send(struct gsm_network *instance, int msg_type, void *data)
+{
+	int len = 0;
+
+	/* FIXME: the caller should provide this */
+	switch (msg_type) {
+	case GSM_TCHF_FRAME:
+		len = sizeof(struct gsm_data_frame) + 33;
+		break;
+	default:
+		len = sizeof(struct gsm_mncc);
+		break;
+	}
+		
+	return mncc_q_enqueue((struct gsm_mncc *)data, len);
+}
+
+} // extern "C"
+
+/* close MNCC socket */
+static int mncc_fd_close(struct lcr_fd *lfd)
+{
+	class Port *port;
+	class Pgsm_bs *pgsm_bs = NULL;
+	struct lcr_msg *message;
+
+	PERROR("Lost MNCC socket, retrying in %u seconds\n", SOCKET_RETRY_TIMER);
+	close(lfd->fd);
+	unregister_fd(lfd);
+	lfd->fd = -1;
+
+	/* free all the calls that were running through the MNCC interface */
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_BS) {
+			pgsm_bs = (class Pgsm_bs *)port;
+			message = message_create(pgsm_bs->p_serial, ACTIVE_EPOINT(pgsm_bs->p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 27; // temp. unavail.
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			pgsm_bs->new_state(PORT_STATE_RELEASE);
+			trigger_work(&pgsm_bs->p_m_g_delete);
 		}
-		e1_set_pcap_fd(pcapfd);
+		port = port->next;
 	}
 
-	/* use RTP proxy for audio streaming */
-	ipacc_rtp_direct = 0;
+	/* flush the queue */
+	while (mncc_q_dequeue())
+		;
 
-	/* bootstrap network */
-	if (gsm->conf.openbsc_cfg[0] == '/')
-		SCPY(cfg, gsm->conf.openbsc_cfg);
-	else
-		SPRINT(cfg, "%s/%s", CONFIG_DATA, gsm->conf.openbsc_cfg);
-	rc = bsc_bootstrap_network(&message_bsc, cfg);
-	if (rc < 0) {
-		PERROR("Failed to bootstrap GSM network.\n");
-		return gsm_exit(-1);
-	}
-	bsc_api_init(bsc_gsmnet, msc_bsc_api());
-	gsm->network = bsc_gsmnet;
-
-	/* init database */
-	if (gsm->conf.hlr[0] == '/')
-		SCPY(hlr, gsm->conf.hlr);
-	else
-		SPRINT(hlr, "%s/%s", CONFIG_DATA, gsm->conf.hlr);
-	if (db_init(hlr)) {
-		PERROR("GSM DB: Failed to init database '%s'. Please check the option settings.\n", hlr);
-		return gsm_exit(-1);
-	}
-	printf("DB: Database initialized.\n");
-	if (db_prepare()) {
-		PERROR("GSM DB: Failed to prepare database.\n");
-		return gsm_exit(-1);
-	}
-	printf("DB: Database prepared.\n");
-
-	/* setup the timer */
-	db_sync_timer.cb = db_sync_timer_cb;
-	db_sync_timer.data = NULL;
-	bsc_schedule_timer(&db_sync_timer, DB_SYNC_INTERVAL);
+	/* start the re-connect timer */
+	schedule_timer(&gsm->socket_retry, SOCKET_RETRY_TIMER, 0);
 
 	generate_dtmf();
 
 	return 0;
 }
 
-/*
- * handles bsc select function within LCR's main loop
- */
-int handle_gsm_bs(void)
+/* read from OpenBSC via MNCC socket */
+static int mncc_fd_write(struct lcr_fd *lfd, void *inst, int idx)
 {
-	int ret1, ret2;
+	struct mncc_q_entry *qe, *qe2;
+	int rc;
 
-	ret1 = bsc_upqueue((struct gsm_network *)gsm->network);
-	log_reset_context();
-	ret2 = bsc_select_main(1); /* polling */
-	if (ret1 || ret2)
-		return 1;
+	while (1) {
+		qe = gsm->mncc_q_hd;
+		if (!qe) {
+			lfd->when &= ~LCR_FD_WRITE;
+			break;
+		}
+		rc = write(lfd->fd, qe->data, qe->len);
+		if (rc == 0)
+			return mncc_fd_close(lfd);
+		if (rc < 0)
+			return rc;
+		if (rc < (int)qe->len)
+			return -1;
+		/* dequeue the successfully sent message */
+		qe2 = mncc_q_dequeue();
+		assert(qe == qe2);
+		free(qe);
+	}
 	return 0;
 }
 
+/* read from OpenBSC via MNCC socket */
+static int mncc_fd_read(struct lcr_fd *lfd, void *inst, int idx)
+{
+	int rc;
+	static char buf[sizeof(struct gsm_mncc)+1024];
+	struct gsm_mncc *mncc_prim = (struct gsm_mncc *) buf;
+
+	memset(buf, 0, sizeof(buf));
+	rc = recv(lfd->fd, buf, sizeof(buf), 0);
+	if (rc == 0)
+		return mncc_fd_close(lfd);
+	if (rc < 0)
+		return rc;
+
+	/* Hand the MNCC message into LCR */
+	return message_bsc(NULL, mncc_prim->msg_type, mncc_prim);
+}
+
+/* file descriptor callback if we can read or write form MNCC socket */
+static int mncc_fd_cb(struct lcr_fd *lfd, unsigned int what, void *instance, int idx)
+{
+	int rc = 0;
+
+	if (what & LCR_FD_READ)
+		rc = mncc_fd_read(lfd, instance, idx);
+	if (rc < 0)
+		return rc;
+
+	if (what & LCR_FD_WRITE)
+		rc = mncc_fd_write(lfd, instance, idx);
+
+	return rc;
+}
+
+static int socket_retry_cb(struct lcr_timer *timer, void *instance, int index)
+{
+	int fd, rc;
+
+	fd = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	if (fd < 0) {
+		PERROR("Cannot create SEQPACKET socket, giving up!\n");
+		return fd;
+	}
+
+	rc = connect(fd, (struct sockaddr *) &gsm->sun,
+		     sizeof(gsm->sun));
+	if (rc < 0) {
+		PERROR("Could not connect to MNCC socket, "
+			"retrying in %u seconds\n", SOCKET_RETRY_TIMER);
+		close(fd);
+		schedule_timer(&gsm->socket_retry, SOCKET_RETRY_TIMER, 0);
+	} else {
+		PDEBUG(DEBUG_GSM, "Connected to MNCC socket!\n");
+		gsm->mncc_lfd.fd = fd;
+		register_fd(&gsm->mncc_lfd, LCR_FD_READ, &mncc_fd_cb, NULL, 0);
+	}
+
+	return 0;
+}
+
+int gsm_bs_init(void)
+{
+	gsm->sun.sun_family = AF_UNIX;
+	SCPY(gsm->sun.sun_path, "/tmp/bsc_mncc");
+
+	memset(&gsm->socket_retry, 0, sizeof(gsm->socket_retry));
+	add_timer(&gsm->socket_retry, socket_retry_cb, NULL, 0);
+
+	/* do the initial connect */
+	socket_retry_cb(&gsm->socket_retry, NULL, 0);
+
+	return 0;
+}

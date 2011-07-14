@@ -1976,9 +1976,11 @@ void EndpointAppPBX::action_execute(void)
 		end_trace();
 		return;
 	}
+#if 0
 	argv[i++] = (char *)"/bin/sh";
 	argv[i++] = (char *)"-c";
 	argv[i++] = command;
+#endif
 	argv[i++] = command;
 	if ((rparam = routeparam(e_action, PARAM_PARAM))) {
 		argv[i++] = rparam->string_value;
@@ -1999,7 +2001,7 @@ void EndpointAppPBX::action_execute(void)
 		case 0:
 			/* To be shure there are no zombies created double fork */
 			if ((pid2 = fork()) == 0) {
-				execve("/bin/sh", argv, environ);
+				execve(command, argv, environ);
 			}
 			else {
 				/* Exit immediately and release the waiting parent. The subprocess falls to init because the parent died */

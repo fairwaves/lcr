@@ -24,6 +24,167 @@ struct lcr_gsm *gsm = NULL;
 
 int new_callref = 1;
 
+/* names of MNCC-SAP */
+static const struct _value_string {
+	int msg_type;
+	const char *name;
+} mncc_names[] = {
+#if defined(MNCC_SETUP_REQ)
+	{ MNCC_SETUP_REQ,	"MNCC_SETUP_REQ" },
+#endif
+#if defined(MNCC_SETUP_IND)
+	{ MNCC_SETUP_IND,	"MNCC_SETUP_IND" },
+#endif
+#if defined(MNCC_SETUP_RSP)
+	{ MNCC_SETUP_RSP,	"MNCC_SETUP_RSP" },
+#endif
+#if defined(MNCC_SETUP_CNF)
+	{ MNCC_SETUP_CNF,	"MNCC_SETUP_CNF" },
+#endif
+#if defined(MNCC_SETUP_COMPL_REQ)
+	{ MNCC_SETUP_COMPL_REQ,	"MNCC_SETUP_COMPL_REQ" },
+#endif
+#if defined(MNCC_SETUP_COMPL_IND)
+	{ MNCC_SETUP_COMPL_IND,	"MNCC_SETUP_COMPL_IND" },
+#endif
+#if defined(MNCC_CALL_CONF_IND)
+	{ MNCC_CALL_CONF_IND,	"MNCC_CALL_CONF_IND" },
+#endif
+#if defined(MNCC_CALL_PROC_REQ)
+	{ MNCC_CALL_PROC_REQ,	"MNCC_CALL_PROC_REQ" },
+#endif
+#if defined(MNCC_PROGRESS_REQ)
+	{ MNCC_PROGRESS_REQ,	"MNCC_PROGRESS_REQ" },
+#endif
+#if defined(MNCC_ALERT_REQ)
+	{ MNCC_ALERT_REQ,	"MNCC_ALERT_REQ" },
+#endif
+#if defined(MNCC_ALERT_IND)
+	{ MNCC_ALERT_IND,	"MNCC_ALERT_IND" },
+#endif
+#if defined(MNCC_NOTIFY_REQ)
+	{ MNCC_NOTIFY_REQ,	"MNCC_NOTIFY_REQ" },
+#endif
+#if defined(MNCC_NOTIFY_IND)
+	{ MNCC_NOTIFY_IND,	"MNCC_NOTIFY_IND" },
+#endif
+#if defined(MNCC_DISC_REQ)
+	{ MNCC_DISC_REQ,	"MNCC_DISC_REQ" },
+#endif
+#if defined(MNCC_DISC_IND)
+	{ MNCC_DISC_IND,	"MNCC_DISC_IND" },
+#endif
+#if defined(MNCC_REL_REQ)
+	{ MNCC_REL_REQ,		"MNCC_REL_REQ" },
+#endif
+#if defined(MNCC_REL_IND)
+	{ MNCC_REL_IND,		"MNCC_REL_IND" },
+#endif
+#if defined(MNCC_REL_CNF)
+	{ MNCC_REL_CNF,		"MNCC_REL_CNF" },
+#endif
+#if defined(MNCC_FACILITY_REQ)
+	{ MNCC_FACILITY_REQ,	"MNCC_FACILITY_REQ" },
+#endif
+#if defined(MNCC_FACILITY_IND)
+	{ MNCC_FACILITY_IND,	"MNCC_FACILITY_IND" },
+#endif
+#if defined(MNCC_START_DTMF_IND)
+	{ MNCC_START_DTMF_IND,	"MNCC_START_DTMF_IND" },
+#endif
+#if defined(MNCC_START_DTMF_RSP)
+	{ MNCC_START_DTMF_RSP,	"MNCC_START_DTMF_RSP" },
+#endif
+#if defined(MNCC_START_DTMF_REJ)
+	{ MNCC_START_DTMF_REJ,	"MNCC_START_DTMF_REJ" },
+#endif
+#if defined(MNCC_STOP_DTMF_IND)
+	{ MNCC_STOP_DTMF_IND,	"MNCC_STOP_DTMF_IND" },
+#endif
+#if defined(MNCC_STOP_DTMF_RSP)
+	{ MNCC_STOP_DTMF_RSP,	"MNCC_STOP_DTMF_RSP" },
+#endif
+#if defined(MNCC_MODIFY_REQ)
+	{ MNCC_MODIFY_REQ,	"MNCC_MODIFY_REQ" },
+#endif
+#if defined(MNCC_MODIFY_IND)
+	{ MNCC_MODIFY_IND,	"MNCC_MODIFY_IND" },
+#endif
+#if defined(MNCC_MODIFY_RSP)
+	{ MNCC_MODIFY_RSP,	"MNCC_MODIFY_RSP" },
+#endif
+#if defined(MNCC_MODIFY_CNF)
+	{ MNCC_MODIFY_CNF,	"MNCC_MODIFY_CNF" },
+#endif
+#if defined(MNCC_MODIFY_REJ)
+	{ MNCC_MODIFY_REJ,	"MNCC_MODIFY_REJ" },
+#endif
+#if defined(MNCC_HOLD_IND)
+	{ MNCC_HOLD_IND,	"MNCC_HOLD_IND" },
+#endif
+#if defined(MNCC_HOLD_CNF)
+	{ MNCC_HOLD_CNF,	"MNCC_HOLD_CNF" },
+#endif
+#if defined(MNCC_HOLD_REJ)
+	{ MNCC_HOLD_REJ,	"MNCC_HOLD_REJ" },
+#endif
+#if defined(MNCC_RETRIEVE_IND)
+	{ MNCC_RETRIEVE_IND,	"MNCC_RETRIEVE_IND" },
+#endif
+#if defined(MNCC_RETRIEVE_CNF)
+	{ MNCC_RETRIEVE_CNF,	"MNCC_RETRIEVE_CNF" },
+#endif
+#if defined(MNCC_RETRIEVE_REJ)
+	{ MNCC_RETRIEVE_REJ,	"MNCC_RETRIEVE_REJ" },
+#endif
+#if defined(MNCC_USERINFO_REQ)
+	{ MNCC_USERINFO_REQ,	"MNCC_USERINFO_REQ" },
+#endif
+#if defined(MNCC_USERINFO_IND)
+	{ MNCC_USERINFO_IND,	"MNCC_USERINFO_IND" },
+#endif
+#if defined(MNCC_REJ_REQ)
+	{ MNCC_REJ_REQ,		"MNCC_REJ_REQ" },
+#endif
+#if defined(MNCC_REJ_IND)
+	{ MNCC_REJ_IND,		"MNCC_REJ_IND" },
+#endif
+#if defined(MNCC_PROGRESS_IND)
+	{ MNCC_PROGRESS_IND,	"MNCC_PROGRESS_IND" },
+#endif
+#if defined(MNCC_CALL_PROC_IND)
+	{ MNCC_CALL_PROC_IND,	"MNCC_CALL_PROC_IND" },
+#endif
+#if defined(MNCC_CALL_CONF_REQ)
+	{ MNCC_CALL_CONF_REQ,	"MNCC_CALL_CONF_REQ" },
+#endif
+#if defined(MNCC_START_DTMF_REQ)
+	{ MNCC_START_DTMF_REQ,	"MNCC_START_DTMF_REQ" },
+#endif
+#if defined(MNCC_STOP_DTMF_REQ)
+	{ MNCC_STOP_DTMF_REQ,	"MNCC_STOP_DTMF_REQ" },
+#endif
+#if defined(MNCC_HOLD_REQ)
+	{ MNCC_HOLD_REQ,	"MNCC_HOLD_REQ " },
+#endif
+#if defined(MNCC_RETRIEVE_REQ)
+	{ MNCC_RETRIEVE_REQ,	"MNCC_RETRIEVE_REQ" },
+#endif
+	{ 0,			NULL }
+};
+
+const char *mncc_name(int value)
+{
+	int i = 0;
+
+	while (mncc_names[i].name) {
+		if (mncc_names[i].msg_type == value)
+			return mncc_names[i].name;
+		i++;
+	}
+	return "unknown";
+}
+
 /*
  * create and send mncc message
  */
@@ -38,14 +199,16 @@ struct gsm_mncc *create_mncc(int msg_type, unsigned int callref)
 }
 int send_and_free_mncc(void *instance, unsigned int msg_type, void *data)
 {
-	int ret;
+	int ret = 0;
 
+	if (instance) {
 #ifdef WITH_GSM_BS
-	ret = mncc_send((struct gsm_network *)instance, msg_type, data);
+		ret = mncc_send((struct gsm_network *)instance, msg_type, data);
 #endif
 #ifdef WITH_GSM_MS
-	ret = mncc_send((struct osmocom_ms *)instance, msg_type, data);
+		ret = mncc_send((struct osmocom_ms *)instance, msg_type, data);
 #endif
+	}
 	free(data);
 
 	return ret;
@@ -119,7 +282,7 @@ void Pgsm::bchannel_close(void)
 
 static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int index);
 
-/* open bsc side bchannel */
+/* open external side bchannel */
 int Pgsm::bchannel_open(int index)
 {
 	int ret;
@@ -145,7 +308,7 @@ int Pgsm::bchannel_open(int index)
 
 	/* bind socket to bchannel */
 	addr.family = AF_ISDN;
-	addr.dev = gsm->gsm_port;
+	addr.dev = mISDNloop.port;
 	addr.channel = index+1+(index>15);
 	ret = bind(p_m_g_gsm_b_sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0) {
@@ -257,13 +420,13 @@ void Pgsm::frame_receive(void *arg)
 
 /*
  * create trace
- **/
+ */
 void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg_type, int direction)
 {
 	char msgtext[64];
 
 	/* select message and primitive text */
-	SCPY(msgtext, get_mncc_name(msg_type));
+	SCPY(msgtext, mncc_name(msg_type));
 
 	/* add direction */
 	if (port) {
@@ -295,70 +458,10 @@ void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned 
 		    msgtext);
 }
 
-/* select bchannel */
+/* select free bchannel from loopback interface */
 int Pgsm::hunt_bchannel(void)
 {
-	int channel;
-	int i;
-	char map[p_m_mISDNport->b_num];
-	struct interface *interface;
-	struct interface_port *ifport;
-
-	chan_trace_header(p_m_mISDNport, this, "CHANNEL SELECTION (setup)", DIRECTION_NONE);
-	add_trace("channel", "reserved", "%d", p_m_mISDNport->b_reserved);
-	if (p_m_mISDNport->b_reserved >= p_m_mISDNport->b_num) { // of out chan..
-		add_trace("conclusion", NULL, "all channels are reserved");
-		end_trace();
-		return(-34); // no channel
-	}
-
-	/* map all used ports of shared loopback interface */
-	memset(map, 0, sizeof(map));
-	interface = interface_first;
-	while(interface) {
-		ifport = interface->ifport;
-		while(ifport) {
-#if defined WITH_GSM_BS && defined WITH_GSM_MS
-			if ((ifport->gsm_bs || ifport->gsm_ms) && ifport->mISDNport) {
-#else
-#ifdef WITH_GSM_BS
-			if (ifport->gsm_bs && ifport->mISDNport) {
-#endif
-#ifdef WITH_GSM_MS
-			if (ifport->gsm_ms && ifport->mISDNport) {
-#endif
-#endif
-				i = 0;
-				while(i < p_m_mISDNport->b_num) {
-					if (p_m_mISDNport->b_port[i])
-						map[i] = 1;
-					i++;
-				}
-			}
-			ifport = ifport->next;
-		}
-		interface = interface->next;
-	}
-
-	/* find channel */
-	i = 0;
-	channel = 0;
-	while(i < p_m_mISDNport->b_num) {
-		if (!map[i]) {
-			channel = i+1+(i>=15);
-			break;
-		}
-		i++;
-	}
-	if (!channel) {
-		add_trace("conclusion", NULL, "no channel available");
-		end_trace();
-		return(-6); // channel unacceptable
-	}
-	add_trace("conclusion", NULL, "channel available");
-	add_trace("connect", "channel", "%d", channel);
-	end_trace();
-	return(channel);
+	return loop_hunt_bchannel(this, p_m_mISDNport);
 }
 
 /* PROCEEDING INDICATION */
@@ -884,87 +987,10 @@ static int b_handler(struct lcr_fd *fd, unsigned int what, void *instance, int i
 	return 0;
 }
 
-static void gsm_sock_close(void)
-{
-	if (gsm->gsm_sock > -1)
-		close(gsm->gsm_sock);
-	gsm->gsm_sock = -1;
-}
-
-static int gsm_sock_open(char *portname)
-{
-	int ret;
-	int cnt;
-	unsigned long on = 1;
-	struct sockaddr_mISDN addr;
-	struct mISDN_devinfo devinfo;
-	int pri, bri;
-
-	/* check port counts */
-	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
-	if (ret < 0) {
-		fprintf(stderr, "Cannot get number of mISDN devices. (ioctl IMGETCOUNT failed ret=%d)\n", ret);
-		return(ret);
-	}
-
-	if (cnt <= 0) {
-		PERROR_RUNTIME("Found no card. Please be sure to load card drivers.\n");
-		return -EIO;
-	}
-	gsm->gsm_port = mISDN_getportbyname(mISDNsocket, cnt, portname);
-	if (gsm->gsm_port < 0) {
-		PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface for GSM?.\n", portname);
-		return gsm->gsm_port;
-	}
-	/* get protocol */
-	bri = pri = 0;
-	devinfo.id = gsm->gsm_port;
-	ret = ioctl(mISDNsocket, IMGETDEVINFO, &devinfo);
-	if (ret < 0) {
-		PERROR_RUNTIME("Cannot get device information for port %d. (ioctl IMGETDEVINFO failed ret=%d)\n", gsm->gsm_port, ret);
-		return ret;
-	}
-	if (devinfo.Dprotocols & (1 << ISDN_P_TE_S0)) {
-		bri = 1;
-	}
-	if (devinfo.Dprotocols & (1 << ISDN_P_TE_E1)) {
-		pri = 1;
-	}
-	if (!pri && !pri) {
-		PERROR_RUNTIME("GSM port %d does not support TE PRI or TE BRI.\n", gsm->gsm_port);
-	}
-	/* open socket */
-	if ((gsm->gsm_sock = socket(PF_ISDN, SOCK_DGRAM, (pri)?ISDN_P_TE_E1:ISDN_P_TE_S0)) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to open socket.\n", gsm->gsm_port);
-		gsm_sock_close();
-		return gsm->gsm_sock;
-	}
-	/* set nonblocking io */
-	if ((ret = ioctl(gsm->gsm_sock, FIONBIO, &on)) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to set socket into nonblocking io.\n", gsm->gsm_port);
-		gsm_sock_close();
-		return ret;
-	}
-	/* bind socket to dchannel */
-	memset(&addr, 0, sizeof(addr));
-	addr.family = AF_ISDN;
-	addr.dev = gsm->gsm_port;
-	addr.channel = 0;
-	if ((ret = bind(gsm->gsm_sock, (struct sockaddr *)&addr, sizeof(addr))) < 0) {
-		PERROR_RUNTIME("GSM port %d failed to bind socket. (name = %s errno=%d)\n", gsm->gsm_port, portname, errno);
-		gsm_sock_close();
-		return (ret);
-	}
-
-	return 0;
-}
-
 int gsm_exit(int rc)
 {
 	/* free gsm instance */
 	if (gsm) {
-		if (gsm->gsm_sock > -1)
-			gsm_sock_close();
 		free(gsm);
 		gsm = NULL;
 	}
@@ -974,31 +1000,11 @@ int gsm_exit(int rc)
 
 int gsm_init(void)
 {
-	char conf_error[256] = "";
-
 	/* seed the PRNG */
 	srand(time(NULL));
 
 	/* create gsm instance */
 	gsm = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
-	gsm->gsm_sock = -1;
-
-	/* parse options */
-	if (!gsm_conf(&gsm->conf, conf_error)) {
-		PERROR("%s", conf_error);
-#ifdef WITH_GSM_BS
-		gsm_bs_exit(-EINVAL);
-#endif
-#ifdef WITH_GSM_MS
-		gsm_ms_exit(-EINVAL);
-#endif
-		return gsm_exit(-EINVAL);
-	}
-
-	/* open gsm loop interface */
-	if (gsm_sock_open(gsm->conf.interface_bsc)) {
-		return gsm_exit(-1);
-	}
 
 	return 0;
 }

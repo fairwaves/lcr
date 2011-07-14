@@ -71,9 +71,8 @@ struct mISDNport {
 #ifdef WITH_GSM_MS
 	int gsm_ms; /* this is the an GSM MS interface */
 #endif
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
 	int lcr_sock; /* socket of loopback on LCR side */
-#endif
+	int isloopback; /* will be set on open, in case it is a loopback if */
 
 	/* ss5 */
 	unsigned int ss5; /* set, if SS5 signalling enabled, also holds feature bits */

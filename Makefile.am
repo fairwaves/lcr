@@ -51,7 +51,7 @@ if ENABLE_GSM
 
 GSM_INCLUDE +=
 
-GSM_SOURCE += gsm_audio.c gsm.cpp gsm_conf.c
+GSM_SOURCE += gsm_audio.c gsm.cpp
   
 GSM_LIB += /usr/lib/libgsm.a
 
@@ -64,9 +64,7 @@ if ENABLE_GSM_BS
 
 GSM_INCLUDE += -DWITH_GSM_BS -I./openbsc/include -I./libosmocore/include -I./openbsc
 
-GSM_SOURCE += gsm_bs.cpp openbsc/src/bsc_init.c openbsc/src/bsc_vty.c openbsc/src/vty_interface_layer3.c openbsc/src/bsc_api.c openbsc/src/bsc_version.c
-
-GSM_LIB +=  ./openbsc/src/libbsc.a ./openbsc/src/libmsc.a ./openbsc/src/libvty.a -losmovty -losmocore -ldbi -lcrypt
+GSM_SOURCE += gsm_bs.cpp
 
 endif
 
@@ -125,8 +123,8 @@ endif
 
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp       mISDN.cpp        tones.c \
-	action_efi.cpp   crypt.cpp        mail.c           trace.c \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
+	tones.c loop.c remote.c action_efi.cpp crypt.cpp mail.c trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
 	apppbx.cpp       endpointapp.cpp  join.cpp        options.c       \
