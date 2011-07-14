@@ -25,7 +25,7 @@ dnl    Boston, MA 02110-1301, USA.
 dnl This keeps being the first instruction.
 dnl Change the 2nd argument if the version increases
 dnl 1st + 2nd argument is used for distribution package name
-AC_INIT(lcr, 1.8, andreas@eversberg.eu)
+AC_INIT(lcr, 1.9, andreas@eversberg.eu)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR([main.c])
 AM_CONFIG_HEADER(config.h)
@@ -33,7 +33,7 @@ AM_CONFIG_HEADER(config.h)
 # fix warnings from autoconf + automake
 AC_GNU_SOURCE
 # AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE(lcr,1.8)
+AM_INIT_AUTOMAKE(lcr,1.9)
 
 
 
