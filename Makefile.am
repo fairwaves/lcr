@@ -162,9 +162,6 @@ install-data-hook:
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
 if ENABLE_GSM
-	@if test -a $(CONFIGdir)/gsm.conf ; then \
-		echo "NOTE: gsm.conf already exists, not changed." ; else \
-		cp -v default/gsm.conf $(CONFIGdir) ; fi
 	@if test -a $(CONFIGdir)/openbsc.cfg ; then \
 		echo "NOTE: openbsc.cfg already exists, not changed." ; else \
 		cp -v default/openbsc.cfg $(CONFIGdir) ; fi
