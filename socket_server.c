@@ -13,6 +13,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <curses.h>
+#ifdef PACKAGE_VERSION
+#undef PACKAGE_VERSION
+#endif
 #include "config.h"
 
 

@@ -18,9 +18,9 @@ extern "C" {
 #include <getopt.h>
 #include <arpa/inet.h>
 
-#include <osmocore/select.h>
-#include <osmocore/talloc.h>
-#include <osmocore/gsmtap_util.h>
+#include <osmocom/core/select.h>
+#include <osmocom/core/talloc.h>
+#include <osmocom/core/gsmtap_util.h>
 
 #include <osmocom/bb/common/osmocom_data.h>
 #include <osmocom/bb/common/logging.h>
@@ -34,6 +34,7 @@ short vty_port = 4247;
 struct llist_head ms_list;
 struct log_target *stderr_target;
 void *l23_ctx = NULL;
+struct gsmtap_inst *gsmtap_inst;
 
 static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
 
@@ -913,7 +914,7 @@ int handle_gsm_ms(int *_quit)
 	if (quit && llist_empty(&ms_list))
 		*_quit = 1;
 //	debug_reset_context();
-	if (bsc_select_main(1)) /* polling */
+	if (osmo_select_main(1)) /* polling */
 		work = 1;
 
 	return work;

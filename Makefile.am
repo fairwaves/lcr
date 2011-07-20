@@ -78,7 +78,8 @@ GSM_LIB += ./layer23/src/mobile/libmobile.a \
 	./layer23/src/common/liblayer23.a \
 	./libosmocore/build-host/src/.libs/libosmocore.a \
 	./libosmocore/build-host/src/vty/.libs/libosmovty.a \
-	./libosmocore/build-host/src/codec/.libs/libosmocodec.a
+	./libosmocore/build-host/src/codec/.libs/libosmocodec.a \
+	./libosmocore/build-host/src/gsm/.libs/libosmogsm.a
 
 endif
 

@@ -10,10 +10,13 @@
 \*****************************************************************************/ 
 
 #include "main.h"
+#ifdef PACKAGE_VERSION
+#undef PACKAGE_VERSION
+#endif
 #include "config.h"
 #ifdef WITH_GSM_MS
 extern "C" {
-#include <osmocore/signal.h>
+#include <osmocom/core/signal.h>
 }
 #endif
 
@@ -156,7 +159,7 @@ void sighandler(int sigset)
 #ifdef WITH_GSM_MS
 	if (!wait_ms) {
 		wait_ms = 1;
-		dispatch_signal(SS_GLOBAL, S_GLOBAL_SHUTDOWN, NULL);
+		osmo_signal_dispatch(SS_GLOBAL, S_GLOBAL_SHUTDOWN, NULL);
 		return;
 	}
 #endif

@@ -1,3 +1,6 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 extern "C" {
 #include <osmocom/bb/common/osmocom_data.h>
 #include <osmocom/bb/mobile/mncc.h>
