@@ -796,18 +796,8 @@ int Pgsm_bs::message_epoint(unsigned int epoint_id, int message_id, union parame
 
 int gsm_bs_exit(int rc)
 {
-#if 0
-	/* free gsm instance */
-	if (gsm) {
-		/* shutdown network */
-		if (gsm->network)
-			bsc_shutdown_net((struct gsm_network *)gsm->network);
-		/* free network */
-//		if (gsm->network) {
-//			free((struct gsm_network *)gsm->network); /* TBD */
-//		}
-	}
-#endif
+	gsm->network = NULL;
+
 	return(rc);
 }
 
@@ -1012,6 +1002,9 @@ int gsm_bs_init(void)
 
 	/* do the initial connect */
 	socket_retry_cb(&gsm->socket_retry, NULL, 0);
+
+	/* dummy instance */
+	gsm->network = (void *)1;
 
 	return 0;
 }
