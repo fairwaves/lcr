@@ -1,5 +1,6 @@
 extern "C" {
 #include <openbsc/gsm_data.h>
+#include <openbsc/mncc.h>
 }
 
 /* GSM port class */
