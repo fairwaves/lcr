@@ -17,6 +17,7 @@
 extern "C" {
 #include <getopt.h>
 #include <arpa/inet.h>
+#include <libgen.h>
 
 #include <osmocom/core/select.h>
 #include <osmocom/core/talloc.h>
@@ -28,7 +29,8 @@ extern "C" {
 #include <osmocom/bb/mobile/app_mobile.h>
 }
 
-static const char *config_file = "/etc/osmocom/osmocom.cfg";
+//char *config_dir = NULL;
+
 short vty_port = 4247;
 
 struct llist_head ms_list;
@@ -825,15 +827,20 @@ int gsm_ms_exit(int rc)
 
 int gsm_ms_init(void)
 {
+	const char *home;
+	size_t len;
+	const char osmocomcfg[] = ".osmocom/bb/mobile.cfg";
+	char *config_file = NULL;
+
 	INIT_LLIST_HEAD(&ms_list);
-	log_init(&log_info);
+	log_init(&log_info, NULL);
 	stderr_target = log_target_create_stderr();
 	log_add_target(stderr_target);
 	log_set_all_filter(stderr_target, 1);
 
 	l23_ctx = talloc_named_const(NULL, 1, "layer2 context");
 
-	log_parse_category_mask(stderr_target, "DCS:DPLMN:DRR:DMM:DSIM:DCC:DMNCC:DPAG:DSUM");
+	log_parse_category_mask(stderr_target, "DNB:DCS:DPLMN:DRR:DMM:DSIM:DCC:DMNCC:DPAG:DSUM");
 	log_set_log_level(stderr_target, LOGL_INFO);
 
 #if 0
@@ -845,6 +852,17 @@ int gsm_ms_init(void)
 		}
 	}
 #endif
+
+	home = getenv("HOME");
+	if (home != NULL) {
+		len = strlen(home) + 1 + sizeof(osmocomcfg);
+		config_file = (char *)talloc_size(l23_ctx, len);
+		if (config_file != NULL)
+				snprintf(config_file, len, "%s/%s", home, osmocomcfg);
+	}
+	/* save the config file directory name */
+	config_dir = talloc_strdup(l23_ctx, config_file);
+	config_dir = dirname(config_dir);
 
 	l23_app_init(message_ms, config_file, vty_port);
 
