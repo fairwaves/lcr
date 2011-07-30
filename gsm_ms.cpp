@@ -858,7 +858,7 @@ int gsm_ms_init(void)
 		len = strlen(home) + 1 + sizeof(osmocomcfg);
 		config_file = (char *)talloc_size(l23_ctx, len);
 		if (config_file != NULL)
-				snprintf(config_file, len, "%s/%s", home, osmocomcfg);
+				UNPRINT(config_file, len, "%s/%s", home, osmocomcfg);
 	}
 	/* save the config file directory name */
 	config_dir = talloc_strdup(l23_ctx, config_file);
