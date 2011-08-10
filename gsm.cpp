@@ -432,16 +432,12 @@ void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned 
 	if (port) {
 		switch(port->p_type) {
 		case PORT_TYPE_GSM_BS_OUT:
-			SCAT(msgtext, " LCR->BSC");
-			break;
 		case PORT_TYPE_GSM_BS_IN:
-			SCAT(msgtext, " LCR<-BSC");
+			SCAT(msgtext, " LCR<->BSC");
 			break;
 		case PORT_TYPE_GSM_MS_OUT:
-			SCAT(msgtext, " LCR->MS");
-			break;
 		case PORT_TYPE_GSM_MS_IN:
-			SCAT(msgtext, " LCR<-MS");
+			SCAT(msgtext, " LCR<->MS");
 			break;
 		}
 	} else
