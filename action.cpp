@@ -2003,10 +2003,8 @@ void EndpointAppPBX::action_execute(void)
 			if ((pid2 = fork()) == 0) {
 				execve(command, argv, environ);
 			}
-			else {
-				/* Exit immediately and release the waiting parent. The subprocess falls to init because the parent died */
-				exit(0);
-			}
+			/* Exit immediately and release the waiting parent. The subprocess falls to init because the parent died */
+			exit(0);
 			break;
 		default:
 			trace_header("ACTION execute", DIRECTION_NONE);

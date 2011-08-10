@@ -1902,7 +1902,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	struct admin_list	*admin;
 	time_t			now;
 	struct tm		*now_tm;
-	int			pid2;
+	int			pid, status;
 
 	/* reset timeout action */
 	e_match_to_action = NULL;
@@ -2086,10 +2086,17 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				argv[j++] = isdn_port;
 				argv[j++] = e_callerinfo.imsi;
 				argv[j++] = NULL; /* check also number of args above */
-				if (fork() == 0) {
-					if ((pid2 = fork()) == 0) {
-						execve(cond->string_value, argv, environ);
-					}
+				switch ((pid = fork())) {
+				case 0:
+					execve(cond->string_value, argv, environ);
+					perror("execve");
+					exit(1);
+				case -1:
+					break;
+				default:
+					waitpid(pid, &status, 0);
+					if (0 == WEXITSTATUS(status))
+						istrue = 1;
 				}
 				break;
 
