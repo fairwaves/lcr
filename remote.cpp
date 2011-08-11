@@ -11,7 +11,7 @@
 
 #include "main.h"
 
-unsigned int new_remote = 0x00000001;
+unsigned int new_remote = 1000;
 
 /*
  * constructor

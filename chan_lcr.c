@@ -360,7 +360,7 @@ int send_message(int message_type, unsigned int ref, union parameter *param)
 		CDEBUG(NULL, NULL, "Ignoring message %d, because socket is closed.\n", message_type);
 		return -1;
 	}
-	CDEBUG(NULL, NULL, "Sending %s to socket.\n", messages_txt[message_type]);
+	CDEBUG(NULL, NULL, "Sending %s to socket. (ref=%d)\n", messages_txt[message_type], ref);
 
 	adminp = &admin_first;
 	while(*adminp)
@@ -1152,7 +1152,7 @@ static void lcr_in_connect(struct chan_call *call, int message_type, union param
 	call->state = CHAN_LCR_STATE_CONNECT;
 	/* request bchannel */
 	if (!call->bchannel) {
-		CDEBUG(call, call->ast, "Requesting B-channel.\n");
+		CDEBUG(call, call->ast, "Requesting B-channel. (ref=%d)\n", call->ref);
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.bchannel.type = BCHANNEL_REQUEST;
 		send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
@@ -1305,7 +1305,7 @@ static void lcr_in_notify(struct chan_call *call, int message_type, union parame
 
 	/* request bchannel, if call is resumed and we don't have it */
 	if (param->notifyinfo.notify == INFO_NOTIFY_USER_RESUMED && !call->bchannel && call->ref) {
-		CDEBUG(call, call->ast, "Reqesting bchannel at resume.\n");
+		CDEBUG(call, call->ast, "Reqesting bchannel at resume. (ref=%d)\n", call->ref);
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.bchannel.type = BCHANNEL_REQUEST;
 		send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
@@ -1348,7 +1348,7 @@ static void lcr_in_pattern(struct chan_call *call, int message_type, union param
 
 	/* request bchannel */
 	if (!call->bchannel) {
-		CDEBUG(call, call->ast, "Requesting B-channel.\n");
+		CDEBUG(call, call->ast, "Requesting B-channel. (ref=%d)\n", call->ref);
 		memset(&newparam, 0, sizeof(union parameter));
 		newparam.bchannel.type = BCHANNEL_REQUEST;
 		send_message(MESSAGE_BCHANNEL, call->ref, &newparam);
