@@ -1113,7 +1113,7 @@ void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsign
 		chan_trace_header(mISDNport, isdnport, "MESSAGE_BCHANNEL (from remote application)", DIRECTION_NONE);
 		add_trace("type", NULL, "export request");
 		end_trace();
-		isdnport->p_m_remote_ref = joinremote->j_serial;
+		isdnport->p_m_remote_ref = joinremote->j_remote_ref;
 		isdnport->p_m_remote_id = joinremote->j_remote_id;
 		if (mISDNport && i>=0) {
 			bchannel_event(mISDNport, i, B_EVENT_EXPORTREQUEST);
