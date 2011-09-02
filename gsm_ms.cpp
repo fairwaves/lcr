@@ -10,51 +10,35 @@
 \*****************************************************************************/ 
 
 #include "main.h"
+#include "mncc.h"
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-extern "C" {
-#include <getopt.h>
-#include <arpa/inet.h>
-#include <libgen.h>
 
-#include <osmocom/core/select.h>
-#include <osmocom/core/talloc.h>
-#include <osmocom/core/gsmtap_util.h>
-
-#include <osmocom/bb/common/osmocom_data.h>
-#include <osmocom/bb/common/logging.h>
-#include <osmocom/bb/common/l1l2_interface.h>
-#include <osmocom/bb/mobile/app_mobile.h>
-}
-
-//char *config_dir = NULL;
-
-short vty_port = 4247;
-
-struct llist_head ms_list;
-struct log_target *stderr_target;
-void *l23_ctx = NULL;
-struct gsmtap_inst *gsmtap_inst;
+struct lcr_gsm *gsm_ms_first = NULL;
 
 static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
+
+#define DTMF_ST_IDLE		0	/* no DTMF active */
+#define DTMF_ST_START		1	/* DTMF started, waiting for resp. */
+#define DTMF_ST_MARK		2	/* wait tone duration */
+#define DTMF_ST_STOP		3	/* DTMF stopped, waiting for resp. */
+#define DTMF_ST_SPACE		4	/* wait space between tones */
 
 /*
  * constructor
  */
 Pgsm_ms::Pgsm_ms(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Pgsm(type, mISDNport, portname, settings, channel, exclusive, mode)
 {
-	struct osmocom_ms *ms = NULL;
+	struct lcr_gsm *gsm_ms = gsm_ms_first;
 	char *ms_name = mISDNport->ifport->gsm_ms_name;
 
-	p_m_g_instance = NULL;
+	p_m_g_lcr_gsm = NULL;
 
-	llist_for_each_entry(ms, &ms_list, entity) {
-		if (!strcmp(ms->name, ms_name)) {
-			p_m_g_instance = ms;
+	while (gsm_ms) {
+		if (gsm_ms->type == LCR_GSM_TYPE_MS && !strcmp(gsm_ms->name, ms_name)) {
+			p_m_g_lcr_gsm = gsm_ms;
 			break;
 		}
+		gsm_ms = gsm_ms->gsm_ms_next;
 	}
 
 	p_m_g_dtmf_state = DTMF_ST_IDLE;
@@ -105,7 +89,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("cause", "value", "%d", mncc->cause.value);
 		add_trace("reason", NULL, "callref already in use");
 		end_trace();
-		send_and_free_mncc(p_m_g_instance, mncc->msg_type, mncc);
+		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		trigger_work(&p_m_g_delete);
 		return;
@@ -126,7 +110,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("cause", "value", "%d", mncc->cause.value);
 		add_trace("reason", NULL, "port is blocked");
 		end_trace();
-		send_and_free_mncc(p_m_g_instance, mncc->msg_type, mncc);
+		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		trigger_work(&p_m_g_delete);
 		return;
@@ -318,7 +302,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("cause", "value", "%d", mncc->cause.value);
 		add_trace("reason", NULL, "no channel");
 		end_trace();
-		send_and_free_mncc(p_m_g_instance, mncc->msg_type, mncc);
+		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
 		trigger_work(&p_m_g_delete);
 		return;
@@ -342,7 +326,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
-	send_and_free_mncc(p_m_g_instance, mode->msg_type, mode);
+	send_and_free_mncc(p_m_g_lcr_gsm, mode->msg_type, mode);
 
 	/* send call proceeding */
 	gsm_trace_header(p_m_mISDNport, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);
@@ -352,7 +336,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	proceeding->fields |= MNCC_F_CCCAP;
 	proceeding->cccap.dtmf = 1;
 	end_trace();
-	send_and_free_mncc(p_m_g_instance, proceeding->msg_type, proceeding);
+	send_and_free_mncc(p_m_g_lcr_gsm, proceeding->msg_type, proceeding);
 
 	new_state(PORT_STATE_IN_PROCEEDING);
 
@@ -360,7 +344,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(p_m_g_instance, frame->msg_type, frame);
+		send_and_free_mncc(p_m_g_lcr_gsm, frame->msg_type, frame);
 		p_m_g_tch_connected = 1;
 	}
 
@@ -381,7 +365,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 /*
  * MS sends message to port
  */
-static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
+int message_ms(struct lcr_gsm *gsm_ms, int msg_type, void *arg)
 {
 	struct gsm_mncc *mncc = (struct gsm_mncc *)arg;
 	unsigned int callref = mncc->callref;
@@ -392,30 +376,6 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 
 	/* Special messages */
 	switch (msg_type) {
-	case MS_NEW:
-		PDEBUG(DEBUG_GSM, "MS %s comes available\n", ms->name);
-		return 0;
-	case MS_DELETE:
-		PDEBUG(DEBUG_GSM, "MS %s is removed\n", ms->name);
-		port = port_first;
-		while(port) {
-			if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_MS) {
-				pgsm_ms = (class Pgsm_ms *)port;
-				if (pgsm_ms->p_m_g_instance == ms) {
-					struct lcr_msg *message;
-
-					pgsm_ms->p_m_g_instance = 0;
-					message = message_create(pgsm_ms->p_serial, ACTIVE_EPOINT(pgsm_ms->p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
-					message->param.disconnectinfo.cause = 27;
-					message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-					message_put(message);
-					pgsm_ms->new_state(PORT_STATE_RELEASE);
-					trigger_work(&pgsm_ms->p_m_g_delete);
-				}
-			}
-			port = port->next;
-		}
-		return 0;
 	}
 
 	/* find callref */
@@ -443,7 +403,7 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 		/* find gsm ms port */
 		mISDNport = mISDNport_first;
 		while(mISDNport) {
-			if (mISDNport->gsm_ms && !strcmp(mISDNport->ifport->gsm_ms_name, ms->name))
+			if (mISDNport->gsm_ms && !strcmp(mISDNport->ifport->gsm_ms_name, gsm_ms->name))
 				break;
 			mISDNport = mISDNport->next;
 		}
@@ -460,7 +420,7 @@ static int message_ms(struct osmocom_ms *ms, int msg_type, void *arg)
 			add_trace("cause", "location", "%d", rej->cause.location);
 			add_trace("cause", "value", "%d", rej->cause.value);
 			end_trace();
-			send_and_free_mncc(ms, rej->msg_type, rej);
+			send_and_free_mncc(gsm_ms, rej->msg_type, rej);
 			return 0;
 		}
 		/* creating port object, transparent until setup with hdlc */
@@ -533,12 +493,12 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 
 	/* no instance */
-	if (!p_m_g_instance) {
+	if (!p_m_g_lcr_gsm || p_m_g_lcr_gsm->mncc_lfd.fd < 0) {
 		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "MS %s instance is unavailable", p_m_mISDNport->ifport->gsm_ms_name);
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-		message->param.disconnectinfo.cause = 27;
+		message->param.disconnectinfo.cause = 41;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
@@ -670,7 +630,7 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 	}
 
 	end_trace();
-	send_and_free_mncc(p_m_g_instance, mncc->msg_type, mncc);
+	send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_OUT_SETUP);
 
@@ -700,7 +660,7 @@ void Pgsm_ms::dtmf_statemachine(struct gsm_mncc *mncc)
 		PDEBUG(DEBUG_GSM, "start DTMF (keypad %c)\n",
 			dtmf->keypad);
 		end_trace();
-		send_and_free_mncc(p_m_g_instance, dtmf->msg_type, dtmf);
+		send_and_free_mncc(p_m_g_lcr_gsm, dtmf->msg_type, dtmf);
 		return;
 	case DTMF_ST_START:
 		if (mncc->msg_type != MNCC_START_DTMF_RSP) {
@@ -716,7 +676,7 @@ void Pgsm_ms::dtmf_statemachine(struct gsm_mncc *mncc)
 		dtmf = create_mncc(MNCC_STOP_DTMF_REQ, p_m_g_callref);
 		p_m_g_dtmf_state = DTMF_ST_STOP;
 		end_trace();
-		send_and_free_mncc(p_m_g_instance, dtmf->msg_type, dtmf);
+		send_and_free_mncc(p_m_g_lcr_gsm, dtmf->msg_type, dtmf);
 		return;
 	case DTMF_ST_STOP:
 		schedule_timer(&p_m_g_dtmf_timer, 0, 120 * 1000);
@@ -820,87 +780,77 @@ int Pgsm_ms::message_epoint(unsigned int epoint_id, int message_id, union parame
 
 int gsm_ms_exit(int rc)
 {
-	l23_app_exit();
+	/* destroy all instances */
+	while (gsm_ms_first)
+		gsm_ms_delete(gsm_ms_first->name);
 
-	return(rc);
+	return rc;
 }
 
 int gsm_ms_init(void)
 {
-	const char *home;
-	size_t len;
-	const char osmocomcfg[] = ".osmocom/bb/mobile.cfg";
-	char *config_file = NULL;
-
-	INIT_LLIST_HEAD(&ms_list);
-	log_init(&log_info, NULL);
-	stderr_target = log_target_create_stderr();
-	log_add_target(stderr_target);
-	log_set_all_filter(stderr_target, 1);
-
-	l23_ctx = talloc_named_const(NULL, 1, "layer2 context");
-
-	log_parse_category_mask(stderr_target, "DNB:DCS:DPLMN:DRR:DMM:DSIM:DCC:DMNCC:DPAG:DSUM");
-	log_set_log_level(stderr_target, LOGL_INFO);
-
-#if 0
-	if (gsmtap_ip) {
-		rc = gsmtap_init(gsmtap_ip);
-		if (rc < 0) {
-			fprintf(stderr, "Failed during gsmtap_init()\n");
-			exit(1);
-		}
-	}
-#endif
-
-	home = getenv("HOME");
-	if (home != NULL) {
-		len = strlen(home) + 1 + sizeof(osmocomcfg);
-		config_file = (char *)talloc_size(l23_ctx, len);
-		if (config_file != NULL)
-				UNPRINT(config_file, len, "%s/%s", home, osmocomcfg);
-	}
-	/* save the config file directory name */
-	config_dir = talloc_strdup(l23_ctx, config_file);
-	config_dir = dirname(config_dir);
-
-	l23_app_init(message_ms, config_file, vty_port);
-
 	return 0;
 }
 
 /* add a new GSM mobile instance */
 int gsm_ms_new(const char *name)
 {
-	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is up\n", name);
+	struct lcr_gsm *gsm_ms = gsm_ms_first, **gsm_ms_p = &gsm_ms_first;
+
+	while (gsm_ms) {
+		gsm_ms_p = &gsm_ms->gsm_ms_next;
+		gsm_ms = gsm_ms->gsm_ms_next;
+	}
+
+	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is created\n", name);
+
+	/* create gsm instance */
+	gsm_ms = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
+
+	gsm_ms->type = LCR_GSM_TYPE_MS;
+	SCPY(gsm_ms->name, name);
+	gsm_ms->sun.sun_family = AF_UNIX;
+	SPRINT(gsm_ms->sun.sun_path, "/tmp/ms_mncc_%s", name);
+
+	memset(&gsm_ms->socket_retry, 0, sizeof(gsm_ms->socket_retry));
+	add_timer(&gsm_ms->socket_retry, mncc_socket_retry_cb, gsm_ms, 0);
+
+	/* do the initial connect */
+	mncc_socket_retry_cb(&gsm_ms->socket_retry, gsm_ms, 0);
+
+	*gsm_ms_p = gsm_ms;
 
 	return 0;
 }
 
 int gsm_ms_delete(const char *name)
 {
-	struct osmocom_ms *ms;
-	int found = 0;
-	class Port *port;
-	class Pgsm_ms *pgsm_ms = NULL;
+	struct lcr_gsm *gsm_ms = gsm_ms_first, **gsm_ms_p = &gsm_ms_first;
+//	class Port *port;
+//	class Pgsm_ms *pgsm_ms = NULL;
 
-	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is down\n", name);
+	PDEBUG(DEBUG_GSM, "GSM: interface for MS '%s' is deleted\n", name);
 
-	llist_for_each_entry(ms, &ms_list, entity) {
-		if (!strcmp(ms->name, name)) {
-			found = 1;
+	while (gsm_ms) {
+		if (gsm_ms->type == LCR_GSM_TYPE_MS && !strcmp(gsm_ms->name, name))
 			break;
-		}
+		gsm_ms_p = &gsm_ms->gsm_ms_next;
+		gsm_ms = gsm_ms->gsm_ms_next;
 	}
 
-	if (!found)
+	if (!gsm_ms)
 		return 0;
 
+/* not needed, because:
+ * - shutdown of interface will destry port instances locally
+ * - closing of socket will make remote socket destroy calls locally
+ */
+#if 0
 	port = port_first;
 	while(port) {
 		if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_MS) {
 			pgsm_ms = (class Pgsm_ms *)port;
-			if (pgsm_ms->p_m_g_instance == ms && pgsm_ms->p_m_g_callref) {
+			if (pgsm_ms->p_m_g_lcr_gsm == gsm_ms && pgsm_ms->p_m_g_callref) {
 				struct gsm_mncc *rej;
 
 				rej = create_mncc(MNCC_REL_REQ, pgsm_ms->p_m_g_callref);
@@ -913,28 +863,25 @@ int gsm_ms_delete(const char *name)
 				add_trace("cause", "location", "%d", rej->cause.location);
 				add_trace("cause", "value", "%d", rej->cause.value);
 				end_trace();
+				send_and_free_mncc(gsm_ms, rej->msg_type, rej);
+				pgsm_ms->new_state(PORT_STATE_RELEASE);
+				trigger_work(&pgsm_ms->p_m_g_delete);
 			}
 		}
 	}
+#endif
+
+	if (gsm_ms->mncc_lfd.fd > -1) {
+		close(gsm_ms->mncc_lfd.fd);
+		unregister_fd(&gsm_ms->mncc_lfd);
+	}
+	del_timer(&gsm_ms->socket_retry);
+
+	/* remove instance from list */
+	*gsm_ms_p = gsm_ms->gsm_ms_next;
+	FREE(gsm_ms, sizeof(struct lcr_gsm));
 
 	return 0;
 }
 
-/*
- * handles bsc select function within LCR's main loop
- */
-int handle_gsm_ms(int *_quit)
-{
-	int work = 0, quit = 0;
-
-	if (l23_app_work(&quit))
-		work = 1;
-	if (quit && llist_empty(&ms_list))
-		*_quit = 1;
-//	debug_reset_context();
-	if (osmo_select_main(1)) /* polling */
-		work = 1;
-
-	return work;
-}
 

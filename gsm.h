@@ -9,8 +9,15 @@ struct mncc_q_entry {
 	char data[0];			/* struct gsm_mncc */
 };
 
+enum {
+	LCR_GSM_TYPE_NETWORK,
+	LCR_GSM_TYPE_MS,
+};
+
 struct lcr_gsm {
-	void		*network;	/* OpenBSC network handle */
+	struct lcr_gsm	*gsm_ms_next;	/* list of MS instances, in case of MS */
+	char		name[16];	/* name of MS instance, in case of MS */
+	int		type;		/* LCR_GSM_TYPE_*/
 
 	struct lcr_fd	mncc_lfd;	/* Unix domain socket to OpenBSC MNCC */
 	struct mncc_q_entry *mncc_q_hd;
@@ -19,8 +26,6 @@ struct lcr_gsm {
 	struct sockaddr_un sun;		/* Socket address of MNCC socket */
 };
 
-extern struct lcr_gsm *gsm;
-
 /* GSM port class */
 class Pgsm : public PmISDN
 {
@@ -28,9 +33,9 @@ class Pgsm : public PmISDN
 	Pgsm(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
 	~Pgsm();
 
-	void *p_m_g_instance; /* pointer to network/ms instance */
+	struct lcr_gsm *p_m_g_lcr_gsm; /* pointer to network/ms instance */
 	unsigned int p_m_g_callref; /* ref by OpenBSC/Osmocom-BB */
-	struct lcr_work p_m_g_delete;		/* timer for audio transmission */
+	struct lcr_work p_m_g_delete; /* queue destruction of GSM port instance */
 	unsigned int p_m_g_mode; /* data/transparent mode */
 	int p_m_g_gsm_b_sock; /* gsm bchannel socket */
 	struct lcr_fd p_m_g_gsm_b_fd; /* event node */
@@ -68,10 +73,10 @@ class Pgsm : public PmISDN
 };
 
 struct gsm_mncc *create_mncc(int msg_type, unsigned int callref);
-int send_and_free_mncc(void *instance, unsigned int msg_type, void *data);
+int send_and_free_mncc(struct lcr_gsm *lcr_gsm, unsigned int msg_type, void *data);
 void gsm_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int msg_type, int direction);
-int handle_gsm(void);
 int gsm_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int gsm_exit(int rc);
 int gsm_init(void);
+int mncc_socket_retry_cb(struct lcr_timer *timer, void *inst, int index);
 

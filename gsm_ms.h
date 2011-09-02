@@ -1,10 +1,3 @@
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-extern "C" {
-#include <osmocom/bb/common/osmocom_data.h>
-#include <osmocom/bb/mobile/mncc.h>
-}
 
 /* GSM port class */
 class Pgsm_ms : public Pgsm
@@ -26,10 +19,10 @@ class Pgsm_ms : public Pgsm
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 };
 
-int handle_gsm_ms(int *quit);
 int gsm_ms_conf(struct gsm_conf *gsm_conf, char *conf_error);
 int gsm_ms_exit(int rc);
 int gsm_ms_init(void);
 int gsm_ms_new(const char *name);
 int gsm_ms_delete(const char *name);
+int message_ms(struct lcr_gsm *lcr_gsm, int msg_type, void *arg);
 

@@ -158,44 +158,20 @@ AS_IF([test "x$with_ssl" != xno],
 # check for gsm-bs
 AC_ARG_WITH([gsm-bs],
 	[AS_HELP_STRING([--with-gsm-bs],
-			[compile with OpenBSC support @<:@default=check@:>@])
+			[compile with OpenBSC support @<:@default=no@:>@])
 	],
 	[],
 	[with_gsm_bs="check"])
-
-AS_IF([test "x$with_gsm_bs" != xno],
-      [AC_MSG_CHECKING(openbsc/include/openbsc/gsm_data.h)
-       if test -e openbsc/include/openbsc/gsm_data.h; then
-		with_gsm_bs="yes"
-		AC_MSG_RESULT(yes)
-       elif test "x$with_gsm_bs" != xcheck ; then
-		AC_MSG_FAILURE([--with-gsm-bs was given, but openbsc/include/openbsc/gsm_data.h was not found! Please link OpenBSC and libosmocore source directory to LCR source directory: ln -s path_to_openbsc/openbsc/ openbsc ; ln -s patch_to_libosmocore libosmocore])
-       else
-		AC_MSG_RESULT(no)
-       fi
-      ])
 
 AM_CONDITIONAL(ENABLE_GSM_BS, test "x$with_gsm_bs" == "xyes" )
 
 # check for gsm-ms
 AC_ARG_WITH([gsm-ms],
 	[AS_HELP_STRING([--with-gsm-ms],
-			[compile with Osmocom-bb support @<:@default=check@:>@])
+			[compile with Osmocom-bb support @<:@default=no@:>@])
 	],
 	[],
 	[with_gsm_ms="check"])
-
-AS_IF([test "x$with_gsm_ms" != xno],
-      [AC_MSG_CHECKING(layer23/include/osmocom/bb/common/osmocom_data.h)
-       if test -e layer23/include/osmocom/bb/common/osmocom_data.h; then
-		with_gsm_ms="yes"
-		AC_MSG_RESULT(yes)
-       elif test "x$with_gsm_ms" != xcheck ; then
-		AC_MSG_FAILURE([--with-gsm-ms was given, but layer23/include/osmocom/bb/common/osmocom_data.h was not found! Please link Osmocom-BB and libosmocore source directory to LCR source directory: ln -s path_to_osmocom-bb/src/host/layer23/ layer23 ; ln -s path_to_libosmocore libosmocore])
-       else
-		AC_MSG_RESULT(no)
-       fi
-      ])
 
 AM_CONDITIONAL(ENABLE_GSM_MS, test "x$with_gsm_ms" == "xyes" )
 

@@ -62,7 +62,7 @@ endif
 
 if ENABLE_GSM_BS
 
-GSM_INCLUDE += -DWITH_GSM_BS -I./openbsc/include -I./libosmocore/include -I./openbsc
+GSM_INCLUDE += -DWITH_GSM_BS
 
 GSM_SOURCE += gsm_bs.cpp
 
@@ -70,16 +70,9 @@ endif
 
 if ENABLE_GSM_MS
 
-GSM_INCLUDE += -DPACKAGE_VERSION=0 -DWITH_GSM_MS -I./layer23/include -I./libosmocore/include
+GSM_INCLUDE += -DWITH_GSM_MS
 
-GSM_SOURCE += gsm_ms.cpp layer23/src/mobile/app_mobile.c
-
-GSM_LIB += ./layer23/src/mobile/libmobile.a \
-	./layer23/src/common/liblayer23.a \
-	./libosmocore/build-host/src/.libs/libosmocore.a \
-	./libosmocore/build-host/src/vty/.libs/libosmovty.a \
-	./libosmocore/build-host/src/codec/.libs/libosmocodec.a \
-	./libosmocore/build-host/src/gsm/.libs/libosmogsm.a
+GSM_SOURCE += gsm_ms.cpp
 
 endif
 
@@ -162,11 +155,6 @@ install-data-hook:
 	@if test -a $(CONFIGdir)/routing.conf ; then \
 		echo "NOTE: routing.conf already exists, not changed." ; else \
 		cp -v default/routing.conf $(CONFIGdir) ; fi
-if ENABLE_GSM
-	@if test -a $(CONFIGdir)/openbsc.cfg ; then \
-		echo "NOTE: openbsc.cfg already exists, not changed." ; else \
-		cp -v default/openbsc.cfg $(CONFIGdir) ; fi
-endif
 	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
 	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \

@@ -29,7 +29,6 @@ struct options {
 	int	socketrights;		/* rights of lcr admin socket */
 	int     socketuser;             /* socket chown to this user */
 	int     socketgroup;            /* socket chgrp to this group */
-	int	gsm;			/* enable gsm support */
 	int	polling;
 	char loopback_ext[64];		/* loopback interface GSM side */
 	char loopback_lcr[64];		/* loopback interface LCR side */

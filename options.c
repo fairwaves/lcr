@@ -35,7 +35,6 @@ struct options options = {
 	0700,				/* rights of lcr admin socket */
 	-1,                             /* socket user (-1= no change) */
 	-1,                             /* socket group (-1= no change) */
-	0,				/* enable gsm */
 	1,				/* use polling of main loop */
 	"mISDN_l1loop.1",		/* GSM/Asterisk side */
 	"mISDN_l1loop.2",		/* LCR side */
@@ -235,9 +234,6 @@ int read_options(char *options_error)
 		} else
 		if (!strcmp(option,"socketrights")) {
 			options.socketrights = strtol(param, NULL, 0);
-		} else
-		if (!strcmp(option,"gsm")) {
-			options.gsm = 1;
 		} else
 		if (!strcmp(option,"polling")) {
 			options.polling = 1;

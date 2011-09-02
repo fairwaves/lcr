@@ -14,11 +14,6 @@
 #undef PACKAGE_VERSION
 #endif
 #include "config.h"
-#ifdef WITH_GSM_MS
-extern "C" {
-#include <osmocom/core/signal.h>
-}
-#endif
 
 //MESSAGES
 
@@ -146,9 +141,6 @@ void _printerror(const char *function, int line, const char *fmt, ...)
 void sighandler(int sigset)
 {
 	struct sched_param schedp;
-#ifdef WITH_GSM_MS
-	int wait_ms = 0;
-#endif
 
 	if (sigset == SIGHUP)
 		return;
@@ -156,13 +148,6 @@ void sighandler(int sigset)
 		return;
 	fprintf(stderr, "LCR: Signal received: %d\n", sigset);
 	PDEBUG(DEBUG_LOG, "Signal received: %d\n", sigset);
-#ifdef WITH_GSM_MS
-	if (!wait_ms) {
-		wait_ms = 1;
-		osmo_signal_dispatch(SS_GLOBAL, S_GLOBAL_SHUTDOWN, NULL);
-		return;
-	}
-#endif
 	if (!quit) {
 		quit = sigset;
 		/* set scheduler & priority */
@@ -180,7 +165,7 @@ void sighandler(int sigset)
  */
 int main(int argc, char *argv[])
 {
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
+#if 0
 	double			now_d, last_d;
 	int			all_idle;
 #endif
@@ -383,24 +368,22 @@ int main(int argc, char *argv[])
 
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 	/* init gsm */
-	if (options.gsm && gsm_init()) {
+	if (gsm_init()) {
 		fprintf(stderr, "GSM initialization failed.\n");
 		goto free;
 	}
-#else
-	if (options.gsm) {
-		fprintf(stderr, "GSM is enabled, but not compiled. Use --with-gsm-bs or --with-gsm-ms while configure!\n");
-		goto free;
-	}
 #endif
+#if 0
+init is done when interface is up
 #ifdef WITH_GSM_BS
-	if (options.gsm && gsm_bs_init()) {
+	if (gsm_bs_init()) {
 		fprintf(stderr, "GSM BS initialization failed.\n");
 		goto free;
 	}
 #endif
+#endif
 #ifdef WITH_GSM_MS
-	if (options.gsm && gsm_ms_init()) {
+	if (gsm_ms_init()) {
 		fprintf(stderr, "GSM MS initialization failed.\n");
 		goto free;
 	}
@@ -467,11 +450,11 @@ int main(int argc, char *argv[])
 	printf("%s\n", tracetext);
 	end_trace();
 	quit = 0;
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
+#if 0
 	GET_NOW();
 #endif
 	while(!quit) {
-#if defined WITH_GSM_BS || defined WITH_GSM_MS
+#if 0
 		last_d = now_d;
 		GET_NOW();
 		if (now_d-last_d > 1.0) {
@@ -483,23 +466,14 @@ int main(int argc, char *argv[])
 		/* must be processed after all queues, so they are empty */
 		if (select_main(1, NULL, NULL, NULL))
 			all_idle = 0;
-		/* handle gsm */
-		if (options.gsm) {
-			if (handle_gsm())
-				all_idle = 0;
-#ifdef WITH_GSM_MS
-			if (handle_gsm_ms(&quit))
-				all_idle = 0;
-#endif
-		}
 		if (all_idle) {
 			usleep(10000);
 		}
 #else
-		if (options.polling)
+		if (options.polling) {
 			if (!select_main(1, NULL, NULL, NULL))
 				usleep(10000);
-		else
+		} else
 			select_main(0, NULL, NULL, NULL);
 #endif
 	}
@@ -604,17 +578,18 @@ free:
 		mISDN_deinitialize();
 
 	/* free gsm */
-	if (options.gsm) {
+#if 0
+exit is done when interface is down
 #ifdef WITH_GSM_BS
-		gsm_bs_exit(0);
+	gsm_bs_exit(0);
+#endif
 #endif
 #ifdef WITH_GSM_MS
-		gsm_ms_exit(0);
+	gsm_ms_exit(0);
 #endif
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
-		gsm_exit(0);
+	gsm_exit(0);
 #endif
-	}
 
 	/* close loopback, if used by GSM or remote */
 	if (mISDNloop.sock > -1)

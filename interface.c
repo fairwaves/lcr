@@ -897,11 +897,6 @@ static int inter_gsm_bs(struct interface *interface, char *filename, int line, c
 	struct interface_port *ifport;
 	struct interface *searchif;
 
-	/* check gsm */
-	if (!gsm) {
-		SPRINT(interface_error, "Error in %s (line %d): GSM is not activated.\n", filename, line);
-		return(-1);
-	}
 	searchif = interface_newlist;
 	while(searchif) {
 		ifport = searchif->ifport;
@@ -936,13 +931,6 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 #else
 	struct interface_port *ifport, *searchifport;
 	struct interface *searchif;
-	char *element;
-
-	/* check gsm */
-	if (!gsm) {
-		SPRINT(interface_error, "Error in %s (line %d): GSM is not activated.\n", filename, line);
-		return(-1);
-	}
 
 	/* set portname */
 	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
@@ -955,12 +943,11 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	ifport->gsm_ms = 1;
 
 	/* copy values */
-	element = strsep(&value, " ");
-	if (!element || !element[0]) {
+	if (!value || !value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): Missing MS name and socket name.\n", filename, line);
 		return(-1);
 	}
-	SCPY(ifport->gsm_ms_name, element);
+	SCPY(ifport->gsm_ms_name, value);
 
 	/* check if name is used multiple times */
 	searchif = interface_newlist;
@@ -1539,6 +1526,10 @@ void relink_interfaces(void)
 			if (ifport->gsm_ms)
 				gsm_ms_delete(ifport->gsm_ms_name);
 #endif
+#ifdef WITH_GSM_BS
+			if (ifport->gsm_bs)
+				gsm_bs_exit(0);
+#endif
 			mISDNport_close(mISDNport);
 			goto closeagain;
 		}
@@ -1584,6 +1575,10 @@ void load_port(struct interface_port *ifport)
 #ifdef WITH_GSM_MS
 		if (ifport->gsm_ms)
 			gsm_ms_new(ifport->gsm_ms_name);
+#endif
+#ifdef WITH_GSM_BS
+		if (ifport->gsm_bs)
+			gsm_bs_init();
 #endif
 	} else {
 		ifport->block = 2; /* not available */
