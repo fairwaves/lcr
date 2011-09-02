@@ -2313,12 +2313,13 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 			cond = cond->next;
 		}
-		if (timeout>now_ll && match==1) /* the matching rule with timeout in the future */
-		if (match_timeout == 0 || timeout < match_timeout) { /* first timeout or lower */
-			/* set timeout in the furture */
-			match_timeout = timeout;
-			e_match_to_action = rule->action_first;
-			e_match_to_extdialing = e_dialinginfo.id + dialing_required;
+		if (timeout>now_ll && match==1) { /* the matching rule with timeout in the future */
+			if (match_timeout == 0 || timeout < match_timeout) { /* first timeout or lower */
+				/* set timeout in the furture */
+				match_timeout = timeout;
+				e_match_to_action = rule->action_first;
+				e_match_to_extdialing = e_dialinginfo.id + dialing_required;
+			}
 			match = 0; /* matches in the future */
 		}
 		if (match == 1) {
@@ -2338,7 +2339,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	if (match_timeout == 0)
 		unsched_timer(&e_match_timeout); /* no timeout */
 	else {
-		schedule_timer(&e_match_timeout, match_timeout / 1000000, match_timeout % 1000000);
+		schedule_timer(&e_match_timeout, (match_timeout-now_ll) / 1000000, (match_timeout-now_ll) % 1000000);
 	}
 	return(action);
 }

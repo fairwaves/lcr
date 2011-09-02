@@ -2283,11 +2283,12 @@ void EndpointAppPBX::process_dialing(int timeout)
 		}
 
 		gettimeofday(&current_time, NULL);
-		if (timeout && TIME_SMALLER(&e_match_timeout.timeout, &current_time)) {
+		if (e_match_to_action && TIME_SMALLER(&e_match_timeout.timeout, &current_time)) {
 			/* return timeout rule */
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d): terminal '%s' dialing: '%s', timeout in ruleset '%s'\n", ea_endpoint->ep_serial, e_ext.number, e_dialinginfo.id, e_ruleset->name);
 			unsched_timer(&e_match_timeout);
 			e_action = e_match_to_action;
+			e_match_to_action = NULL;
 			e_extdialing = e_match_to_extdialing;
 			trace_header("ROUTING (timeout)", DIRECTION_NONE);
 			add_trace("action", NULL, "%s", action_defs[e_action->index].name);
