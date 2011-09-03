@@ -2036,7 +2036,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	l3m = create_l3msg();
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_SETUP_REQ, DIRECTION_OUT);
 	/* channel information */
-	if (channel >= 0) /* it should */
+	if (p_m_d_ntmode || channel != CHANNEL_ANY) /* only omit channel id in te-mode/any channel */
 		enc_ie_channel_id(l3m, exclusive, channel);
 	/* caller information */
 	plan = 1;

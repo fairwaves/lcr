@@ -711,13 +711,15 @@ void Pdss1::enc_ie_channel_id(struct l3_msg *l3m, int exclusive, int channel)
 		add_layer3_ie(l3m, p[0], p[1], p+2);
 	} else {
 		/* PRI */
-		if (channel == CHANNEL_NO) /* no channel */
-			return; /* IE not present */
-		if (channel == CHANNEL_ANY) /* any channel */ {
+		if (channel == CHANNEL_NO || channel == CHANNEL_ANY) {
+			if (channel == CHANNEL_NO)
+				channel = 0;
+			else
+				channel = 3;
 			l = 1;
 			p[0] = IE_CHANNEL_ID;
 			p[1] = l;
-			p[2] = 0x80 + 0x20 + 0x03;
+			p[2] = 0x80 + 0x20 + channel;
 			add_layer3_ie(l3m, p[0], p[1], p+2);
 			return; /* end */
 		}
