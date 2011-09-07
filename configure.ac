@@ -177,6 +177,15 @@ AM_CONDITIONAL(ENABLE_GSM_MS, test "x$with_gsm_ms" == "xyes" )
 
 AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm_bs" == "xyes" -o "x$with_gsm_ms" == "xyes")
 
+AS_IF([test "x$with_gsm_bs" == xyes -o "x$with_gsm_ms" == xyes],
+	[AC_MSG_CHECKING(/usr/include/gsm/gsm.h)
+	if test -e /usr/include/gsm/gsm.h; then
+		AC_MSG_RESULT(yes)
+	else
+	AC_MSG_FAILURE([You have enabled GSM, but /usr/include/gsm/gsm.h not found! Please install the lossy GSM codec. Be sure to install it in /usr/ and not in /usr/local/. You will also find a copy on http://www.linux-call-router.de.])
+	fi
+	])
+
 # check for ss5
 AC_ARG_WITH([ss5],
 	[AS_HELP_STRING([--with-ss5],
@@ -222,3 +231,10 @@ AC_CHECK_FUNCS([gettimeofday memmove memset mkdir socket strcasecmp strchr strer
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+
+AS_IF([test "x$with_gsm_bs" == xyes],[AC_MSG_NOTICE( Compiled with GSM network side support )],[AC_MSG_NOTICE( Not compiled with GSM network side support)])
+AS_IF([test "x$with_gsm_ms" == xyes],[AC_MSG_NOTICE( Compiled with GSM mobile side support )],[AC_MSG_NOTICE( Not compiled with GSM mobile side support)])
+AS_IF([test "x$with_asterisk" == xyes],[AC_MSG_NOTICE( Compiled with Asterisk channel driver support )],[AC_MSG_NOTICE( Not compiled with Asterisk channel driver support)])
+AS_IF([test "x$with_ss5" == xyes],[AC_MSG_NOTICE( Compiled with CCITT No.5 support )],[AC_MSG_NOTICE( Not compiled with CCITT No.5 support)])
+
