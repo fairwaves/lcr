@@ -37,7 +37,9 @@ struct mISDNport *mISDNport_first;
 unsigned char mISDN_rand[256];
 int mISDN_rand_count = 0;
 
+#ifdef OLD_MT_ASSIGN
 unsigned int mt_assign_pid = ~0;
+#endif
 
 int mISDNsocket = -1;
 static int upqueue_pipe[2];
@@ -2045,6 +2047,7 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 	struct mISDNport *mISDNport = (struct mISDNport *)ml3->priv;
 	struct mbuffer *mb;
 
+#ifdef OLD_MT_ASSIGN
 	/* special MT_ASSIGN handling:
 	 *
 	 * if we request a PID from mlayer, we always do it while lcr is locked.
@@ -2062,6 +2065,7 @@ int do_layer3(struct mlayer3 *ml3, unsigned int cmd, unsigned int pid, struct l3
 		mt_assign_pid = pid;
 		return(0);
 	}
+#endif
 	/* queue message, create, if required */
 	if (!l3m) {
 		l3m = alloc_l3_msg();

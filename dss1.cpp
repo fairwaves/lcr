@@ -16,7 +16,9 @@
 extern "C" {
 }
 #include <mISDN/q931.h>
+#ifdef OLD_MT_ASSIGN
 extern unsigned int mt_assign_pid;
+#endif
 
 #include "ie.cpp"
 
@@ -2011,10 +2013,18 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 
 	/* creating l3id */
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_REQ, DIRECTION_OUT);
+#ifdef OLD_MT_ASSIGN
 	/* see MT_ASSIGN notes at do_layer3() */
 	mt_assign_pid = 0;
 	ret = p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_ASSIGN, 0, NULL);
-	if (mt_assign_pid == 0 || ret < 0) {
+	if (mt_assign_pid == 0 || ret < 0)
+	p_m_d_l3id = mt_assign_pid;
+	mt_assign_pid = ~0;
+#else
+	p_m_d_l3id = request_new_pid(p_m_mISDNport->ml3);
+	if (p_m_d_l3id == MISDN_PID_NONE)
+#endif
+	{
 		struct lcr_msg *message;
 
 		add_trace("callref", NULL, "no free id");
@@ -2027,8 +2037,10 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 		trigger_work(&p_m_d_delete);
 		return;
 	}
+#ifdef OLD_MT_ASSIGN
 	p_m_d_l3id = mt_assign_pid;
 	mt_assign_pid = ~0;
+#endif
 	add_trace("callref", "new", "0x%x", p_m_d_l3id);
 	end_trace();
 
