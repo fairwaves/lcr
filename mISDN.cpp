@@ -11,9 +11,6 @@
 
 #include "main.h"
 #include "myisdn.h"
-
-#include <mISDN/mISDNcompat.h>
-int __af_isdn = MISDN_AF_ISDN;
 #include <mISDN/q931.h>
 
 #undef offsetof
@@ -50,9 +47,21 @@ int upqueue_avail = 0;
 static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, int i);
 static int mISDN_timeout(struct lcr_timer *timer, void *instance, int i);
 
+static int my_mISDNlib_debug(const char *file, int line, const char *func, int level, const char *fmt, va_list va)
+{
+        int ret = 0;
+
+        if (debug_fp > 0)
+        	ret = vfprintf(debug_fp, fmt, va);
+	return ret;
+}
+
+static struct mi_ext_fn_s myfn;
+
 int mISDN_initialize(void)
 {
 	char filename[256];
+	int ver;
 
 	/* try to open raw socket to check kernel */
 	mISDNsocket = socket(PF_ISDN, SOCK_RAW, ISDN_P_BASE);
@@ -62,7 +71,10 @@ int mISDN_initialize(void)
 	}
 
 	/* init mlayer3 */
-	init_layer3(4); // buffer of 4
+	// set debug printout function
+	myfn.prt_debug = my_mISDNlib_debug;
+
+	ver = init_layer3(4, &myfn); // buffer of 4
 
 	/* open debug, if enabled and not only stack debugging */
 	if (options.deb) {
@@ -70,11 +82,10 @@ int mISDN_initialize(void)
 		debug_fp = fopen(filename, "a");
 	}
 
-	if (options.deb & DEBUG_STACK) {
-		SPRINT(filename, "%s/debug_mISDN.log", LOG_DIR);
-		mISDN_debug_init(0xfffffeff, filename, filename, filename);
-	} else
-		mISDN_debug_init(0, NULL, NULL, NULL);
+	if (options.deb & DEBUG_STACK)
+		mISDN_set_debug_level(0xfffffeff);
+	else
+		mISDN_set_debug_level(0);
 
 	if (pipe(upqueue_pipe) < 0)
 		FATAL("Failed to open pipe\n");
@@ -88,8 +99,6 @@ int mISDN_initialize(void)
 void mISDN_deinitialize(void)
 {
 	cleanup_layer3();
-
-	mISDN_debug_close();
 
 	if (debug_fp)
 		fclose(debug_fp);
