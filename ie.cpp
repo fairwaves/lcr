@@ -1098,7 +1098,7 @@ void Pdss1::dec_ie_redir_nr(struct l3_msg *l3m, int *type, int *plan, int *prese
 	*reason = -1;
 	*number = '\0';
 
-	unsigned char *p = l3m->redirect_nr;
+	unsigned char *p = l3m->redirecting_nr;
 	if (!p)
 		return;
 	if (p[0] < 1) {
@@ -1181,7 +1181,7 @@ void Pdss1::dec_ie_redir_dn(struct l3_msg *l3m, int *type, int *plan, int *prese
 	*present = -1;
 	*number = '\0';
 
-	unsigned char *p = l3m->redirect_dn;
+	unsigned char *p = l3m->redirection_nr;
 	if (!p)
 		return;
 	if (p[0] < 1) {
