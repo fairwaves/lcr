@@ -2999,6 +2999,11 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		// facility als broadcast
 		break;
 
+		case MT_L2IDLE:
+		// L2 became idle - we could sent a MT_L2RELEASE if we are the L2 master
+		PDEBUG(DEBUG_ISDN, "Got L2 idle\n");
+		break;
+
 		default:
 		PERROR("unhandled message: cmd(0x%x) pid(0x%x)\n", cmd, pid);
 		port = port_first;
