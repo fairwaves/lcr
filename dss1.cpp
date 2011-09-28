@@ -1943,7 +1943,9 @@ void Pdss1::message_information(unsigned int epoint_id, int message_id, union pa
 void Pdss1::message_setup(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	l3_msg *l3m;
+#ifdef OLD_MT_ASSIGN
 	int ret;
+#endif
 	int plan, type, screen, present, reason;
 	int plan2, type2, screen2, present2;
 	int capability, mode, rate, coding, user, presentation, interpretation, hlc, exthlc;
