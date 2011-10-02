@@ -324,6 +324,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	gsm_trace_header(p_m_mISDNport, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_m_g_callref);
 	mode->lchan_mode = 0x01; /* GSM V1 */
+	mode->lchan_type = 0x02;
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
 	send_and_free_mncc(p_m_g_lcr_gsm, mode->msg_type, mode);
