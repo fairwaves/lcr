@@ -84,6 +84,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer)
 				fprintf(debug_fp, "%s%s(in %s() line %d): %s", prefix?prefix:"", prefix?" ":"", function, line, buffer);
 			else
 				fprintf(debug_fp, "%s%s: %s", prefix?prefix:"", prefix?" ":"", buffer);
+			fflush(debug_fp);
 		}
 	}
 
