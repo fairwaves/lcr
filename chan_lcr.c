@@ -161,6 +161,7 @@ it is called from ast_channel process which has already locked ast_channel.
 #include <asterisk/app.h>
 #include <asterisk/features.h>
 #include <asterisk/sched.h>
+#include <asterisk/version.h>
 
 #include "extension.h"
 #include "message.h"
@@ -533,13 +534,22 @@ void apply_opt(struct chan_call *call, char *data)
 				#endif
 
 				#endif
-				if (!call->trans)
+				if (!call->trans) {
 					#ifdef LCR_FOR_CALLWEAVER
 					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, 8000, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW, 8000);
 					#endif
 					#ifdef LCR_FOR_ASTERISK
+					#if ASTERISK_VERSION_NUM < 100000
 					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
+					#else
+					struct ast_format src;
+					struct ast_format dst;
+					ast_format_set(&dst, AST_FORMAT_SLINEAR, 0);
+					ast_format_set(&dst,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+					call->trans=ast_translator_build_path(&dst, &src);
 					#endif
+					#endif
+				}
 			}
 			CDEBUG(call, call->ast, "Option 'f' (faxdetect) with config '%s'.\n", call->faxdetect);
 			break;
@@ -839,7 +849,7 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 
 	#ifdef LCR_FOR_CALLWEAVER
 	ast->type = "LCR";
-	snprintf(ast->name, sizeof(ast->name), "LCR/%s-%04x",ast->cid.cid_num, ast_random() & 0xffff);
+	snprintf(ast->name, sizeof(ast->name), "%s/%s-%04x",lcr_type ,ast->cid.cid_num, ast_random() & 0xffff);
 	#endif
 
 	ret = ast_pbx_start(ast);
@@ -1069,9 +1079,17 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	strncpy(call->oad, numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international), sizeof(call->oad)-1);
 
 	/* configure channel */
+#if ASTERISK_VERSION_NUM < 100000
 	ast->nativeformats = (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW;
 	ast->readformat = ast->rawreadformat = ast->nativeformats;
 	ast->writeformat = ast->rawwriteformat =  ast->nativeformats;
+#else
+	ast_format_set(&ast->rawwriteformat ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+	ast_format_copy(&ast->rawreadformat, &ast->rawwriteformat);
+	ast_format_cap_set(ast->nativeformats, &ast->rawwriteformat);
+	ast_set_write_format(ast, &ast->rawwriteformat);
+	ast_set_read_format(ast, &ast->rawreadformat);
+#endif
 	ast->priority = 1;
 	ast->hangupcause = 0;
 
@@ -1946,7 +1964,11 @@ static void *chan_thread(void *arg)
  */
 static
 #ifdef AST_1_8_OR_HIGHER
+#if ASTERISK_VERSION_NUM < 100000
 struct ast_channel *lcr_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
+#else
+struct ast_channel *lcr_request(const char *type, struct ast_format_cap *format, const struct ast_channel *requestor, void *data, int *cause)
+#endif
 #else
 struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
 #endif
@@ -1997,9 +2019,17 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	ast->tech = &lcr_tech;
 	ast->tech_pvt = (void *)1L; // set pointer or asterisk will not call
 	/* configure channel */
+#if ASTERISK_VERSION_NUM < 100000
 	ast->nativeformats = (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW;
 	ast->readformat = ast->rawreadformat = ast->nativeformats;
 	ast->writeformat = ast->rawwriteformat =  ast->nativeformats;
+#else
+	ast_format_set(&ast->rawwriteformat ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+	ast_format_copy(&ast->rawreadformat, &ast->rawwriteformat);
+	ast_format_cap_set(ast->nativeformats, &ast->rawwriteformat);
+	ast_set_write_format(ast, &ast->rawwriteformat);
+	ast_set_read_format(ast, &ast->rawreadformat);
+#endif
 	ast->priority = 1;
 	ast->hangupcause = 0;
 
@@ -2119,7 +2149,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	/* store call information for setup */
 
 	/* caller ID */
-	if (requestor->caller.id.number.valid) {
+	if (requestor && requestor->caller.id.number.valid) {
 		if (requestor->caller.id.number.str)
 			strncpy(call->callerinfo.id, requestor->caller.id.number.str, sizeof(call->callerinfo.id)-1);
 		switch(requestor->caller.id.number.presentation & AST_PRES_RESTRICTION) {
@@ -2163,7 +2193,7 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		call->callerinfo.present = INFO_PRESENT_NOTAVAIL;
 
 	/* caller ID 2 */
-	if (requestor->caller.ani.number.valid) {
+	if (requestor && requestor->caller.ani.number.valid) {
 		if (requestor->caller.ani.number.str)
 			strncpy(call->callerinfo.id2, requestor->caller.ani.number.str, sizeof(call->callerinfo.id2)-1);
 		switch(requestor->caller.ani.number.presentation & AST_PRES_RESTRICTION) {
@@ -2207,13 +2237,13 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		call->callerinfo.present2 = INFO_PRESENT_NOTAVAIL;
 
 	/* caller name */
-	if (requestor->caller.id.name.valid) {
+	if (requestor && requestor->caller.id.name.valid) {
 		if (requestor->caller.id.name.str)
 			strncpy(call->callerinfo.name, requestor->caller.id.name.str, sizeof(call->callerinfo.name)-1);
 	}
 
 	/* redir number */
-	if (requestor->redirecting.from.number.valid) {
+	if (requestor && requestor->redirecting.from.number.valid) {
 		call->redirinfo.itype = INFO_ITYPE_CHAN;
 		if (requestor->redirecting.from.number.str)
 			strncpy(call->redirinfo.id, requestor->redirecting.from.number.str, sizeof(call->redirinfo.id)-1);
@@ -2274,7 +2304,7 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 
 	#ifdef LCR_FOR_CALLWEAVER
 	ast->type = "LCR";
-	snprintf(ast->name, sizeof(ast->name), "LCR/%s-%04x",call->dialstring, ast_random() & 0xffff);
+	snprintf(ast->name, sizeof(ast->name), "%s/%s-%04x",lcr_type, call->dialstring, ast_random() & 0xffff);
 	#endif
 
 	if (!call) {
@@ -2560,23 +2590,31 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 #endif
 		CDEBUG(NULL, ast, "No subclass\n");
 #ifdef AST_1_8_OR_HIGHER
+#if ASTERISK_VERSION_NUM < 100000
 	if (!(f->subclass.integer & ast->nativeformats)) {
+#else
+	if (!ast_format_cap_iscompatible(ast->nativeformats, &f->subclass.format)) {
+#endif
 #else
 	if (!(f->subclass & ast->nativeformats)) {
 #endif
-		CDEBUG(NULL, ast, 
+		CDEBUG(NULL, ast,
 	        	       "Unexpected format. "
 		       "Activating emergency conversion...\n");
 
 #ifdef AST_1_8_OR_HIGHER
+#if ASTERISK_VERSION_NUM < 100000
 		ast_set_write_format(ast, f->subclass.integer);
+#else
+		ast_set_write_format(ast, &f->subclass.format);
+#endif
 #else
 		ast_set_write_format(ast, f->subclass);
 #endif
 		f = (ast->writetrans) ? ast_translate(
 			ast->writetrans, fr, 0) : fr;
 	}
-	
+
 	ast_mutex_lock(&chan_lock);
 	call = ast->tech_pvt;
 	if (!call) {
@@ -2644,7 +2682,12 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 
 	call->read_fr.frametype = AST_FRAME_VOICE;
 #ifdef AST_1_8_OR_HIGHER
+#if ASTERISK_VERSION_NUM < 100000
 	call->read_fr.subclass.integer = ast->nativeformats;
+#else
+	ast_best_codec(ast->nativeformats, &call->read_fr.subclass.format);
+	call->read_fr.subclass.integer = call->read_fr.subclass.format.id;
+#endif
 #else
 	call->read_fr.subclass = ast->nativeformats;
 #endif
@@ -3017,9 +3060,11 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	return AST_BRIDGE_COMPLETE;
 }
 static struct ast_channel_tech lcr_tech = {
-	.type="LCR",
+	.type= lcr_type,
 	.description = "Channel driver for connecting to Linux-Call-Router",
+	#if ASTERISK_VERSION_NUM < 100000
 	.capabilities = AST_FORMAT_ALAW,
+	#endif
 	.requester = lcr_request,
 
 	#ifdef LCR_FOR_ASTERISK
@@ -3225,7 +3270,16 @@ int load_module(void)
 	}
 	mISDN_created = 1;
 
+	#if ASTERISK_VERSION_NUM < 100000
 	lcr_tech.capabilities = (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW;
+	#else
+	struct ast_format tmp;
+	ast_format_set(&tmp ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+	if (!(lcr_tech.capabilities = ast_format_cap_alloc())) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	ast_format_cap_add(lcr_tech.capabilities, &tmp);
+	#endif
 	if (ast_channel_register(&lcr_tech)) {
 		CERROR(NULL, NULL, "Unable to register channel class\n");
 		bchannel_deinitialize();
@@ -3338,6 +3392,9 @@ int unload_module(void)
 		lcr_sock = -1;
 	}
 
+#if ASTERISK_VERSION_NUM >= 100000
+	lcr_tech.capabilities = ast_format_cap_destroy(lcr_tech.capabilities);
+#endif
 	return 0;
 }
 

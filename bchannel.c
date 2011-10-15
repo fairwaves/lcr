@@ -33,6 +33,7 @@ int __af_isdn = MISDN_AF_ISDN;
 #define HAVE_ARPA_INET_H 1
 #define HAVE_TIMERSUB 1
 
+#include <asterisk/autoconfig.h>
 #include <asterisk/compiler.h>
 #include <asterisk/frame.h>
 
