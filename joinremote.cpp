@@ -22,7 +22,6 @@ extern unsigned int new_remote;
  */
 JoinRemote::JoinRemote(unsigned int serial, char *remote_name, int remote_id) : Join()
 {
-	PDEBUG(DEBUG_JOIN, "Constructor(new join)");
 	union parameter param;
 
 	SCPY(j_remote_name, remote_name);
@@ -30,9 +29,11 @@ JoinRemote::JoinRemote(unsigned int serial, char *remote_name, int remote_id) : 
 	j_type = JOIN_TYPE_REMOTE;
 	j_remote_ref = new_remote++;
 
+	PDEBUG(DEBUG_JOIN, "Constructor(new join) ref=%d\n", j_remote_ref);
+
 	j_epoint_id = serial; /* this is the endpoint, if created by epoint */
 	if (j_epoint_id)
-		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s\n", j_epoint_id, remote_name);
+		PDEBUG(DEBUG_JOIN, "New remote join connected to endpoint id %lu and application %s (ref=%d)\n", j_epoint_id, remote_name, j_remote_ref);
 
 	/* send new ref to remote socket */
 	memset(&param, 0, sizeof(union parameter));
@@ -56,6 +57,8 @@ void JoinRemote::message_epoint(unsigned int epoint_id, int message_type, union 
 	if (epoint_id != j_epoint_id)
 		return;
 	
+	PDEBUG(DEBUG_JOIN, "Message %d of endpoint %d from LCR to remote (ref=%d)\n", message_type, j_epoint_id, j_remote_ref);
+
 	/* look for Remote's interface */
 	if (admin_message_from_lcr(j_remote_id, j_remote_ref, message_type, param)<0) {
 		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all joins.\n", j_remote_name);
@@ -72,6 +75,8 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 {
 	struct lcr_msg *message;
 
+	PDEBUG(DEBUG_JOIN, "Message %d of endpoint %d from remote to LCR (ref=%d)\n", message_type, j_epoint_id, j_remote_ref);
+
 	/* create relation if no relation exists */
 	if (!j_epoint_id) {
 		class Endpoint		*epoint;
@@ -79,6 +84,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 		if (!(epoint = new Endpoint(0, j_serial)))
 			FATAL("No memory for Endpoint instance\n");
 		j_epoint_id = epoint->ep_serial;
+		PDEBUG(DEBUG_JOIN, "Created endpoint %d\n", j_epoint_id);
 		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
 			FATAL("No memory for Endpoint Application instance\n");
 	}
