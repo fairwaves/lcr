@@ -1960,7 +1960,7 @@ static int l2establish_timeout(struct lcr_timer *timer, void *instance, int i)
 	struct mISDNport *mISDNport = (struct mISDNport *)instance;
 
 	if (!mISDNport->isloopback && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
-//		PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
+		PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		schedule_timer(&mISDNport->l2establish, 5, 0); /* 5 seconds */
 	}
@@ -2306,7 +2306,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	if (ss5) {
 		/* try to keep interface enabled */
 		l1hold = 1;
-		l2hold = 1;
+		l2hold = 0;
 	}
 	/* set l2hold */
 	switch (l2hold) {
