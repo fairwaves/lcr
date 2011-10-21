@@ -62,6 +62,8 @@
 #define GSM_TCH_FRAME_AMR	0x0303
 #define GSM_BAD_FRAME		0x03ff
 
+#define MNCC_SOCKET_HELLO	0x0400
+
 #define GSM_MAX_FACILITY	128
 #define GSM_MAX_SSVERSION	128
 #define GSM_MAX_USERUSER	128
@@ -326,3 +328,8 @@ struct gsm_mncc_rtp {
 };
 
 
+#define MNCC_SOCK_VERSION	1
+struct gsm_mncc_hello {
+	u_int32_t	msg_type;
+	u_int32_t	version;
+};

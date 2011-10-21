@@ -1334,6 +1334,7 @@ static int mncc_fd_read(struct lcr_fd *lfd, void *inst, int idx)
 	int rc;
 	static char buf[sizeof(struct gsm_mncc)+1024];
 	struct gsm_mncc *mncc_prim = (struct gsm_mncc *) buf;
+	struct gsm_mncc_hello *hello = (struct gsm_mncc_hello *) buf;
 
 	memset(buf, 0, sizeof(buf));
 	rc = recv(lfd->fd, buf, sizeof(buf), 0);
@@ -1341,6 +1342,17 @@ static int mncc_fd_read(struct lcr_fd *lfd, void *inst, int idx)
 		return mncc_fd_close(lcr_gsm, lfd);
 	if (rc < 0)
 		return rc;
+
+	/* TODO: size check? */
+	switch (mncc_prim->msg_type) {
+	case MNCC_SOCKET_HELLO:
+		if (hello->version != MNCC_SOCK_VERSION) {
+			PERROR("MNCC version different. BSC version is %u\n", hello->version);
+			mncc_fd_close(lcr_gsm, lfd);
+			return 0;
+		}
+		break;
+	}
 
 	/* Hand the MNCC message into LCR */
 	switch (lcr_gsm->type) {
