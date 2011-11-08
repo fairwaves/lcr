@@ -2584,14 +2584,14 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 	struct ast_frame * f = fr;
 
 #ifdef AST_1_8_OR_HIGHER
-	if (!f->subclass.integer)
+	if (!f->subclass.codec)
 #else
 	if (!f->subclass)
 #endif
 		CDEBUG(NULL, ast, "No subclass\n");
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
-	if (!(f->subclass.integer & ast->nativeformats)) {
+	if (!(f->subclass.codec & ast->nativeformats)) {
 #else
 	if (!ast_format_cap_iscompatible(ast->nativeformats, &f->subclass.format)) {
 #endif
@@ -2604,7 +2604,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
-		ast_set_write_format(ast, f->subclass.integer);
+		ast_set_write_format(ast, f->subclass.codec);
 #else
 		ast_set_write_format(ast, &f->subclass.format);
 #endif
@@ -2683,7 +2683,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	call->read_fr.frametype = AST_FRAME_VOICE;
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
-	call->read_fr.subclass.integer = ast->nativeformats;
+	call->read_fr.subclass.codec = ast->nativeformats;
 #else
 	ast_best_codec(ast->nativeformats, &call->read_fr.subclass.format);
 	call->read_fr.subclass.integer = call->read_fr.subclass.format.id;
