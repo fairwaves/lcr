@@ -2583,12 +2583,14 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 	struct chan_call *call;
 	struct ast_frame * f = fr;
 
+#if ASTERISK_VERSION_NUM < 100000
 #ifdef AST_1_8_OR_HIGHER
 	if (!f->subclass.codec)
 #else
 	if (!f->subclass)
 #endif
 		CDEBUG(NULL, ast, "No subclass\n");
+#endif
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
 	if (!(f->subclass.codec & ast->nativeformats)) {
