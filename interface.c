@@ -1489,6 +1489,17 @@ void relink_interfaces(void)
 	/* unlink all mISDNports */
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
+		if (mISDNport->ifport) {
+			ifport = mISDNport->ifport;
+#ifdef WITH_GSM_MS
+			if (ifport->gsm_ms)
+				gsm_ms_delete(ifport->gsm_ms_name);
+#endif
+#ifdef WITH_GSM_BS
+			if (ifport->gsm_bs)
+				gsm_bs_exit(0);
+#endif
+		}
 		mISDNport->ifport = NULL;
 		mISDNport = mISDNport->next;
 	}
@@ -1521,15 +1532,7 @@ void relink_interfaces(void)
 	while(mISDNport) {
 		if (mISDNport->ifport == NULL) {
 			PDEBUG(DEBUG_ISDN, "Port %d is not used anymore and will be closed\n", mISDNport->portnum);
-			/* remove all port objects and destroy port */
-#ifdef WITH_GSM_MS
-			if (ifport->gsm_ms)
-				gsm_ms_delete(ifport->gsm_ms_name);
-#endif
-#ifdef WITH_GSM_BS
-			if (ifport->gsm_bs)
-				gsm_bs_exit(0);
-#endif
+			/* destroy port */
 			mISDNport_close(mISDNport);
 			goto closeagain;
 		}
