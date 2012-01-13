@@ -100,6 +100,7 @@ struct interface {
 	int			extension; /* calls are handled as extension */
 	int			is_tones; /* generate tones */
 	int			is_earlyb; /* bridge tones during call setup */
+	int			shutdown; /* interface will not automatically be loaded */
 	int			hunt; /* select algorithm */
 	int			hunt_next; /* ifport index to start hunt */
 	struct interface_port	*ifport; /* link to interface port list */

@@ -1070,6 +1070,13 @@ static int inter_remote(struct interface *interface, char *filename, int line, c
 	return(0);
 }
 
+static int inter_shutdown(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	interface->shutdown = 1;
+
+	return(0);
+}
+
 
 /*
  * structure of parameters
@@ -1233,6 +1240,9 @@ struct interface_param interface_param[] = {
 	{"remote", &inter_remote, "<application>",
 	"Sets up an interface that communicates with the remote application.\n"
 	"Use \"asterisk\" to use chan_lcr as remote application."},
+
+	{"shutdown", &inter_shutdown, "",
+	"Interface will not be loaded when processing interface.conf"},
 
 	{NULL, NULL, NULL, NULL}
 };
@@ -1545,7 +1555,11 @@ void relink_interfaces(void)
 		ifport = interface->ifport;
 		while(ifport) {
 			if (!ifport->mISDNport) {
-				load_port(ifport);
+				if (!interface->shutdown) {
+					load_port(ifport);
+				} else {
+					ifport->block = 2;
+				}
 			}
 			ifport = ifport->next;
 		}
