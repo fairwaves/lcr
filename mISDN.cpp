@@ -2130,15 +2130,15 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	struct mISDN_devinfo devinfo;
 	unsigned int protocol, prop;
 
-#if defined WITH_GSM_BS && defined WITH_GSM_MS
-	loop = ifport->gsm_ms | ifport->gsm_bs;
-#else
+	loop = 0;
 #ifdef WITH_GSM_BS
-	loop = ifport->gsm_bs;
+	loop |= ifport->gsm_bs;
 #endif
 #ifdef WITH_GSM_MS
-	loop = ifport->gsm_ms;
+	loop |= ifport->gsm_ms;
 #endif
+#ifdef WITH_SIP
+	loop |= ifport->interface->sip;
 #endif
 //printf("%s == %s\n", ifport->portname, options.loopback_int);
 	if (!strcmp(ifport->portname, options.loopback_lcr))

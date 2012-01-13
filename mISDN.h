@@ -69,7 +69,7 @@ struct mISDNport {
 	int gsm_bs; /* this is the (only) GSM BS interface */
 #endif
 #ifdef WITH_GSM_MS
-	int gsm_ms; /* this is the an GSM MS interface */
+	int gsm_ms; /* this is an GSM MS interface */
 #endif
 	int lcr_sock; /* socket of loopback on LCR side */
 	int isloopback; /* will be set on open, in case it is a loopback if */

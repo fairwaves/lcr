@@ -967,6 +967,36 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	return(0);
 #endif
 }
+static int inter_sip(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_SIP
+	SPRINT(interface_error, "Error in %s (line %d): SIP not compiled in.\n", filename, line);
+	return(-1);
+#else
+	char *p;
+
+	/* set portname */
+	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
+		return(-1);
+
+	interface->sip = 1;
+
+	/* copy values */
+	if (!value || !value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): Missing SIP local IP.\n", filename, line);
+		return(-1);
+	}
+	p = get_seperated(value);
+	if (!p[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): Missing SIP remote IP.\n", filename, line);
+		return(-1);
+	}
+	SCPY(interface->sip_local_ip, value);
+	SCPY(interface->sip_remote_ip, p);
+
+	return(0);
+#endif
+}
 static int inter_nonotify(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_port *ifport;
@@ -1214,6 +1244,9 @@ struct interface_param interface_param[] = {
 	"The name of the MS folows the interface name.\n"
 	"The socket is /tmp/osmocom_l2 by default and need to be changed when multiple\n"
 	"MS interfaces are used."},
+	{"sip", &inter_sip, "<local IP> <remote IP>",
+	"Sets up SIP interface that represents one SIP endpoint.\n"
+	"Give SIP configuration file."},
 	{"nonotify", &inter_nonotify, "",
 	"Prevents sending notify messages to this interface. A call placed on hold will\n"
 	"Not affect the remote end (phone or telcom switch).\n"
@@ -1507,6 +1540,11 @@ void relink_interfaces(void)
 			if (ifport->gsm_bs)
 				gsm_bs_exit(0);
 #endif
+#ifdef WITH_SIP
+#warning FIXME: get out of mISDNport
+			if (ifport->interface->sip)
+				sip_exit_inst(mISDNport->ifport->interface);
+#endif
 		}
 		mISDNport->ifport = NULL;
 		mISDNport = mISDNport->next;
@@ -1594,6 +1632,11 @@ void load_port(struct interface_port *ifport)
 #ifdef WITH_GSM_BS
 		if (ifport->gsm_bs)
 			gsm_bs_init();
+#endif
+#ifdef WITH_SIP
+		if (ifport->interface->sip)
+			if (sip_init_inst(ifport->interface))
+				ifport->block = 2; /* not available */
 #endif
 	} else {
 		ifport->block = 2; /* not available */

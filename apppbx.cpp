@@ -990,6 +990,11 @@ void EndpointAppPBX::out_setup(int cfnr)
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 			else
 #endif
+#ifdef WITH_SIP
+			if (mISDNport->ifport->interface->sip)
+				port = new Psip(PORT_TYPE_SIP_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, mISDNport->ifport->interface);
+			else
+#endif
 			if (mISDNport->ifport->remote) {
 				admin = admin_first;
 				while(admin) {
@@ -1222,6 +1227,11 @@ void EndpointAppPBX::out_setup(int cfnr)
 #ifdef WITH_GSM_MS
 			if (mISDNport->gsm_ms)
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			else
+#endif
+#ifdef WITH_SIP
+			if (mISDNport->ifport->interface->sip)
+				port = new Psip(PORT_TYPE_SIP_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, mISDNport->ifport->interface);
 			else
 #endif
 			if (mISDNport->ifport->remote) {

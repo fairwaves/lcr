@@ -196,6 +196,20 @@ AC_ARG_WITH([ss5],
 
 AM_CONDITIONAL(ENABLE_SS5, test "x$with_ss5" == "xyes" )
 
+# check for SIP
+AC_ARG_WITH([sip],
+	[AS_HELP_STRING([--with-sip],
+			[compile with SIP support (sofia-sip is required) @<:@default=no@:>@])
+	],
+	[],
+	[with_sip="check"])
+
+AM_CONDITIONAL(ENABLE_SIP, test "x$with_sip" == "xyes" )
+
+AS_IF([test "x$with_sip" == xyes -o "x$with_sip" == xyes], [
+		PKG_CHECK_MODULES(SOFIA, sofia-sip-ua >= 1.12)
+	])
+
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])
 AC_CHECK_LIB([ncurses], [main])
@@ -237,4 +251,5 @@ AS_IF([test "x$with_gsm_bs" == xyes],[AC_MSG_NOTICE( Compiled with GSM network s
 AS_IF([test "x$with_gsm_ms" == xyes],[AC_MSG_NOTICE( Compiled with GSM mobile side support )],[AC_MSG_NOTICE( Not compiled with GSM mobile side support)])
 AS_IF([test "x$with_asterisk" == xyes],[AC_MSG_NOTICE( Compiled with Asterisk channel driver support )],[AC_MSG_NOTICE( Not compiled with Asterisk channel driver support)])
 AS_IF([test "x$with_ss5" == xyes],[AC_MSG_NOTICE( Compiled with CCITT No.5 support )],[AC_MSG_NOTICE( Not compiled with CCITT No.5 support)])
+AS_IF([test "x$with_sip" == xyes],[AC_MSG_NOTICE( Compiled with SIP support )],[AC_MSG_NOTICE( Not compiled with SIP support)])
 

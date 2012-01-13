@@ -3,7 +3,7 @@
 ##    This file is part of linux-call-router
 ##    Copyright (C) 2007 Joerg Habenicht (j.habenicht@gmx.de)
 ##    Copyright (C) 2008 Peter Schlaile (peter -at- schlaile.de)
-##    Copyright (C) 2008 Andreas Eversberg (andreas@eversberg.eu)
+##    Copyright (C) 2008-2012 Andreas Eversberg (andreas@eversberg.eu)
 
 ##    This program is free software; you can redistribute it and/or
 ##    modify it under the terms of the GNU General Public License as
@@ -84,6 +84,22 @@ SS5_SOURCE = ss5.cpp ss5_encode.c ss5_decode.c
 
 endif
 
+SIP_LIB =
+
+if ENABLE_SIP
+
+# FIXME: remove that
+#pkgconfigdir = $(libdir)/pkgconfig
+#pkgconfig_DATA = sofia-sip-ua.pc
+
+SIP_INCLUDE = -DWITH_SIP $(SOFIA_CFLAGS)
+
+SIP_SOURCE = sip.cpp
+
+SIP_LIB += $(SOFIA_LIBS)
+
+endif
+
 bin_PROGRAMS = lcradmin gentones genwave
 
 sbin_PROGRAMS = lcr genrc genextension
@@ -115,9 +131,9 @@ install-exec-hook:
 	$(INSTALL) chan_lcr.so $(astmoddir)
 endif
 
-INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) -Wall $(INSTALLATION_DEFINES)
+INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
+lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) $(SIP_SOURCE) select.c action.cpp mISDN.cpp \
 	tones.c loop.c remote.cpp action_efi.cpp crypt.cpp mail.c trace.c \
 	action_vbox.cpp  dss1.cpp         main.c           \
 	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
@@ -126,7 +142,7 @@ lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) select.c action.cpp mISDN.cpp \
 	callerid.c       joinremote.cpp  route.c \
 	cause.c          socket_server.c
 
-lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB)
+lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB) $(SIP_LIB)
 
 
 lcradmin_SOURCES = lcradmin.c cause.c options.c

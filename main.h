@@ -69,13 +69,13 @@ void debug(const char *function, int line, const char *prefix, char *buffer);
 #define DEBUG_GSM 	0x0120
 #define DEBUG_SS5 	0x0140
 #define DEBUG_VBOX	0x0180
+#define DEBUG_SIP	0x10100
 #define DEBUG_EPOINT 	0x0200
 #define DEBUG_JOIN 	0x0400
 #define DEBUG_VERSATEL 	0x0800
 #define DEBUG_CRYPT	0x1000
 #define DEBUG_ROUTE	0x2000
 #define DEBUG_IDLETIME	0x4000
-#define DEBUG_LOG	0x7fff
 
 // check any faulty malloc
 #define MALLOC_CHECK_	1
@@ -83,7 +83,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer);
 /*
  * one of the bits must be enabled in order to write log files
  */
-#define DEBUG_LOG	0x7fff
+#define DEBUG_LOG	0xfffff
 
 /*
  * load transmit buffer to avoid gaps at the beginning due to jitter
@@ -163,6 +163,9 @@ extern "C" {
 #include "ss5_encode.h"
 #include "ss5_decode.h"
 #include "ss5.h"
+#endif
+#ifdef WITH_SIP
+#include "sip.h"
 #endif
 #include "vbox.h"
 #include "join.h"

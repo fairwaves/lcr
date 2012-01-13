@@ -111,6 +111,12 @@ struct interface {
 	char			pipeline[256]; /* filter pipeline */
 	unsigned char		bf_key[56]; /* filter blowfish */
 	int			bf_len; /* filter length of blowfish */
+#ifdef WITH_SIP
+	int			sip; /* interface is a SIP interface */
+	char			sip_local_ip[16];
+	char			sip_remote_ip[16];
+	void			*sip_inst; /* sip instance */
+#endif
 };
 
 struct interface_param {

@@ -23,6 +23,7 @@
 #define PORT_CLASS_GSM_MS	0x1220
 #define PORT_CLASS_SS5		0x1300
 #define PORT_CLASS_REMOTE	0x1400
+#define PORT_CLASS_SIP		0x1500
 #define PORT_CLASS_MASK		0xf000
 #define PORT_CLASS_mISDN_MASK	0xff00
 #define PORT_CLASS_DSS1_MASK	0xfff0
@@ -48,6 +49,9 @@
 	/* remote */
 #define	PORT_TYPE_REMOTE_IN	0x1411
 #define	PORT_TYPE_REMOTE_OUT	0x1412
+	/* SIP */
+#define	PORT_TYPE_SIP_IN	0x1511
+#define	PORT_TYPE_SIP_OUT	0x1512
 	/* answering machine */
 #define	PORT_TYPE_VBOX_OUT	0x3111
 

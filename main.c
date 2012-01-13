@@ -362,6 +362,12 @@ int main(int argc, char *argv[])
 	/* generate alaw / ulaw tables */
 	generate_tables(options.law);
 
+#ifdef WITH_SIP
+	/* init SIP globals */
+	sip_init();
+	polling = 1; /* must poll, because of SIP events */
+#endif
+
 #ifdef WITH_SS5
 	/* init ss5 sine tables */
 	ss5_sine_generate();
@@ -480,6 +486,10 @@ init is done when interface is up
 #else
 		if (options.polling) {
 			if (!select_main(1, NULL, NULL, NULL)) {
+#ifdef WITH_SIP
+				/* FIXME: check if work was done */
+				sip_handle();
+#endif
 				usleep(10000);
 			}
 		} else
@@ -598,6 +608,11 @@ exit is done when interface is down
 #endif
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 	gsm_exit(0);
+#endif
+
+#ifdef WITH_SIP
+	/* cleanup SIP globals */
+	sip_exit();
 #endif
 
 	/* close loopback, if used by GSM or remote */
