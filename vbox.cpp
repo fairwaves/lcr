@@ -237,7 +237,6 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		/* recording is close during destruction */
 		delete this;
 		return(-1); /* must return because port is gone */
-		break;
 
 		case MESSAGE_RELEASE: /* release vbox port */
 		vbox_trace_header(this, "RELEASE to VBox", DIRECTION_OUT);
@@ -249,7 +248,6 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 		/* recording is close during destruction */
 		delete this;
 		return(-1); /* must return because port is gone */
-		break;
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint, answer with connect */
 		/* get apppbx */
@@ -321,7 +319,7 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 			vbox_trace_header(this, "RECORDING", DIRECTION_IN);
 			end_trace();
 		}
-		break;
+		return(1);
 
 		default:
 		PDEBUG(DEBUG_VBOX, "PORT(%s) vbox port with (caller id %s) received an unsupported message: %d\n", p_name, p_callerinfo.id, message_id);

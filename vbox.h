@@ -5,11 +5,11 @@
 **---------------------------------------------------------------------------**
 ** Copyright: Andreas Eversberg                                              **
 **                                                                           **
-** port header file                                                          **
+** vbox-port header file                                                     **
 **                                                                           **
 \*****************************************************************************/ 
 
-/* answerin machine port class */
+/* answering machine port class */
 class VBoxPort : public Port
 {
 	public:

@@ -149,6 +149,11 @@ void sighandler(int sigset)
 		return;
 	fprintf(stderr, "LCR: Signal received: %d\n", sigset);
 	PDEBUG(DEBUG_LOG, "Signal received: %d\n", sigset);
+	/* reset signals */
+	signal(SIGINT,SIG_DFL);
+	signal(SIGHUP,SIG_DFL);
+	signal(SIGTERM,SIG_DFL);
+	signal(SIGPIPE,SIG_DFL);
 	if (!quit) {
 		quit = sigset;
 		/* set scheduler & priority */
@@ -180,6 +185,7 @@ int main(int argc, char *argv[])
 				created_misdn = 0;
 	char			tracetext[256], lock[128];
 	char			options_error[256];
+	int			polling = 0;
 
 #if 0
 	/* init fdset */
@@ -260,6 +266,7 @@ int main(int argc, char *argv[])
 		PERROR("%s", options_error);
 		goto free;
 	}
+	polling = options.polling;
 
 	/* init mISDN */
 	if (mISDN_initialize() < 0)
@@ -472,8 +479,9 @@ init is done when interface is up
 		}
 #else
 		if (options.polling) {
-			if (!select_main(1, NULL, NULL, NULL))
+			if (!select_main(1, NULL, NULL, NULL)) {
 				usleep(10000);
+			}
 		} else
 			select_main(0, NULL, NULL, NULL);
 #endif

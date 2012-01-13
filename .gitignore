@@ -4,12 +4,15 @@ core
 *.so
 *~
 *.orig
+conf*.dir
 stamp-h1
 .deps/
 Makefile
 config.h
 config.log
 config.status
+config.guess
+config.sub
 *.in
 aclocal.m4
 autom4te.cache/

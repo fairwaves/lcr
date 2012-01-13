@@ -1208,11 +1208,9 @@ struct interface_param interface_param[] = {
 	{"gsm", &inter_gsm, "",
 	""},
 	{"gsm-bs", &inter_gsm_bs, "",
-	"Sets up GSM base station interface for using OpenBSC.\n"
-	"See the default/gsm.conf for configuration for this version."},
-	{"gsm-ms", &inter_gsm_ms, "[<socket>]",
+	"Sets up GSM base station interface for using OpenBSC."},
+	{"gsm-ms", &inter_gsm_ms, "<socket>",
 	"Sets up GSM mobile station interface for using Osmocom-BB.\n"
-	"See the default/gsm.conf for configuration for this version.\n"
 	"The name of the MS folows the interface name.\n"
 	"The socket is /tmp/osmocom_l2 by default and need to be changed when multiple\n"
 	"MS interfaces are used."},
