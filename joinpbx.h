@@ -66,7 +66,6 @@ class JoinPBX : public Join
 	int j_partyline_jingle;		/* also play jingle on join/leave */
 
 	void bridge(void);
-	void bridge_data(unsigned int epoint_from, struct join_relation *relation_from, union parameter *param);
 	void remove_relation(struct join_relation *relation);
 	struct join_relation *add_relation(void);
 	int out_setup(unsigned int epoint_id, int message, union parameter *param, char *newnumber, char *newkeypad);

@@ -54,6 +54,9 @@ class Port *port_first = NULL;
 
 unsigned int port_serial = 1; /* must be 1, because 0== no port */
 
+struct port_bridge *p_bridge_first;
+
+static void remove_bridge(struct port_bridge *bridge, class Port *port);
 
 /* free epointlist relation
  */
@@ -146,7 +149,7 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 {
 	class Port *temp, **tempp;
 
-	PDEBUG(DEBUG_PORT, "new port of type %d, name '%s'\n", type, portname);
+	PDEBUG(DEBUG_PORT, "new port of type 0x%x, name '%s'\n", type, portname);
 
 	/* initialize object */
 	if (settings)
@@ -169,6 +172,7 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 	memset(&p_redirinfo, 0, sizeof(p_redirinfo));
 	memset(&p_capainfo, 0, sizeof(p_capainfo));
 	p_echotest = 0;
+	p_bridge = 0;
 
 	/* call recording */
 	p_record = NULL;
@@ -202,12 +206,17 @@ Port::~Port(void)
 	class Port *temp, **tempp;
 	struct lcr_msg *message;
 
+	PDEBUG(DEBUG_PORT, "removing port of type 0x%x, name '%s'\n", p_type, p_name);
+
+	if (p_bridge) {
+		PDEBUG(DEBUG_PORT, "Removing us from bridge %u\n", p_bridge->bridge_id);
+		remove_bridge(p_bridge, this);
+	}
+
 	if (p_record)
 		close_record(0, 0);
 
 	classuse--;
-
-	PDEBUG(DEBUG_PORT, "removing port of type %d, name '%s'\n", p_type, p_name);
 
 	/* disconnect port from endpoint */
 	while(p_epointlist) {
@@ -589,38 +598,42 @@ try_loop:
 }
 
 
-/* endpoint sends messages to the port
- * this is called by the message_epoint inherited by child classes
- * therefor a return=1 means: stop, no more processing
+/* Endpoint sends messages to the port
+ * This is called by the message_epoint, inherited by child classes.
+ * Therefor a return 1 means: "already handled here"
  */
 //extern struct lcr_msg *dddebug;
 int Port::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	/* check if we got audio data from one remote port */
 	switch(message_id) {
-		case MESSAGE_TONE: /* play tone */
-		PDEBUG(DEBUG_PORT, "PORT(%s) isdn port with (caller id %s) setting tone '%s' dir '%s'\n", p_name, p_callerinfo.id, param->tone.name, param->tone.dir);
+	case MESSAGE_TONE: /* play tone */
+		PDEBUG(DEBUG_PORT, "PORT(%s) setting tone '%s' dir '%s'\n", p_name, param->tone.name, param->tone.dir);
 		set_tone(param->tone.dir,param->tone.name);
-		return(1);
+		return 1;
 
-		case MESSAGE_VBOX_TONE: /* play tone of answering machine */
+	case MESSAGE_VBOX_TONE: /* play tone of answering machine */
 		PDEBUG(DEBUG_PORT, "PORT(%s) set answering machine tone '%s' '%s'\n", p_name, param->tone.dir, param->tone.name);
 		set_vbox_tone(param->tone.dir, param->tone.name);
-		return(1);
+		return 1;
 
-		case MESSAGE_VBOX_PLAY: /* play recording of answering machine */
+	case MESSAGE_VBOX_PLAY: /* play recording of answering machine */
 		PDEBUG(DEBUG_PORT, "PORT(%s) set answering machine file to play '%s' (offset %d seconds)\n", p_name, param->play.file, param->play.offset);
 		set_vbox_play(param->play.file, param->play.offset);
-		return(1);
+		return 1;
 
-		case MESSAGE_VBOX_PLAY_SPEED: /* set speed of playback (recording of answering machine) */
+	case MESSAGE_VBOX_PLAY_SPEED: /* set speed of playback (recording of answering machine) */
 		PDEBUG(DEBUG_PORT, "PORT(%s) set answering machine playback speed %d (times)\n", p_name, param->speed);
 		set_vbox_speed(param->speed);
-		return(1);
+		return 1;
 
+	case MESSAGE_BRIDGE: /* create / join / leave / destroy bridge */
+		PDEBUG(DEBUG_PORT, "PORT(%s) bridging to id %d\n", p_name, param->bridge_id);
+		bridge(param->bridge_id);
+		return 1;
 	}
 
-	return(0);
+	return 0;
 }
 
 
@@ -1152,5 +1165,127 @@ void Port::update_rxoff(void)
 
 void Port::update_load(void)
 {
+}
+
+
+/*
+ * bridge handling
+ */
+
+static void remove_bridge(struct port_bridge *bridge, class Port *port)
+{
+	struct port_bridge **temp = &p_bridge_first;
+	while (*temp) {
+		if (*temp == bridge) {
+			int remove = 0;
+
+			/* Remove us from bridge. If bridge is empty, remove it completely. */
+			if (bridge->sunrise == port) {
+				bridge->sunrise = NULL;
+				if (!bridge->sunset)
+					remove = 1;
+			}
+			if (bridge->sunset == port) {
+				bridge->sunset = NULL;
+				if (!bridge->sunrise)
+					remove = 1;
+			}
+			if (remove) {
+				PDEBUG(DEBUG_PORT, "Remove bridge %u\n", bridge->bridge_id);
+				*temp = bridge->next;
+				FREE(bridge, sizeof(struct port_bridge));
+				memuse--;
+			}
+			return;
+		}
+		temp = &((*temp)->next);
+	}
+	PERROR("Bridge %p not found in list\n", bridge);
+}
+
+void Port::bridge(unsigned int bridge_id)
+{
+	/* Remove bridge, if we leave bridge or if we join a different bridge. */
+	if (p_bridge && bridge_id != p_bridge->bridge_id) {
+		PDEBUG(DEBUG_PORT, "Remove port %u from bridge %u, because out new bridge is %u\n", p_serial, p_bridge->bridge_id, bridge_id);
+		remove_bridge(p_bridge, this);
+		p_bridge = NULL;
+	}
+
+	/* if we leave bridge */
+	if (!bridge_id)
+		return;
+
+	/* find bridge */
+	if (!p_bridge) {
+		struct port_bridge *temp = p_bridge_first;
+
+		while (temp) {
+			if (temp->bridge_id == bridge_id)
+				break;
+			temp = temp->next;
+		}
+		p_bridge = temp;
+		if (p_bridge)
+			PDEBUG(DEBUG_PORT, "Port %d found existing bridge %u.\n", p_serial, p_bridge->bridge_id);
+	}
+
+	/* create bridge */
+	if (!p_bridge) {
+		struct port_bridge **temp = &p_bridge_first;
+
+		p_bridge = (struct port_bridge *) MALLOC(sizeof(struct port_bridge));
+		memuse++;
+		p_bridge->bridge_id = bridge_id;
+		p_bridge->sunrise = this;
+
+		/* attach bridge instance to list */
+		while (*temp)
+			temp = &((*temp)->next);
+		*temp = p_bridge;
+		PDEBUG(DEBUG_PORT, "Port %d creating not existing bridge %u.\n", p_serial, p_bridge->bridge_id);
+	}
+
+	/* already joined */
+	if (p_bridge->sunrise == this || p_bridge->sunset == this)
+		return;
+
+	/* join bridge */
+	if (!p_bridge->sunrise) {
+		p_bridge->sunrise = this;
+		return;
+	}
+	if (!p_bridge->sunset) {
+		p_bridge->sunset = this;
+		return;
+	}
+	
+	PERROR("Bridge ID %u cannot be joined by port %u, because it is already occupied by ports %u and %u.\n", p_bridge->bridge_id, p_serial, p_bridge->sunrise->p_serial, p_bridge->sunset->p_serial);
+	p_bridge = NULL;
+}
+
+/* send data to remote Port */
+int Port::bridge_tx(unsigned char *data, int len)
+{
+	class Port *to_port = NULL;
+
+	/* get remote port from bridge */
+	if (!p_bridge)
+		return -EINVAL;
+	if (p_bridge->sunrise == this)
+		to_port = p_bridge->sunset;
+	if (p_bridge->sunset == this)
+		to_port = p_bridge->sunrise;
+	if (!to_port)
+		return -EINVAL;
+
+//	printf("Traffic: %u -> %u (bridge %u)\n", p_serial, to_port->p_serial, p_bridge->bridge_id);
+	return to_port->bridge_rx(data, len);
+}
+
+/* receive data from remote Port (dummy, needs to be inherited) */
+int Port::bridge_rx(unsigned char *data, int len)
+{
+	return 0; /* datenklo */
 }
 

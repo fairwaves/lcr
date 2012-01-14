@@ -51,14 +51,14 @@ extern int fhuse;
 
 extern FILE *debug_fp;
 
-#define PDEBUG(mask, fmt, arg...) _printdebug(__FUNCTION__, __LINE__, mask, fmt, ## arg)
-#define PERROR(fmt, arg...) _printerror(__FUNCTION__, __LINE__, fmt, ## arg)
-#define PDEBUG_RUNTIME(mask, fmt, arg...) _printdebug(NULL, 0, mask, fmt, ## arg)
-#define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, 0, fmt, ## arg)
-void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...);
-void _printerror(const char *function, int line, const char *fmt, ...);
+#define PDEBUG(mask, fmt, arg...) _printdebug(__FILE__, __FUNCTION__, __LINE__, mask, fmt, ## arg)
+#define PERROR(fmt, arg...) _printerror(__FILE__, __FUNCTION__, __LINE__, fmt, ## arg)
+#define PDEBUG_RUNTIME(mask, fmt, arg...) _printdebug(NULL, NULL, 0, mask, fmt, ## arg)
+#define PERROR_RUNTIME(fmt, arg...) _printerror(NULL, NULL, 0, fmt, ## arg)
+void _printdebug(const char *file, const char *function, int line, unsigned int mask, const char *fmt, ...);
+void _printerror(const char *file, const char *function, int line, const char *fmt, ...);
 #define DEBUG_FUNC
-void debug(const char *function, int line, const char *prefix, char *buffer);
+void debug(const char *file, const char *function, int line, const char *prefix, char *buffer);
 
 #define DEBUG_CONFIG	0x0001
 #define DEBUG_MSG 	0x0002

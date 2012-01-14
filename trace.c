@@ -274,7 +274,7 @@ void _end_trace(const char *__file, int __line)
 		if (string) {
 			/* process debug */
 			if (options.deb)
-				debug(NULL, 0, "TRACE", string);
+				debug(NULL, NULL, 0, "TRACE", string);
 			/* process log */
 			if (options.log[0]) {
 				fp = fopen(options.log, "a");

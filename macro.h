@@ -63,9 +63,9 @@ static inline void sprint(char *dst, unsigned int siz, const char *fmt, ...)
 #define UNPRINT snprintf
 #define VUNPRINT vsnprintf
 
+#define FATAL(fmt, arg...) _fatal(__FILE__, __FUNCTION__, __LINE__, fmt, ##arg)
 /* fatal error with error message and exit */
-#define FATAL(fmt, arg...) fatal(__FUNCTION__, __LINE__, fmt, ##arg)
-static inline void fatal(const char *function, int line, const char *fmt, ...)
+static inline void _fatal(const char *file, const char *function, int line, const char *fmt, ...)
 {
 	va_list args;
 	char buffer[256];
@@ -74,23 +74,23 @@ static inline void fatal(const char *function, int line, const char *fmt, ...)
 	vsnprintf(buffer, sizeof(buffer), fmt, args);
 	va_end(args);
 	buffer[sizeof(buffer)-1] = '\0';
-	fprintf(stderr, "FATAL ERROR in function %s, line %d: %s", function, line, buffer);
+	fprintf(stderr, "FATAL ERROR in function %s/%s, line %d: %s", file, function, line, buffer);
 	fprintf(stderr, "This error is not recoverable, must exit here.\n");
 #ifdef DEBUG_FUNC
-	debug(function, line, "FATAL", buffer);
-	debug(function, line, "FATAL", (char *)"This error is not recoverable, must exit here.\n");
+	debug(file, function, line, "FATAL", buffer);
+	debug(file, function, line, "FATAL", (char *)"This error is not recoverable, must exit here.\n");
 #endif
 	exit(EXIT_FAILURE);
 }
 
 /* memory allocation with setting to zero */
-#define MALLOC(size) _malloc(size, __FUNCTION__, __LINE__)
-static inline void *_malloc(unsigned int size, const char *function, int line)
+#define MALLOC(size) _malloc(size, __FILE__, __FUNCTION__, __LINE__)
+static inline void *_malloc(unsigned int size, const char *file, const char *function, int line)
 {
 	void *addr;
 	addr = malloc(size);
 	if (!addr)
-		fatal(function, line, "No memory for %d bytes.\n", size);
+		_fatal(file, function, line, "No memory for %d bytes.\n", size);
 	memset(addr, 0, size);
 	return addr;
 }

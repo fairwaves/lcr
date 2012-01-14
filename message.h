@@ -122,7 +122,6 @@ enum { /* diversion types */
 enum { /* isdnsignal */
 	mISDNSIGNAL_VOLUME,		/* change volume */
 	mISDNSIGNAL_CONF,		/* joint/split conference */
-	mISDNSIGNAL_JOINDATA,		/* data required by join instance */
 	mISDNSIGNAL_ECHO,		/* enable/disable echoe */
 	mISDNSIGNAL_DELAY,		/* use delay or adaptive jitter */
 };
@@ -277,13 +276,6 @@ struct park_info {
 	int len;
 };
 
-#define ISDN_TRANSMIT 256
-/* DATA */
-struct param_data {
-	unsigned char data[ISDN_TRANSMIT]; /* audio data */
-	int len; /* audio data */
-};
-
 struct param_play {
 	char file[512]; /* file name */
 	int offset; /* offset to start file at (in seconds) */
@@ -304,7 +296,6 @@ struct param_mISDNsignal {
 	int tx_gain;
 	int rx_gain;
 	int conf;
-	int joindata;
 	int tone;
 	int echo;
 	int delay;
@@ -352,7 +343,6 @@ union parameter {
 	int state; /* MESSAGE_TIMEOUT */
 	int knock; /* MESSAGE_KNOCK 0=off !0=on */
 	int audiopath; /* MESSAGE_audiopath see RELATION_CHANNEL_* (join.h) */
-	struct param_data data; /* MESSAGE_DATA */
 	struct param_play play; /* MESSAGE_VBOX_PLAY */
 	int speed; /* MESSAGE_VBOX_PLAY_SPEED */
 	struct param_counter counter; /* MESSAGE_TONE_COUNTER */
@@ -362,6 +352,7 @@ union parameter {
 	struct param_hello hello; /* MESSAGE_HELLO */
 	struct param_bchannel bchannel; /* MESSAGE_BCHANNEL */
 	struct param_newref newref; /* MESSAGE_NEWREF */
+	unsigned int bridge_id; /* MESSAGE_BRIDGE */
 };
 
 enum { /* message flow */
@@ -403,11 +394,9 @@ enum { /* messages between entities */
 	MESSAGE_SUSPEND,	/* suspend port */
 	MESSAGE_RESUME,		/* resume port */
 	MESSAGE_AUDIOPATH,	/* set status of audio path to endpoint (to call, audio is also set) */
-//	MESSAGE_REMOTE_AUDIO,	/* tell remote to set audio status */
 	MESSAGE_PATTERN,	/* pattern information tones available */
 	MESSAGE_NOPATTERN,	/* pattern information tones unavailable */
 	MESSAGE_CRYPT,		/* encryption message */
-	MESSAGE_DATA,		/* audio/hdlc data */
 	MESSAGE_VBOX_PLAY,	/* play recorded file */
 	MESSAGE_VBOX_PLAY_SPEED,/* change speed of file */
 	MESSAGE_VBOX_TONE,	/* set answering VBOX tone */
@@ -416,6 +405,7 @@ enum { /* messages between entities */
 	MESSAGE_BCHANNEL,	/* request/assign/remove bchannel */
 	MESSAGE_HELLO,		/* hello message for remote application */
 	MESSAGE_NEWREF,		/* special message to create and inform ref */
+	MESSAGE_BRIDGE,		/* control port bridge */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -439,11 +429,9 @@ enum { /* messages between entities */
 	"MESSAGE_SUSPEND", \
 	"MESSAGE_RESUME", \
 	"MESSAGE_AUDIOPATH", \
-/*	"MESSAGE_REMOTE_AUDIO",*/ \
 	"MESSAGE_PATTERN", \
 	"MESSAGE_NOPATTERN", \
 	"MESSAGE_CRYPT", \
-	"MESSAGE_DATA", \
 	"MESSAGE_VBOX_PLAY", \
 	"MESSAGE_VBOX_PLAY_SPEED", \
 	"MESSAGE_VBOX_TONE", \
@@ -452,11 +440,13 @@ enum { /* messages between entities */
 	"MESSAGE_BCHANNEL", \
 	"MESSAGE_HELLO", \
 	"MESSAGE_NEWREF", \
+	"MESSAGE_BRIDGE", \
 };
 
 
 struct lcr_msg *message_create(int id_from, int id_to, int flow, int type);
-void message_put(struct lcr_msg *message);
+#define message_put(m) _message_put(m, __FILE__, __LINE__)
+void _message_put(struct lcr_msg *message, const char *file, int line);
 struct lcr_msg *message_forward(int id_from, int id_to, int flow, union parameter *param);
 struct lcr_msg *message_get(void);
 void message_free(struct lcr_msg *message);

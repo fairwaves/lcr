@@ -30,11 +30,11 @@ int fhuse = 0;
 struct isdn_cause isdn_cause[128];
 struct isdn_location isdn_location[16];
 
-void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...)
+void _printdebug(const char *file, const char *function, int line, unsigned int mask, const char *fmt, ...)
 {
 }
 
-void _printerror(const char *function, int line, const char *fmt, ...)
+void _printerror(const char *file, const char *function, int line, const char *fmt, ...)
 {
 	char buffer[4096];
 	va_list args;

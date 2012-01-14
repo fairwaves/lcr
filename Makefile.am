@@ -133,14 +133,13 @@ endif
 
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
-lcr_SOURCES = $(GSM_SOURCE) $(SS5_SOURCE) $(SIP_SOURCE) select.c action.cpp mISDN.cpp \
-	tones.c loop.c remote.cpp action_efi.cpp crypt.cpp mail.c trace.c \
-	action_vbox.cpp  dss1.cpp         main.c           \
-	vbox.cpp alawulaw.c       endpoint.cpp     interface.c     message.c \
-	apppbx.cpp       endpointapp.cpp  join.cpp        options.c       \
-	extension.c      joinpbx.cpp     port.cpp \
-	callerid.c       joinremote.cpp  route.c \
-	cause.c          socket_server.c
+lcr_SOURCES = \
+	main.c select.c trace.c \ options.c \ tones.c \ alawulaw.c \ cause.c \ interface.c \ message.c \ callerid.c \ socket_server.c \
+	port.cpp \ vbox.cpp \ mISDN.cpp \ dss1.cpp \ loop.c remote.cpp \
+	$(GSM_SOURCE) $(SS5_SOURCE) $(SIP_SOURCE) \
+	endpoint.cpp \ endpointapp.cpp \
+	apppbx.cpp \ route.c \ action.cpp action_efi.cpp \ action_vbox.cpp \ extension.c \ crypt.cpp \ mail.c \
+	join.cpp \ joinpbx.cpp \ joinremote.cpp
 
 lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB) $(SIP_LIB)
 

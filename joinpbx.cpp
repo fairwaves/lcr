@@ -367,15 +367,12 @@ void JoinPBX::bridge(void)
 		}
 
 		/*
-		 * request data from endpoint/port if:
-		 * - two relations
-		 * - any without mISDN
-		 * in this case we bridge
+		 * Bridge between port instances if:
+		 * - one or all are not mISDN
 		 */
-		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_mISDNSIGNAL);
-		message->param.mISDNsignal.message = mISDNSIGNAL_JOINDATA;
-		message->param.mISDNsignal.joindata = (relations==2 && !allmISDN);
-		PDEBUG(DEBUG_JOIN, "join%d EP%d set joindata=%d\n", j_serial, relation->epoint_id, message->param.mISDNsignal.joindata);
+		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_BRIDGE);
+		message->param.bridge_id = j_serial;
+		PDEBUG(DEBUG_JOIN, "join%u EP%u requests bridge=%u\n", j_serial, relation->epoint_id, message->param.bridge_id);
 		message_put(message);
 
 		relation = relation->next;
@@ -411,43 +408,6 @@ void JoinPBX::bridge(void)
 			relation = relation->next;
 		}
 	}
-}
-
-/*
- * bridging is only possible with two connected endpoints
- */
-void JoinPBX::bridge_data(unsigned int epoint_from, struct join_relation *relation_from, union parameter *param)
-{
-	struct join_relation *relation_to;
-
-	/* if we are alone */
-	if (!j_relation->next)
-		return;
-
-	/* if we are more than two */
-	if (j_relation->next->next)
-		return;
-
-	/* skip if source endpoint has NOT audio mode CONNECT */
-	if (relation_from->channel_state != 1)
-		return;
-
-	/* get destination relation */
-	relation_to = j_relation;
-	if (relation_to == relation_from) {
-		/* oops, we are the first, so destination is: */
-		relation_to = relation_to->next;
-	}
-
-	/* skip if destination endpoint has NOT audio mode CONNECT */
-	if (relation_to->channel_state != 1)
-		return;
-
-	/* now we may send our data to the endpoint where it
-	 * will be delivered to the port
-	 */
-//printf("from %d, to %d\n", relation_from->epoint_id, relation_to->epoint_id);
-	message_forward(j_serial, relation_to->epoint_id, JOIN_TO_EPOINT, param);
 }
 
 /* release join from endpoint
@@ -651,7 +611,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 //		joinpbx_debug(join,"Join::message_epoint");
 //	}
 	if (options.deb & DEBUG_JOIN) {
-		if (message_type != MESSAGE_DATA) {
+		if (message_type) {
 			cl = join_first;
 			while(cl) {
 				if (cl->j_type == JOIN_TYPE_PBX)
@@ -770,12 +730,6 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 				reltemp = reltemp->next;
 			}
 		}
-		return;
-
-		/* audio data */
-		case MESSAGE_DATA:
-		/* now send audio data to the other endpoint */
-		bridge_data(epoint_id, relation, param);
 		return;
 
 		/* relations sends a connect */

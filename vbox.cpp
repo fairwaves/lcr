@@ -103,7 +103,7 @@ void VBoxPort::send_announcement(void)
 {
 	struct lcr_msg	*message;
 	unsigned int	tosend;
-	unsigned char	buffer[ISDN_TRANSMIT];
+	unsigned char	buffer[PORT_TRANSMIT + PORT_TRANSMIT]; /* use twice of the buffer, so we can send more in case of delayed main loop execution */
 	class Endpoint	*epoint;
 	int		temp;
 	struct timeval current_time;
@@ -118,7 +118,7 @@ void VBoxPort::send_announcement(void)
 
 	/* set time the first time */
 	if (!p_vbox_audio_start)
-		p_vbox_audio_start = now - ISDN_TRANSMIT;
+		p_vbox_audio_start = now - PORT_TRANSMIT;
 	
 	/* calculate the number of bytes */
 	tosend = (unsigned int)(now - p_vbox_audio_start) - p_vbox_audio_transferred;
@@ -126,7 +126,7 @@ void VBoxPort::send_announcement(void)
 		tosend = sizeof(buffer);
 
 	/* schedule next event */
-	temp = ISDN_TRANSMIT + ISDN_TRANSMIT - tosend;
+	temp = PORT_TRANSMIT + PORT_TRANSMIT - tosend;
 	if (temp < 0)
 		temp = 0;
 	schedule_timer(&p_vbox_announce_timer, 0, temp*125);
@@ -184,13 +184,17 @@ void VBoxPort::send_announcement(void)
 	} else {
 		if (p_record)
 			record(buffer, tosend, 0); // from down
-		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-		message->param.data.len = tosend;
-		memcpy(message->param.data.data, buffer, tosend);
-		message_put(message);
+		/* send to remote, if bridged */
+		bridge_tx(buffer, tosend);
 	}
 }
 
+int VBoxPort::bridge_rx(unsigned char *data, int len)
+{
+	if (p_record)
+		record(data, len, 1); // from up
+	return 0;
+}
 
 /*
  * endpoint sends messages to the vbox port
@@ -211,10 +215,6 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 	}
 
 	switch(message_id) {
-		case MESSAGE_DATA:
-		record(param->data.data, param->data.len, 1); // from up
-		return(1);
-
 		case MESSAGE_DISCONNECT: /* call has been disconnected */
 		new_state(PORT_STATE_OUT_DISCONNECT);
 		vbox_trace_header(this, "DISCONNECT to VBox", DIRECTION_OUT);

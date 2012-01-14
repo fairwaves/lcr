@@ -214,6 +214,7 @@ class EndpointAppPBX : public EndpointApp
 	void ea_message_join(unsigned int join_id, int message, union parameter *param);
 	void join_crypt(struct port_list *portlist, int message_type, union parameter *param);
 	void join_mISDNsignal(struct port_list *portlist, int message_type, union parameter *param);
+	void join_bridge(struct port_list *portlist, int message_type, union parameter *param);
 	void join_setup(struct port_list *portlist, int message_type, union parameter *param);
 	void join_information(struct port_list *portlist, int message_type, union parameter *param);
 	void join_overlap(struct port_list *portlist, int message_type, union parameter *param);

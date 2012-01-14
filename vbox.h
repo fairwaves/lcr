@@ -18,6 +18,8 @@ class VBoxPort : public Port
 	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	void send_announcement(void);
 
+	int bridge_rx(unsigned char *data, int len);
+
 	private:
 	struct EndpointAppPBX *p_vbox_apppbx;		/* pbx application */
 	unsigned int p_vbox_timeout;			/* timeout for recording */

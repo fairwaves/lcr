@@ -132,10 +132,10 @@ class PmISDN : public Port
 	int p_m_mute;				/* if set, conf is disconnected */
 	int p_m_tone;				/* current kernel space tone */
 	int p_m_rxoff;				/* rx from driver is disabled */
-//	int p_m_nodata;				/* all parties within a conf are isdn ports, so pure bridging is possible */
 	int p_m_txdata;				/* get what we transmit */
 	int p_m_dtmf;				/* dtmf decoding is enabled */
-	int p_m_joindata;			/* the call requires data due to no briging capability */
+
+	int bridge_rx(unsigned char *data, int len);
 
 	struct lcr_timer p_m_loadtimer;		/* timer for audio transmission */
 	virtual void update_load(void);
@@ -143,10 +143,6 @@ class PmISDN : public Port
 	int p_m_load;				/* current data in dsp tx buffer */
 	unsigned int p_m_last_tv_sec;		/* time stamp of last tx_load call, (to sync audio data */
 	unsigned int p_m_last_tv_msec;
-//	int p_m_fromup_buffer_readp;		/* buffer for audio from remote endpoint */
-//	int p_m_fromup_buffer_writep;
-//	unsigned char p_m_fromup_buffer[FROMUP_BUFFER_SIZE];
-	void txfromup(unsigned char *data, int length);
 
 	int p_m_crypt;				/* encryption is enabled */
 	int p_m_crypt_msg_loops;		/* sending a message */
@@ -171,8 +167,6 @@ class PmISDN : public Port
 	int p_m_b_channel;			/* number 1,2 1..15,17... */
 	int p_m_b_exclusive;			/* if bchannel is exclusive */
 	int p_m_b_reserve;			/* set if channel is reserved */
-//	long long p_m_jittercheck;		/* time of audio data */
-//	long long p_m_jitterdropped;		/* number of bytes dropped */
 	int p_m_b_mode;				/* bchannel mode */
 	int p_m_hold;				/* if port is on hold */
 	struct lcr_timer p_m_timeout;		/* timeout of timers */

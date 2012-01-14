@@ -49,7 +49,7 @@ struct lcr_msg *message_create(int id_from, int id_to, int flow, int type)
 }
 
 /* attaches a message to the end of the message chain */
-void message_put(struct lcr_msg *message)
+void _message_put(struct lcr_msg *message, const char *file, int line)
 {
 	if (message->id_to == 0) {
 		PDEBUG(DEBUG_MSG, "message %s not written, because destination is 0.\n", messages_txt[message->type]);
@@ -57,8 +57,8 @@ void message_put(struct lcr_msg *message)
 		return;
 	}
 	
-	if ((options.deb&DEBUG_MSG) && message->type != MESSAGE_DATA)
-		PDEBUG(DEBUG_MSG, "message %s written from %ld to %ld (memory %x)\n", messages_txt[message->type], message->id_from, message->id_to, message);
+	if ((options.deb & DEBUG_MSG))
+		PDEBUG(DEBUG_MSG, "message %s written from %ld to %ld (memory %x at file %s, line %d)\n", messages_txt[message->type], message->id_from, message->id_to, message, file, line);
 
 	*messagepointer_end = message;
 	messagepointer_end = &(message->next);
@@ -102,8 +102,7 @@ struct lcr_msg *message_get(void)
 
 	message->keep = 0;
 
-	if ((options.deb&DEBUG_MSG) && message->type != MESSAGE_DATA)
-
+	if ((options.deb & DEBUG_MSG))
 		PDEBUG(DEBUG_MSG, "message %s reading from %ld to %ld (memory %x)\n", messages_txt[message->type], message->id_from, message->id_to, message);
 
 	return(message);

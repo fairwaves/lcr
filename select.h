@@ -57,6 +57,7 @@ struct lcr_work {
 int _add_work(struct lcr_work *work, int (*cb)(struct lcr_work *work, void *instance, int index), void *instance, int index, const char *func);
 #define del_work(a) _del_work(a, __func__);
 void _del_work(struct lcr_work *work, const char *func);
-void trigger_work(struct lcr_work *work);
+#define trigger_work(a) _trigger_work(a, __func__);
+void _trigger_work(struct lcr_work *work, const char *func);
 
 

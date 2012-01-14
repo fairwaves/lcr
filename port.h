@@ -111,6 +111,8 @@ enum { /* event list from listening to tty */
 #define RECORD_BUFFER_LENGTH	1024 // must be a binary border & must be greater 256, because 256 will be written if buffer overflows
 #define RECORD_BUFFER_MASK	1023
 
+#define PORT_TRANSMIT		256 // how much to transmit via bridge, if it is not defined by received data length
+
 /* structure of epoint_list */
 struct epoint_list {
 	struct epoint_list	*next;
@@ -146,6 +148,16 @@ struct port_settings {
 	char tones_dir[256];			/* directory of current tone */
 	int no_seconds;
 };
+
+/* port bridge instance */
+struct port_bridge {
+	struct port_bridge *next;		/* next bridge node */
+	unsigned int bridge_id;			/* unique ID to identify bridge */
+	class Port *sunrise;			/* one side of the bridge */
+	class Port *sunset;			/* other side of the bridge */
+};
+
+extern struct port_bridge *p_bridge_first;
 
 /* generic port class */
 class Port
@@ -188,6 +200,12 @@ class Port
 
 	/* endpoint relation */
 	struct epoint_list *p_epointlist;	/* endpoint relation */
+
+	/* audio bridging */
+	struct port_bridge *p_bridge;		/* linked to a port bridge or NULL */
+	void bridge(unsigned int bridge_id);	/* join a bridge */
+	int bridge_tx(unsigned char *data, int len); /* used to transmit data to remote port */
+	virtual int bridge_rx(unsigned char *data, int len); /* function to be inherited, so data is received */
 
 	/* state */
 	int p_state;				/* state of port */

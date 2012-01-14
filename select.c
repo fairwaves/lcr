@@ -371,10 +371,10 @@ void _del_work(struct lcr_work *work, const char *func)
 #endif
 }
 
-void trigger_work(struct lcr_work *work)
+void _trigger_work(struct lcr_work *work, const char *func)
 {
 	if (!work->inuse) {
-		FATAL("Work not added\n");
+		FATAL("Work not added, (called from func %s)\n", func);
 	}
 
 	/* event already triggered */

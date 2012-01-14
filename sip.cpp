@@ -1078,18 +1078,15 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 	class Endpoint *epoint;
 
 	if (PmISDN::message_epoint(epoint_id, message_id, param))
-		return(1);
+		return 1;
 
 	epoint = find_epoint_id(epoint_id);
 	if (!epoint) {
 		PDEBUG(DEBUG_SIP, "PORT(%s) no endpoint object found where the message is from.\n", p_name);
-		return(0);
+		return 0;
 	}
 
 	switch(message_id) {
-		case MESSAGE_DATA:
-		return(1);
-
 		case MESSAGE_ALERTING: /* call is ringing on LCR side */
 		if (p_state != PORT_STATE_IN_SETUP
 		 && p_state != PORT_STATE_IN_PROCEEDING)
@@ -1099,7 +1096,7 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 		add_trace("respond", "value", "180 Ringing");
 		end_trace();
 		new_state(PORT_STATE_IN_ALERTING);
-		return(1);
+		return 1;
 
 		case MESSAGE_CONNECT: /* call is connected on LCR side */
 		if (p_state != PORT_STATE_IN_SETUP
@@ -1107,22 +1104,22 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 		 && p_state != PORT_STATE_IN_ALERTING)
 			return 0;
 		message_connect(epoint_id, message_id, param);
-		return(1);
+		return 1;
 
 		case MESSAGE_DISCONNECT: /* call has been disconnected */
 		case MESSAGE_RELEASE: /* call has been released */
 		message_release(epoint_id, message_id, param);
-		return(1);
+		return 1;
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint */
 		message_setup(epoint_id, message_id, param);
-		return(1);
+		return 1;
 
 		default:
 		PDEBUG(DEBUG_SIP, "PORT(%s) SP port with (caller id %s) received an unsupported message: %d\n", p_name, p_callerinfo.id, message_id);
 	}
 
-	return(0);
+	return 0;
 }
 
 int Psip::parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port)

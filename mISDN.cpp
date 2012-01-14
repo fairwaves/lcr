@@ -141,7 +141,6 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
-	p_m_joindata = 0;
 	p_m_inband_send_on = 0;
 	p_m_inband_receive_on = 0;
 	p_m_dtmf = !mISDNport->ifport->nodtmf;
@@ -1338,7 +1337,7 @@ void PmISDN::load_tx(void)
 	}
 
 	if (p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on || p_m_load) {
-		schedule_timer(&p_m_loadtimer, 0, ISDN_TRANSMIT*125);
+		schedule_timer(&p_m_loadtimer, 0, PORT_TRANSMIT * 125);
 	}
 }
 
@@ -1364,8 +1363,6 @@ static int mISDN_timeout(struct lcr_timer *timer, void *instance, int i)
 void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len)
 {
 	unsigned int cont = *((unsigned int *)data);
-	unsigned char *data_temp;
-	unsigned int length_temp;
 	struct lcr_msg *message;
 	unsigned char *p;
 	int l;
@@ -1488,23 +1485,8 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 		cryptman_listen_bch(data, len);
 	}
 
-	p = data;
-
-	/* send data to epoint */
-	if (p_m_joindata && ACTIVE_EPOINT(p_epointlist)) { /* only if we have an epoint object */
-		length_temp = len;
-		data_temp = p;
-		while(length_temp) {
-			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DATA);
-			message->param.data.len = (length_temp>sizeof(message->param.data.data))?sizeof(message->param.data.data):length_temp;
-			memcpy(message->param.data.data, data_temp, message->param.data.len);
-			message_put(message);
-			if (length_temp <= sizeof(message->param.data.data))
-				break;
-			data_temp += sizeof(message->param.data.data);
-			length_temp -= sizeof(message->param.data.data);
-		}
-	}
+	/* send to remote, if bridged */
+	bridge_tx(data, len);
 }
 
 
@@ -1672,15 +1654,6 @@ void PmISDN::message_mISDNsignal(unsigned int epoint_id, int message_id, union p
 		set_conf(oldconf, newconf);
 		break;
 
-		case mISDNSIGNAL_JOINDATA:
-		if (p_m_joindata != param->mISDNsignal.joindata) {
-			p_m_joindata = param->mISDNsignal.joindata;
-			PDEBUG(DEBUG_BCHANNEL, "we change to joindata=%d.\n", p_m_joindata);
-			update_rxoff();
-		} else
-			PDEBUG(DEBUG_BCHANNEL, "we already have joindata=%d.\n", p_m_joindata);
-		break;
-		
 		case mISDNSIGNAL_DELAY:
 		if (p_m_delay != param->mISDNsignal.delay) {
 			p_m_delay = param->mISDNsignal.delay;
@@ -1767,32 +1740,31 @@ void PmISDN::message_crypt(unsigned int epoint_id, int message_id, union paramet
  */
 int PmISDN::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
-	if (Port::message_epoint(epoint_id, message_id, param))
-		return(1);
+	if (Port::message_epoint(epoint_id, message_id, param)) {
+		if (message_id == MESSAGE_BRIDGE)
+			update_rxoff();
+		return 1;
+	}
 
 	switch(message_id) {
-		case MESSAGE_DATA: /* tx-data from upper layer */
-		txfromup(param->data.data, param->data.len);
-		return(1);
-
 		case MESSAGE_mISDNSIGNAL: /* user command */
 		PDEBUG(DEBUG_ISDN, "PmISDN(%s) received special ISDN SIGNAL %d.\n", p_name, param->mISDNsignal.message);
 		message_mISDNsignal(epoint_id, message_id, param);
-		return(1);
+		return 1;
 
 		case MESSAGE_CRYPT: /* crypt control command */
 		PDEBUG(DEBUG_ISDN, "PmISDN(%s) received encryption command '%d'.\n", p_name, param->crypt.type);
 		message_crypt(epoint_id, message_id, param);
-		return(1);
+		return 1;
 	}
 
-	return(0);
+	return 0;
 }
 
 void PmISDN::update_rxoff(void)
 {
 	/* call bridges in user space OR crypto OR recording */
-	if (p_m_joindata || p_m_crypt_msg_loops || p_m_crypt_listen || p_record || p_m_inband_receive_on) {
+	if (p_bridge || p_m_crypt_msg_loops || p_m_crypt_listen || p_record || p_m_inband_receive_on) {
 		/* rx IS required */
 		if (p_m_rxoff) {
 			/* turn on RX */
@@ -2556,22 +2528,22 @@ void mISDNport_close(struct mISDNport *mISDNport)
 /*
  * enque data from upper buffer
  */
-void PmISDN::txfromup(unsigned char *data, int length)
+int PmISDN::bridge_rx(unsigned char *data, int length)
 {
 	unsigned char buf[MISDN_HEADER_LEN+((length>ISDN_LOAD)?length:ISDN_LOAD)];
 	struct mISDNhead *hh = (struct mISDNhead *)buf;
 	int ret;
 
 	if (p_m_b_index < 0)
-		return;
+		return -EIO;
 	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_ACTIVE)
-		return;
+		return -EINVAL;
 
 	/* check if high priority tones exist
 	 * ignore data in this case
 	 */
 	if (p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on)
-		return;
+		return -EBUSY;
 
 	/* preload procedure
 	 * if transmit buffer in DSP module is empty,
@@ -2585,14 +2557,14 @@ void PmISDN::txfromup(unsigned char *data, int length)
 		if (ret <= 0)
 			PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_sock[p_m_b_index].fd);
 		p_m_load += ISDN_LOAD;
-		schedule_timer(&p_m_loadtimer, 0, ISDN_TRANSMIT*125);
+		schedule_timer(&p_m_loadtimer, 0, PORT_TRANSMIT * 125);
 	}
 
 	/* drop if load would exceed ISDN_MAXLOAD
 	 * this keeps the delay not too high
 	 */
 	if (p_m_load+length > ISDN_MAXLOAD)
-		return;
+		return -EINVAL;
 
 	/* make and send frame */
 	hh->prim = PH_DATA_REQ;
@@ -2602,6 +2574,8 @@ void PmISDN::txfromup(unsigned char *data, int length)
 	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_sock[p_m_b_index].fd);
 	p_m_load += length;
+
+	return 0;
 }
 
 int PmISDN::inband_send(unsigned char *buffer, int len)

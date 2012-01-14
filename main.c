@@ -53,7 +53,7 @@ int last_debug = 0;
 int debug_newline = 1;
 int nooutput = 0;
 
-void debug(const char *function, int line, const char *prefix, char *buffer)
+void debug(const char *file, const char *function, int line, const char *prefix, char *buffer)
 {
 	time_t now;
 	struct tm *now_tm;
@@ -73,7 +73,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer)
 		if (debug_newline)
 			printf("\033[32m%06d %s\033[37m%s", debug_count%1000000, prefix?prefix:"", prefix?" ":"");
 		if (function)
-			printf("(in %s() line %d): %s", function, line, buffer);
+			printf("(in %s/%s() line %d): %s", file, function, line, buffer);
 		else
 			printf("%s", buffer);
 	}
@@ -95,7 +95,7 @@ void debug(const char *function, int line, const char *prefix, char *buffer)
 }
 
 
-void _printdebug(const char *function, int line, unsigned int mask, const char *fmt, ...)
+void _printdebug(const char *file, const char *function, int line, unsigned int mask, const char *fmt, ...)
 {
 	char buffer[4096];
 	va_list args;
@@ -109,12 +109,12 @@ void _printdebug(const char *function, int line, unsigned int mask, const char *
 	buffer[sizeof(buffer)-1]=0;
 	va_end(args);
 
-	debug(function, line, "DEBUG", buffer);
+	debug(file, function, line, "DEBUG", buffer);
 
 	pthread_mutex_unlock(&mutexd);
 }
 
-void _printerror(const char *function, int line, const char *fmt, ...)
+void _printerror(const char *file, const char *function, int line, const char *fmt, ...)
 {
 	char buffer[4096];
 	va_list args;
@@ -127,7 +127,7 @@ void _printerror(const char *function, int line, const char *fmt, ...)
 	va_end(args);
 
 	if (options.deb)
-		debug(function, line, "ERROR", buffer);
+		debug(file, function, line, "ERROR", buffer);
 	else { /* only if we do not debug */
 		if (function)
 			fprintf(stderr, "ERROR (in %s() line %d) %s", function, line, buffer);
@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 	struct sched_param	schedp;
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
         			created_lock = 0, created_signal = 0, created_debug = 0,
-				created_misdn = 0;
+				created_misdn = 0, created_message = 0;
 	char			tracetext[256], lock[128];
 	char			options_error[256];
 	int			polling = 0;
@@ -457,6 +457,7 @@ init is done when interface is up
 
 	/* init message */
 	init_message();
+	created_message = 1;
 
 	/*** main loop ***/
 	SPRINT(tracetext, "%s %s started, waiting for calls...", NAME, VERSION_STRING);
@@ -506,9 +507,6 @@ init is done when interface is up
 	end_trace();
 	ret=0;
 
-	/* clean messacleane */
-	cleanup_message();
-
 	/* free all */
 free:
 
@@ -528,7 +526,6 @@ free:
 	}
 
 	/* destroy objects */
-
 	while(port_first) {
 		debug_count++;
 		delete port_first;
@@ -559,6 +556,10 @@ free:
 	if (i) {
 		PDEBUG(DEBUG_MSG, "freed %d pending messages\n", i);
 	}
+
+	/* clean messages */
+	if (created_message)
+		cleanup_message();
 
 	/* free tones */
 	if (toneset_first)

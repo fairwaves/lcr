@@ -2621,17 +2621,6 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 
 //	PDEBUG(DEBUG_EPOINT, "received message %d (terminal %s, caller id %s)\n", message, e_ext.number, e_callerinfo.id);
 	switch(message_type) {
-		case MESSAGE_DATA: /* data from port */
-		/* check if there is a call */
-		if (!ea_endpoint->ep_join_id)
-			break;
-		/* continue if only one portlist */
-		if (ea_endpoint->ep_portlist->next != NULL)
-			break;
-		/* forward message */
-		message_forward(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, param);  
-		break;
-
 		case MESSAGE_TONE_EOF: /* tone is end of file */
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) current tone is now end of file.\n", ea_endpoint->ep_serial);
 		if (e_action) {
@@ -3235,6 +3224,19 @@ void EndpointAppPBX::join_mISDNsignal(struct port_list *portlist, int message_ty
 	}
 }
 
+/* join MESSAGE_BRIDE */
+void EndpointAppPBX::join_bridge(struct port_list *portlist, int message_type, union parameter *param)
+{
+	struct lcr_msg *message;
+
+	while(portlist) {
+		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_BRIDGE);
+		memcpy(&message->param, param, sizeof(union parameter));
+		message_put(message);
+		portlist = portlist->next;
+	}
+}
+
 /* join MESSAGE_NOTIFY */
 void EndpointAppPBX::join_notify(struct port_list *portlist, int message_type, union parameter *param)
 {
@@ -3315,21 +3317,6 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 	}
 
 	portlist = ea_endpoint->ep_portlist;
-
-	/* send MESSAGE_DATA to port */
-	if (message_type == MESSAGE_DATA) {
-		if (join_id == ea_endpoint->ep_join_id) { // still linked with JOIN
-			/* skip if no port relation */
-			if (!portlist)
-				return;
-			/* skip if more than one port relation */
-			if (portlist->next)
-				return;
-			/* forward audio data to port */
-			message_forward(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, param);
-			return;
-		}
-	}
 
 //	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) received message %d for active JOIN (terminal %s, caller id %s state=%d)\n", ea_endpoint->ep_serial, message, e_ext.number, e_callerinfo.id, e_state);
 	switch(message_type) {
@@ -3420,23 +3407,11 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 		join_mISDNsignal(portlist, message_type, param);
 		break;
 
-#if 0
-		kann nach dem test gelöscht werden, da eine direkte funktion im join und im mISDN zum austausch der message existiert
-		/* JOIN requests bchannel */
-		case MESSAGE_BCHANNEL: /* indicates the need of own bchannel access */
-		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bchannel assignment %d from join.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->bchannel.type);
-		/* only one port is expected to be connected to bchannel */
-		if (!portlist)
-			break;
-		if (portlist->next)
-			break;
-		e_join_pattern = 1;
-		SCPY(e_tone, "");
-		set_tone(portlist, NULL);
-		message = message_forward(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, param);
-		logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
+		/* JOIN sends bridge message */
+		case MESSAGE_BRIDGE: /* bride message to port */
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received bridge message.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		join_bridge(portlist, message_type, param);
 		break;
-#endif
 
 		/* JOIN has pattern available */
 		case MESSAGE_PATTERN: /* indicating pattern available */
