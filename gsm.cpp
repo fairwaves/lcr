@@ -1351,6 +1351,34 @@ static int mncc_fd_read(struct lcr_fd *lfd, void *inst, int idx)
 			mncc_fd_close(lcr_gsm, lfd);
 			return 0;
 		}
+		if (hello->mncc_size != sizeof(struct gsm_mncc)) {
+			PERROR("MNCC gsm_mncc size differs: %u %u\n",
+				hello->mncc_size, sizeof(struct gsm_mncc));
+			mncc_fd_close(lcr_gsm, lfd);
+			return 0;
+		}
+		if (hello->data_frame_size != sizeof(struct gsm_data_frame)) {
+			PERROR("MNCC gsm_mncc size differs: %u %u\n",
+				hello->data_frame_size, sizeof(struct gsm_data_frame));
+			mncc_fd_close(lcr_gsm, lfd);
+			return 0;
+		}
+
+#define CHECK_OFFSET(hello, field, lcr_gsm, lfd)	\
+		if (hello->field ##_offset != __builtin_offsetof(struct gsm_mncc, field)) {	\
+			PERROR("MNCC gsm_mncc offset of %s is %u %u\n",				\
+				#field, hello->field ##_offset,					\
+				__builtin_offsetof(struct gsm_mncc, field));			\
+			mncc_fd_close(lcr_gsm, lfd);						\
+			return 0;								\
+		}
+
+		CHECK_OFFSET(hello, called, lcr_gsm, lfd);
+		CHECK_OFFSET(hello, signal, lcr_gsm, lfd);
+		CHECK_OFFSET(hello, emergency, lcr_gsm, lfd);
+		CHECK_OFFSET(hello, lchan_type, lcr_gsm, lfd);
+#undef CHECK_OFFSET
+
 		break;
 	}
 
