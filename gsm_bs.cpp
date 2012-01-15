@@ -45,11 +45,11 @@ void generate_dtmf(void)
 /*
  * constructor
  */
-Pgsm_bs::Pgsm_bs(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Pgsm(type, mISDNport, portname, settings, channel, exclusive, mode)
+Pgsm_bs::Pgsm_bs(int type, char *portname, struct port_settings *settings, struct interface *interface) : Pgsm(type, portname, settings, interface)
 {
-	p_m_g_lcr_gsm = gsm_bs;
-	p_m_g_dtmf = NULL;
-	p_m_g_dtmf_index = 0;
+	p_g_lcr_gsm = gsm_bs;
+	p_g_dtmf = NULL;
+	p_g_dtmf_index = 0;
 
 	PDEBUG(DEBUG_GSM, "Created new GSMBSPort(%s).\n", portname);
 }
@@ -65,74 +65,74 @@ Pgsm_bs::~Pgsm_bs()
 /* DTMF INDICATION */
 void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
-//	struct lcr_msg *message;
+	struct lcr_msg *message;
 	struct gsm_mncc *resp;
 
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	SPRINT(p_dialinginfo.id, "%c", mncc->keypad);
 	p_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 
 	/* send resp */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_START_DTMF_RSP, DIRECTION_OUT);
+	gsm_trace_header(p_g_interface_name, this, MNCC_START_DTMF_RSP, DIRECTION_OUT);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
-	resp = create_mncc(MNCC_START_DTMF_RSP, p_m_g_callref);
+	resp = create_mncc(MNCC_START_DTMF_RSP, p_g_callref);
 	resp->fields |= MNCC_F_KEYPAD;
 	resp->keypad = mncc->keypad;
-	send_and_free_mncc(p_m_g_lcr_gsm, resp->msg_type, resp);
+	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
-#if 0
-	/* send dialing information */
-	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
-	memcpy(&message->param.information, &p_dialinginfo, sizeof(struct dialing_info));
-	message_put(message);
-#endif
-
-	/* generate DTMF tones */
-	switch (mncc->keypad) {
-		case '1': p_m_g_dtmf = dtmf_samples[0]; break;
-		case '2': p_m_g_dtmf = dtmf_samples[1]; break;
-		case '3': p_m_g_dtmf = dtmf_samples[2]; break;
-		case 'a':
-		case 'A': p_m_g_dtmf = dtmf_samples[3]; break;
-		case '4': p_m_g_dtmf = dtmf_samples[4]; break;
-		case '5': p_m_g_dtmf = dtmf_samples[5]; break;
-		case '6': p_m_g_dtmf = dtmf_samples[6]; break;
-		case 'b':
-		case 'B': p_m_g_dtmf = dtmf_samples[7]; break;
-		case '7': p_m_g_dtmf = dtmf_samples[8]; break;
-		case '8': p_m_g_dtmf = dtmf_samples[9]; break;
-		case '9': p_m_g_dtmf = dtmf_samples[10]; break;
-		case 'c':
-		case 'C': p_m_g_dtmf = dtmf_samples[11]; break;
-		case '*': p_m_g_dtmf = dtmf_samples[12]; break;
-		case '0': p_m_g_dtmf = dtmf_samples[13]; break;
-		case '#': p_m_g_dtmf = dtmf_samples[14]; break;
-		case 'd':
-		case 'D': p_m_g_dtmf = dtmf_samples[15]; break;
+	if (p_g_rtp_bridge) {
+		/* send dtmf information, because we bridge RTP directly */
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
+		message->param.dtmf = mncc->keypad;
+		message_put(message);
+	} else {
+		/* generate DTMF tones, since we do audio forwarding inside LCR */
+		switch (mncc->keypad) {
+			case '1': p_g_dtmf = dtmf_samples[0]; break;
+			case '2': p_g_dtmf = dtmf_samples[1]; break;
+			case '3': p_g_dtmf = dtmf_samples[2]; break;
+			case 'a':
+			case 'A': p_g_dtmf = dtmf_samples[3]; break;
+			case '4': p_g_dtmf = dtmf_samples[4]; break;
+			case '5': p_g_dtmf = dtmf_samples[5]; break;
+			case '6': p_g_dtmf = dtmf_samples[6]; break;
+			case 'b':
+			case 'B': p_g_dtmf = dtmf_samples[7]; break;
+			case '7': p_g_dtmf = dtmf_samples[8]; break;
+			case '8': p_g_dtmf = dtmf_samples[9]; break;
+			case '9': p_g_dtmf = dtmf_samples[10]; break;
+			case 'c':
+			case 'C': p_g_dtmf = dtmf_samples[11]; break;
+			case '*': p_g_dtmf = dtmf_samples[12]; break;
+			case '0': p_g_dtmf = dtmf_samples[13]; break;
+			case '#': p_g_dtmf = dtmf_samples[14]; break;
+			case 'd':
+			case 'D': p_g_dtmf = dtmf_samples[15]; break;
+		}
+		p_g_dtmf_index = 0;
 	}
-	p_m_g_dtmf_index = 0;
 }
 void Pgsm_bs::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
 	struct gsm_mncc *resp;
 
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 
 	/* send resp */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_STOP_DTMF_RSP, DIRECTION_OUT);
+	gsm_trace_header(p_g_interface_name, this, MNCC_STOP_DTMF_RSP, DIRECTION_OUT);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
-	resp = create_mncc(MNCC_STOP_DTMF_RSP, p_m_g_callref);
+	resp = create_mncc(MNCC_STOP_DTMF_RSP, p_g_callref);
 	resp->keypad = mncc->keypad;
-	send_and_free_mncc(p_m_g_lcr_gsm, resp->msg_type, resp);
+	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 	
 	/* stop DTMF */
-	p_m_g_dtmf = NULL;
+	p_g_dtmf = NULL;
 }
 
 /* HOLD INDICATION */
@@ -141,7 +141,7 @@ void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	struct lcr_msg *message;
 	struct gsm_mncc *resp, *frame;
 
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	/* notify the hold of call */
@@ -151,18 +151,18 @@ void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message_put(message);
 
 	/* acknowledge hold */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_HOLD_CNF, DIRECTION_OUT);
+	gsm_trace_header(p_g_interface_name, this, MNCC_HOLD_CNF, DIRECTION_OUT);
 	end_trace();
-	resp = create_mncc(MNCC_HOLD_CNF, p_m_g_callref);
-	send_and_free_mncc(p_m_g_lcr_gsm, resp->msg_type, resp);
+	resp = create_mncc(MNCC_HOLD_CNF, p_g_callref);
+	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
 	/* disable audio */
-	if (p_m_g_tch_connected) { /* it should be true */
-		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_DROP, DIRECTION_OUT);
+	if (p_g_tch_connected) { /* it should be true */
+		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_DROP, DIRECTION_OUT);
 		end_trace();
-		frame = create_mncc(MNCC_FRAME_DROP, p_m_g_callref);
-		send_and_free_mncc(p_m_g_lcr_gsm, frame->msg_type, frame);
-		p_m_g_tch_connected = 0;
+		frame = create_mncc(MNCC_FRAME_DROP, p_g_callref);
+		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
+		p_g_tch_connected = 0;
 	}
 }
 
@@ -173,7 +173,7 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	struct lcr_msg *message;
 	struct gsm_mncc *resp, *frame;
 
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	/* notify the retrieve of call */
@@ -183,18 +183,18 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message_put(message);
 
 	/* acknowledge retr */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_RETRIEVE_CNF, DIRECTION_OUT);
+	gsm_trace_header(p_g_interface_name, this, MNCC_RETRIEVE_CNF, DIRECTION_OUT);
 	end_trace();
-	resp = create_mncc(MNCC_RETRIEVE_CNF, p_m_g_callref);
-	send_and_free_mncc(p_m_g_lcr_gsm, resp->msg_type, resp);
+	resp = create_mncc(MNCC_RETRIEVE_CNF, p_g_callref);
+	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
 	/* enable audio */
-	if (!p_m_g_tch_connected) { /* it should be true */
-		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+	if (!p_g_tch_connected) { /* it should be true */
+		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
-		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(p_m_g_lcr_gsm, frame->msg_type, frame);
-		p_m_g_tch_connected = 1;
+		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
+		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
+		p_g_tch_connected = 1;
 	}
 }
 
@@ -204,21 +204,19 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 /* SETUP INDICATION */
 void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
-	int ret;
 	class Endpoint *epoint;
 	struct lcr_msg *message;
-	int channel;
 	struct gsm_mncc *mode, *proceeding, *frame;
 
 	/* process given callref */
-	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_IND, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", callref);
-	if (p_m_g_callref) {
+	if (p_g_callref) {
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, callref);
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_g_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->fields |= MNCC_F_CAUSE;
 		mncc->cause.coding = 3;
 		mncc->cause.location = 1;
@@ -228,32 +226,13 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("cause", "value", "%d", mncc->cause.value);
 		add_trace("reason", NULL, "callref already in use");
 		end_trace();
-		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
+		send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
 		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
+		trigger_work(&p_g_delete);
 		return;
 	}
-	p_m_g_callref = callref;
+	p_g_callref = callref;
 	end_trace();
-
-	/* if blocked, release call with MT_RELEASE_COMPLETE */
-	if (p_m_mISDNport->ifport->block) {
-		mncc = create_mncc(MNCC_REJ_REQ, p_m_g_callref);
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
-		mncc->fields |= MNCC_F_CAUSE;
-		mncc->cause.coding = 3;
-		mncc->cause.location = 1;
-		mncc->cause.value = 27;
-		add_trace("cause", "coding", "%d", mncc->cause.coding);
-		add_trace("cause", "location", "%d", mncc->cause.location);
-		add_trace("cause", "value", "%d", mncc->cause.value);
-		add_trace("reason", NULL, "port is blocked");
-		end_trace();
-		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
-		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
-		return;
-	}
 
 	/* caller info */
 	if (mncc->clir.inv)
@@ -267,8 +246,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	SCPY(p_callerinfo.imsi, mncc->imsi);
 	p_callerinfo.screen = INFO_SCREEN_NETWORK;
 	p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
-	p_callerinfo.isdn_port = p_m_portnum;
-	SCPY(p_callerinfo.interface, p_m_mISDNport->ifport->interface->name);
+	SCPY(p_callerinfo.interface, p_g_interface_name);
 
 	/* dialing information */
 	SCAT(p_dialinginfo.id, mncc->called.number);
@@ -297,41 +275,12 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	p_capainfo.bearer_info1 = (options.law=='a')?3:2;
 	p_capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	p_capainfo.source_mode = B_MODE_TRANSPARENT;
-	p_m_g_mode = p_capainfo.source_mode;
+	p_g_mode = p_capainfo.source_mode;
 
 	/* useruser */
 
-	/* hunt channel */
-	ret = channel = hunt_bchannel();
-	if (ret < 0)
-		goto no_channel;
-
-	/* open channel */
-	ret = seize_bchannel(channel, 1);
-	if (ret < 0) {
-		no_channel:
-		mncc = create_mncc(MNCC_REJ_REQ, p_m_g_callref);
-		gsm_trace_header(p_m_mISDNport, this, MNCC_REJ_REQ, DIRECTION_OUT);
-		mncc->fields |= MNCC_F_CAUSE;
-		mncc->cause.coding = 3;
-		mncc->cause.location = 1;
-		mncc->cause.value = 34;
-		add_trace("cause", "coding", "%d", mncc->cause.coding);
-		add_trace("cause", "location", "%d", mncc->cause.location);
-		add_trace("cause", "value", "%d", mncc->cause.value);
-		add_trace("reason", NULL, "no channel");
-		end_trace();
-		send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
-		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
-		return;
-	}
-	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
-	if (bchannel_open(p_m_b_index))
-		goto no_channel;
-
 	/* what infos did we got ... */
-	gsm_trace_header(p_m_mISDNport, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
 	if (p_callerinfo.id[0])
 		add_trace("calling", "number", "%s", p_callerinfo.id);
 	else
@@ -350,18 +299,18 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	epointlist_new(epoint->ep_serial);
 
 	/* modify lchan to GSM codec V1 */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
-	mode = create_mncc(MNCC_LCHAN_MODIFY, p_m_g_callref);
+	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
+	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
 	mode->lchan_mode = 0x01; /* GSM V1 */
 	mode->lchan_type = 0x02;
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
-	send_and_free_mncc(p_m_g_lcr_gsm, mode->msg_type, mode);
+	send_and_free_mncc(p_g_lcr_gsm, mode->msg_type, mode);
 
 	/* send call proceeding */
-	gsm_trace_header(p_m_mISDNport, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
-	proceeding = create_mncc(MNCC_CALL_PROC_REQ, p_m_g_callref);
-	if (p_m_mISDNport->tones) {
+	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
+	proceeding = create_mncc(MNCC_CALL_PROC_REQ, p_g_callref);
+	if (p_g_tones) {
 		proceeding->fields |= MNCC_F_PROGRESS;
 		proceeding->progress.coding = 3; /* GSM */
 		proceeding->progress.location = 1;
@@ -371,21 +320,20 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("progress", "descr", "%d", proceeding->progress.descr);
 	}
 	end_trace();
-	send_and_free_mncc(p_m_g_lcr_gsm, proceeding->msg_type, proceeding);
+	send_and_free_mncc(p_g_lcr_gsm, proceeding->msg_type, proceeding);
 
 	new_state(PORT_STATE_IN_PROCEEDING);
 
-	if (p_m_mISDNport->tones && !p_m_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_m_mISDNport, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+	if (p_g_tones && !p_g_tch_connected) { /* only if ... */
+		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
-		frame = create_mncc(MNCC_FRAME_RECV, p_m_g_callref);
-		send_and_free_mncc(p_m_g_lcr_gsm, frame->msg_type, frame);
-		p_m_g_tch_connected = 1;
+		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
+		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
+		p_g_tch_connected = 1;
 	}
 
 	/* send setup message to endpoit */
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_SETUP);
-	message->param.setup.isdn_port = p_m_portnum;
 	message->param.setup.port_type = p_type;
 //	message->param.setup.dtmf = 0;
 	memcpy(&message->param.setup.dialinginfo, &p_dialinginfo, sizeof(struct dialing_info));
@@ -394,7 +342,18 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	SCPY((char *)message->param.setup.useruser.data, (char *)mncc->useruser.info);
 	message->param.setup.useruser.len = strlen(mncc->useruser.info);
 	message->param.setup.useruser.protocol = mncc->useruser.proto;
-	message_put(message);
+	message->param.setup.rtpinfo.payload_type = 3; /* FIXME: receive payload type from peer */
+
+	if (p_g_rtp_bridge) {
+		struct gsm_mncc_rtp *rtp;
+
+		PDEBUG(DEBUG_GSM, "Request RTP peer info, before forwarding setup\n");
+		p_g_setup_pending = message;
+		rtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CREATE, p_g_callref);
+		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
+	} else
+		message_put(message);
+
 }
 
 /*
@@ -402,12 +361,13 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
  */
 int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 {
+	struct interface *interface = lcr_gsm->interface;
 	struct gsm_mncc *mncc = (struct gsm_mncc *)arg;
 	unsigned int callref = mncc->callref;
 	class Port *port;
 	class Pgsm_bs *pgsm_bs = NULL;
 	char name[64];
-	struct mISDNport *mISDNport;
+//	struct mISDNport *mISDNport;
 
 	/* Special messages */
 	switch(msg_type) {
@@ -419,7 +379,7 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 	while(port) {
 		if ((port->p_type & PORT_CLASS_GSM_MASK) == PORT_CLASS_GSM_BS) {
 			pgsm_bs = (class Pgsm_bs *)port;
-			if (pgsm_bs->p_m_g_callref == callref) {
+			if (pgsm_bs->p_g_callref == callref) {
 				break;
 			}
 		}
@@ -429,19 +389,28 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 	if (msg_type == GSM_TCHF_FRAME) {
 		if (port) {
 			/* inject DTMF, if enabled */
-			if (pgsm_bs->p_m_g_dtmf) {
+			if (pgsm_bs->p_g_dtmf) {
 				unsigned char data[160];
 				int i;
 
 				for (i = 0; i < 160; i++) {
-					data[i] = pgsm_bs->p_m_g_dtmf[pgsm_bs->p_m_g_dtmf_index++];
-					if (pgsm_bs->p_m_g_dtmf_index == 8000)
-						pgsm_bs->p_m_g_dtmf_index = 0;
+					data[i] = pgsm_bs->p_g_dtmf[pgsm_bs->p_g_dtmf_index++];
+					if (pgsm_bs->p_g_dtmf_index == 8000)
+						pgsm_bs->p_g_dtmf_index = 0;
 				}
 				/* send */
-				pgsm_bs->bchannel_send(PH_DATA_REQ, 0, data, 160);
+				pgsm_bs->bridge_tx(data, 160);
 			} else
 				pgsm_bs->frame_receive(arg);
+			/* if we do not bridge we need to inject audio, if available */
+			if (!pgsm_bs->p_bridge) {
+				unsigned char data[160];
+				int i;
+
+				i = pgsm_bs->read_audio(data, 160);
+				if (i)
+					pgsm_bs->bridge_rx(data, i);
+			}
 		}
 		return 0;
 	}
@@ -449,6 +418,7 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 	if (!port) {
 		if (msg_type != MNCC_SETUP_IND)
 			return(0);
+#if 0
 		/* find gsm port */
 		mISDNport = mISDNport_first;
 		while(mISDNport) {
@@ -472,16 +442,24 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 			send_and_free_mncc(lcr_gsm, rej->msg_type, rej);
 			return 0;
 		}
+#endif
 		/* creating port object, transparent until setup with hdlc */
-		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pgsm_bs = new Pgsm_bs(PORT_TYPE_GSM_BS_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT)))
-
+		SPRINT(name, "%s-%d-in", interface->name, 0);
+		if (!(pgsm_bs = new Pgsm_bs(PORT_TYPE_GSM_BS_IN, name, NULL, interface)))
 			FATAL("Cannot create Port instance.\n");
 	}
 
 	switch(msg_type) {
 		case MNCC_SETUP_IND:
 		pgsm_bs->setup_ind(msg_type, callref, mncc);
+		break;
+
+		case MNCC_RTP_CREATE:
+		pgsm_bs->rtp_create_ind(msg_type, callref, mncc);
+		break;
+
+		case MNCC_RTP_CONNECT:
+		pgsm_bs->rtp_connect_ind(msg_type, callref, mncc);
 		break;
 
 		case MNCC_START_DTMF_IND:
@@ -540,10 +518,8 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	struct lcr_msg *message;
-	int ret;
 	struct epoint_list *epointlist;
 	struct gsm_mncc *mncc;
-	int channel;
 
 	/* copy setup infos to port */
 	memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
@@ -552,8 +528,8 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 
 	/* no GSM MNCC connection */
-	if (p_m_g_lcr_gsm->mncc_lfd.fd < 0) {
-		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+	if (p_g_lcr_gsm->mncc_lfd.fd < 0) {
+		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "No MNCC connection.");
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -561,13 +537,13 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
+		trigger_work(&p_g_delete);
 		return;
 	}
 
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
-		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "No dialed subscriber given.");
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -575,50 +551,13 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
 		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
+		trigger_work(&p_g_delete);
 		return;
 	}
-	
-	/* release if port is blocked */
-	if (p_m_mISDNport->ifport->block) {
-		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
-		add_trace("failure", NULL, "Port blocked.");
-		end_trace();
-		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-		message->param.disconnectinfo.cause = 27; // temp. unavail.
-		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		message_put(message);
-		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
-		return;
-	}
-
-	/* hunt channel */
-	ret = channel = hunt_bchannel();
-	if (ret < 0)
-		goto no_channel;
-	/* open channel */
-	ret = seize_bchannel(channel, 1);
-	if (ret < 0) {
-		no_channel:
-		gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
-		add_trace("failure", NULL, "No internal audio channel available.");
-		end_trace();
-		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-		message->param.disconnectinfo.cause = 34;
-		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-		message_put(message);
-		new_state(PORT_STATE_RELEASE);
-		trigger_work(&p_m_g_delete);
-		return;
-	}
-	bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
-	if (bchannel_open(p_m_b_index))
-		goto no_channel;
 
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
-	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
+	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_g_interface_name);
 
 	/* attach only if not already */
 	epointlist = p_epointlist;
@@ -631,13 +570,13 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		epointlist_new(epoint_id);
 
 	/* creating l3id */
-	l1l2l3_trace_header(p_m_mISDNport, this, L3_NEW_L3ID_REQ, DIRECTION_OUT);
-	p_m_g_callref = new_callref++;
-	add_trace("callref", "new", "0x%x", p_m_g_callref);
+	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_OUT);
+	p_g_callref = new_callref++;
+	add_trace("callref", "new", "0x%x", p_g_callref);
 	end_trace();
 
-	gsm_trace_header(p_m_mISDNport, this, MNCC_SETUP_REQ, DIRECTION_OUT);
-	mncc = create_mncc(MNCC_SETUP_REQ, p_m_g_callref);
+	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+	mncc = create_mncc(MNCC_SETUP_REQ, p_g_callref);
 	/* caller information */
 	mncc->fields |= MNCC_F_CALLING;
 	mncc->calling.plan = 1;
@@ -749,7 +688,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	//todo
 
 	end_trace();
-	send_and_free_mncc(p_m_g_lcr_gsm, mncc->msg_type, mncc);
+	send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
 
 	new_state(PORT_STATE_OUT_SETUP);
 
@@ -757,6 +696,14 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	message_put(message);
 
 	new_state(PORT_STATE_OUT_PROCEEDING);
+
+	/* RTP bridge */
+	if (param->setup.rtpinfo.port) {
+		p_g_rtp_bridge = 1;
+		p_g_rtp_ip_remote = param->setup.rtpinfo.ip;
+		p_g_rtp_port_remote = param->setup.rtpinfo.port;
+	} else
+		p_g_rtp_bridge = 0;
 }
 
 /*
@@ -799,11 +746,12 @@ int gsm_bs_exit(int rc)
 	return(rc);
 }
 
-int gsm_bs_init(void)
+int gsm_bs_init(struct interface *interface)
 {
 	/* create gsm instance */
 	gsm_bs = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
 
+	gsm_bs->interface = interface;
 	gsm_bs->type = LCR_GSM_TYPE_NETWORK;
 	gsm_bs->sun.sun_family = AF_UNIX;
 	SCPY(gsm_bs->sun.sun_path, "/tmp/bsc_mncc");

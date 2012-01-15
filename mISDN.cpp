@@ -2001,7 +2001,6 @@ static int b_sock_callback(struct lcr_fd *fd, unsigned int what, void *instance,
 static int b_timer_timeout(struct lcr_timer *timer, void *instance, int i)
 {
 	struct mISDNport *mISDNport = (struct mISDNport *)instance;
-puts("fires");
 
 	bchannel_event(mISDNport, i, B_EVENT_TIMEOUT);
 
@@ -2103,15 +2102,6 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	unsigned int protocol, prop;
 
 	loop = 0;
-#ifdef WITH_GSM_BS
-	loop |= ifport->gsm_bs;
-#endif
-#ifdef WITH_GSM_MS
-	loop |= ifport->gsm_ms;
-#endif
-#ifdef WITH_SIP
-	loop |= ifport->interface->sip;
-#endif
 //printf("%s == %s\n", ifport->portname, options.loopback_int);
 	if (!strcmp(ifport->portname, options.loopback_lcr))
 		loop = 1;
@@ -2260,12 +2250,6 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		mISDNport->l1link = -1;
 		mISDNport->l2link = -1;
 	}
-#ifdef WITH_GSM_BS
-	mISDNport->gsm_bs = ifport->gsm_bs;
-#endif
-#ifdef WITH_GSM_MS
-	mISDNport->gsm_ms = ifport->gsm_ms;
-#endif
 	mISDNport->isloopback = loop;
 	pmemuse++;
 	*mISDNportp = mISDNport;

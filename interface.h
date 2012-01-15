@@ -51,13 +51,6 @@ struct interface_port {
 	int			tespecial; /* special TE-mode behavior */
 	int			l1hold; /* hold layer 1 (1=on, 0=off) */
 	int			l2hold; /* hold layer 2 (1=force, -1=disable, 0=default) */
-#ifdef WITH_GSM_BS
-	int			gsm_bs; /* interface is an GSM BS interface */
-#endif
-#ifdef WITH_GSM_MS
-	int			gsm_ms; /* interface is an GSM MS interface */
-	char			gsm_ms_name[32]; /* name of ms */
-#endif
 	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
 	int			remote; /* interface is a remote app interface */
 	char			remote_app[32]; /* name of remote application */
@@ -111,12 +104,20 @@ struct interface {
 	char			pipeline[256]; /* filter pipeline */
 	unsigned char		bf_key[56]; /* filter blowfish */
 	int			bf_len; /* filter length of blowfish */
+#ifdef WITH_GSM_BS
+	int			gsm_bs; /* interface is an GSM BS interface */
+#endif
+#ifdef WITH_GSM_MS
+	int			gsm_ms; /* interface is an GSM MS interface */
+	char			gsm_ms_name[32]; /* name of ms */
+#endif
 #ifdef WITH_SIP
 	int			sip; /* interface is a SIP interface */
 	char			sip_local_ip[16];
 	char			sip_remote_ip[16];
 	void			*sip_inst; /* sip instance */
 #endif
+	int			rtp_bridge; /* bridge RTP directly (for calls comming from interface) */
 };
 
 struct interface_param {
@@ -137,5 +138,5 @@ void free_interfaces(struct interface *interface_start);
 void relink_interfaces(void);
 void load_port(struct interface_port *ifport);
 void doc_interface(void);
-void do_screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface);
+void do_screen(int out, char *id, int idsize, int *type, int *present, const char *interface_name);
 

@@ -844,6 +844,8 @@ int admin_state(struct admin_queue **responsep)
 	interface = interface_first;
 	while(interface) {
 		ifport = interface->ifport;
+		if (!ifport)
+			i++;
 		while(ifport) {
 			i++;
 			ifport = ifport->next;
@@ -905,6 +907,18 @@ int admin_state(struct admin_queue **responsep)
 	num = 0;
 	while(interface) {
 		ifport = interface->ifport;
+		if (!ifport) {
+			/* message */
+			response->am[num].message = ADMIN_RESPONSE_S_INTERFACE;
+			/* interface */
+			SCPY(response->am[num].u.i.interface_name, interface->name);
+			/* portnum */
+			response->am[num].u.i.portnum = -100; /* indicate: no ifport */
+			/* iftype */
+			response->am[num].u.i.extension = interface->extension;
+			/* block */
+			num++;
+		}
 		while(ifport) {
 			/* message */
 			response->am[num].message = ADMIN_RESPONSE_S_INTERFACE;

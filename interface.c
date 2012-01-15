@@ -894,31 +894,19 @@ static int inter_gsm_bs(struct interface *interface, char *filename, int line, c
 	SPRINT(interface_error, "Error in %s (line %d): GSM BS side not compiled in.\n", filename, line);
 	return(-1);
 #else
-	struct interface_port *ifport;
 	struct interface *searchif;
 
 	searchif = interface_newlist;
 	while(searchif) {
-		ifport = searchif->ifport;
-		while(ifport) {
-			if (ifport->gsm_bs) {
-				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses gsm BS side.\n", filename, line, ifport->portname);
-				return(-1);
-			}
-			ifport = ifport->next;
+		if (searchif->gsm_bs) {
+			SPRINT(interface_error, "Error in %s (line %d): interface '%s' already uses gsm BS side.\n", filename, line, searchif->name);
+			return(-1);
 		}
 		searchif = searchif->next;
 	}
 
-	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
-		return(-1);
-
 	/* goto end of chain again to set gsmflag */
-	ifport = interface->ifport;
-	while(ifport->next)
-		ifport = ifport->next;
-	ifport->gsm_bs = 1;
+	interface->gsm_bs = 1;
 
 	return(0);
 #endif
@@ -929,37 +917,23 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	SPRINT(interface_error, "Error in %s (line %d): GSM MS side not compiled in.\n", filename, line);
 	return(-1);
 #else
-	struct interface_port *ifport, *searchifport;
 	struct interface *searchif;
 
-	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
-		return(-1);
-
-	/* goto end of chain again to set gsmflag and socket */
-	ifport = interface->ifport;
-	while(ifport->next)
-		ifport = ifport->next;
-	ifport->gsm_ms = 1;
+	interface->gsm_ms = 1;
 
 	/* copy values */
 	if (!value || !value[0]) {
 		SPRINT(interface_error, "Error in %s (line %d): Missing MS name and socket name.\n", filename, line);
 		return(-1);
 	}
-	SCPY(ifport->gsm_ms_name, value);
+	SCPY(interface->gsm_ms_name, value);
 
 	/* check if name is used multiple times */
 	searchif = interface_newlist;
 	while(searchif) {
-		searchifport = searchif->ifport;
-		while(searchifport) {
-			if (searchifport != ifport 
-			 && !strcmp(searchifport->gsm_ms_name, ifport->gsm_ms_name)) {
-				SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given MS name '%s', choose a different one.\n", filename, line, ifport->gsm_ms_name, searchifport->gsm_ms_name);
-				return(-1);
-			}
-			searchifport = searchifport->next;
+		if (!strcmp(searchif->gsm_ms_name, interface->gsm_ms_name)) {
+			SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given MS name '%s', choose a different one.\n", filename, line, interface->gsm_ms_name, searchif->gsm_ms_name);
+			return(-1);
 		}
 		searchif = searchif->next;
 	}
@@ -974,10 +948,6 @@ static int inter_sip(struct interface *interface, char *filename, int line, char
 	return(-1);
 #else
 	char *p;
-
-	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
-		return(-1);
 
 	interface->sip = 1;
 
@@ -996,6 +966,12 @@ static int inter_sip(struct interface *interface, char *filename, int line, char
 
 	return(0);
 #endif
+}
+static int inter_rtp_bridge(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	interface->rtp_bridge = 1;
+
+	return(0);
 }
 static int inter_nonotify(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
@@ -1245,6 +1221,9 @@ struct interface_param interface_param[] = {
 	"The socket is /tmp/osmocom_l2 by default and need to be changed when multiple\n"
 	"MS interfaces are used."},
 	{"sip", &inter_sip, "<local IP> <remote IP>",
+	"Sets up SIP interface that represents one SIP endpoint.\n"
+	"Give SIP configuration file."},
+	{"rtp-bridge", &inter_rtp_bridge, "",
 	"Sets up SIP interface that represents one SIP endpoint.\n"
 	"Give SIP configuration file."},
 	{"nonotify", &inter_nonotify, "",
@@ -1524,28 +1503,65 @@ static void set_defaults(struct interface_port *ifport)
 void relink_interfaces(void)
 {
 	struct mISDNport *mISDNport;
-	struct interface *interface;
+	struct interface *interface, *temp;
 	struct interface_port *ifport;
+	int found;
+
+	interface = interface_first;
+	while(interface) {
+		found = 0;
+		temp = interface_newlist;
+		while(temp) {
+			if (!strcmp(temp->name, interface->name))
+				found = 1;
+			temp = temp->next;
+		}
+		if (!found) {
+#ifdef WITH_GSM_MS
+			if (interface->gsm_ms)
+				gsm_ms_delete(interface->gsm_ms_name);
+#endif
+#ifdef WITH_GSM_BS
+			if (interface->gsm_bs)
+				gsm_bs_exit(0);
+#endif
+#ifdef WITH_SIP
+			if (interface->sip)
+				sip_exit_inst(interface);
+#endif
+		}
+		interface = interface->next;
+	}
+
+	interface = interface_newlist;
+	while(interface) {
+		found = 0;
+		temp = interface_first;
+		while(temp) {
+			if (!strcmp(temp->name, interface->name))
+				found = 1;
+			temp = temp->next;
+		}
+		if (!found) {
+#ifdef WITH_GSM_MS
+			if (interface->gsm_ms)
+				gsm_ms_new(interface);
+#endif
+#ifdef WITH_GSM_BS
+			if (interface->gsm_bs)
+				gsm_bs_init(interface);
+#endif
+#ifdef WITH_SIP
+			if (interface->sip)
+				sip_init_inst(interface);
+#endif
+		}
+		interface = interface->next;
+	}
 
 	/* unlink all mISDNports */
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
-		if (mISDNport->ifport) {
-			ifport = mISDNport->ifport;
-#ifdef WITH_GSM_MS
-			if (ifport->gsm_ms)
-				gsm_ms_delete(ifport->gsm_ms_name);
-#endif
-#ifdef WITH_GSM_BS
-			if (ifport->gsm_bs)
-				gsm_bs_exit(0);
-#endif
-#ifdef WITH_SIP
-#warning FIXME: get out of mISDNport
-			if (ifport->interface->sip)
-				sip_exit_inst(mISDNport->ifport->interface);
-#endif
-		}
 		mISDNport->ifport = NULL;
 		mISDNport = mISDNport->next;
 	}
@@ -1625,19 +1641,6 @@ void load_port(struct interface_port *ifport)
 		set_defaults(ifport);
 		/* load static port instances */
 		mISDNport_static(mISDNport);
-#ifdef WITH_GSM_MS
-		if (ifport->gsm_ms)
-			gsm_ms_new(ifport->gsm_ms_name);
-#endif
-#ifdef WITH_GSM_BS
-		if (ifport->gsm_bs)
-			gsm_bs_init();
-#endif
-#ifdef WITH_SIP
-		if (ifport->interface->sip)
-			if (sip_init_inst(ifport->interface))
-				ifport->block = 2; /* not available */
-#endif
 	} else {
 		ifport->block = 2; /* not available */
 	}
@@ -1675,12 +1678,21 @@ void doc_interface(void)
 /* screen caller id
  * out==0: incoming caller id, out==1: outgoing caller id
  */
-void do_screen(int out, char *id, int idsize, int *type, int *present, struct interface *interface)
+void do_screen(int out, char *id, int idsize, int *type, int *present, const char *interface_name)
 {
 	char			*msn1;
 	struct interface_msn	*ifmsn;
 	struct interface_screen	*ifscreen;
 	char suffix[64];
+	struct interface *interface = interface_first;
+
+	while (interface) {
+		if (!strcmp(interface->name, interface_name))
+			break;
+		interface = interface->next;
+	}
+	if (!interface)
+		return;
 
 	/* screen incoming caller id */
 	if (!out) {

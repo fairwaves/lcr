@@ -64,13 +64,6 @@ struct mISDNport {
 	int locally; /* local causes are sent as local causes not remote */
 	int los, ais, rdi, slip_rx, slip_tx;
 
-	/* gsm */
-#ifdef WITH_GSM_BS
-	int gsm_bs; /* this is the (only) GSM BS interface */
-#endif
-#ifdef WITH_GSM_MS
-	int gsm_ms; /* this is an GSM MS interface */
-#endif
 	int lcr_sock; /* socket of loopback on LCR side */
 	int isloopback; /* will be set on open, in case it is a loopback if */
 

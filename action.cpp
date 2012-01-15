@@ -74,6 +74,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	struct capa_info	capainfo;
 	struct caller_info	callerinfo;
 	struct redir_info	redirinfo;
+	struct rtp_info		rtpinfo;
 	struct dialing_info	dialinginfo;
 	struct port_list	*portlist = ea_endpoint->ep_portlist;
 	struct lcr_msg		*message;
@@ -91,6 +92,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	memcpy(&capainfo, &e_capainfo, sizeof(capainfo));
 	memcpy(&callerinfo, &e_callerinfo, sizeof(callerinfo));
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
+	memcpy(&rtpinfo, &e_rtpinfo, sizeof(rtpinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 	dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 	SCPY(dialinginfo.id, e_dialinginfo.id);
@@ -164,6 +166,7 @@ void EndpointAppPBX::action_dialing_internal(void)
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.capainfo, &capainfo, sizeof(struct capa_info));
+	memcpy(&message->param.setup.rtpinfo, &rtpinfo, sizeof(struct rtp_info));
 	message_put(message);
 }
 
@@ -174,6 +177,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	struct capa_info capainfo;
 	struct caller_info callerinfo;
 	struct redir_info redirinfo;
+	struct rtp_info rtpinfo;
 	struct dialing_info dialinginfo;
 	char *p;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
@@ -206,6 +210,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	memcpy(&capainfo, &e_capainfo, sizeof(capainfo));
 	memcpy(&callerinfo, &e_callerinfo, sizeof(callerinfo));
 	memcpy(&redirinfo, &e_redirinfo, sizeof(redirinfo));
+	memcpy(&rtpinfo, &e_rtpinfo, sizeof(rtpinfo));
 	memset(&dialinginfo, 0, sizeof(dialinginfo));
 	dialinginfo.itype = INFO_ITYPE_ISDN;
 //	dialinginfo.sending_complete = 0;
@@ -321,6 +326,7 @@ void EndpointAppPBX::action_dialing_external(void)
 	memcpy(&message->param.setup.redirinfo, &redirinfo, sizeof(struct redir_info));
 	memcpy(&message->param.setup.callerinfo, &callerinfo, sizeof(struct caller_info));
 	memcpy(&message->param.setup.capainfo, &capainfo, sizeof(struct capa_info));
+	memcpy(&message->param.setup.rtpinfo, &rtpinfo, sizeof(struct rtp_info));
 	message_put(message);
 }
 

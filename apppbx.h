@@ -73,8 +73,9 @@ class EndpointAppPBX : public EndpointApp
 	struct caller_info	e_callerinfo;		/* information about the caller */
 	struct dialing_info	e_dialinginfo;		/* information about dialing */
 	struct connect_info	e_connectinfo;		/* information about connected line */
-	struct redir_info	e_redirinfo;		/* info on redirection (to the calling user) */
-	struct capa_info	e_capainfo;		/* info on l3,l2 capacity */
+	struct redir_info	e_redirinfo;		/* info about redirection (to the calling user) */
+	struct capa_info	e_capainfo;		/* info about l3,l2 capacity */
+	struct rtp_info		e_rtpinfo;		/* info about rtp port forwarding and payload type */
 	time_t			e_start, e_stop;	/* time */
 	int			e_origin;		/* origin of call 0=incoming 1=outgoing */
 	struct route_ruleset	*e_ruleset;		/* current ruleset pointer (NULL=no ruleset) */
@@ -234,6 +235,7 @@ class EndpointAppPBX : public EndpointApp
 	void set_tone(struct port_list *portlist, const char *tone);
 	void out_setup(int cfnr);
 	struct mISDNport *hunt_port(char *ifname, int *channel);
+	struct interface *hunt_interface(char *ifname);
 	char *apply_callerid_display(const char *id, int itype, int ntype, int present, int screen, const char *extension, const char *name);
 	void auth(int job, int bit_num);
 

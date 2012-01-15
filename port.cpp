@@ -149,8 +149,6 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 {
 	class Port *temp, **tempp;
 
-	PDEBUG(DEBUG_PORT, "new port of type 0x%x, name '%s'\n", type, portname);
-
 	/* initialize object */
 	if (settings)
 		memcpy(&p_settings, settings, sizeof(struct port_settings));
@@ -195,6 +193,8 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 	*tempp = this;
 
 	classuse++;
+
+ 	PDEBUG(DEBUG_PORT, "new port (%d) of type 0x%x, name '%s'\n", p_serial, type, portname);
 }
 
 
@@ -206,7 +206,7 @@ Port::~Port(void)
 	class Port *temp, **tempp;
 	struct lcr_msg *message;
 
-	PDEBUG(DEBUG_PORT, "removing port of type 0x%x, name '%s'\n", p_type, p_name);
+ 	PDEBUG(DEBUG_PORT, "removing port (%d) of type 0x%x, name '%s'\n", p_serial, p_type, p_name);
 
 	if (p_bridge) {
 		PDEBUG(DEBUG_PORT, "Removing us from bridge %u\n", p_bridge->bridge_id);
@@ -301,7 +301,7 @@ void Port::set_tone(const char *dir, const char *name)
 	if (name == NULL)
 		name = "";
 
-	if (!dir && !dir[0])
+	if (!dir || !dir[0])
 		dir = options.tones_dir; /* just in case we have no PmISDN instance */
 
 	/* no counter, no eof, normal speed */

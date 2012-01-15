@@ -72,6 +72,7 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
         memset(&e_connectinfo, 0, sizeof(struct connect_info));
         memset(&e_redirinfo, 0, sizeof(struct redir_info));
         memset(&e_capainfo, 0, sizeof(struct capa_info));
+        memset(&e_rtpinfo, 0, sizeof(struct rtp_info));
         e_start = e_stop = 0;
 	e_origin = origin;
 	e_ruleset = ruleset_main;
@@ -573,6 +574,53 @@ void EndpointAppPBX::set_tone(struct port_list *portlist, const char *tone)
 	}
 }
 
+/* hunts for the given interface
+ * it does not need to have an mISDNport instance */
+struct interface *EndpointAppPBX::hunt_interface(char *ifname)
+{
+	struct interface *interface;
+	int there_is_an_external = 0;
+
+	interface = interface_first;
+
+	/* first find the given interface or, if not given, one with no extension */
+	checknext:
+	if (!interface) {
+		if (!there_is_an_external && !(ifname && ifname[0])) {
+			trace_header("CHANNEL SELECTION (no external interface specified)", DIRECTION_NONE);
+			add_trace("info", NULL, "Add 'extern' parameter to interface.conf.");
+			end_trace();
+		}
+		return(NULL);
+	}
+
+	/* check for given interface */
+	if (ifname && ifname[0]) {
+		if (!strcasecmp(interface->name, ifname)) {
+			/* found explicit interface */
+			trace_header("CHANNEL SELECTION (found given interface)", DIRECTION_NONE);
+			add_trace("interface", NULL, "%s", ifname);
+			end_trace();
+			goto foundif;
+		}
+	} else {
+		if (interface->external) {
+			there_is_an_external = 1;
+			/* found non extension */
+			trace_header("CHANNEL SELECTION (found external interface)", DIRECTION_NONE);
+			add_trace("interface", NULL, "%s", interface->name);
+			end_trace();
+			goto foundif;
+		}
+	}
+
+	interface = interface->next;
+	goto checknext;
+foundif:
+
+	return interface;
+}
+
 
 /*
  * hunts an mISDNport that is available for an outgoing call
@@ -839,6 +887,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 	int			cause = CAUSE_RESSOURCEUNAVAIL;
 	const char		*p;
 	char			cfp[64];
+	struct interface	*interface;
 	struct mISDNport	*mISDNport;
 	char			portname[32];
 	char			*dirname;
@@ -963,54 +1012,67 @@ void EndpointAppPBX::out_setup(int cfnr)
 					SCCAT(ifname, *p++);
 			if (*p == ',')
 				p++;
-			/* found interface */
-			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) calling to interface %s\n", ea_endpoint->ep_serial, ifname);
-			/* hunt for mISDNport and create Port */
-			mISDNport = hunt_port(ifname, &channel);
-			if (!mISDNport) {
-				trace_header("INTERFACE (not found or busy)", DIRECTION_NONE);
+			/* search interface */
+			interface = hunt_interface(ifname);
+			if (!interface) {
+				trace_header("INTERFACE (not found)", DIRECTION_NONE);
 				add_trace("interface", NULL, "%s", ifname);
 				end_trace();
 				continue;
 			}
-			/* creating INTERNAL port */
-			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-#ifdef WITH_SS5
-			if (mISDNport->ss5)
-				port = ss5_hunt_line(mISDNport);
-			else
-#endif
+			/* found interface */
+			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) calling to interface %s\n", ea_endpoint->ep_serial, ifname);
 #ifdef WITH_GSM_BS
-			if (mISDNport->gsm_bs)
-				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-			else
+			if (interface->gsm_bs) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, portname, &port_settings, interface);
+			} else
 #endif
 #ifdef WITH_GSM_MS
-			if (mISDNport->gsm_ms)
-				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-			else
+			if (interface->gsm_ms) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface);
+			} else
 #endif
-#ifdef WITH_SIP
-			if (mISDNport->ifport->interface->sip)
-				port = new Psip(PORT_TYPE_SIP_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, mISDNport->ifport->interface);
-			else
+#ifdef WITH_GSM_MS
+			if (interface->sip) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);
+			} else
 #endif
-			if (mISDNport->ifport->remote) {
-				admin = admin_first;
-				while(admin) {
-					if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
-						break;
-					admin = admin->next;
-				}
-				if (!admin) {
-					trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
-					add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
+			{
+				/* hunt for mISDNport and create Port */
+				mISDNport = hunt_port(ifname, &channel);
+				if (!mISDNport) {
+					trace_header("INTERFACE (busy)", DIRECTION_NONE);
+					add_trace("interface", NULL, "%s", ifname);
 					end_trace();
 					continue;
 				}
-				port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
-			} else
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+
+				SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+#ifdef WITH_SS5
+				if (mISDNport->ss5)
+					port = ss5_hunt_line(mISDNport);
+				else
+#endif
+				if (mISDNport->ifport->remote) {
+					admin = admin_first;
+					while(admin) {
+						if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
+							break;
+						admin = admin->next;
+					}
+					if (!admin) {
+						trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+						add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
+						end_trace();
+						continue;
+					}
+					port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
+				} else
+					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			}
 			if (!port)
 				FATAL("Failed to create Port instance\n");
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) got port %s\n", ea_endpoint->ep_serial, port->p_name);
@@ -1019,7 +1081,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			/* create port_list relation */
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, interface->is_earlyb == IS_YES);
 			if (!portlist) {
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
 				delete port;
@@ -1039,6 +1101,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
+			memcpy(&message->param.setup.rtpinfo, &e_rtpinfo, sizeof(struct rtp_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
 //terminal			if (e_dialinginfo.id)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
@@ -1203,56 +1266,69 @@ void EndpointAppPBX::out_setup(int cfnr)
 				p++;
 			/* found number */
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) calling to number '%s' interface '%s'\n", ea_endpoint->ep_serial, number, e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
-			/* hunt for mISDNport and create Port */
-			/* hunt for mISDNport and create Port */
-			mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
-			if (!mISDNport) {
-				trace_header("INTERFACE (too busy)", DIRECTION_NONE);
-				add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+			/* search interface */
+			interface = hunt_interface(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL);
+			if (!interface) {
+				trace_header("INTERFACE (not found)", DIRECTION_NONE);
+				add_trace("interface", NULL, "%s", ifname);
 				end_trace();
 				goto check_anycall_extern;
 			}
-			/* creating EXTERNAL port*/
-			SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
-#ifdef WITH_SS5
-			if (mISDNport->ss5)
-				port = ss5_hunt_line(mISDNport);
-			else
-#endif
+			/* found interface */
 #ifdef WITH_GSM_BS
-			if (mISDNport->gsm_bs)
-				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-			else
+			if (interface->gsm_bs) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, portname, &port_settings, interface);
+			} else
 #endif
 #ifdef WITH_GSM_MS
-			if (mISDNport->gsm_ms)
-				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
-			else
-#endif
-#ifdef WITH_SIP
-			if (mISDNport->ifport->interface->sip)
-				port = new Psip(PORT_TYPE_SIP_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, mISDNport->ifport->interface);
-			else
-#endif
-			if (mISDNport->ifport->remote) {
-				admin = admin_first;
-				while(admin) {
-					if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
-						break;
-					admin = admin->next;
-				}
-				if (!admin) {
-					trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
-					add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
-					end_trace();
-					continue;
-				}
-				port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
+			if (interface->gsm_ms) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface);
 			} else
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+#endif
+#ifdef WITH_GSM_MS
+			if (interface->sip) {
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);
+			} else
+#endif
+			{
+				/* hunt for mISDNport and create Port */
+				mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
+				if (!mISDNport) {
+					trace_header("INTERFACE (too busy)", DIRECTION_NONE);
+					add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
+					end_trace();
+					goto check_anycall_extern;
+				}
+				/* creating EXTERNAL port*/
+				SPRINT(portname, "%s-%d-out", mISDNport->ifport->interface->name, mISDNport->portnum);
+#ifdef WITH_SS5
+				if (mISDNport->ss5)
+					port = ss5_hunt_line(mISDNport);
+				else
+#endif
+				if (mISDNport->ifport->remote) {
+					admin = admin_first;
+					while(admin) {
+						if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
+							break;
+						admin = admin->next;
+					}
+					if (!admin) {
+						trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+						add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
+						end_trace();
+						continue;
+					}
+					port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
+				} else
+					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+			}
 			if (!port)
 				FATAL("No memory for Port instance\n");
-			earlyb = mISDNport->earlyb;
+			earlyb = (interface->is_earlyb == IS_YES);
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			if (e_dialinginfo.keypad[0])
@@ -1262,7 +1338,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			dialinginfo.itype = INFO_ITYPE_ISDN;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			dialinginfo.sending_complete = e_dialinginfo.sending_complete;
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, mISDNport->earlyb);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, earlyb);
 			if (!portlist) {
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
 				delete port;
@@ -1274,6 +1350,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			memcpy(&message->param.setup.redirinfo, &e_redirinfo, sizeof(struct redir_info));
 			memcpy(&message->param.setup.callerinfo, &e_callerinfo, sizeof(struct caller_info));
 			memcpy(&message->param.setup.capainfo, &e_capainfo, sizeof(struct capa_info));
+			memcpy(&message->param.setup.rtpinfo, &e_rtpinfo, sizeof(struct rtp_info));
 //terminal			SCPY(message->param.setup.from_terminal, e_ext.number);
 //terminal			if (e_dialinginfo.id)
 //terminal				SCPY(message->param.setup.to_terminal, e_dialinginfo.id);
@@ -1506,7 +1583,6 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	char			buffer[256];
 	int			writeext;		/* flags need to write extension after modification */
 	class Port		*port;
-	struct interface	*interface;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 	
@@ -1515,6 +1591,7 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
+	memcpy(&e_rtpinfo, &param->setup.rtpinfo, sizeof(e_rtpinfo));
 
 	/* convert (inter-)national number type */
 	SCPY(e_dialinginfo.id, numberrize_callerinfo(e_dialinginfo.id, e_dialinginfo.ntype, options.national, options.international));
@@ -1522,16 +1599,9 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 
 //	e_dtmf = param->setup.dtmf;
 	/* screen incoming caller id */
-	interface = interface_first;
-	while(interface) {
-		if (!strcmp(e_callerinfo.interface, interface->name)) {
-			break;
-		}
-		interface = interface->next;
-	}
-	if (interface) {
-		do_screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, interface);
-		do_screen(0, e_callerinfo.id2, sizeof(e_callerinfo.id2), &e_callerinfo.ntype2, &e_callerinfo.present2, interface);
+	if (e_callerinfo.interface[0]) {
+		do_screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, e_callerinfo.interface);
+		do_screen(0, e_callerinfo.id2, sizeof(e_callerinfo.id2), &e_callerinfo.ntype2, &e_callerinfo.present2, e_callerinfo.interface);
 	}
 
 	/* process extension */
@@ -2007,7 +2077,6 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	unsigned int port_id = portlist->port_id;
 	struct port_list *tportlist;
 	class Port *port;
-	struct interface	*interface;
 	time_t now;
 
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
@@ -2035,16 +2104,8 @@ void EndpointAppPBX::port_connect(struct port_list *portlist, int message_type, 
 	time(&now);
 	e_start = now;
 
-	/* screen incoming connected id */
-	interface = interface_first;
-	while(interface) {
-		if (!strcmp(e_connectinfo.interface, interface->name)) {
-			break;
-		}
-		interface = interface->next;
-	}
-	if (interface)
-		do_screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present, interface);
+	if (e_callerinfo.interface[0])
+		do_screen(0, e_connectinfo.id, sizeof(e_connectinfo.id), &e_connectinfo.ntype, &e_connectinfo.present, e_connectinfo.interface);
 
 	/* screen connected name */
 	if (e_ext.name[0])
@@ -3196,6 +3257,7 @@ void EndpointAppPBX::join_setup(struct port_list *portlist, int message_type, un
 	memcpy(&e_dialinginfo, &param->setup.dialinginfo, sizeof(e_dialinginfo));
 	memcpy(&e_redirinfo, &param->setup.redirinfo, sizeof(e_redirinfo));
 	memcpy(&e_capainfo, &param->setup.capainfo, sizeof(e_capainfo));
+	memcpy(&e_rtpinfo, &param->setup.rtpinfo, sizeof(e_rtpinfo));
 
 	/* process (voice over) data calls */
 	if (e_ext.datacall && e_capainfo.bearer_capa!=INFO_BC_SPEECH && e_capainfo.bearer_capa!=INFO_BC_AUDIO) {

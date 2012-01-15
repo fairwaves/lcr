@@ -1740,8 +1740,8 @@ void Pss5::message_setup(unsigned int epoint_id, int message_id, union parameter
 	memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 	memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
 	/* screen outgoing caller id */
-	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface);
-	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface);
+	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface->name);
+	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface->name);
 
 	/* parse dial string  */
 	dash = 0; /* dash must be used next time */

@@ -621,7 +621,10 @@ const char *admin_state(int sock, char *argv[])
 			/* show interface summary */
 			move(++line>1?line:1, 0);
 			color(white);
-			if (m[i].u.i.block >= 2) {
+			if (m[i].u.i.portnum == -100) {
+				SPRINT(buffer, "%s %s", m[i].u.i.interface_name, (m[i].u.i.extension)?" exten":"");
+				addstr(buffer);
+			} else if (m[i].u.i.block >= 2) {
 				if (m[i].u.i.portnum < 0)
 					SPRINT(buffer, "%s (port ?: %s)%s", m[i].u.i.interface_name, m[i].u.i.portname, (m[i].u.i.extension)?" exten":"");
 				else

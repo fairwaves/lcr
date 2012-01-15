@@ -148,6 +148,13 @@ enum {
 	B_MODE_HDLC,		/* hdlc data mode */
 };
 
+/* rtp-info structure */
+struct rtp_info {
+	int payload_type;
+	unsigned int ip;
+	unsigned short port;
+};
+
 /* call-info structure CALLER */
 struct caller_info {
 	char id[32];			/* id of caller (user number) */
@@ -191,6 +198,7 @@ struct connect_info {
 	int screen;			/* who provided the number */
 	char display[84];		/* display information */
 	char imsi[16];			/* IMSI for gsm terminated calls */
+	struct rtp_info	rtpinfo;	/* info about RTP peer */
 };
 
 /* call-info structure DISCONNECT */
@@ -240,6 +248,7 @@ struct notify_info {
 struct progress_info {
 	int progress;			/* progress indicator */
 	int location;			/* progress location */
+	struct rtp_info	rtpinfo;	/* info about RTP peer */
 };
 
 /* call-info structure FACILITY */
@@ -266,7 +275,8 @@ struct message_setup {
 	struct redir_info redirinfo;		/* info on redirection (to the calling user) */
 	struct capa_info capainfo;		/* info on l2,l3 capability */
 	struct useruser_info useruser;		/* user-user */
-//	struct progress_info progress;		/* info on call progress */
+	struct progress_info progress;		/* info on call progress */
+	struct rtp_info	rtpinfo;		/* info about RTP peer */
 	char context[128];			/* asterisk context */
 };
 
