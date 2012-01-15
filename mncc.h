@@ -1,4 +1,6 @@
 
+#include <stdint.h>
+
 #define MNCC_SETUP_REQ		0x0101
 #define MNCC_SETUP_IND		0x0102
 #define MNCC_SETUP_RSP		0x0103
@@ -277,11 +279,11 @@ enum {
 
 struct gsm_mncc {
 	/* context based information */
-	u_int32_t	msg_type;
-	u_int32_t	callref;
+	uint32_t	msg_type;
+	uint32_t	callref;
 
 	/* which fields are present */
-	u_int32_t	fields;
+	uint32_t	fields;
 
 	/* data derived informations (MNCC_F_ based) */
 	struct gsm_mncc_bearer_cap	bearer_cap;
@@ -313,8 +315,8 @@ struct gsm_mncc {
 };
 
 struct gsm_data_frame {
-	u_int32_t	msg_type;
-	u_int32_t	callref;
+	uint32_t	msg_type;
+	uint32_t	callref;
 	unsigned char	data[0];
 };
 
@@ -328,8 +330,18 @@ struct gsm_mncc_rtp {
 };
 
 
-#define MNCC_SOCK_VERSION	1
+#define MNCC_SOCK_VERSION	2
 struct gsm_mncc_hello {
-	u_int32_t	msg_type;
-	u_int32_t	version;
+	uint32_t	msg_type;
+	uint32_t	version;
+
+	/* send the sizes of the structs */
+	uint32_t	mncc_size;
+	uint32_t	data_frame_size;
+
+	/* send some offsets */
+	uint32_t	called_offset;
+	uint32_t	signal_offset;
+	uint32_t	emergency_offset;
+	uint32_t	lchan_type_offset;
 };
