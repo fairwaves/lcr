@@ -65,7 +65,6 @@ Pgsm_bs::~Pgsm_bs()
 /* DTMF INDICATION */
 void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
-	struct lcr_msg *message;
 	struct gsm_mncc *resp;
 
 	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
@@ -84,10 +83,16 @@ void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct
 	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
 	if (p_g_rtp_bridge) {
-		/* send dtmf information, because we bridge RTP directly */
-		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
-		message->param.dtmf = mncc->keypad;
-		message_put(message);
+		class Port *remote = bridge_remote();
+
+		if (remote) {
+			struct lcr_msg *message;
+
+			/* send dtmf information, because we bridge RTP directly */
+			message = message_create(0, remote->p_serial, EPOINT_TO_PORT, MESSAGE_DTMF);
+			message->param.dtmf = mncc->keypad;
+			message_put(message);
+		}
 	} else {
 		/* generate DTMF tones, since we do audio forwarding inside LCR */
 		switch (mncc->keypad) {

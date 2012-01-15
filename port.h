@@ -204,6 +204,7 @@ class Port
 	/* audio bridging */
 	struct port_bridge *p_bridge;		/* linked to a port bridge or NULL */
 	void bridge(unsigned int bridge_id);	/* join a bridge */
+	class Port *bridge_remote(void);	/* get remote port */
 	int bridge_tx(unsigned char *data, int len); /* used to transmit data to remote port */
 	virtual int bridge_rx(unsigned char *data, int len); /* function to be inherited, so data is received */
 

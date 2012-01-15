@@ -1027,16 +1027,8 @@ int Psip::message_dtmf(unsigned int epoint_id, int message_id, union parameter *
 
 int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
-	class Endpoint *epoint;
-
 	if (Port::message_epoint(epoint_id, message_id, param))
 		return 1;
-
-	epoint = find_epoint_id(epoint_id);
-	if (!epoint) {
-		PDEBUG(DEBUG_SIP, "PORT(%s) no endpoint object found where the message is from.\n", p_name);
-		return 0;
-	}
 
 	switch(message_id) {
 		case MESSAGE_ALERTING: /* call is ringing on LCR side */

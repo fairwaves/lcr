@@ -1264,23 +1264,31 @@ void Port::bridge(unsigned int bridge_id)
 	p_bridge = NULL;
 }
 
-/* send data to remote Port */
-int Port::bridge_tx(unsigned char *data, int len)
+class Port *Port::bridge_remote(void)
 {
-	class Port *to_port = NULL;
+	class Port *remote = NULL;
 
 	/* get remote port from bridge */
 	if (!p_bridge)
-		return -EINVAL;
+		return NULL;
 	if (p_bridge->sunrise == this)
-		to_port = p_bridge->sunset;
+		remote = p_bridge->sunset;
 	if (p_bridge->sunset == this)
-		to_port = p_bridge->sunrise;
-	if (!to_port)
+		remote = p_bridge->sunrise;
+
+	return remote;
+}
+
+/* send data to remote Port */
+int Port::bridge_tx(unsigned char *data, int len)
+{
+	class Port *remote = bridge_remote();
+
+	if (!remote)
 		return -EINVAL;
 
 //	printf("Traffic: %u -> %u (bridge %u)\n", p_serial, to_port->p_serial, p_bridge->bridge_id);
-	return to_port->bridge_rx(data, len);
+	return remote->bridge_rx(data, len);
 }
 
 /* receive data from remote Port (dummy, needs to be inherited) */
