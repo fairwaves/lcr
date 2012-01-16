@@ -35,3 +35,5 @@ extern class Join *join_first;
 
 class Join *find_join_id(unsigned int join_id);
 
+extern unsigned int join_serial;
+

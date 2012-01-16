@@ -868,6 +868,7 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 		PDEBUG(DEBUG_SIP, "remote ip %08x port %d\n", p_s_rtp_ip_remote, p_s_rtp_port_remote);
 	} else {
 		PDEBUG(DEBUG_SIP, "RTP info not given by remote, so we do our own RTP\n");
+		p_s_rtp_bridge = 0;
 		p_s_rtp_payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
 
 		/* open local RTP peer (if not bridging) */
@@ -1160,6 +1161,17 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	class Endpoint *epoint;
 	struct lcr_msg *message;
 	uint8_t payload_type;
+	struct interface *interface = interface_first;
+
+	while (interface) {
+		if (!strcmp(interface->name, inst->interface_name))
+			break;
+		interface = interface->next;
+	}
+	if (!interface) {
+		PERROR("Cannot find interface %s.\n", inst->interface_name);
+		return;
+	}
 
 	if (sip->sip_from && sip->sip_from->a_url)
 		from = sip->sip_from->a_url->url_user;
@@ -1250,8 +1262,7 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		FATAL("Incoming call but already got an endpoint.\n");
 	if (!(epoint = new Endpoint(p_serial, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incoming
-		FATAL("No memory for Endpoint Application instance\n");
+	epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 	epointlist_new(epoint->ep_serial);
 
 	/* send trying (proceeding) */

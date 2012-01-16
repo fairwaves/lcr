@@ -1072,13 +1072,22 @@ static int inter_remote(struct interface *interface, char *filename, int line, c
 	ifport->remote = 1;
 	SCPY(ifport->remote_app, value);
 
-
 	return(0);
 }
-
 static int inter_shutdown(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	interface->shutdown = 1;
+
+	return(0);
+}
+static int inter_bridge(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	if (!value || !value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): Missing destination interface name.\n", filename, line);
+		return(-1);
+	}
+	interface->app = EAPP_TYPE_BRIDGE;
+	SCPY(interface->bridge_if, value);
 
 	return(0);
 }
@@ -1230,6 +1239,10 @@ struct interface_param interface_param[] = {
 	"Prevents sending notify messages to this interface. A call placed on hold will\n"
 	"Not affect the remote end (phone or telcom switch).\n"
 	"This parameter must follow a 'port' parameter."},
+	{"bridge", &inter_bridge, "<destination interface>",
+	"Define bridge application for this interface. All calls received on this\n"
+	"interface will be directly bridged to the given destination interface.\n"
+	"There will be no PBX application, nor routing."},
 
 #ifdef WITH_SS5
 	{"ccitt5", &inter_ss5, "[<feature> [feature ...]]",

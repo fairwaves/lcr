@@ -251,7 +251,8 @@ int VBoxPort::message_epoint(unsigned int epoint_id, int message_id, union param
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint, answer with connect */
 		/* get apppbx */
-		memcpy(&p_vbox_ext, &((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
+		if (epoint->ep_app_type == EAPP_TYPE_PBX)
+			memcpy(&p_vbox_ext, &((class EndpointAppPBX *)(epoint->ep_app))->e_ext, sizeof(p_vbox_ext));
 		/* extract optional announcement file */
 		if ((c = strchr(param->setup.dialinginfo.id, ','))) {
 			if (c[1] == '/')

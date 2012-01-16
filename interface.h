@@ -89,6 +89,8 @@ struct interface_screen {
 struct interface {
 	struct interface	*next;
 	char			name[64]; /* name of interface */
+	int			app; /* application to use for interface (0 = PBX) */
+	char			bridge_if[64]; /* name of destination interface for bridge application */
 	int			external; /* interface used for external calls */
 	int			extension; /* calls are handled as extension */
 	int			is_tones; /* generate tones */

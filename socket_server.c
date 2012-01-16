@@ -530,7 +530,7 @@ int admin_call(struct admin_list *admin, struct admin_message *msg)
 
 	if (!(epoint = new Endpoint(0, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = apppbx = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
+	if (!(epoint->ep_app = apppbx = new EndpointAppPBX(epoint, 1))) // outgoing
 		FATAL("No memory for Endpoint Application instance\n");
 	apppbx->e_adminid = admin->sockserial;
 	admin->epointid = epoint->ep_serial;
@@ -1246,8 +1246,8 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 			/*release endpoint if exists */
 			if (admin->epointid) {
 				epoint = find_epoint_id(admin->epointid);
-				if (epoint) {
-					((class DEFAULT_ENDPOINT_APP *)epoint->ep_app)->
+				if (epoint && epoint->ep_app_type == EAPP_TYPE_PBX) {
+					((class EndpointAppPBX *)epoint->ep_app)->
 						release(RELEASE_ALL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, CAUSE_NORMAL, 0);
 				}
 			}

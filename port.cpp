@@ -1287,7 +1287,7 @@ int Port::bridge_tx(unsigned char *data, int len)
 	if (!remote)
 		return -EINVAL;
 
-//	printf("Traffic: %u -> %u (bridge %u)\n", p_serial, to_port->p_serial, p_bridge->bridge_id);
+//	printf("Traffic: %u -> %u (bridge %u)\n", p_serial, remote->p_serial, p_bridge->bridge_id);
 	return remote->bridge_rx(data, len);
 }
 

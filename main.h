@@ -32,8 +32,6 @@
 
 #define NAME		"LCR"
 
-#define DEFAULT_ENDPOINT_APP EndpointAppPBX
-
 #define VERSION_STRING	VERSION
 
 extern int memuse;
@@ -143,6 +141,7 @@ extern "C" {
 #include "endpoint.h"
 #include "endpointapp.h"
 #include "apppbx.h"
+#include "appbridge.h"
 #include "callerid.h"
 #include "route.h"
 #include "port.h"

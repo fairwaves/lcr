@@ -28,6 +28,7 @@ class Endpoint
 	unsigned int		ep_serial;	/* a unique serial to identify */
 
 	/* applocaton relation */
+	int			ep_app_type;
 	class EndpointApp 	*ep_app;		/* link to application class */
 
 	/* port relation */

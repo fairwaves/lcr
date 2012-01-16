@@ -26,7 +26,7 @@ int callback_timeout(struct lcr_timer *timer, void *instance, int index);
 /*
  * EndpointAppPBX constructor
  */
-EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp(epoint, origin)
+EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp(epoint, origin, EAPP_TYPE_PBX)
 {
 	class EndpointAppPBX **apppointer;
 

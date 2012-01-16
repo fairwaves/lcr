@@ -212,6 +212,17 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	class Endpoint *epoint;
 	struct lcr_msg *message;
 	struct gsm_mncc *mode, *proceeding, *frame;
+	struct interface *interface = interface_first;
+
+	while (interface) {
+		if (!strcmp(interface->name, p_g_interface_name))
+			break;
+		interface = interface->next;
+	}
+	if (!interface) {
+		PERROR("Cannot find interface %s.\n", p_g_interface_name);
+		return;
+	}
 
 	/* process given callref */
 	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_IN);
@@ -299,8 +310,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		FATAL("Incoming call but already got an endpoint.\n");
 	if (!(epoint = new Endpoint(p_serial, 0)))
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incoming
-		FATAL("No memory for Endpoint Application instance\n");
+	epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 	epointlist_new(epoint->ep_serial);
 
 	/* modify lchan to GSM codec V1 */

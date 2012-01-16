@@ -85,8 +85,7 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 			FATAL("No memory for Endpoint instance\n");
 		j_epoint_id = epoint->ep_serial;
 		PDEBUG(DEBUG_JOIN, "Created endpoint %d\n", j_epoint_id);
-		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
-			FATAL("No memory for Endpoint Application instance\n");
+		epoint->ep_app = new_endpointapp(epoint, 1, EAPP_TYPE_PBX); // outgoing
 	}
 
 	/* set serial on bchannel message

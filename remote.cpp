@@ -167,8 +167,7 @@ void Premote::message_remote(int message_type, union parameter *param)
 			FATAL("Incoming call but already got an endpoint.\n");
 		if (!(epoint = new Endpoint(p_serial, 0)))
 			FATAL("No memory for Endpoint instance\n");
-		if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 0))) //incoming
-			FATAL("No memory for Endpoint Application instance\n");
+		epoint->ep_app = new_endpointapp(epoint, 0, p_m_mISDNport->ifport->interface->app); //incoming
 
 		epointlist_new(epoint->ep_serial);
 	}

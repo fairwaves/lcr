@@ -917,8 +917,7 @@ int JoinPBX::out_setup(unsigned int epoint_id, int message_type, union parameter
 	epoint = new Endpoint(0, j_serial);
 	if (!epoint)
 		FATAL("No memory for Endpoint instance\n");
-	if (!(epoint->ep_app = new DEFAULT_ENDPOINT_APP(epoint, 1))) // outgoing
-		FATAL("No memory for Endpoint Application instance\n");
+	epoint->ep_app = new_endpointapp(epoint, 1, EAPP_TYPE_PBX); // outgoing
 	relation->epoint_id = epoint->ep_serial;
 	/* send setup message to new endpoint */
 //printf("JOLLY DEBUG: %d\n",join_countrelations(j_serial));

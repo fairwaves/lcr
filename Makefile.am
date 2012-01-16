@@ -134,12 +134,12 @@ endif
 INCLUDES = $(all_includes) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
 lcr_SOURCES = \
-	main.c select.c trace.c \ options.c \ tones.c \ alawulaw.c \ cause.c \ interface.c \ message.c \ callerid.c \ socket_server.c \
-	port.cpp \ vbox.cpp \ mISDN.cpp \ dss1.cpp \ loop.c remote.cpp \
+	main.c select.c trace.c options.c tones.c alawulaw.c cause.c interface.c message.c callerid.c socket_server.c \
+	port.cpp vbox.cpp mISDN.cpp dss1.cpp loop.c remote.cpp \
 	$(GSM_SOURCE) $(SS5_SOURCE) $(SIP_SOURCE) \
-	endpoint.cpp \ endpointapp.cpp \
-	apppbx.cpp \ route.c \ action.cpp action_efi.cpp \ action_vbox.cpp \ extension.c \ crypt.cpp \ mail.c \
-	join.cpp \ joinpbx.cpp \ joinremote.cpp
+	endpoint.cpp endpointapp.cpp \
+	appbridge.cpp apppbx.cpp route.c action.cpp action_efi.cpp action_vbox.cpp extension.c crypt.cpp mail.c \
+	join.cpp joinpbx.cpp joinremote.cpp
 
 lcr_LDADD = $(LIBCRYPTO) -lmisdn -lpthread $(GSM_LIB) $(SIP_LIB)
 
