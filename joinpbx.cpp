@@ -691,7 +691,7 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 	switch(message_type) {
 		/* process audio path message */
 		case MESSAGE_AUDIOPATH:
-		PDEBUG(DEBUG_JOIN, "join received channel message: %d.\n", param->audiopath);
+		PDEBUG(DEBUG_JOIN, "join received channel message: audiopath=%d, current relation's channel_state=%d\n", param->audiopath, relation->channel_state);
 		if (relation->channel_state != param->audiopath) {
 			relation->channel_state = param->audiopath;
 			trigger_work(&j_updatebridge);

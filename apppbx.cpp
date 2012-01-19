@@ -1006,6 +1006,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 		p = e_ext.interfaces;
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) generating multiple joins for extension %s to interfaces %s\n", ea_endpoint->ep_serial, e_dialinginfo.id, p);
 		while(*p) {
+			earlyb = 0;
 			ifname[0] = '\0';
 			while(*p!=',' && *p!='\0')
 				if (*p > ' ')
@@ -1026,18 +1027,21 @@ void EndpointAppPBX::out_setup(int cfnr)
 			if (interface->gsm_bs) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 #ifdef WITH_GSM_MS
 			if (interface->gsm_ms) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 #ifdef WITH_GSM_MS
 			if (interface->sip) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 			{
@@ -1072,6 +1076,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 					port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
 				} else
 					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+				earlyb = mISDNport->earlyb;
 			}
 			if (!port)
 				FATAL("Failed to create Port instance\n");
@@ -1081,7 +1086,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			dialinginfo.itype = INFO_ITYPE_ISDN_EXTENSION;
 			dialinginfo.ntype = e_dialinginfo.ntype;
 			/* create port_list relation */
-			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, interface->is_earlyb == IS_YES);
+			portlist = ea_endpoint->portlist_new(port->p_serial, port->p_type, earlyb);
 			if (!portlist) {
 				PERROR("EPOINT(%d) cannot allocate port_list relation\n", ea_endpoint->ep_serial);
 				delete port;
@@ -1259,6 +1264,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 		else
 			p = e_dialinginfo.id;
 		do {
+			earlyb = 0;
 			number[0] = '\0';
 			while(*p!=',' && *p!='\0')
 				SCCAT(number, *p++);
@@ -1279,18 +1285,21 @@ void EndpointAppPBX::out_setup(int cfnr)
 			if (interface->gsm_bs) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Pgsm_bs(PORT_TYPE_GSM_BS_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 #ifdef WITH_GSM_MS
 			if (interface->gsm_ms) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 #ifdef WITH_GSM_MS
 			if (interface->sip) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);
+				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
 			{
@@ -1325,10 +1334,10 @@ void EndpointAppPBX::out_setup(int cfnr)
 					port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
 				} else
 					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+				earlyb = mISDNport->earlyb;
 			}
 			if (!port)
 				FATAL("No memory for Port instance\n");
-			earlyb = (interface->is_earlyb == IS_YES);
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) created port %s\n", ea_endpoint->ep_serial, port->p_name);
 			memset(&dialinginfo, 0, sizeof(dialinginfo));
 			if (e_dialinginfo.keypad[0])
