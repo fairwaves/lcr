@@ -1447,6 +1447,9 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 	if (p_m_inband_receive_on)
 		inband_receive(data, len);
 
+	/* send to remote, if bridged */
+	bridge_tx(data, len);
+
 	/* calls will not process any audio data unless
 	 * the call is connected OR tones feature is enabled.
 	 */
@@ -1484,9 +1487,6 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 
 		cryptman_listen_bch(data, len);
 	}
-
-	/* send to remote, if bridged */
-	bridge_tx(data, len);
 }
 
 
