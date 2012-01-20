@@ -15,7 +15,7 @@ enum {
 };
 
 struct lcr_gsm {
-	struct interface *interface;	/* interface this instance is associated to */
+	char interface_name[64]; /* name of interface this instance is associated to */
 	struct lcr_gsm	*gsm_ms_next;	/* list of MS instances, in case of MS */
 	char		name[16];	/* name of MS instance, in case of MS */
 	int		type;		/* LCR_GSM_TYPE_*/

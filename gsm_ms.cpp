@@ -68,13 +68,9 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	class Endpoint *epoint;
 	struct lcr_msg *message;
 	struct gsm_mncc *mode, *proceeding, *frame;
-	struct interface *interface = interface_first;
+	struct interface *interface;
 
-	while (interface) {
-		if (!strcmp(interface->name, p_g_interface_name))
-			break;
-		interface = interface->next;
-	}
+	interface = getinterfacebyname(p_g_interface_name);
 	if (!interface) {
 		PERROR("Cannot find interface %s.\n", p_g_interface_name);
 		return;
@@ -325,7 +321,6 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
  */
 int message_ms(struct lcr_gsm *gsm_ms, int msg_type, void *arg)
 {
-	struct interface *interface = gsm_ms->interface;
 	struct gsm_mncc *mncc = (struct gsm_mncc *)arg;
 	unsigned int callref = mncc->callref;
 	class Port *port;
@@ -357,17 +352,13 @@ int message_ms(struct lcr_gsm *gsm_ms, int msg_type, void *arg)
 	}
 
 	if (!port) {
+		struct interface *interface;
+
 		if (msg_type != MNCC_SETUP_IND)
 			return(0);
-#if 0
-		/* find gsm ms port */
-		mISDNport = mISDNport_first;
-		while(mISDNport) {
-			if (mISDNport->gsm_ms && !strcmp(mISDNport->ifport->gsm_ms_name, gsm_ms->name))
-				break;
-			mISDNport = mISDNport->next;
-		}
-		if (!mISDNport) {
+
+		interface = getinterfacebyname(gsm_ms->interface_name);
+		if (!interface) {
 			struct gsm_mncc *rej;
 
 			rej = create_mncc(MNCC_REJ_REQ, callref);
@@ -379,11 +370,11 @@ int message_ms(struct lcr_gsm *gsm_ms, int msg_type, void *arg)
 			add_trace("cause", "coding", "%d", rej->cause.coding);
 			add_trace("cause", "location", "%d", rej->cause.location);
 			add_trace("cause", "value", "%d", rej->cause.value);
+			add_trace("reason", NULL, "interface %s not found", gsm_ms->interface_name);
 			end_trace();
 			send_and_free_mncc(gsm_ms, rej->msg_type, rej);
 			return 0;
 		}
-#endif
 		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", interface->name, 0);
 		if (!(pgsm_ms = new Pgsm_ms(PORT_TYPE_GSM_MS_IN, name, NULL, interface)))
@@ -730,7 +721,7 @@ int gsm_ms_new(struct interface *interface)
 	/* create gsm instance */
 	gsm_ms = (struct lcr_gsm *)MALLOC(sizeof(struct lcr_gsm));
 
-	gsm_ms->interface = interface;
+	SCPY(gsm_ms->interface_name, interface->name);
 	gsm_ms->type = LCR_GSM_TYPE_MS;
 	SCPY(gsm_ms->name, interface->gsm_ms_name);
 	gsm_ms->sun.sun_family = AF_UNIX;

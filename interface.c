@@ -1699,11 +1699,7 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, const cha
 	char suffix[64];
 	struct interface *interface = interface_first;
 
-	while (interface) {
-		if (!strcmp(interface->name, interface_name))
-			break;
-		interface = interface->next;
-	}
+	interface = getinterfacebyname(interface_name);
 	if (!interface)
 		return;
 
@@ -1828,5 +1824,18 @@ void do_screen(int out, char *id, int idsize, int *type, int *present, const cha
 		add_trace("used", "id", "%s", id[0]?id:"<empty>");
 		end_trace();
 	}
+}
+
+struct interface *getinterfacebyname(const char *name)
+{
+	struct interface *interface = interface_first;
+
+	while (interface) {
+		if (!strcmp(interface->name, name))
+			return interface;
+		interface = interface->next;
+	}
+
+	return NULL;
 }
 

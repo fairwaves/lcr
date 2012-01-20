@@ -1161,13 +1161,9 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	class Endpoint *epoint;
 	struct lcr_msg *message;
 	uint8_t payload_type;
-	struct interface *interface = interface_first;
+	struct interface *interface;
 
-	while (interface) {
-		if (!strcmp(interface->name, inst->interface_name))
-			break;
-		interface = interface->next;
-	}
+	interface = getinterfacebyname(inst->interface_name);
 	if (!interface) {
 		PERROR("Cannot find interface %s.\n", inst->interface_name);
 		return;

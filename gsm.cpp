@@ -263,11 +263,7 @@ void gsm_trace_header(const char *interface_name, class Pgsm *port, unsigned int
 	char msgtext[64];
 	struct interface *interface = interface_first;
 
-	while (interface) {
-		if (!strcmp(interface->name, interface_name))
-			break;
-		interface = interface->next;
-	}
+	interface = getinterfacebyname(interface_name);
 	if (!interface)
 		return;
 
