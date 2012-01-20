@@ -396,7 +396,8 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 		port = port->next;
 	}
 
-	if (msg_type == GSM_TCHF_FRAME) {
+	if (msg_type == GSM_TCHF_FRAME
+	 || msg_type == GSM_TCHF_BAD_FRAME) {
 		if (port) {
 			/* inject DTMF, if enabled */
 			if (pgsm_bs->p_g_dtmf) {

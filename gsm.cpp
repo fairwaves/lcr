@@ -139,6 +139,7 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	p_g_rtp_bridge = 0;
 	if (interface->rtp_bridge)
 		p_g_rtp_bridge = 1;
+	memset(&p_g_samples, 0, sizeof(p_g_samples));
 	SCPY(p_g_interface_name, interface->name); 
 	p_callerinfo.itype = (interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	memset(&p_g_delete, 0, sizeof(p_g_delete));
@@ -193,21 +194,41 @@ Pgsm::~Pgsm()
 void Pgsm::frame_receive(void *arg)
 {
 	struct gsm_data_frame *frame = (struct gsm_data_frame *)arg;
-	signed short samples[160];
 	unsigned char data[160];
 	int i;
 
 	if (!p_g_decoder)
 		return;
 
-	if ((frame->data[0]>>4) != 0xd)
-		PERROR("received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
+	if (frame->msg_type != GSM_TCHF_BAD_FRAME) {
+		if ((frame->data[0]>>4) != 0xd)
+			PERROR("received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
 	
-	/* decode */
-	gsm_audio_decode(p_g_decoder, frame->data, samples);
-	for (i = 0; i < 160; i++) {
-		data[i] = audio_s16_to_law[samples[i] & 0xffff];
+		/* decode */
+		gsm_audio_decode(p_g_decoder, frame->data, p_g_samples);
+		for (i = 0; i < 160; i++) {
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
+	} else if (p_echotest) {
+		/* beep on bad frame */
+		for (i = 0; i < 160; i++) {
+			if ((i & 3) > 2)
+				p_g_samples[i] = 15000;
+			else
+				p_g_samples[i] = -15000;
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
+	} else {
+		/* repeat on bad frame */
+		for (i = 0; i < 160; i++) {
+			p_g_samples[i] = (p_g_samples[i] * 14) >> 4;
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
 	}
+
+	/* local echo */
+	if (p_echotest)
+		bridge_rx(data, 160);
 
 	/* send to remote*/
 	bridge_tx(data, 160);

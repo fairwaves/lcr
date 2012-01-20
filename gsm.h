@@ -35,6 +35,7 @@ class Pgsm : public Port
 	~Pgsm();
 
 	char p_g_interface_name[64];
+	signed short p_g_samples[160]; /* last received audi packet */
 	int p_g_tones; /* set, if tones are to be generated */
 	int p_g_earlyb; /* set, if patterns are available */
 	struct lcr_gsm *p_g_lcr_gsm; /* pointer to network/ms instance */
