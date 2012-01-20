@@ -138,6 +138,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_mute = 0;
 	p_m_txdata = 0;
 	p_m_delay = 0;
+	p_m_tx_dejitter = 0;
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
@@ -487,6 +488,8 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 		ph_control(mISDNport, port, handle, (port->p_m_txdata)?DSP_TXDATA_ON:DSP_TXDATA_OFF, 0, "DSP-TXDATA", port->p_m_txdata);
 	if (port->p_m_delay && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_DELAY, port->p_m_delay, "DSP-DELAY", port->p_m_delay);
+	if (port->p_m_tx_dejitter && mode == B_MODE_TRANSPARENT)
+		ph_control(mISDNport, port, handle, DSP_TX_DEJITTER, port->p_m_tx_dejitter, "DSP-TX_DEJITTER", port->p_m_tx_dejitter);
 	if (port->p_m_tx_gain && mode == B_MODE_TRANSPARENT)
 		ph_control(mISDNport, port, handle, DSP_VOL_CHANGE_TX, port->p_m_tx_gain, "DSP-TX_GAIN", port->p_m_tx_gain);
 	if (port->p_m_rx_gain && mode == B_MODE_TRANSPARENT)
@@ -1763,6 +1766,8 @@ int PmISDN::message_epoint(unsigned int epoint_id, int message_id, union paramet
 
 void PmISDN::update_rxoff(void)
 {
+	int tx_dejitter = 0;
+
 	/* call bridges in user space OR crypto OR recording */
 	if (p_bridge || p_m_crypt_msg_loops || p_m_crypt_listen || p_record || p_m_inband_receive_on) {
 		/* rx IS required */
@@ -1806,6 +1811,16 @@ void PmISDN::update_rxoff(void)
 				if (p_m_mISDNport->b_port[p_m_b_index] && p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_sock[p_m_b_index].fd, DSP_TXDATA_OFF, 0, "DSP-TXDATA", 0);
 		}
+	}
+	/* dejitter on bridge */
+	if (p_bridge)
+		tx_dejitter = 1;
+	if (p_m_tx_dejitter != tx_dejitter) {
+		p_m_tx_dejitter = tx_dejitter;
+		PDEBUG(DEBUG_BCHANNEL, "we change dejitter mode to delay=%d.\n", p_m_tx_dejitter);
+		if (p_m_b_index > -1)
+			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
+				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_sock[p_m_b_index].fd, DSP_TX_DEJITTER, p_m_tx_dejitter, "DSP-TX_DEJITTER", p_m_tx_dejitter);
 	}
 }
 

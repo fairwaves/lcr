@@ -119,6 +119,7 @@ class PmISDN : public Port
 	void message_crypt(unsigned int epoint_id, int message_id, union parameter *param);
 	struct mISDNport *p_m_mISDNport;	/* pointer to port */
 	int p_m_delay;				/* use delay instead of dejitter */
+	int p_m_tx_dejitter;			/* use dejitter on transmit data to DSP */
 	int p_m_tx_gain, p_m_rx_gain;		/* volume shift (0 = no change) */
 	char p_m_pipeline[256];			/* filter pipeline */
 	int p_m_echo, p_m_conf;			/* remote echo, conference number */
