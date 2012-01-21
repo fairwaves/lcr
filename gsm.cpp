@@ -237,6 +237,14 @@ void Pgsm::frame_receive(void *arg)
 /* send traffic to gsm */
 int Pgsm::bridge_rx(unsigned char *data, int len)
 {
+	if (p_tone_name[0])
+		return -EINVAL;
+
+	return audio_send(data, len);
+}
+
+int Pgsm::audio_send(unsigned char *data, int len)
+{
 	unsigned char frame[33];
 
 	/* encoder init failed */

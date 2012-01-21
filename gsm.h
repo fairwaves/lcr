@@ -60,6 +60,7 @@ class Pgsm : public Port
 
 	void frame_send(void *_frame);
 	void frame_receive(void *_frame);
+	int audio_send(unsigned char *data, int len);
 	int bridge_rx(unsigned char *data, int len);
 
 	int hunt_bchannel(void);

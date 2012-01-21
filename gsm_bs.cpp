@@ -414,13 +414,13 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 			} else
 				pgsm_bs->frame_receive(arg);
 			/* if we do not bridge we need to inject audio, if available */
-			if (!pgsm_bs->p_bridge) {
+			if (!pgsm_bs->p_bridge || pgsm_bs->p_tone_name[0]) {
 				unsigned char data[160];
 				int i;
 
 				i = pgsm_bs->read_audio(data, 160);
 				if (i)
-					pgsm_bs->bridge_rx(data, i);
+					pgsm_bs->audio_send(data, i);
 			}
 		}
 		return 0;
