@@ -15,6 +15,8 @@
 #include <sofia-sip/sdp.h>
 #include <sofia-sip/sip_header.h>
 
+#undef NUTAG_AUTO100
+
 unsigned char flip[256];
 
 //pthread_mutex_t mutex_msg;
@@ -851,6 +853,7 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	struct in_addr ia;
 	struct epoint_list *epointlist;
 	sip_cseq_t *cseq = NULL;
+	struct lcr_msg *message;
 
 	PDEBUG(DEBUG_SIP, "Doing Setup (inst %p)\n", inst);
 
@@ -873,8 +876,6 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 
 		/* open local RTP peer (if not bridging) */
 		if (rtp_open() < 0) {
-			struct lcr_msg *message;
-
 			PERROR("Failed to open RTP sockets\n");
 			/* send release message to endpoit */
 			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -897,8 +898,6 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 
 	p_s_handle = nua_handle(inst->nua, NULL, TAG_END());
 	if (!p_s_handle) {
-		struct lcr_msg *message;
-
 		PERROR("Failed to create handle\n");
 		/* send release message to endpoit */
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -941,6 +940,18 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 		SIPTAG_CONTENT_TYPE_STR("application/sdp"),
 		SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
 	new_state(PORT_STATE_OUT_SETUP);
+
+#if 0
+	PDEBUG(DEBUG_SIP, "do overlap\n");
+	new_state(PORT_STATE_OUT_OVERLAP);
+	message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_OVERLAP);
+	message_put(message);
+#else
+	PDEBUG(DEBUG_SIP, "do overlap\n");
+	new_state(PORT_STATE_OUT_PROCEEDING);
+	message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_PROCEEDING);
+	message_put(message);
+#endif
 
 	/* attach only if not already */
 	epointlist = p_epointlist;
@@ -1026,6 +1037,26 @@ int Psip::message_dtmf(unsigned int epoint_id, int message_id, union parameter *
 	return 0;
 }
 
+/* NOTE: incomplete and not working */
+int Psip::message_information(unsigned int epoint_id, int message_id, union parameter *param)
+{
+	char dtmf_str[64];
+	
+	/* prepare DTMF info payload */
+	SPRINT(dtmf_str,
+		"Signal=%s\n"
+		"Duration=160\n"
+		, param->information.id);
+
+	/* start invite to handle DTMF */
+	nua_info(p_s_handle,
+		NUTAG_MEDIA_ENABLE(0),
+		SIPTAG_CONTENT_TYPE_STR("application/dtmf-relay"),
+		SIPTAG_PAYLOAD_STR(dtmf_str), TAG_END());
+	
+	return 0;
+}
+
 int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	if (Port::message_epoint(epoint_id, message_id, param))
@@ -1058,6 +1089,12 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 
 		case MESSAGE_SETUP: /* dial-out command received from epoint */
 		message_setup(epoint_id, message_id, param);
+		return 1;
+
+		case MESSAGE_INFORMATION: /* overlap dialing */
+		if (p_state != PORT_STATE_OUT_OVERLAP)
+			return 0;
+		message_information(epoint_id, message_id, param);
 		return 1;
 
 		case MESSAGE_DTMF: /* DTMF info to be transmitted via INFO transaction */
@@ -1425,10 +1462,12 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	/* process 1xx */
 	switch (status) {
 	case 100:
+#ifdef NUTAG_AUTO100
 		PDEBUG(DEBUG_SIP, "do proceeding\n");
 		new_state(PORT_STATE_OUT_PROCEEDING);
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
 		message_put(message);
+#endif
 		return;
 	case 180:
 		PDEBUG(DEBUG_SIP, "do alerting\n");
@@ -1645,7 +1684,9 @@ int sip_init_inst(struct interface *interface)
 		NUTAG_APPL_METHOD("NOTIFY"),
 		NUTAG_APPL_METHOD("INFO"),
 		NUTAG_AUTOACK(0),
+#ifdef NUTAG_AUTO100
 		NUTAG_AUTO100(0),
+#endif
 		NUTAG_AUTOALERT(0),
 		NUTAG_AUTOANSWER(0),
 		TAG_NULL());
