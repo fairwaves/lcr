@@ -30,8 +30,10 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
 {
 	class EndpointAppPBX **apppointer;
 
+#ifdef WITH_CRYPT
 	memset(&e_crypt_handler, 0, sizeof(e_crypt_handler));
 	add_timer(&e_crypt_handler, crypt_handler, this, 0);
+#endif
 	memset(&e_vbox_refresh, 0, sizeof(e_vbox_refresh));
 	add_timer(&e_vbox_refresh, vbox_refresh, this, 0);
 	memset(&e_action_timeout, 0, sizeof(e_action_timeout));
@@ -104,10 +106,12 @@ EndpointAppPBX::EndpointAppPBX(class Endpoint *epoint, int origin) : EndpointApp
 	e_multipoint_cause = 0;
 	e_multipoint_location = 0;
 	e_dialing_queue[0] = '\0';
+#ifdef WITH_CRYPT
 	e_crypt = CRYPT_OFF;
 	e_crypt_state = CM_ST_NULL;
 	e_crypt_keyengine_busy = 0;
-	e_crypt_info[0] = '\0'; 
+	e_crypt_info[0] = '\0';
+#endif
 	e_overlap = 0;
 	e_vbox[0] = '\0';
 	e_tx_state = NOTIFY_STATE_ACTIVE;
@@ -131,7 +135,9 @@ EndpointAppPBX::~EndpointAppPBX(void)
 {
 	class EndpointAppPBX *temp, **tempp;
 
+#ifdef WITH_CRYPT
 	del_timer(&e_crypt_handler);
+#endif
 	del_timer(&e_vbox_refresh);
 	del_timer(&e_action_timeout);
 	del_timer(&e_match_timeout);
@@ -272,10 +278,12 @@ void EndpointAppPBX::release(int release, int joinlocation, int joincause, int p
 			e_multipoint_cause = 0;
 			e_multipoint_location = 0;
 			e_dialing_queue[0] = '\0';
+#ifdef WITH_CRYPT
 			e_crypt = 0;
 			e_crypt_state = CM_ST_NULL;
 			e_crypt_keyengine_busy = 0;
 			e_crypt_info[0] = '\0'; 
+#endif
 			e_tone[0] = '\0';
 			e_overlap = 0;
 			e_vbox[0] = '\0';
@@ -510,6 +518,7 @@ void EndpointAppPBX::keypad_function(char digit)
 		join_join();
 		break;
 
+#ifdef WITH_CRYPT
 		/* crypt shared */
 		case '7':
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) shared key encryption selected.\n", ea_endpoint->ep_serial);
@@ -527,6 +536,7 @@ void EndpointAppPBX::keypad_function(char digit)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) encryption off selected.\n", ea_endpoint->ep_serial);
 		encrypt_off();
 		break;
+#endif
 
 		default:	
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) unsupported keypad digit '%c'.\n", ea_endpoint->ep_serial, digit);
@@ -622,6 +632,7 @@ foundif:
 }
 
 
+#ifdef WITH_MISDN
 /*
  * hunts an mISDNport that is available for an outgoing call
  * if no ifname was given, any interface that is not an extension
@@ -872,6 +883,7 @@ foundif:
 
 	return(NULL); /* no port found */
 }
+#endif
 
 /* outgoing setup to port(s)
  * ports will be created and a setup is sent if everything is ok. otherwhise
@@ -888,7 +900,9 @@ void EndpointAppPBX::out_setup(int cfnr)
 	const char		*p;
 	char			cfp[64];
 	struct interface	*interface;
+#ifdef WITH_MISDN
 	struct mISDNport	*mISDNport;
+#endif
 	char			portname[32];
 	char			*dirname;
 	class EndpointAppPBX	*atemp;
@@ -897,10 +911,12 @@ void EndpointAppPBX::out_setup(int cfnr)
 	char			ifname[sizeof(e_ext.interfaces)],
 				number[256];
 	struct port_settings	port_settings;
+#ifdef WITH_MISDN
 	int			channel = 0;
+	struct admin_list	*admin;
+#endif
 	int			earlyb;
 	int			mode = B_MODE_TRANSPARENT;
-	struct admin_list	*admin;
 
 	/* set bchannel mode */
 	mode = e_capainfo.source_mode;
@@ -1045,6 +1061,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			} else
 #endif
 			{
+#ifdef WITH_MISDN
 				/* hunt for mISDNport and create Port */
 				mISDNport = hunt_port(ifname, &channel);
 				if (!mISDNport) {
@@ -1077,6 +1094,12 @@ void EndpointAppPBX::out_setup(int cfnr)
 				} else
 					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 				earlyb = mISDNport->earlyb;
+#else
+			trace_header("INTERFACE (has no function)", DIRECTION_NONE);
+			add_trace("interface", NULL, "%s", ifname);
+			end_trace();
+			continue;
+#endif
 			}
 			if (!port)
 				FATAL("Failed to create Port instance\n");
@@ -1179,6 +1202,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 					p++;
 				/* external call */
 				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cfp external %s\n", ea_endpoint->ep_serial, cfp);
+#ifdef WITH_MISDN
 				/* hunt for mISDNport and create Port */
 				mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
 				if (mISDNport) {
@@ -1193,7 +1217,9 @@ void EndpointAppPBX::out_setup(int cfnr)
 					if (!port)
 						FATAL("No memory for Port instance\n");
 					earlyb = mISDNport->earlyb;
-				} else {
+				} else
+#endif
+				{
 					port = NULL;
 					trace_header("INTERFACE (too busy)", DIRECTION_NONE);
 					add_trace("interface", NULL, "%s", e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:"any interface");
@@ -1303,6 +1329,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 			} else
 #endif
 			{
+#ifdef WITH_MISDN
 				/* hunt for mISDNport and create Port */
 				mISDNport = hunt_port(e_dialinginfo.interfaces[0]?e_dialinginfo.interfaces:NULL, &channel);
 				if (!mISDNport) {
@@ -1335,6 +1362,12 @@ void EndpointAppPBX::out_setup(int cfnr)
 				} else
 					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 				earlyb = mISDNport->earlyb;
+#else
+				trace_header("INTERFACE (has no function)", DIRECTION_NONE);
+				add_trace("interface", NULL, "%s", ifname);
+				end_trace();
+				continue;
+#endif
 			}
 			if (!port)
 				FATAL("No memory for Port instance\n");
@@ -1941,11 +1974,13 @@ NOTE: vbox is now handled due to overlap state
 /* port MESSAGE_CRYPT */
 void EndpointAppPBX::port_crypt(struct port_list *portlist, int message_type, union parameter *param)
 {
+#ifdef WITH_CRYPT
 	/* send crypt response to cryptman */
 	if (param->crypt.type == CR_MESSAGE_IND)
 		cryptman_msg2man(param->crypt.data, param->crypt.len);
 	else
 		cryptman_message(param->crypt.type, param->crypt.data, param->crypt.len);
+#endif
 }
 
 /* port MESSAGE_OVERLAP */
@@ -2364,8 +2399,10 @@ void EndpointAppPBX::port_disconnect_release(struct port_list *portlist, int mes
 			message_put(message);
 			/* disable encryption if disconnected */
 //PERROR("REMOVE ME: state =%d, %d\n", e_crypt_state, e_crypt);
+#ifdef WITH_CRYPT
 			if (e_crypt_state)
 				cryptman_message(CI_DISCONNECT_IND, NULL, 0);
+#endif
 			return;
 		} else {
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) the port has no patterns.\n", ea_endpoint->ep_serial);
@@ -2867,6 +2904,7 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 /* join MESSAGE_CRYPT */
 void EndpointAppPBX::join_crypt(struct port_list *portlist, int message_type, union parameter *param)
 {
+#ifdef WITH_CRYPT
 	switch(param->crypt.type) {
 		/* message from remote port to "crypt manager" */
 		case CU_ACTK_REQ:           /* activate key-exchange */
@@ -2890,6 +2928,7 @@ void EndpointAppPBX::join_crypt(struct port_list *portlist, int message_type, un
 		default:
 		PERROR("EPOINT(%d) epoint with terminal '%s' (caller id '%s') unknown crypt message: '%d'\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id, param->crypt.type);
 	}
+#endif
 }
 
 /* join MESSAGE_INFORMATION */
@@ -3774,6 +3813,7 @@ reject:
  */
 void EndpointAppPBX::join_join(void)
 {
+#ifdef WITH_MISDN
 	struct lcr_msg *message;
 	struct join_relation *our_relation, *other_relation;
 	struct join_relation **our_relation_pointer, **other_relation_pointer;
@@ -3924,6 +3964,9 @@ void EndpointAppPBX::join_join(void)
 
 	/* we send a retrieve to that endpoint */
 	// mixer will update the hold-state of the join and send it to the endpoints is changes
+#else
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no mISDN support anyway.\n", ea_endpoint->ep_serial);
+#endif
 }
 
 

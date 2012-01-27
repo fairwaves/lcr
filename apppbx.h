@@ -160,7 +160,8 @@ class EndpointAppPBX : public EndpointApp
 	/* efi */
 	int e_efi_state;			/* current spoken sample */
 	int e_efi_digit;			/* current spoken digit */
-	
+
+#ifdef WITH_CRYPT
 	/* crypt states and vars */
 	int e_crypt;				/* current user level crypt state */
 	int e_crypt_state;			/* current crypt manager state */
@@ -192,6 +193,7 @@ class EndpointAppPBX : public EndpointApp
 	int e_crypt_keyengine_busy;		/* current job and busy state */
 	int e_crypt_keyengine_return;		/* return */
 	struct lcr_timer e_crypt_handler; /* poll timer for crypt events */
+#endif
 
 	/* messages */
 	void hookflash(void);

@@ -15,6 +15,7 @@ struct interface *interface_first = NULL; /* first interface is current list */
 struct interface *interface_newlist = NULL; /* first interface in new list */
 
 
+#ifdef WITH_MISDN
 /* set default out_channel */
 void default_out_channel(struct interface_port *ifport)
 {
@@ -22,7 +23,7 @@ void default_out_channel(struct interface_port *ifport)
 
 	selchannel = (struct select_channel *)MALLOC(sizeof(struct select_channel));
 	memuse++;
-	
+
 	if (ifport->mISDNport->ntmode)
 		selchannel->channel = CHANNEL_FREE;
 	else
@@ -53,6 +54,7 @@ void default_in_channel(struct interface_port *ifport)
 	
 	ifport->in_channel = selchannel;
 }
+#endif
 
 
 /* parse string for a positive number */
@@ -278,6 +280,10 @@ static int inter_port(struct interface *interface, char *filename, int line, cha
 }
 static int inter_portnum(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+#ifndef WITH_MISDN
+	SPRINT(interface_error, "Error in %s (line %d): mISDN support is not compiled in.\n", filename, line);
+	return(-1);
+#else
 	struct interface_port *ifport, **ifportp;
 	struct interface *searchif;
 	int val;
@@ -312,9 +318,14 @@ static int inter_portnum(struct interface *interface, char *filename, int line, 
 		ifportp = &((*ifportp)->next);
 	*ifportp = ifport;
 	return(0);
+#endif
 }
 static int inter_portname(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+#ifndef WITH_MISDN
+	SPRINT(interface_error, "Error in %s (line %d): mISDN support is not compiled in.\n", filename, line);
+	return(-1);
+#else
 	struct interface_port *ifport, **ifportp;
 	struct interface *searchif;
 
@@ -354,6 +365,7 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 		ifportp = &((*ifportp)->next);
 	*ifportp = ifport;
 	return(0);
+#endif
 }
 static int inter_l1hold(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
@@ -1477,10 +1489,11 @@ void free_interfaces(struct interface *interface)
 	}
 }
 
+#ifdef WITH_MISDN
 /*
  * defaults of ports if not specified by config
  */
-static void set_defaults(struct interface_port *ifport)
+static void set_mISDN_defaults(struct interface_port *ifport)
 {
 	/* default channel selection list */
 	if (!ifport->out_channel)
@@ -1506,6 +1519,7 @@ static void set_defaults(struct interface_port *ifport)
 	else
 		ifport->mISDNport->locally = 0;
 }
+#endif
 
 
 /*
@@ -1515,9 +1529,11 @@ static void set_defaults(struct interface_port *ifport)
  */
 void relink_interfaces(void)
 {
+#ifdef WITH_MISDN
 	struct mISDNport *mISDNport;
-	struct interface *interface, *temp;
 	struct interface_port *ifport;
+#endif
+	struct interface *interface, *temp;
 	int found;
 
 	interface = interface_first;
@@ -1572,6 +1588,7 @@ void relink_interfaces(void)
 		interface = interface->next;
 	}
 
+#ifdef WITH_MISDN
 	/* unlink all mISDNports */
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
@@ -1592,7 +1609,7 @@ void relink_interfaces(void)
 					PDEBUG(DEBUG_ISDN, "Port %d:%s relinking!\n", ifport->portnum, ifport->portname);
 					ifport->mISDNport = mISDNport;
 					mISDNport->ifport = ifport;
-					set_defaults(ifport);
+					set_mISDN_defaults(ifport);
 				}
 				mISDNport = mISDNport->next;
 			}
@@ -1621,7 +1638,7 @@ void relink_interfaces(void)
 		while(ifport) {
 			if (!ifport->mISDNport) {
 				if (!interface->shutdown) {
-					load_port(ifport);
+					load_mISDN_port(ifport);
 				} else {
 					ifport->block = 2;
 				}
@@ -1630,14 +1647,15 @@ void relink_interfaces(void)
 		}
 		interface = interface->next;
 	}
-
+#endif
 }
 
 
+#ifdef WITH_MISDN
 /*
  * load port
  */
-void load_port(struct interface_port *ifport)
+void load_mISDN_port(struct interface_port *ifport)
 {
 	struct mISDNport *mISDNport;
 
@@ -1651,13 +1669,14 @@ void load_port(struct interface_port *ifport)
 		ifport->portnum = mISDNport->portnum;
 		SCPY(ifport->portname, mISDNport->name);
 		/* set defaults */
-		set_defaults(ifport);
+		set_mISDN_defaults(ifport);
 		/* load static port instances */
 		mISDNport_static(mISDNport);
 	} else {
 		ifport->block = 2; /* not available */
 	}
 }
+#endif
 
 /*
  * give summary of interface syntax

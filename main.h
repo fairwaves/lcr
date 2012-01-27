@@ -125,12 +125,14 @@ void debug(const char *file, const char *function, int line, const char *prefix,
  #define BUDETECT	;
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <mISDN/mbuffer.h>
-#ifdef __cplusplus
-}
+#ifdef WITH_MISDN
+ #ifdef __cplusplus
+  extern "C" {
+ #endif
+ #include <mISDN/mbuffer.h>
+ #ifdef __cplusplus
+  }
+ #endif
 #endif
 #include "macro.h"
 #include "select.h"
@@ -145,10 +147,12 @@ extern "C" {
 #include "callerid.h"
 #include "route.h"
 #include "port.h"
+#ifdef WITH_MISDN
 #include "mISDN.h"
 #include "dss1.h"
 #include "loop.h"
 #include "remote.h"
+#endif
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 #include "gsm.h"
 #endif

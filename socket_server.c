@@ -82,13 +82,15 @@ void free_connection(struct admin_list *admin)
 {
 	struct admin_queue *response;
 	void *temp;
+#ifdef WITH_MISDN
 	union parameter param;
 	class Join *join, *joinnext;
 	struct mISDNport *mISDNport;
 	int i, ii;
-	struct admin_list **adminp;
 	class Port *port, *portnext;
 	class Premote *remote;
+#endif
+	struct admin_list **adminp;
 
 	/* free remote joins */
 	if (admin->remote_name[0]) {
@@ -102,6 +104,7 @@ void free_connection(struct admin_list *admin)
 			"REMOTE APP release");
 		add_trace("app", "name", "%s", admin->remote_name);
 		end_trace();
+#ifdef WITH_MISDN
 		/* release all exported channels */
 		mISDNport = mISDNport_first;
 		while(mISDNport) {
@@ -118,6 +121,8 @@ void free_connection(struct admin_list *admin)
 			}
 			mISDNport = mISDNport->next;
 		}
+#endif
+#ifdef WITH_MISDN
 		/* release join */
 		join = join_first;
 		while(join) {
@@ -147,6 +152,7 @@ void free_connection(struct admin_list *admin)
 			}
 			port = portnext;
 		}
+#endif
 	}
 
 	if (admin->sock >= 0) {
@@ -436,6 +442,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 		goto out;
 	}
 
+#ifdef WITH_MISDN
 	/* no interface */
 	if (!ifport->mISDNport) {
 		/* not loaded anyway */
@@ -446,7 +453,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 
 		/* try loading interface */
 		ifport->block = block;
-		load_port(ifport);
+		load_mISDN_port(ifport);
 
 		/* port cannot load */
 		if (ifport->block >= 2) {
@@ -468,6 +475,7 @@ int admin_block(struct admin_queue **responsep, int portnum, int block)
 		ifport->block = 2;
 		goto out;
 	}
+#endif
 	
 	/* port new blocking state */
 	ifport->block = response->am[0].u.x.block = block;
@@ -609,11 +617,13 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
  */
 int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 {
+#ifdef WITH_MISDN
 	struct mISDNport		*mISDNport;
-	class Join			*join;
-	class JoinRemote		*joinremote = NULL; /* make GCC happy */
 	class Port			*port;
 	class Premote			*remote = NULL; /* make GCC happy */
+	class Join			*join;
+	class JoinRemote		*joinremote = NULL; /* make GCC happy */
+#endif
 	struct admin_list		*temp;
 
 	/* hello message */
@@ -654,6 +664,7 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		return(-1);
 	}
 
+#ifdef WITH_MISDN
 	/* new join. the reply (NEWREF assignment) is sent from constructor */
 	if (msg->type == MESSAGE_NEWREF) {
 		if (msg->param.newref.mode) {
@@ -695,7 +706,9 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		}
 		return(0);
 	}
+#endif
 
+#ifdef WITH_MISDN
 	/* bchannel message
 	 * no ref given for *_ack */
 	if (msg->type == MESSAGE_BCHANNEL)
@@ -706,6 +719,7 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		message_bchannel_from_remote(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
 		return(0);
 	}
+#endif
 	
 	/* check for ref */
 	if (!msg->ref) {
@@ -713,6 +727,7 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		return(-1);
 	}
 
+#ifdef WITH_MISDN
 	/* find join instance */
 	join = join_first;
 	while(join) {
@@ -755,6 +770,7 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 
 		return(0);
 	}
+#endif
 
 	PDEBUG(DEBUG_LOG, "No remote instance found with ref %d. (May have been already released.)\n", msg->ref);
 	return(0);
@@ -812,14 +828,16 @@ int admin_state(struct admin_queue **responsep)
 	class Port		*port;
 	class EndpointAppPBX	*apppbx;
 	class Join		*join;
+#ifdef WITH_MISDN
 	class Pdss1		*pdss1;
-	struct interface	*interface;
-	struct interface_port	*ifport;
 	struct mISDNport	*mISDNport;
 	struct select_channel	*selchannel;
+	int			anybusy;
+#endif
+	struct interface	*interface;
+	struct interface_port	*ifport;
 	int			i;
 	int			num;
-	int			anybusy;
 	struct admin_queue	*response;
 	struct admin_list	*admin;
 	struct tm		*now_tm;
@@ -932,6 +950,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.i.extension = interface->extension;
 			/* block */
 			response->am[num].u.i.block = ifport->block;
+#ifdef WITH_MISDN
 			if (ifport->mISDNport) {
 				mISDNport = ifport->mISDNport;
 
@@ -1007,6 +1026,7 @@ int admin_state(struct admin_queue **responsep)
 					i++;
 				}
 			}
+#endif
 			num++;
 
 			ifport = ifport->next;
@@ -1113,9 +1133,11 @@ int admin_state(struct admin_queue **responsep)
 		if (apppbx->ea_endpoint->ep_park && apppbx->ea_endpoint->ep_park_len && apppbx->ea_endpoint->ep_park_len<=(int)sizeof(response->am[num].u.e.park_callid))
 			memcpy(response->am[num].u.e.park_callid, apppbx->ea_endpoint->ep_park_callid, apppbx->ea_endpoint->ep_park_len);
 		response->am[num].u.e.park_len = apppbx->ea_endpoint->ep_park_len;
+#ifdef WITH_CRYPT
 		/* crypt */
 		if (apppbx->e_crypt == CRYPT_ON)
 			response->am[num].u.e.crypt = 1;
+#endif
 		/* */
 		apppbx = apppbx->next;
 		num++;
@@ -1173,6 +1195,7 @@ int admin_state(struct admin_queue **responsep)
 			default:
 			response->am[num].u.p.state = ADMIN_STATE_IDLE;
 		}
+#ifdef WITH_MISDN
 		/* isdn */
 		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_DSS1) {
 			response->am[num].u.p.isdn = 1;
@@ -1181,6 +1204,7 @@ int admin_state(struct admin_queue **responsep)
 			response->am[num].u.p.isdn_hold = pdss1->p_m_hold;
 			response->am[num].u.p.isdn_ces = pdss1->p_m_d_ces;
 		}
+#endif
 		/* */
 		port = port->next;
 		num++;

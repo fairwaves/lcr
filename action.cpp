@@ -20,8 +20,6 @@ extern char **environ;
 int EndpointAppPBX::_action_init_call(char *remote)
 {
 	class Join		*join;
-	struct port_list	*portlist = ea_endpoint->ep_portlist;
-	struct admin_list	*admin;
 
 	/* a created call, this should never happen */
 	if (ea_endpoint->ep_join_id) {
@@ -32,7 +30,11 @@ int EndpointAppPBX::_action_init_call(char *remote)
 
 	/* create join */
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d): Creating new join instance.\n", ea_endpoint->ep_serial);
+#ifdef WITH_MISDN
 	if (remote) {
+		struct port_list	*portlist = ea_endpoint->ep_portlist;
+		struct admin_list	*admin;
+
 		admin = admin_first;
 		while(admin) {
 			if (admin->remote_name[0] && !strcmp(admin->remote_name, remote))
@@ -50,8 +52,8 @@ int EndpointAppPBX::_action_init_call(char *remote)
 			return(0);
 		}
 		join = new JoinRemote(ea_endpoint->ep_serial, remote, admin->sock);
-	}
-	else
+	} else
+#endif
 		join = new JoinPBX(ea_endpoint);
 	if (!join)
 		FATAL("No memoy for Join instance.\n");

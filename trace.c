@@ -92,7 +92,9 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	char buffer[256];
 	time_t ti = trace.sec;
 	struct tm *tm;
+#ifdef WITH_MISDN
 	struct mISDNport *mISDNport;
+#endif
 	int i;
 
 	trace_string[0] = '\0'; // always clear string
@@ -115,6 +117,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 	/* head */
 	if (detail >= 3) {
 		SCAT(trace_string, "------------------------------------------------------------------------------\n");
+#ifdef WITH_MISDN
 		/* "Port: 1 (BRI PTMP TE)" */
 		if (trace.port >= 0) {
 			mISDNport = mISDNport_first;
@@ -132,6 +135,7 @@ static char *print_trace(int detail, int port, char *interface, char *caller, ch
 				SPRINT(buffer, "Port: %d (does not exist)\n", trace.port);
 			SCAT(trace_string, buffer);
 		} else
+#endif
 			SCAT(trace_string, "Port: ---");
 
 		if (trace.interface[0]) {

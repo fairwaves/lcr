@@ -51,6 +51,26 @@ dnl AM_PROG_CC_C_O
 dnl enable this to have all special options on one place
 dnl AC_PRESERVE_HELP_ORDER
 
+# check for mISDN
+AC_ARG_WITH([misdn],
+	[AS_HELP_STRING([--with-misdn],
+			[compile with mISDN driver @<:@default=check@:>@])
+	],
+	[],
+	[with_misdn="check"])
+
+AS_IF([test "x$with_misdn" != xno],
+      [AC_CHECK_HEADERS([mISDN/mISDNif.h],
+			[with_misdn="yes"],
+			[if test "x$with_misdn" != xcheck ; then
+                      AC_MSG_FAILURE(
+                        [--with-misdn was given, but test for header-file mISDN/mISDNif.h failed])
+                     fi
+		     ])
+      ])
+
+AM_CONDITIONAL(ENABLE_MISDN, test "x$with_misdn" == "xyes" )
+
 # check for asterisk
 AC_ARG_WITH([asterisk],
 	[AS_HELP_STRING([--with-asterisk],
@@ -247,6 +267,7 @@ AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
 
+AS_IF([test "x$with_misdn" == xyes],[AC_MSG_NOTICE( Compiled with mISDN support )],[AC_MSG_NOTICE( Not compiled with mISDN support)])
 AS_IF([test "x$with_gsm_bs" == xyes],[AC_MSG_NOTICE( Compiled with GSM network side support )],[AC_MSG_NOTICE( Not compiled with GSM network side support)])
 AS_IF([test "x$with_gsm_ms" == xyes],[AC_MSG_NOTICE( Compiled with GSM mobile side support )],[AC_MSG_NOTICE( Not compiled with GSM mobile side support)])
 AS_IF([test "x$with_asterisk" == xyes],[AC_MSG_NOTICE( Compiled with Asterisk channel driver support )],[AC_MSG_NOTICE( Not compiled with Asterisk channel driver support)])

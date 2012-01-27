@@ -88,12 +88,14 @@ void JoinRemote::message_remote(int message_type, union parameter *param)
 		epoint->ep_app = new_endpointapp(epoint, 1, EAPP_TYPE_PBX); // outgoing
 	}
 
+#ifdef WITH_MISDN
 	/* set serial on bchannel message
 	 * also ref is given, so we send message with ref */
 	if (message_type == MESSAGE_BCHANNEL) {
 		message_bchannel_from_remote(this, param->bchannel.type, param->bchannel.handle);
 		return;
 	}
+#endif
 	
 	/* cannot just forward, because param is not of container "struct lcr_msg" */
 	message = message_create(j_serial, j_epoint_id, JOIN_TO_EPOINT, message_type);

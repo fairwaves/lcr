@@ -181,8 +181,10 @@ int main(int argc, char *argv[])
 	int			i;
 	struct sched_param	schedp;
 	int			created_mutexd = 0,/* created_mutext = 0,*/ created_mutexe = 0,
-        			created_lock = 0, created_signal = 0, created_debug = 0,
-				created_misdn = 0, created_message = 0;
+        			created_lock = 0, created_signal = 0, created_message = 0;
+#ifdef WITH_MISDN
+	int			created_misdn = 0;
+#endif
 	char			tracetext[256], lock[128];
 	char			options_error[256];
 	int			polling = 0;
@@ -215,8 +217,10 @@ int main(int argc, char *argv[])
 		goto free;
 	}
 
+#ifdef WITH_CRYPT
 	/* init crc */
 	crc_init();
+#endif
 
 	/* the mutex init */
 	if (pthread_mutex_init(&mutexd, NULL)) {
@@ -268,11 +272,12 @@ int main(int argc, char *argv[])
 	}
 	polling = options.polling;
 
+#ifdef WITH_MISDN
 	/* init mISDN */
 	if (mISDN_initialize() < 0)
 		goto free;
 	created_misdn = 1;
-	created_debug = 1;
+#endif
 
 	/* read ruleset(s) */
 	if (!(ruleset_first = ruleset_parse()))
@@ -543,8 +548,10 @@ free:
 		free_interfaces(interface_first);
 	interface_first = NULL;
 
+#ifdef WITH_MISDN
 	/* close isdn ports */
 	mISDNport_close_all();
+#endif
 
 	/* flush messages */
 	debug_count++;
@@ -593,9 +600,11 @@ free:
 		if (pthread_mutex_destroy(&mutexd))
 			fprintf(stderr, "cannot destroy 'PDEBUG' mutex\n");
 
+#ifdef WITH_MISDN
 	/* deinitialize mISDN */
 	if (created_misdn)
 		mISDN_deinitialize();
+#endif
 
 	/* free gsm */
 #if 0
@@ -616,9 +625,11 @@ exit is done when interface is down
 	sip_exit();
 #endif
 
+#ifdef WITH_MISDN
 	/* close loopback, if used by GSM or remote */
 	if (mISDNloop.sock > -1)
 		mISDNloop_close();
+#endif
 
 	/* display memory leak */
 #define MEMCHECK(a, b) \

@@ -1882,14 +1882,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				istrue,
 				couldbetrue,
 				condition,
-				dialing_required,
-				avail,
-				any;
+				dialing_required;
 	struct route_rule	*rule = ruleset->rule_first;
 	struct route_cond	*cond;
 	struct route_action	*action = NULL;
 	unsigned long		comp_len;
-	int			j, jj;
+	int			j;
 	char			isdn_port[10];
 	char			*argv[11]; /* check also number of args below */
 	char			callerid[64], callerid2[64], redirid[64];
@@ -1898,7 +1896,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	FILE			*tfp;
 	long long		timeout, now_ll = 0, match_timeout = 0;
 	struct timeval		current_time;
+#ifdef WITH_MISDN
 	struct mISDNport	*mISDNport;
+	int			avail,
+				any;
+	int			jj;
+#endif
 	struct admin_list	*admin;
 	time_t			now;
 	struct tm		*now_tm;
@@ -1935,11 +1938,14 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				break;
 
 				case MATCH_PORT:
+#ifdef WITH_MISDN
 				if (ea_endpoint->ep_portlist)
 				if ((ea_endpoint->ep_portlist->port_type & PORT_CLASS_MASK) != PORT_CLASS_mISDN)
 					break;
 				integer = e_callerinfo.isdn_port;
 				goto match_integer;
+#endif
+				break;
 
 				case MATCH_INTERFACE:
 				if (!e_callerinfo.interface[0])
@@ -2116,6 +2122,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 
 				case MATCH_FREE:
 				case MATCH_NOTFREE:
+#ifdef WITH_MISDN
 				if (!(comp_len = (unsigned long)strchr(cond->string_value, ':')))
 					break;
 				comp_len = comp_len-(unsigned long)cond->string_value;
@@ -2144,10 +2151,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					if (avail < atoi(cond->string_value + comp_len + 1))
 						istrue = 1;
 				}
+#endif
 				break;
 
 
 				case MATCH_DOWN:
+#ifdef WITH_MISDN
 				mISDNport = mISDNport_first;
 				while(mISDNport) {
 					if (mISDNport->ifport)
@@ -2158,9 +2167,11 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				}
 				if (!mISDNport) /* all down */
 					istrue = 1;
+#endif
 				break;
 
 				case MATCH_UP:
+#ifdef WITH_MISDN
 				mISDNport = mISDNport_first;
 				while(mISDNport) {
 					if (mISDNport->ifport)
@@ -2172,10 +2183,12 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				}
 				if (mISDNport) /* one link at least */
 					istrue = 1;
+#endif
 				break;
 
 				case MATCH_BUSY:
 				case MATCH_IDLE:
+#ifdef WITH_MISDN
 				any = 0;
 				mISDNport = mISDNport_first;
 				while(mISDNport) {
@@ -2189,6 +2202,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 					istrue = 1;
 				if (!mISDNport && cond->match==MATCH_IDLE)
 					istrue = 1;
+#endif
 				break;
 
 				case MATCH_REMOTE:
