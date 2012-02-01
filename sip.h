@@ -35,7 +35,6 @@ class Psip : public Port
 	nua_handle_t *p_s_handle;
 	nua_magic_t *p_s_magic;
 	int p_s_rtp_bridge; /* bridge RTP instead of having a local RTP peer */
-	uint8_t p_s_rtp_payload_type;
 	unsigned short p_s_rtp_port_local;
 	unsigned short p_s_rtp_port_remote;
 	unsigned int p_s_rtp_ip_local;
@@ -63,7 +62,7 @@ class Psip : public Port
 	unsigned char p_s_rxdata[160]; /* receive audio buffer */
 	int p_s_rxpos; /* position in audio buffer 0..159 */
 	int bridge_rx(unsigned char *data, int len);
-	int parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t payload_type);
+	int parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t *payload_types, int *payloads, int max_payloads);
 	void rtp_shutdown(void);
 };
 

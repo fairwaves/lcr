@@ -150,9 +150,10 @@ enum {
 
 /* rtp-info structure */
 struct rtp_info {
-	int payload_type;
-	unsigned int ip;
-	unsigned short port;
+	int payloads;			/* number of payloads offered */
+	unsigned char payload_types[32];/* rtp payload types */
+	unsigned int ip;		/* peer's IP */
+	unsigned short port;		/* peer's port */
 };
 
 /* call-info structure CALLER */

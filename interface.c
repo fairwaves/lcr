@@ -981,10 +981,53 @@ static int inter_sip(struct interface *interface, char *filename, int line, char
 }
 static int inter_rtp_bridge(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
+	int supported = 0;
+
+#ifdef WITH_GSM_BS
+	if (interface->gsm_bs)
+		supported = 1;
+#endif
+#ifdef WITH_SIP
+	if (interface->sip)
+		supported = 1;
+#endif
+	if (!supported) {
+		SPRINT(interface_error, "Error in %s (line %d): Interface does not support RTP\n", filename, line);
+		return(-1);
+	}
 	interface->rtp_bridge = 1;
 
 	return(0);
 }
+#if 0
+static int inter_rtp_payload(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_GSM_BS
+	SPRINT(interface_error, "Error in %s (line %d): GSM BS side not compiled in.\n", filename, line);
+	return(-1);
+#else
+	if (!interface->gsm_bs) {
+		SPRINT(interface_error, "Error in %s (line %d): This parameter only works for GSM BS side interface\n", filename, line);
+		return(-1);
+	}
+	if (!interface->rtp_bridge) {
+		SPRINT(interface_error, "Error in %s (line %d): This parameter only works here, if RTP bridging is enabled\n", filename, line);
+		return(-1);
+	}
+	if (!value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects one payload type\n", filename, line, parameter);
+		return(-1);
+	}
+	if (interface->gsm_bs_payloads == sizeof(interface->gsm_bs_payload_types)) {
+		SPRINT(interface_error, "Error in %s (line %d): Too many payload types defined\n", filename, line);
+		return(-1);
+	}
+	interface->gsm_bs_payload_types[interface->gsm_bs_payloads++] = atoi(value);
+
+	return(0);
+#endif
+}
+#endif
 static int inter_nonotify(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	struct interface_port *ifport;
@@ -1245,8 +1288,15 @@ struct interface_param interface_param[] = {
 	"Sets up SIP interface that represents one SIP endpoint.\n"
 	"Give SIP configuration file."},
 	{"rtp-bridge", &inter_rtp_bridge, "",
-	"Sets up SIP interface that represents one SIP endpoint.\n"
-	"Give SIP configuration file."},
+	"Enables RTP bridging directly from this interface.\n"
+	"This only works, if both ends support RTP. (like gsm-bs and sip)"},
+#if 0
+	not needed, since ms defines what is supports and remote (sip) tells what is selected
+	{"rtp-payload", &inter_rtp_payload, "<codec>",
+	"Define RTP payload to use. Only valid in conjuntion with gsm-bs!\n"
+	"If multiple payloads are defined, the first has highest priority.\n"
+	"If none are defined, GSM fullrate V1 (type 3) is assumed.\n"},
+#endif
 	{"nonotify", &inter_nonotify, "",
 	"Prevents sending notify messages to this interface. A call placed on hold will\n"
 	"Not affect the remote end (phone or telcom switch).\n"

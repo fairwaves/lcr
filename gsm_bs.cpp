@@ -14,6 +14,11 @@
 
 struct lcr_gsm *gsm_bs = NULL;
 
+#define RTP_PT_GSM_FULL 3
+#define RTP_PT_GSM_HALF 96
+#define RTP_PT_GSM_EFR 97
+#define RTP_PT_GSM_AMR 98
+
 /*
  * DTMF stuff
  */
@@ -60,6 +65,74 @@ Pgsm_bs::Pgsm_bs(int type, char *portname, struct port_settings *settings, struc
 Pgsm_bs::~Pgsm_bs()
 {
 	PDEBUG(DEBUG_GSM, "Destroyed GSM BS process(%s).\n", p_name);
+}
+
+/* PROCEEDING INDICATION (from MS) */
+void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
+{
+	unsigned char payload_types[8];
+	int payloads = 0;
+
+	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	if (mncc->fields & MNCC_F_CAUSE) {
+		add_trace("cause", "coding", "%d", mncc->cause.coding);
+		add_trace("cause", "location", "%", mncc->cause.location);
+		add_trace("cause", "value", "%", mncc->cause.value);
+	}
+	end_trace();
+
+	new_state(PORT_STATE_OUT_PROCEEDING);
+
+	/* get list of offered payload types
+	 * if list ist empty, the FR V1 is selected */
+	select_payload_type(mncc, payload_types, &payloads, sizeof(payload_types));
+	/* if no given payload type is supported, we assume  */
+	if (!payloads) {
+		payload_types[0] = RTP_PT_GSM_FULL;
+		payloads = 1;
+	}
+
+	/* select first payload type that matches the rtp list */
+	if (p_g_rtp_bridge) {
+		int i, j;
+
+		for (i = 0; i < p_g_rtp_payloads; i++) {
+			for (j = 0; j < payloads; j++) {
+				if (p_g_rtp_payload_types[i] == payload_types[j])
+					break;
+			}
+			if (j < payloads)
+				break;
+		}
+		if (i == p_g_rtp_payloads) {
+			struct lcr_msg *message;
+
+			/* payload offered by remote RTP is not supported */
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 65;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			/* send release */
+			mncc = create_mncc(MNCC_REL_REQ, p_g_callref);
+			gsm_trace_header(p_g_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
+			mncc->fields |= MNCC_F_CAUSE;
+			mncc->cause.coding = 3;
+			mncc->cause.location = LOCATION_PRIVATE_LOCAL;
+			mncc->cause.value = 65;
+			add_trace("cause", "coding", "%d", mncc->cause.coding);
+			add_trace("cause", "location", "%d", mncc->cause.location);
+			add_trace("cause", "value", "%d", mncc->cause.value);
+			add_trace("reason", NULL, "None of the payload types are supported by MS");
+			end_trace();
+			send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
+			new_state(PORT_STATE_RELEASE);
+			trigger_work(&p_g_delete);
+		}
+		modify_lchan(p_g_rtp_payload_types[i]);
+	} else {
+		/* modify to first given payload */
+		modify_lchan(payload_types[0]);
+	}
 }
 
 /* DTMF INDICATION */
@@ -204,6 +277,73 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 }
 
 /*
+ * select payload type by given list or GSM V1 FR 
+ * return the payload type or 0 if not given 
+ */
+
+void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_types, int *payloads, int max_payloads)
+{
+	unsigned char payload_type;
+
+	*payloads = 0;
+
+	gsm_trace_header(p_g_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
+	if ((mncc->fields & MNCC_F_BEARER_CAP)) {
+		/* select preferred payload type from list */
+		int i;
+
+		add_trace("bearer", "capa", "given by MS");
+		for (i = 0; mncc->bearer_cap.speech_ver[i] >= 0; i++) {
+			/* select payload type we support */
+			switch (mncc->bearer_cap.speech_ver[i]) {
+			case 0:
+				add_trace("speech", "version", "Full Rate given");
+				payload_type = RTP_PT_GSM_FULL;
+				break;
+			case 2:
+				add_trace("speech", "version", "EFR given");
+				payload_type = RTP_PT_GSM_EFR;
+				break;
+			case 4:
+				add_trace("speech", "version", "AMR given");
+				payload_type = RTP_PT_GSM_AMR;
+				break;
+			case 1:
+				add_trace("speech", "version", "Half Rate given");
+				payload_type = RTP_PT_GSM_HALF;
+				break;
+			default:
+				add_trace("speech", "version", "%d given", mncc->bearer_cap.speech_ver[i]);
+				payload_type = 0;
+			}
+			/* wen don't support it, so we check the next */
+			if (!payload_type) {
+				add_trace("speech", "ignored", "Not supported by LCR");
+				continue;
+			}
+			if (!p_g_rtp_bridge) {
+				if (payload_type != RTP_PT_GSM_FULL) {
+					add_trace("speech", "ignored", "Not suitable for LCR");
+					continue;
+				}
+			}
+			if (*payloads <= max_payloads) {
+				payload_types[*payloads] = payload_type;
+				(*payloads)++;
+			}
+		}
+	} else {
+		add_trace("bearer", "capa", "not given by MS");
+		add_trace("speech", "version", "Full Rate given");
+		payload_types[0] = RTP_PT_GSM_FULL;
+		*payloads = 1;
+	}
+	if (!(*payloads))
+		add_trace("error", "", "All given payload types unsupported");
+	end_trace();
+}
+
+/*
  * handles all indications
  */
 /* SETUP INDICATION */
@@ -211,8 +351,10 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 {
 	class Endpoint *epoint;
 	struct lcr_msg *message;
-	struct gsm_mncc *mode, *proceeding, *frame;
+	struct gsm_mncc *proceeding, *frame;
 	struct interface *interface;
+	unsigned char payload_types[8];
+	int payloads = 0;
 
 	interface = getinterfacebyname(p_g_interface_name);
 	if (!interface) {
@@ -282,12 +424,40 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	p_dialinginfo.sending_complete = 1;
 
 	/* bearer capability */
-	// todo
 	p_capainfo.bearer_capa = INFO_BC_SPEECH;
 	p_capainfo.bearer_info1 = (options.law=='a')?3:2;
 	p_capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	p_capainfo.source_mode = B_MODE_TRANSPARENT;
 	p_g_mode = p_capainfo.source_mode;
+
+	/* get list of offered payload types
+	 * if list ist empty, the FR V1 is selected */
+	select_payload_type(mncc, payload_types, &payloads, sizeof(payload_types));
+	/* if no given payload type is supported, we assume  */
+	if (!payloads) {
+		payload_types[0] = RTP_PT_GSM_FULL;
+		payloads = 1;
+	}
+#if 0
+	/* if no given payload type is supported, we reject the call */
+	if (!payloads) {
+		mncc = create_mncc(MNCC_REJ_REQ, callref);
+		gsm_trace_header(p_g_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
+		mncc->fields |= MNCC_F_CAUSE;
+		mncc->cause.coding = 3;
+		mncc->cause.location = 1;
+		mncc->cause.value = 65;
+		add_trace("cause", "coding", "%d", mncc->cause.coding);
+		add_trace("cause", "location", "%d", mncc->cause.location);
+		add_trace("cause", "value", "%d", mncc->cause.value);
+		add_trace("reason", NULL, "Given speech codec(s) not supported");
+		end_trace();
+		send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
+		new_state(PORT_STATE_RELEASE);
+		trigger_work(&p_g_delete);
+		return;
+	}
+#endif
 
 	/* useruser */
 
@@ -309,14 +479,9 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 	epointlist_new(epoint->ep_serial);
 
-	/* modify lchan to GSM codec V1 */
-	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
-	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
-	mode->lchan_mode = 0x01; /* GSM V1 */
-	mode->lchan_type = 0x02;
-	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
-	end_trace();
-	send_and_free_mncc(p_g_lcr_gsm, mode->msg_type, mode);
+	/* modify lchan in case of no rtp bridge */
+	if (!p_g_rtp_bridge)
+		modify_lchan(payload_types[0]);
 
 	/* send call proceeding */
 	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
@@ -353,15 +518,20 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	SCPY((char *)message->param.setup.useruser.data, (char *)mncc->useruser.info);
 	message->param.setup.useruser.len = strlen(mncc->useruser.info);
 	message->param.setup.useruser.protocol = mncc->useruser.proto;
-	message->param.setup.rtpinfo.payload_type = 3; /* FIXME: receive payload type from peer */
-
 	if (p_g_rtp_bridge) {
 		struct gsm_mncc_rtp *rtp;
+		int i;
 
 		PDEBUG(DEBUG_GSM, "Request RTP peer info, before forwarding setup\n");
 		p_g_setup_pending = message;
 		rtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CREATE, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
+
+		for (i = 0; i < (int)sizeof(message->param.setup.rtpinfo.payload_types) && i < payloads; i++) {
+			message->param.setup.rtpinfo.payload_types[i] = payload_types[i];
+			message->param.setup.rtpinfo.payloads++;
+		}
+
 	} else
 		message_put(message);
 
@@ -562,6 +732,43 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		return;
 	}
 
+	/* unsupported codec for RTP bridge */
+	if (param->setup.rtpinfo.port) {
+		int i;
+
+		p_g_rtp_payloads = 0;
+		gsm_trace_header(p_g_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
+		for (i = 0; i < param->setup.rtpinfo.payloads; i++) {
+			switch (param->setup.rtpinfo.payload_types[i]) {
+			case RTP_PT_GSM_FULL:
+			case RTP_PT_GSM_EFR:
+			case RTP_PT_GSM_AMR:
+			case RTP_PT_GSM_HALF:
+				add_trace("rtp", "payload", "%d supported", param->setup.rtpinfo.payload_types[i]);
+				if (p_g_rtp_payloads < (int)sizeof(p_g_rtp_payload_types)) {
+					p_g_rtp_payload_types[p_g_rtp_payloads++] = param->setup.rtpinfo.payload_types[i];
+					p_g_rtp_payloads++;
+				}
+				break;
+			default:
+				add_trace("rtp", "payload", "%d unsupported", param->setup.rtpinfo.payload_types[i]);
+			}
+		}
+		end_trace();
+		if (!p_g_rtp_payloads) {
+			gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+			add_trace("failure", NULL, "No payload given that is supported by GSM");
+			end_trace();
+			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 65;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			new_state(PORT_STATE_RELEASE);
+			trigger_work(&p_g_delete);
+			return;
+		}
+	}
+
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
 	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_g_interface_name);
@@ -691,8 +898,6 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		add_trace("redir", "screen", "%d", mncc->redirecting.screen);
 		add_trace("redir", "number", "%s", mncc->redirecting.number);
 	}
-	/* bearer capability */
-	//todo
 
 	end_trace();
 	send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
@@ -701,8 +906,6 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
 	message_put(message);
-
-	new_state(PORT_STATE_OUT_PROCEEDING);
 
 	/* RTP bridge */
 	if (param->setup.rtpinfo.port) {

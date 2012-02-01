@@ -51,7 +51,6 @@ Psip::Psip(int type, char *portname, struct port_settings *settings, struct inte
 	memset(&p_s_rtcp_sin_local, 0, sizeof(p_s_rtcp_sin_local));
 	memset(&p_s_rtp_sin_remote, 0, sizeof(p_s_rtp_sin_remote));
 	memset(&p_s_rtcp_sin_remote, 0, sizeof(p_s_rtcp_sin_remote));
-	p_s_rtp_payload_type = 0;
 	p_s_rtp_ip_local = 0;
 	p_s_rtp_ip_remote = 0;
 	p_s_rtp_port_local = 0;
@@ -145,7 +144,7 @@ struct rtp_x_hdr {
 #define RTP_PT_GSM_FULL 3
 #define RTP_PT_GSM_HALF 96
 #define RTP_PT_GSM_EFR 97
-#define RTP_PT_AMR 98
+#define RTP_PT_GSM_AMR 98
 
 /* decode an rtp frame  */
 static int rtp_decode(class Psip *psip, unsigned char *data, int len)
@@ -216,6 +215,14 @@ static int rtp_decode(class Psip *psip, unsigned char *data, int len)
 		if (payload_len != 31) {
 			PDEBUG(DEBUG_SIP, "received RTP full rate frame with "
 				"payload length != 31 (len = %d)\n",
+				payload_len);
+			return -EINVAL;
+		}
+		break;
+	case RTP_PT_GSM_HALF:
+		if (payload_len != 14) {
+			PDEBUG(DEBUG_SIP, "received RTP half rate frame with "
+				"payload length != 14 (len = %d)\n",
 				payload_len);
 			return -EINVAL;
 		}
@@ -467,6 +474,10 @@ int Psip::rtp_send_frame(unsigned char *data, unsigned int len, uint8_t payload_
 		break;
 	case RTP_PT_GSM_EFR:
 		payload_len = 31;
+		duration = 160;
+		break;
+	case RTP_PT_GSM_HALF:
+		payload_len = 14;
 		duration = 160;
 		break;
 	case RTP_PT_ALAW:
@@ -722,18 +733,20 @@ int Psip::message_connect(unsigned int epoint_id, int message_id, union paramete
 	char sdp_str[256];
 	struct in_addr ia;
 	struct lcr_msg *message;
+	unsigned char payload_type;
 
 	if (param->connectinfo.rtpinfo.port) {
 		PDEBUG(DEBUG_SIP, "RTP info given by remote, forward that\n");
 		p_s_rtp_bridge = 1;
-		p_s_rtp_payload_type = param->connectinfo.rtpinfo.payload_type;
+		payload_type = param->connectinfo.rtpinfo.payload_types[0];
 		p_s_rtp_ip_local = param->connectinfo.rtpinfo.ip;
 		p_s_rtp_port_local = param->connectinfo.rtpinfo.port;
+		PDEBUG(DEBUG_SIP, "payload type %d\n", payload_type);
 		PDEBUG(DEBUG_SIP, "local ip %08x port %d\n", p_s_rtp_ip_local, p_s_rtp_port_local);
 		PDEBUG(DEBUG_SIP, "remote ip %08x port %d\n", p_s_rtp_ip_remote, p_s_rtp_port_remote);
 	} else {
 		PDEBUG(DEBUG_SIP, "RTP info not given by remote, so we do our own RTP\n");
-		p_s_rtp_payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
+		payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
 		/* open local RTP peer (if not bridging) */
 		if (rtp_connect() < 0) {
 			nua_cancel(p_s_handle, TAG_END());
@@ -762,7 +775,7 @@ int Psip::message_connect(unsigned int epoint_id, int message_id, union paramete
 		"t=0 0\n"
 		"m=audio %d RTP/AVP %d\n"
 		"a=rtpmap:%d %s/8000\n"
-		, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, p_s_rtp_payload_type, p_s_rtp_payload_type, payload_type2name(p_s_rtp_payload_type));
+		, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, payload_type, payload_type, payload_type2name(payload_type));
 	PDEBUG(DEBUG_SIP, "Using SDP response: %s\n", sdp_str);
 
 	nua_respond(p_s_handle, SIP_200_OK,
@@ -773,6 +786,9 @@ int Psip::message_connect(unsigned int epoint_id, int message_id, union paramete
 	sip_trace_header(this, "RESPOND", DIRECTION_OUT);
 	add_trace("respond", "value", "200 OK");
 	add_trace("reason", NULL, "call connected");
+	add_trace("rtp", "ip", "%s", inet_ntoa(ia));
+	add_trace("rtp", "port", "%d,%d", p_s_rtp_port_local, p_s_rtp_port_local + 1);
+	add_trace("rtp", "payload", "%d", payload_type);
 	end_trace();
 
 	return 0;
@@ -849,11 +865,15 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	char to[128];
 	const char *local = inst->local_ip;
 	const char *remote = inst->remote_ip;
-	char sdp_str[256];
+	char sdp_str[256], pt_str[32];
 	struct in_addr ia;
 	struct epoint_list *epointlist;
 	sip_cseq_t *cseq = NULL;
 	struct lcr_msg *message;
+	unsigned char lcr_payload = { (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW };
+	unsigned char *payload_types;
+	int payloads = 0;
+	int i;
 
 	PDEBUG(DEBUG_SIP, "Doing Setup (inst %p)\n", inst);
 
@@ -864,7 +884,8 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	if (param->setup.rtpinfo.port) {
 		PDEBUG(DEBUG_SIP, "RTP info given by remote, forward that\n");
 		p_s_rtp_bridge = 1;
-		p_s_rtp_payload_type = param->setup.rtpinfo.payload_type;
+		payload_types = param->setup.rtpinfo.payload_types;
+		payloads = param->setup.rtpinfo.payloads;
 		p_s_rtp_ip_local = param->setup.rtpinfo.ip;
 		p_s_rtp_port_local = param->setup.rtpinfo.port;
 		PDEBUG(DEBUG_SIP, "local ip %08x port %d\n", p_s_rtp_ip_local, p_s_rtp_port_local);
@@ -872,7 +893,8 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	} else {
 		PDEBUG(DEBUG_SIP, "RTP info not given by remote, so we do our own RTP\n");
 		p_s_rtp_bridge = 0;
-		p_s_rtp_payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
+		payload_types = &lcr_payload;
+		payloads = 1;
 
 		/* open local RTP peer (if not bridging) */
 		if (rtp_open() < 0) {
@@ -887,14 +909,6 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 			return 0;
 		}
 	}
-	SPRINT(from, "sip:%s@%s", param->setup.callerinfo.id, local);
-	SPRINT(to, "sip:%s@%s", param->setup.dialinginfo.id, remote);
-
-	sip_trace_header(this, "INVITE", DIRECTION_OUT);
-	add_trace("from", "uri", "%s", from);
-	add_trace("to", "uri", "%s", to);
-	add_trace("rtp", "port", "%d,%d", p_s_rtp_port_local, p_s_rtp_port_local + 1);
-	end_trace();
 
 	p_s_handle = nua_handle(inst->nua, NULL, TAG_END());
 	if (!p_s_handle) {
@@ -925,10 +939,30 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 		"s=SIP Call\n"
 		"c=IN IP4 %s\n"
 		"t=0 0\n"
-		"m=audio %d RTP/AVP %d\n"
-		"a=rtpmap:%d %s/8000\n"
-		, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, p_s_rtp_payload_type, p_s_rtp_payload_type, payload_type2name(p_s_rtp_payload_type));
+		"m=audio %d RTP/AVP"
+		, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local);
+	for (i = 0; i < payloads; i++) {
+		SPRINT(pt_str, " %d", payload_types[i]);
+		SCAT(sdp_str, pt_str);
+	}
+	SCAT(sdp_str, "\n");
+	for (i = 0; i < payloads; i++) {
+		SPRINT(pt_str, "a=rtpmap:%d %s/8000\n", payload_types[i], payload_type2name(payload_types[i]));
+		SCAT(sdp_str, pt_str);
+	}
 	PDEBUG(DEBUG_SIP, "Using SDP for invite: %s\n", sdp_str);
+
+	SPRINT(from, "sip:%s@%s", param->setup.callerinfo.id, local);
+	SPRINT(to, "sip:%s@%s", param->setup.dialinginfo.id, remote);
+
+	sip_trace_header(this, "INVITE", DIRECTION_OUT);
+	add_trace("from", "uri", "%s", from);
+	add_trace("to", "uri", "%s", to);
+	add_trace("rtp", "ip", "%s", inet_ntoa(ia));
+	add_trace("rtp", "port", "%d,%d", p_s_rtp_port_local, p_s_rtp_port_local + 1);
+	for (i = 0; i < payloads; i++)
+		add_trace("rtp", "payload", "%d", payload_types[i]);
+	end_trace();
 
 //	cseq = sip_cseq_create(sip_home, 123, SIP_METHOD_INVITE);
 
@@ -947,7 +981,7 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_OVERLAP);
 	message_put(message);
 #else
-	PDEBUG(DEBUG_SIP, "do overlap\n");
+	PDEBUG(DEBUG_SIP, "do proceeding\n");
 	new_state(PORT_STATE_OUT_PROCEEDING);
 	message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_PROCEEDING);
 	message_put(message);
@@ -1112,9 +1146,9 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 	return 0;
 }
 
-int Psip::parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t payload_type)
+int Psip::parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t *payload_types, int *payloads, int max_payloads)
 {
-	int codec_supported = 0;
+	*payloads = 0;
 
 	if (!sip->sip_payload) {
 		PDEBUG(DEBUG_SIP, "no payload given\n");
@@ -1173,19 +1207,16 @@ int Psip::parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, ui
 		}
 		for (map = m->m_rtpmaps; map; map = map->rm_next) {
 			PDEBUG(DEBUG_SIP, "RTPMAP: coding:'%s' rate='%d' pt='%d'\n", map->rm_encoding, map->rm_rate, map->rm_pt);
-			if (map->rm_pt == payload_type) {
-				PDEBUG(DEBUG_SIP, "supported codec found\n");
-				codec_supported = 1;
-				goto done_codec;
+			/* append to payload list, if there is space */
+			add_trace("rtp", "payload", "%d", map->rm_pt);
+			if (*payloads <= max_payloads) {
+				*payload_types++ = map->rm_pt;
+				(*payloads)++;
 			}
 		}
 	}
-	done_codec:
 
 	sdp_parser_free(parser);
-
-	if (!codec_supported)
-		return 415;
 
 	return 0;
 }
@@ -1197,8 +1228,9 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	int ret;
 	class Endpoint *epoint;
 	struct lcr_msg *message;
-	uint8_t payload_type;
 	struct interface *interface;
+	uint8_t payload_types[32];
+	int payloads = 0;
 
 	interface = getinterfacebyname(inst->interface_name);
 	if (!interface) {
@@ -1212,11 +1244,25 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		to = sip->sip_to->a_url->url_user;
 	PDEBUG(DEBUG_SIP, "invite received (%s->%s)\n", from, to);
 
-	if (p_s_rtp_bridge)
-		payload_type = 3; // FIXME: use list and forward list to remote side
-	else
-		payload_type = (options.law=='a')?RTP_PT_ALAW:RTP_PT_ULAW;
-	ret = parse_sdp(sip, &p_s_rtp_ip_remote, &p_s_rtp_port_remote, payload_type);
+	sip_trace_header(this, "Payload received", DIRECTION_NONE);
+	ret = parse_sdp(sip, &p_s_rtp_ip_remote, &p_s_rtp_port_remote, payload_types, &payloads, sizeof(payload_types));
+	if (!ret) {
+		/* if no RTP bridge, we must support LAW codec, otherwise we forward what we have */
+		if (!p_s_rtp_bridge) {
+			int i;
+
+			/* check if supported payload type exists */
+			for (i = 0; i < payloads; i++) {
+				if (payload_types[i] == ((options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW))
+					break;
+			}
+			if (i == payloads) {
+				add_trace("error", NULL, "Expected LAW payload type (not bridged)");
+				ret = 415;
+			}
+		}
+	}
+	end_trace();
 	if (ret) {
 		if (ret == 400)
 			nua_respond(nh, SIP_400_BAD_REQUEST, TAG_END());
@@ -1317,10 +1363,17 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 //	message->param.setup.useruser.len = strlen(mncc->useruser.info);
 //	message->param.setup.useruser.protocol = mncc->useruser.proto;
 	if (p_s_rtp_bridge) {
+		int i;
+
 		PDEBUG(DEBUG_SIP, "sending setup with RTP info\n");
-		message->param.setup.rtpinfo.payload_type = payload_type;
 		message->param.setup.rtpinfo.ip = p_s_rtp_ip_remote;
 		message->param.setup.rtpinfo.port = p_s_rtp_port_remote;
+		/* add codecs to setup message */
+		for (i = 0; i < payloads; i++) {
+			message->param.setup.rtpinfo.payload_types[message->param.setup.rtpinfo.payloads++] = payload_types[i];
+			if (message->param.setup.rtpinfo.payloads == sizeof(message->param.setup.rtpinfo.payload_types))
+				break;
+		}
 	}
 	message_put(message);
 }
@@ -1417,6 +1470,8 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 {
 	struct lcr_msg *message;
 	int cause = 0, location = 0;
+	uint8_t payload_types[32];
+	int payloads = 0;
 
 	PDEBUG(DEBUG_SIP, "response to invite received (status = %d)\n", status);
 
@@ -1427,20 +1482,24 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	/* connect audio */
 	if (status == 183 || (status >= 200 && status <= 299)) {
 		int ret;
-		uint8_t payload_type;
 
-		if (p_s_rtp_bridge)
-			payload_type = p_s_rtp_payload_type;
-		else
-			payload_type = (options.law=='a')?RTP_PT_ALAW:RTP_PT_ULAW;
-		ret = parse_sdp(sip, &p_s_rtp_ip_remote, &p_s_rtp_port_remote, payload_type);
+		sip_trace_header(this, "Payload received", DIRECTION_NONE);
+		ret = parse_sdp(sip, &p_s_rtp_ip_remote, &p_s_rtp_port_remote, payload_types, &payloads, sizeof(payload_types));
+		if (!ret) {
+			if (payloads != 1)
+				ret = 415;
+			else if (!p_s_rtp_bridge) {
+				if (payload_types[0] != ((options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW)) {
+					add_trace("error", NULL, "Expected LAW payload type (not bridged)");
+					ret = 415;
+				}
+			}
+		}
+		end_trace();
 		if (ret) {
-			if (ret == 400)
-				nua_cancel(nh, TAG_END());
-			else
-				nua_cancel(nh, TAG_END());
+			nua_cancel(nh, TAG_END());
 			sip_trace_header(this, "CANCEL", DIRECTION_OUT);
-			add_trace("reason", NULL, "offered codec does not match");
+			add_trace("reason", NULL, "accepted codec does not match");
 			end_trace();
 			cause = 88;
 			location = LOCATION_PRIVATE_LOCAL;
@@ -1481,9 +1540,10 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		message->param.progressinfo.progress = 8;
 		message->param.progressinfo.location = 10;
 		if (p_s_rtp_bridge) {
-			message->param.progressinfo.rtpinfo.payload_type = p_s_rtp_payload_type;
 			message->param.progressinfo.rtpinfo.ip = p_s_rtp_ip_remote;
 			message->param.progressinfo.rtpinfo.port = p_s_rtp_port_remote;
+			message->param.progressinfo.rtpinfo.payload_types[0] = payload_types[0];
+			message->param.progressinfo.rtpinfo.payloads = 1;
 		}
 		message_put(message);
 		return;
@@ -1502,9 +1562,10 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		new_state(PORT_STATE_CONNECT);
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 		if (p_s_rtp_bridge) {
-			message->param.connectinfo.rtpinfo.payload_type = p_s_rtp_payload_type;
 			message->param.connectinfo.rtpinfo.ip = p_s_rtp_ip_remote;
 			message->param.connectinfo.rtpinfo.port = p_s_rtp_port_remote;
+			message->param.connectinfo.rtpinfo.payload_types[0] = payload_types[0];
+			message->param.connectinfo.rtpinfo.payloads = 1;
 		}
 		message_put(message);
 		return;

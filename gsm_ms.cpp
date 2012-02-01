@@ -23,6 +23,8 @@ static int dtmf_timeout(struct lcr_timer *timer, void *instance, int index);
 #define DTMF_ST_STOP		3	/* DTMF stopped, waiting for resp. */
 #define DTMF_ST_SPACE		4	/* wait space between tones */
 
+#define RTP_PT_GSM_FULL		3
+
 /*
  * constructor
  */
@@ -67,7 +69,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 {
 	class Endpoint *epoint;
 	struct lcr_msg *message;
-	struct gsm_mncc *mode, *proceeding, *frame;
+	struct gsm_mncc *proceeding, *frame;
 	struct interface *interface;
 
 	interface = getinterfacebyname(p_g_interface_name);
@@ -275,13 +277,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	epointlist_new(epoint->ep_serial);
 
 	/* modify lchan to GSM codec V1 */
-	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
-	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
-	mode->lchan_mode = 0x01; /* GSM V1 */
-	mode->lchan_type = 0x02;
-	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
-	end_trace();
-	send_and_free_mncc(p_g_lcr_gsm, mode->msg_type, mode);
+	modify_lchan(RTP_PT_GSM_FULL);
 
 	/* send call proceeding */
 	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);

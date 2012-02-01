@@ -108,6 +108,10 @@ struct interface {
 	int			bf_len; /* filter length of blowfish */
 #ifdef WITH_GSM_BS
 	int			gsm_bs; /* interface is an GSM BS interface */
+#if 0
+	int			gsm_bs_payloads;
+	unsigned char		gsm_bs_payload_types[8];
+#endif
 #endif
 #ifdef WITH_GSM_MS
 	int			gsm_ms; /* interface is an GSM MS interface */

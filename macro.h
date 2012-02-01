@@ -22,10 +22,10 @@ static inline void scpy(char *dst, const char *src, unsigned int siz)
 
 /* safe strcat/strncat */
 
-#define SCAT(dst, src) scat(dst, src, sizeof(dst)-strlen(dst)-1)
+#define SCAT(dst, src) scat(dst, src, sizeof(dst))
 static inline void scat(char *dst, const char *src, unsigned int siz)
 {
-	strncat(dst, src, siz);
+	strncat(dst, src, siz-strlen(dst)-1);
 	dst[siz-1] = '\0';
 }
 

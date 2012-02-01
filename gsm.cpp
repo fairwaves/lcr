@@ -27,6 +27,10 @@ extern "C" {
 
 //struct lcr_gsm *gsm = NULL;
 
+#define RTP_PT_GSM_HALF 96
+#define RTP_PT_GSM_EFR 97
+#define RTP_PT_GSM_AMR 98
+
 int new_callref = 1;
 
 /* names of MNCC-SAP */
@@ -35,6 +39,7 @@ static const struct _value_string {
 	const char *name;
 } mncc_names[] = {
 	{ 0,			"New call ref" },
+	{ 1,			"Codec negotiation" },
 	{ MNCC_SETUP_REQ,	"MNCC_SETUP_REQ" },
 	{ MNCC_SETUP_IND,	"MNCC_SETUP_IND" },
 	{ MNCC_SETUP_RSP,	"MNCC_SETUP_RSP" },
@@ -82,6 +87,7 @@ static const struct _value_string {
 	{ MNCC_STOP_DTMF_REQ,	"MNCC_STOP_DTMF_REQ" },
 	{ MNCC_HOLD_REQ,	"MNCC_HOLD_REQ " },
 	{ MNCC_RETRIEVE_REQ,	"MNCC_RETRIEVE_REQ" },
+	{ MNCC_LCHAN_MODIFY,	"MNCC_LCHAN_MODIFY" },
 	{ 0,			NULL }
 };
 
@@ -139,6 +145,7 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	p_g_rtp_bridge = 0;
 	if (interface->rtp_bridge)
 		p_g_rtp_bridge = 1;
+	p_g_rtp_payloads = 0;
 	memset(&p_g_samples, 0, sizeof(p_g_samples));
 	SCPY(p_g_interface_name, interface->name); 
 	p_callerinfo.itype = (interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
@@ -161,6 +168,7 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	}
 	p_g_rxpos = 0;
 	p_g_tch_connected = 0;
+	p_g_payload_type = -1;
 
 	PDEBUG(DEBUG_GSM, "Created new GSMPort(%s).\n", portname);
 }
@@ -315,7 +323,7 @@ void gsm_trace_header(const char *interface_name, class Pgsm *port, unsigned int
 		SCAT(msgtext, " ----");
 
 	/* init trace with given values */
-	start_trace(0,
+	start_trace(-1,
 		    interface,
 		    port?numberrize_callerinfo(port->p_callerinfo.id, port->p_callerinfo.ntype, options.national, options.international):NULL,
 		    port?port->p_dialinginfo.id:NULL,
@@ -325,31 +333,42 @@ void gsm_trace_header(const char *interface_name, class Pgsm *port, unsigned int
 		    msgtext);
 }
 
-/* PROCEEDING INDICATION */
-void Pgsm::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
+/* modify lchan to given payload type */
+void Pgsm::modify_lchan(unsigned char payload_type)
 {
 	struct gsm_mncc *mode;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
-	if (mncc->fields & MNCC_F_CAUSE) {
-		add_trace("cause", "coding", "%d", mncc->cause.coding);
-		add_trace("cause", "location", "%", mncc->cause.location);
-		add_trace("cause", "value", "%", mncc->cause.value);
-	}
-	end_trace();
+	/* already modified to that payload type */
+	if (p_g_payload_type == payload_type)
+		return;
 
-	/* modify lchan to GSM codec V1 */
+	p_g_payload_type = payload_type;
 	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
-	mode->lchan_mode = 0x01; /* GSM V1 */
-	mode->lchan_type = 0x02;
+	switch (payload_type) {
+	case RTP_PT_GSM_EFR:
+		add_trace("speech", "version", "EFR given");
+		mode->lchan_mode = 0x21; /* GSM V2 */
+		break;
+	case RTP_PT_GSM_AMR:
+		add_trace("speech", "version", "AMR given");
+		mode->lchan_mode = 0x41; /* GSM V3 */
+		break;
+	case RTP_PT_GSM_HALF:
+		add_trace("speech", "version", "Half Rate given");
+		mode->lchan_mode = 0x05; /* GSM V1 */
+		break;
+	default:
+		add_trace("speech", "version", "Full Rate given");
+		mode->lchan_mode = 0x01; /* GSM V1 HR */
+	}
+	mode->lchan_type = 0x02; /* FIXME: unused */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
 	end_trace();
 	send_and_free_mncc(p_g_lcr_gsm, mode->msg_type, mode);
-
 }
 
-/* CALL PROCEEDING INDICATION */
+/* CALL PROCEEDING INDICATION (from network) */
 void Pgsm::call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
 	struct lcr_msg *message;
@@ -435,7 +454,17 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_CONNECT);
 	memcpy(&message->param.connectinfo, &p_connectinfo, sizeof(struct connect_info));
-	message->param.connectinfo.rtpinfo.payload_type = 3; /* FIXME: receive payload type from peer */
+
+	/* if we have a bridge, but not yet modified, the phone accepts out requested payload.
+	 * we force the first in list */
+	if (p_g_rtp_bridge) {
+		if (p_g_payload_type < 0) {
+			/* modify to first given payload */
+			modify_lchan(p_g_rtp_payload_types[0]);
+		}
+		message->param.connectinfo.rtpinfo.payload_types[0] = p_g_payload_type;
+		message->param.connectinfo.rtpinfo.payloads = 1;
+	}
 
 	if (p_g_rtp_bridge) {
 		struct gsm_mncc_rtp *rtp;
@@ -641,6 +670,9 @@ void Pgsm::message_progress(unsigned int epoint_id, int message_id, union parame
 		rtp->ip = param->progressinfo.rtpinfo.ip;
 		rtp->port = param->progressinfo.rtpinfo.port;
 		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
+
+		/* modify channel to accepted payload type */
+		modify_lchan(param->progressinfo.rtpinfo.payload_types[0]);
 	}
 }
 
@@ -748,8 +780,10 @@ void Pgsm::message_connect(unsigned int epoint_id, int message_id, union paramet
 		rtp->ip = param->connectinfo.rtpinfo.ip;
 		rtp->port = param->connectinfo.rtpinfo.port;
 		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
-	}
 
+		/* modify channel to accepted payload type */
+		modify_lchan(param->connectinfo.rtpinfo.payload_types[0]);
+	}
 }
 
 /* MESSAGE_DISCONNECT */

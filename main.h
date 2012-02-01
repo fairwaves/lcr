@@ -118,6 +118,8 @@ void debug(const char *file, const char *function, int line, const char *prefix,
  */
 //#define BUDETECT_DEF
 
+/* internal limit of payload type in a message */
+
 #ifdef BUDETECT_DEF
  #define BUDETECT	budetect(__FILE__, __LINE__, __FUNCTION__);
  void budetect(const char *file, int line, const char *function);
