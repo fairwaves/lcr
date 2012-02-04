@@ -60,11 +60,11 @@ AC_ARG_WITH([misdn],
 	[with_misdn="check"])
 
 AS_IF([test "x$with_misdn" != xno],
-      [AC_CHECK_HEADERS([mISDN/mISDNif.h],
+      [AC_CHECK_HEADERS([mISDN/mbuffer.h],
 			[with_misdn="yes"],
 			[if test "x$with_misdn" != xcheck ; then
                       AC_MSG_FAILURE(
-                        [--with-misdn was given, but test for header-file mISDN/mISDNif.h failed])
+                        [--with-misdn was given, but test for header-file mISDN/mbuffer.h failed])
                      fi
 		     ])
       ])
@@ -239,7 +239,7 @@ AC_CHECK_LIB([pthread], [main])
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([fcntl.h netinet/in.h stdlib.h string.h sys/file.h sys/ioctl.h sys/socket.h sys/time.h unistd.h ctype.h assert.h mISDNuser/mbuffer.h assert.h])
+AC_CHECK_HEADERS([fcntl.h netinet/in.h stdlib.h string.h sys/file.h sys/ioctl.h sys/socket.h sys/time.h unistd.h ctype.h assert.h assert.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
