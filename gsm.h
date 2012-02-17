@@ -53,21 +53,24 @@ class Pgsm : public Port
 	signed short p_g_rxdata[160]; /* receive audio buffer */
 	int p_g_rxpos; /* position in audio buffer 0..159 */
 	int p_g_tch_connected; /* indicates if audio is connected */
-	int p_g_payload_type; /* current payload type or -1 if not set */
+	int p_g_media_type; /* current payload type or 0 if not set */
+	int p_g_payload_type; /* current payload type */
 
 	int p_g_rtp_bridge; /* if we use a bridge */
 	unsigned int p_g_rtp_ip_remote; /* stores ip */
 	unsigned short p_g_rtp_port_remote; /* stores port */
 	int p_g_rtp_payloads;
-	int p_g_rtp_payload_types[8];
+	int p_g_rtp_media_types[8];
+	unsigned char p_g_rtp_payload_types[8];
 
 	void frame_send(void *_frame);
 	void frame_receive(void *_frame);
 	int audio_send(unsigned char *data, int len);
 	int bridge_rx(unsigned char *data, int len);
 
+	void send_mncc_rtp_connect(void);
 	int hunt_bchannel(void);
-	void modify_lchan(unsigned char payload_type);
+	void modify_lchan(int media_type);
 	void call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);

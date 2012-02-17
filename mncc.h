@@ -56,8 +56,10 @@
 #define MNCC_RTP_CONNECT	0x0205
 #define MNCC_RTP_FREE		0x0206
 
-#define GSM_TCHF_FRAME		0x0300
-#define GSM_TCHF_FRAME_EFR	0x0301
+#define GSM_TCHF_FRAME          0x0300
+#define GSM_TCHF_FRAME_EFR      0x0301
+#define GSM_TCHF_FRAME_HR       0x0302
+#define GSM_TCHF_FRAME_AMR      0x0303
 #define GSM_TCHF_BAD_FRAME	0x03ff
 
 #define GSM_MAX_FACILITY	128
@@ -194,6 +196,8 @@ struct gsm_mncc_rtp {
 	uint32_t        callref;
 	uint32_t        ip;
 	uint16_t        port;
+	uint32_t        payload_type;
+	uint32_t        payload_msg_type;
 };
 
 

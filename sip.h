@@ -62,10 +62,11 @@ class Psip : public Port
 	unsigned char p_s_rxdata[160]; /* receive audio buffer */
 	int p_s_rxpos; /* position in audio buffer 0..159 */
 	int bridge_rx(unsigned char *data, int len);
-	int parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t *payload_types, int *payloads, int max_payloads);
+	int parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t *payload_types, int *media_types, int *payloads, int max_payloads);
 	void rtp_shutdown(void);
 };
 
+const char *media_type2name(uint8_t media_type);
 int sip_init_inst(struct interface *interface);
 void sip_exit_inst(struct interface *interface);
 int sip_init(void);

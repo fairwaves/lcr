@@ -9,7 +9,7 @@ class Pgsm_bs : public Pgsm
 	unsigned char *p_g_dtmf; /* DTMF tone generation (MS only) */
 	int p_g_dtmf_index; /* DTMF tone generation index */
 
-	void select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_types, int *payloads, int max_payloads);
+	void select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_types, int *media_types, int *payloads, int max_payloads);
 	void setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *gsm);
 	void start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);

@@ -148,10 +148,20 @@ enum {
 	B_MODE_HDLC,		/* hdlc data mode */
 };
 
+enum {
+	MEDIA_TYPE_ALAW = 1,
+	MEDIA_TYPE_ULAW,
+	MEDIA_TYPE_GSM,
+	MEDIA_TYPE_GSM_EFR,
+	MEDIA_TYPE_AMR,
+	MEDIA_TYPE_GSM_HR,
+};
+
 /* rtp-info structure */
 struct rtp_info {
 	int payloads;			/* number of payloads offered */
 	unsigned char payload_types[32];/* rtp payload types */
+	int media_types[32];		/* media type of given payload */
 	unsigned int ip;		/* peer's IP */
 	unsigned short port;		/* peer's port */
 };

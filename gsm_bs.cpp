@@ -14,10 +14,7 @@
 
 struct lcr_gsm *gsm_bs = NULL;
 
-#define RTP_PT_GSM_FULL 3
-#define RTP_PT_GSM_HALF 96
-#define RTP_PT_GSM_EFR 97
-#define RTP_PT_GSM_AMR 98
+#define PAYLOAD_TYPE_GSM 3
 
 /*
  * DTMF stuff
@@ -70,6 +67,7 @@ Pgsm_bs::~Pgsm_bs()
 /* PROCEEDING INDICATION (from MS) */
 void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
+	int media_types[8];
 	unsigned char payload_types[8];
 	int payloads = 0;
 
@@ -85,10 +83,11 @@ void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct 
 
 	/* get list of offered payload types
 	 * if list ist empty, the FR V1 is selected */
-	select_payload_type(mncc, payload_types, &payloads, sizeof(payload_types));
+	select_payload_type(mncc, payload_types, media_types, &payloads, sizeof(payload_types));
 	/* if no given payload type is supported, we assume  */
 	if (!payloads) {
-		payload_types[0] = RTP_PT_GSM_FULL;
+		media_types[0] = MEDIA_TYPE_GSM;
+		payload_types[0] = PAYLOAD_TYPE_GSM;
 		payloads = 1;
 	}
 
@@ -98,7 +97,7 @@ void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct 
 
 		for (i = 0; i < p_g_rtp_payloads; i++) {
 			for (j = 0; j < payloads; j++) {
-				if (p_g_rtp_payload_types[i] == payload_types[j])
+				if (p_g_rtp_media_types[i] == media_types[j])
 					break;
 			}
 			if (j < payloads)
@@ -127,11 +126,16 @@ void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct 
 			send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
 			new_state(PORT_STATE_RELEASE);
 			trigger_work(&p_g_delete);
+
+			return;
 		}
-		modify_lchan(p_g_rtp_payload_types[i]);
+		modify_lchan(p_g_rtp_media_types[i]);
+		/* use the payload type from received rtp list, not from locally generated payload types */
+		p_g_payload_type = p_g_rtp_payload_types[i];
 	} else {
 		/* modify to first given payload */
-		modify_lchan(payload_types[0]);
+		modify_lchan(media_types[0]);
+		p_g_payload_type = payload_types[0];
 	}
 }
 
@@ -281,8 +285,9 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
  * return the payload type or 0 if not given 
  */
 
-void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_types, int *payloads, int max_payloads)
+void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_types, int *media_types, int *payloads, int max_payloads)
 {
+	int media_type;
 	unsigned char payload_type;
 
 	*payloads = 0;
@@ -298,36 +303,42 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 			switch (mncc->bearer_cap.speech_ver[i]) {
 			case 0:
 				add_trace("speech", "version", "Full Rate given");
-				payload_type = RTP_PT_GSM_FULL;
+				media_type = MEDIA_TYPE_GSM;
+				payload_type = PAYLOAD_TYPE_GSM;
 				break;
 			case 2:
 				add_trace("speech", "version", "EFR given");
-				payload_type = RTP_PT_GSM_EFR;
+				media_type = MEDIA_TYPE_GSM_EFR;
+				payload_type = 100 + *payloads;
 				break;
 			case 4:
 				add_trace("speech", "version", "AMR given");
-				payload_type = RTP_PT_GSM_AMR;
+				media_type = MEDIA_TYPE_AMR;
+				payload_type = 100 + *payloads;
 				break;
 			case 1:
 				add_trace("speech", "version", "Half Rate given");
-				payload_type = RTP_PT_GSM_HALF;
+				media_type = MEDIA_TYPE_GSM_HR;
+				payload_type = 100 + *payloads;
 				break;
 			default:
 				add_trace("speech", "version", "%d given", mncc->bearer_cap.speech_ver[i]);
+				media_type = 0;
 				payload_type = 0;
 			}
 			/* wen don't support it, so we check the next */
-			if (!payload_type) {
+			if (!media_type) {
 				add_trace("speech", "ignored", "Not supported by LCR");
 				continue;
 			}
 			if (!p_g_rtp_bridge) {
-				if (payload_type != RTP_PT_GSM_FULL) {
+				if (media_type != MEDIA_TYPE_GSM) {
 					add_trace("speech", "ignored", "Not suitable for LCR");
 					continue;
 				}
 			}
 			if (*payloads <= max_payloads) {
+				media_types[*payloads] = media_type;
 				payload_types[*payloads] = payload_type;
 				(*payloads)++;
 			}
@@ -335,7 +346,8 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 	} else {
 		add_trace("bearer", "capa", "not given by MS");
 		add_trace("speech", "version", "Full Rate given");
-		payload_types[0] = RTP_PT_GSM_FULL;
+		media_types[0] = MEDIA_TYPE_GSM;
+		payload_types[0] = PAYLOAD_TYPE_GSM;
 		*payloads = 1;
 	}
 	if (!(*payloads))
@@ -353,6 +365,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	struct lcr_msg *message;
 	struct gsm_mncc *proceeding, *frame;
 	struct interface *interface;
+	int media_types[8];
 	unsigned char payload_types[8];
 	int payloads = 0;
 
@@ -432,10 +445,11 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 
 	/* get list of offered payload types
 	 * if list ist empty, the FR V1 is selected */
-	select_payload_type(mncc, payload_types, &payloads, sizeof(payload_types));
+	select_payload_type(mncc, payload_types, media_types, &payloads, sizeof(payload_types));
 	/* if no given payload type is supported, we assume  */
 	if (!payloads) {
-		payload_types[0] = RTP_PT_GSM_FULL;
+		media_types[0] = MEDIA_TYPE_GSM;
+		payload_types[0] = PAYLOAD_TYPE_GSM;
 		payloads = 1;
 	}
 #if 0
@@ -481,7 +495,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 
 	/* modify lchan in case of no rtp bridge */
 	if (!p_g_rtp_bridge)
-		modify_lchan(payload_types[0]);
+		modify_lchan(media_types[0]);
 
 	/* send call proceeding */
 	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
@@ -528,6 +542,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
 
 		for (i = 0; i < (int)sizeof(message->param.setup.rtpinfo.payload_types) && i < payloads; i++) {
+			message->param.setup.rtpinfo.media_types[i] = media_types[i];
 			message->param.setup.rtpinfo.payload_types[i] = payload_types[i];
 			message->param.setup.rtpinfo.payloads++;
 		}
@@ -739,19 +754,20 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		p_g_rtp_payloads = 0;
 		gsm_trace_header(p_g_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
 		for (i = 0; i < param->setup.rtpinfo.payloads; i++) {
-			switch (param->setup.rtpinfo.payload_types[i]) {
-			case RTP_PT_GSM_FULL:
-			case RTP_PT_GSM_EFR:
-			case RTP_PT_GSM_AMR:
-			case RTP_PT_GSM_HALF:
-				add_trace("rtp", "payload", "%d supported", param->setup.rtpinfo.payload_types[i]);
+			switch (param->setup.rtpinfo.media_types[i]) {
+			case MEDIA_TYPE_GSM:
+			case MEDIA_TYPE_GSM_EFR:
+			case MEDIA_TYPE_AMR:
+			case MEDIA_TYPE_GSM_HR:
+				add_trace("rtp", "payload", "%s:%d supported", media_type2name(param->setup.rtpinfo.media_types[i]), param->setup.rtpinfo.payload_types[i]);
 				if (p_g_rtp_payloads < (int)sizeof(p_g_rtp_payload_types)) {
-					p_g_rtp_payload_types[p_g_rtp_payloads++] = param->setup.rtpinfo.payload_types[i];
+					p_g_rtp_media_types[p_g_rtp_payloads] = param->setup.rtpinfo.media_types[i];
+					p_g_rtp_payload_types[p_g_rtp_payloads] = param->setup.rtpinfo.payload_types[i];
 					p_g_rtp_payloads++;
 				}
 				break;
 			default:
-				add_trace("rtp", "payload", "%d unsupported", param->setup.rtpinfo.payload_types[i]);
+				add_trace("rtp", "payload", "%s:%d unsupported", media_type2name(param->setup.rtpinfo.media_types[i]), param->setup.rtpinfo.payload_types[i]);
 			}
 		}
 		end_trace();

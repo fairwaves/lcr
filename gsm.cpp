@@ -27,10 +27,6 @@ extern "C" {
 
 //struct lcr_gsm *gsm = NULL;
 
-#define RTP_PT_GSM_HALF 96
-#define RTP_PT_GSM_EFR 97
-#define RTP_PT_GSM_AMR 98
-
 int new_callref = 1;
 
 /* names of MNCC-SAP */
@@ -129,6 +125,32 @@ int send_and_free_mncc(struct lcr_gsm *lcr_gsm, unsigned int msg_type, void *dat
 	return ret;
 }
 
+void Pgsm::send_mncc_rtp_connect(void)
+{
+	struct gsm_mncc_rtp *nrtp;
+
+	nrtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CONNECT, p_g_callref);
+	nrtp->ip = p_g_rtp_ip_remote;
+	nrtp->port = p_g_rtp_port_remote;
+	switch (p_g_media_type) {
+	case MEDIA_TYPE_GSM:
+		nrtp->payload_msg_type = GSM_TCHF_FRAME;
+		break;
+	case MEDIA_TYPE_GSM_EFR:
+		nrtp->payload_msg_type = GSM_TCHF_FRAME_EFR;
+		break;
+	case MEDIA_TYPE_AMR:
+		nrtp->payload_msg_type = GSM_TCHF_FRAME_AMR;
+		break;
+	case MEDIA_TYPE_GSM_HR:
+		nrtp->payload_msg_type = GSM_TCHF_FRAME_HR;
+		break;
+	}
+	nrtp->payload_type = p_g_payload_type;
+	PDEBUG(DEBUG_GSM, "sending MNCC RTP connect with payload_msg_type=%x, payload_type=%d\n", nrtp->payload_msg_type, nrtp->payload_type);
+	send_and_free_mncc(p_g_lcr_gsm, nrtp->msg_type, nrtp);
+}
+
 static int delete_event(struct lcr_work *work, void *instance, int index);
 
 /*
@@ -168,7 +190,7 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	}
 	p_g_rxpos = 0;
 	p_g_tch_connected = 0;
-	p_g_payload_type = -1;
+	p_g_media_type = 0;
 
 	PDEBUG(DEBUG_GSM, "Created new GSMPort(%s).\n", portname);
 }
@@ -334,33 +356,33 @@ void gsm_trace_header(const char *interface_name, class Pgsm *port, unsigned int
 }
 
 /* modify lchan to given payload type */
-void Pgsm::modify_lchan(unsigned char payload_type)
+void Pgsm::modify_lchan(int media_type)
 {
 	struct gsm_mncc *mode;
 
 	/* already modified to that payload type */
-	if (p_g_payload_type == payload_type)
+	if (p_g_media_type == media_type)
 		return;
 
-	p_g_payload_type = payload_type;
+	p_g_media_type = media_type;
 	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
-	switch (payload_type) {
-	case RTP_PT_GSM_EFR:
+	switch (media_type) {
+	case MEDIA_TYPE_GSM_EFR:
 		add_trace("speech", "version", "EFR given");
 		mode->lchan_mode = 0x21; /* GSM V2 */
 		break;
-	case RTP_PT_GSM_AMR:
+	case MEDIA_TYPE_AMR:
 		add_trace("speech", "version", "AMR given");
 		mode->lchan_mode = 0x41; /* GSM V3 */
 		break;
-	case RTP_PT_GSM_HALF:
+	case MEDIA_TYPE_GSM_HR:
 		add_trace("speech", "version", "Half Rate given");
-		mode->lchan_mode = 0x05; /* GSM V1 */
+		mode->lchan_mode = 0x05; /* GSM V1 HR */
 		break;
 	default:
 		add_trace("speech", "version", "Full Rate given");
-		mode->lchan_mode = 0x01; /* GSM V1 HR */
+		mode->lchan_mode = 0x01; /* GSM V1 */
 	}
 	mode->lchan_type = 0x02; /* FIXME: unused */
 	add_trace("mode", NULL, "0x%02x", mode->lchan_mode);
@@ -458,10 +480,13 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	/* if we have a bridge, but not yet modified, the phone accepts out requested payload.
 	 * we force the first in list */
 	if (p_g_rtp_bridge) {
-		if (p_g_payload_type < 0) {
-			/* modify to first given payload */
-			modify_lchan(p_g_rtp_payload_types[0]);
+		if (!p_g_media_type) {
+			/* modify to first given type */
+			modify_lchan(p_g_rtp_media_types[0]);
+			/* also set payload type */
+			p_g_payload_type = p_g_rtp_payload_types[0];
 		}
+		message->param.connectinfo.rtpinfo.media_types[0] = p_g_media_type;
 		message->param.connectinfo.rtpinfo.payload_types[0] = p_g_payload_type;
 		message->param.connectinfo.rtpinfo.payloads = 1;
 	}
@@ -628,13 +653,8 @@ void Pgsm::rtp_create_ind(unsigned int msg_type, unsigned int callref, struct gs
 		p_g_setup_pending = NULL;
 	}
 	if (p_g_connect_pending) {
-		struct gsm_mncc_rtp *nrtp;
-
 		PDEBUG(DEBUG_GSM, "Got RTP peer info (%08x,%d) connecting RTP... \n", rtp->ip, rtp->port);
-		nrtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CONNECT, p_g_callref);
-		nrtp->ip = p_g_rtp_ip_remote;
-		nrtp->port = p_g_rtp_port_remote;
-		send_and_free_mncc(p_g_lcr_gsm, nrtp->msg_type, nrtp);
+		send_mncc_rtp_connect();
 	}
 }
 
@@ -663,16 +683,17 @@ void Pgsm::message_progress(unsigned int epoint_id, int message_id, union parame
 	}
 
 	if (param->progressinfo.rtpinfo.port) {
-		struct gsm_mncc_rtp *rtp;
+		PDEBUG(DEBUG_GSM, "PROGRESS with RTP peer info, sent to BSC (%08x,%d) with media %d, pt %d\n", param->progressinfo.rtpinfo.ip, param->progressinfo.rtpinfo.port, param->progressinfo.rtpinfo.media_types[0], param->progressinfo.rtpinfo.payload_types[0]);
 
-		PDEBUG(DEBUG_GSM, "CONNECT with RTP peer info, sent to BSC (%08x,%d)\n", param->progressinfo.rtpinfo.ip, param->progressinfo.rtpinfo.port);
-		rtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CONNECT, p_g_callref);
-		rtp->ip = param->progressinfo.rtpinfo.ip;
-		rtp->port = param->progressinfo.rtpinfo.port;
-		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
+		/* modify channel to givne type, also sets media type */
+		modify_lchan(param->progressinfo.rtpinfo.media_types[0]);
 
-		/* modify channel to accepted payload type */
-		modify_lchan(param->progressinfo.rtpinfo.payload_types[0]);
+		/* connect RTP */
+		p_g_rtp_ip_remote = param->progressinfo.rtpinfo.ip;
+		p_g_rtp_port_remote = param->progressinfo.rtpinfo.port;
+		/* p_g_media_type is already set by modify_lchan() */
+		p_g_payload_type = param->progressinfo.rtpinfo.payload_types[0];
+		send_mncc_rtp_connect();
 	}
 }
 
@@ -773,16 +794,17 @@ void Pgsm::message_connect(unsigned int epoint_id, int message_id, union paramet
 	new_state(PORT_STATE_CONNECT_WAITING);
 
 	if (param->connectinfo.rtpinfo.port) {
-		struct gsm_mncc_rtp *rtp;
-
 		PDEBUG(DEBUG_GSM, "CONNECT with RTP peer info, sent to BSC (%08x,%d)\n", param->connectinfo.rtpinfo.ip, param->connectinfo.rtpinfo.port);
-		rtp = (struct gsm_mncc_rtp *) create_mncc(MNCC_RTP_CONNECT, p_g_callref);
-		rtp->ip = param->connectinfo.rtpinfo.ip;
-		rtp->port = param->connectinfo.rtpinfo.port;
-		send_and_free_mncc(p_g_lcr_gsm, rtp->msg_type, rtp);
 
-		/* modify channel to accepted payload type */
-		modify_lchan(param->connectinfo.rtpinfo.payload_types[0]);
+		/* modify channel to givne type, also sets media type */
+		modify_lchan(param->connectinfo.rtpinfo.media_types[0]);
+
+		/* connect RTP */
+		p_g_rtp_ip_remote = param->connectinfo.rtpinfo.ip;
+		p_g_rtp_port_remote = param->connectinfo.rtpinfo.port;
+		/* p_g_media_type is already set by modify_lchan() */
+		p_g_payload_type = param->connectinfo.rtpinfo.payload_types[0];
+		send_mncc_rtp_connect();
 	}
 }
 
