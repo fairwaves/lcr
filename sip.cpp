@@ -295,7 +295,7 @@ static int rtcp_sock_callback(struct lcr_fd *fd, unsigned int what, void *instan
 //			psip->rtp_shutdown();
 			return len;
 		}
-		PDEBUG(DEBUG_SIP, "rtcp!");
+		PDEBUG(DEBUG_SIP, "rtcp!\n");
 	}
 
 	return 0;
@@ -748,7 +748,7 @@ int Psip::message_connect(unsigned int epoint_id, int message_id, union paramete
 		PDEBUG(DEBUG_SIP, "RTP info not given by remote, so we do our own RTP\n");
 		payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
 		/* open local RTP peer (if not bridging) */
-		if (rtp_connect() < 0) {
+		if (!p_s_rtp_is_connected && rtp_connect() < 0) {
 			nua_cancel(p_s_handle, TAG_END());
 			nua_handle_destroy(p_s_handle);
 			p_s_handle = NULL;
@@ -865,7 +865,7 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	char to[128];
 	const char *local = inst->local_ip;
 	const char *remote = inst->remote_ip;
-	char sdp_str[256], pt_str[32];
+	char sdp_str[512], pt_str[32];
 	struct in_addr ia;
 	struct epoint_list *epointlist;
 	sip_cseq_t *cseq = NULL;
@@ -1344,11 +1344,13 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 	epointlist_new(epoint->ep_serial);
 
+#ifdef NUTAG_AUTO100
 	/* send trying (proceeding) */
 	nua_respond(nh, SIP_100_TRYING, TAG_END());
 	sip_trace_header(this, "RESPOND", DIRECTION_OUT);
 	add_trace("respond", "value", "100 Trying");
 	end_trace();
+#endif
 
 	new_state(PORT_STATE_IN_PROCEEDING);
 
@@ -1376,6 +1378,65 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		}
 	}
 	message_put(message);
+
+#if 0
+issues:
+- send tones that are clocked with timer, unless data is received from bridge
+	/* send progress, if tones are available and if we don't bridge */
+	if (!p_s_rtp_bridge && interface->is_tones == IS_YES) {
+		char sdp_str[256];
+		struct in_addr ia;
+		unsigned char payload_type;
+
+		PDEBUG(DEBUG_SIP, "Connecting audio, since we have tones available\n");
+		payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
+		/* open local RTP peer (if not bridging) */
+		if (rtp_connect() < 0) {
+			nua_respond(nh, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
+			nua_handle_destroy(nh);
+			p_s_handle = NULL;
+			sip_trace_header(this, "RESPOND", DIRECTION_OUT);
+			add_trace("respond", "value", "500 Internal Server Error");
+			add_trace("reason", NULL, "failed to connect RTP/RTCP sockts");
+			end_trace();
+			new_state(PORT_STATE_RELEASE);
+			trigger_work(&p_s_delete);
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
+			message->param.disconnectinfo.cause = 41;
+			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			message_put(message);
+			new_state(PORT_STATE_RELEASE);
+			trigger_work(&p_s_delete);
+			return;
+		}
+
+		ia.s_addr = htonl(p_s_rtp_ip_local);
+
+		SPRINT(sdp_str,
+			"v=0\n"
+			"o=LCR-Sofia-SIP 0 0 IN IP4 %s\n"
+			"s=SIP Call\n"
+			"c=IN IP4 %s\n"
+			"t=0 0\n"
+			"m=audio %d RTP/AVP %d\n"
+			"a=rtpmap:%d %s/8000\n"
+			, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, payload_type, payload_type, payload_type2name(payload_type));
+		PDEBUG(DEBUG_SIP, "Using SDP response: %s\n", sdp_str);
+
+		nua_respond(p_s_handle, SIP_183_SESSION_PROGRESS,
+			NUTAG_MEDIA_ENABLE(0),
+			SIPTAG_CONTENT_TYPE_STR("application/sdp"),
+			SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
+		new_state(PORT_STATE_CONNECT);
+		sip_trace_header(this, "RESPOND", DIRECTION_OUT);
+		add_trace("respond", "value", "183 SESSION PROGRESS");
+		add_trace("reason", NULL, "audio available");
+		add_trace("rtp", "ip", "%s", inet_ntoa(ia));
+		add_trace("rtp", "port", "%d,%d", p_s_rtp_port_local, p_s_rtp_port_local + 1);
+		add_trace("rtp", "payload", "%d", payload_type);
+		end_trace();
+	}
+#endif
 }
 
 void Psip::i_bye(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tagss[])
@@ -1521,7 +1582,7 @@ void Psip::r_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	/* process 1xx */
 	switch (status) {
 	case 100:
-#ifdef NUTAG_AUTO100
+#if 0
 		PDEBUG(DEBUG_SIP, "do proceeding\n");
 		new_state(PORT_STATE_OUT_PROCEEDING);
 		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
