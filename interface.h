@@ -119,8 +119,8 @@ struct interface {
 #endif
 #ifdef WITH_SIP
 	int			sip; /* interface is a SIP interface */
-	char			sip_local_ip[16];
-	char			sip_remote_ip[16];
+	char			sip_local_peer[32];
+	char			sip_remote_peer[32];
 	void			*sip_inst; /* sip instance */
 #endif
 	int			rtp_bridge; /* bridge RTP directly (for calls comming from interface) */

@@ -973,8 +973,8 @@ static int inter_sip(struct interface *interface, char *filename, int line, char
 		SPRINT(interface_error, "Error in %s (line %d): Missing SIP remote IP.\n", filename, line);
 		return(-1);
 	}
-	SCPY(interface->sip_local_ip, value);
-	SCPY(interface->sip_remote_ip, p);
+	SCPY(interface->sip_local_peer, value);
+	SCPY(interface->sip_remote_peer, p);
 
 	return(0);
 #endif

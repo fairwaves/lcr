@@ -24,8 +24,8 @@ su_home_t	sip_home[1];
 
 struct sip_inst {
 	char			interface_name[64];
-	char			local_ip[16];
-	char			remote_ip[16];
+	char			local_peer[32];
+	char			remote_peer[32];
 	su_root_t		*root;
 	nua_t			*nua;
 };
@@ -872,8 +872,9 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	struct sip_inst *inst = (struct sip_inst *) p_s_sip_inst;
 	char from[128];
 	char to[128];
-	const char *local = inst->local_ip;
-	const char *remote = inst->remote_ip;
+	const char *local = inst->local_peer;
+	char local_ip[16];
+	const char *remote = inst->remote_peer;
 	char sdp_str[512], pt_str[32];
 	struct in_addr ia;
 	struct epoint_list *epointlist;
@@ -941,8 +942,15 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	end_trace();
 
 	if (!p_s_rtp_ip_local) {
-		PDEBUG(DEBUG_SIP, "RTP local IP not known, so we use our local SIP ip %s\n", local);
-		inet_pton(AF_INET, local, &p_s_rtp_ip_local);
+		char *p;
+
+		/* extract IP from local peer */
+		SCPY(local_ip, local);
+		p = strchr(local_ip, ':');
+		if (p)
+			*p = '\0';
+		PDEBUG(DEBUG_SIP, "RTP local IP not known, so we use our local SIP ip %s\n", local_ip);
+		inet_pton(AF_INET, local_ip, &p_s_rtp_ip_local);
 		p_s_rtp_ip_local = ntohl(p_s_rtp_ip_local);
 	}
 	ia.s_addr = htonl(p_s_rtp_ip_local);
@@ -1813,8 +1821,8 @@ int sip_init_inst(struct interface *interface)
 
 	interface->sip_inst = inst;
 	SCPY(inst->interface_name, interface->name);
-	SCPY(inst->local_ip, interface->sip_local_ip);
-	SCPY(inst->remote_ip, interface->sip_remote_ip);
+	SCPY(inst->local_peer, interface->sip_local_peer);
+	SCPY(inst->remote_peer, interface->sip_remote_peer);
 
 	/* init root object */
 	inst->root = su_root_create(inst);
