@@ -236,8 +236,6 @@ class EndpointAppPBX : public EndpointApp
 	void keypad_function(char digit);
 	void set_tone(struct port_list *portlist, const char *tone);
 	void out_setup(int cfnr);
-	struct mISDNport *hunt_port(char *ifname, int *channel);
-	struct interface *hunt_interface(char *ifname);
 	char *apply_callerid_display(const char *id, int itype, int ntype, int present, int screen, const char *extension, const char *name);
 	void auth(int job, int bit_num);
 
