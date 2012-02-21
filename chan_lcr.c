@@ -242,7 +242,11 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	if (call)
 		sprintf(call_text, "%d", call->ref);
 	if (ast)
+#if ASTERISK_VERSION_NUM < 110000
 		strncpy(ast_text, ast->name, sizeof(ast_text)-1);
+#else
+		strncpy(ast_text, ast_channel_name(ast), sizeof(ast_text)-1);
+#endif
 	ast_text[sizeof(ast_text)-1] = '\0';
 
 //	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
@@ -773,21 +777,39 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 {
 	int cause, ret;
 	union parameter newparam;
+#if ASTERISK_VERSION_NUM < 110000
 	char *exten = ast->exten;
+#else
+	char *exten = ast_channel_exten(ast);
+#endif
 	if (!*exten)
 		exten = "s";
 
+#if ASTERISK_VERSION_NUM < 110000
 	CDEBUG(call, ast, "Try to start pbx. (exten=%s context=%s complete=%s)\n", exten, ast->context, complete?"yes":"no");
+#else
+	CDEBUG(call, ast, "Try to start pbx. (exten=%s context=%s complete=%s)\n", exten, ast_channel_context(ast), complete?"yes":"no");
+#endif
 
 	if (complete) {
 		/* if not match */
+#if ASTERISK_VERSION_NUM < 110000
 		if (!ast_canmatch_extension(ast, ast->context, exten, 1, call->oad)) {
-			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", exten, ast->context);
+CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", exten, ast->context);
+#else
+		if (!ast_canmatch_extension(ast, ast_channel_context(ast), exten, 1, call->oad)) {
+CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at context '%s' - releasing.\n", exten, ast_channel_context(ast));
+#endif
 			cause = 1;
 			goto release;
 		}
+#if ASTERISK_VERSION_NUM < 110000
 		if (!ast_exists_extension(ast, ast->context, exten, 1, call->oad)) {
 			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", exten, ast->context);
+#else
+		if (!ast_exists_extension(ast, ast_channel_context(ast), exten, 1, call->oad)) {
+			CDEBUG(call, ast, "Got 'sending complete', but extension '%s' would match at context '%s', if more digits would be dialed - releasing.\n", exten, ast_channel_context(ast));
+#endif
 			cause = 28;
 			goto release;
 		}
@@ -802,7 +824,11 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		goto start;
 	}
 
+#if ASTERISK_VERSION_NUM < 110000
 	if (ast_canmatch_extension(ast, ast->context, exten, 1, call->oad)) {
+#else
+	if (ast_canmatch_extension(ast, ast_channel_context(ast), exten, 1, call->oad)) {
+#endif
 		/* send setup acknowledge to lcr */
 		if (call->state != CHAN_LCR_STATE_IN_DIALING) {
 			memset(&newparam, 0, sizeof(union parameter));
@@ -813,7 +839,11 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		call->state = CHAN_LCR_STATE_IN_DIALING;
 
 		/* if match, start pbx */
+#if ASTERISK_VERSION_NUM < 110000
 		if (ast_exists_extension(ast, ast->context, exten, 1, call->oad)) {
+#else
+		if (ast_exists_extension(ast, ast_channel_context(ast), exten, 1, call->oad)) {
+#endif
 			CDEBUG(call, ast, "Extensions matches.\n");
 			goto start;
 		}
@@ -823,7 +853,11 @@ static void lcr_start_pbx(struct chan_call *call, struct ast_channel *ast, int c
 		return;
 	}
 
+#if ASTERISK_VERSION_NUM < 110000
 	if (!*ast->exten) {
+#else
+	if (!*ast_channel_exten(ast)) {
+#endif
 		/* if can match */
 		CDEBUG(call, ast, "There is no 's' extension (and we tried to match it implicitly). Extensions may match, if more digits are dialed.\n");
 		return;
@@ -900,12 +934,19 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 
 	/* fill setup information */
 	if (param->setup.dialinginfo.id)
+#if ASTERISK_VERSION_NUM < 110000
 		strncpy(ast->exten, param->setup.dialinginfo.id, AST_MAX_EXTENSION-1);
 	if (param->setup.context[0])
 		strncpy(ast->context, param->setup.context, AST_MAX_CONTEXT-1);
 	else
 		strncpy(ast->context, param->setup.callerinfo.interface, AST_MAX_CONTEXT-1);
-
+#else
+		strncpy(ast_channel_exten(ast), param->setup.dialinginfo.id, AST_MAX_EXTENSION-1);
+	if (param->setup.context[0])
+		strncpy(ast_channel_context(ast), param->setup.context, AST_MAX_CONTEXT-1);
+	else
+		strncpy(ast_channel_context(ast), param->setup.callerinfo.interface, AST_MAX_CONTEXT-1);
+#endif
 
 
 #ifdef AST_1_8_OR_HIGHER
@@ -1283,7 +1324,11 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 	/* pbx not started */
 	if (!call->pbx_started) {
 		CDEBUG(call, call->ast, "Asterisk not started, adding digits to number.\n");
+#if ASTERISK_VERSION_NUM < 110000
 		strncat(ast->exten, param->information.id, AST_MAX_EXTENSION-1);
+#else
+		ast_channel_exten_set(ast, param->information.id);
+#endif
 		lcr_start_pbx(call, ast, param->information.sending_complete);
 		return;
 	}
@@ -2385,9 +2430,11 @@ static void send_digit_to_chan(struct ast_channel * ast, char digit )
 	else if (digit == '#')
 		ast_playtones_start(ast,0,dtmf_tones[15], 0);
 	else {
-		/* not handled */
-		CDEBUG(NULL, ast, "Unable to handle DTMF tone "
-			"'%c' for '%s'\n", digit, ast->name);
+#if ASTERISK_VERSION_NUM < 110000
+		CDEBUG(NULL, ast, "Unable to handle DTMF tone '%c' for '%s'\n", digit, ast->name);
+#else
+		CDEBUG(NULL, ast, "Unable to handle DTMF tone '%c' for '%s'\n", digit, ast_channel_name(ast));
+#endif
 	}
 }
 
@@ -2811,7 +2858,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 
 			/*start music onhold*/
 			#ifdef LCR_FOR_ASTERISK
+			#if ASTERISK_VERSION_NUM <110000
 			ast_moh_start(ast,data,ast->musicclass);
+			#else
+			ast_moh_start(ast,data,ast_channel_musicclass(ast));
+			#endif
 			#endif
 
 			#ifdef LCR_FOR_CALLWEAVER
