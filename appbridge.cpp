@@ -114,6 +114,7 @@ fail:
 		message->param.disconnectinfo.cause = cause;
 		message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 		message_put(message);
+		ea_endpoint->free_portlist(portlist);
 
 		/* destroy endpoint */
 		ea_endpoint->ep_use = 0;
@@ -223,18 +224,22 @@ fail:
 /* port MESSAGE_RELEASE */
 void EndpointAppBridge::port_release(struct port_list *portlist, int message_type, union parameter *param)
 {
-	unsigned int remote;
+	struct port_list *remote;
 
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint received release from port\n");
 
 	if (!ea_endpoint->ep_portlist || !ea_endpoint->ep_portlist->next)
 		goto out;
 	if (ea_endpoint->ep_portlist->port_id == portlist->port_id)
-		remote = ea_endpoint->ep_portlist->next->port_id;
+		remote = ea_endpoint->ep_portlist->next;
 	else
-		remote = ea_endpoint->ep_portlist->port_id;
+		remote = ea_endpoint->ep_portlist;
 	/* forward release */
-	message_forward(ea_endpoint->ep_serial, remote, EPOINT_TO_PORT, param);  
+	message_forward(ea_endpoint->ep_serial, remote->port_id, EPOINT_TO_PORT, param);  
+
+	/* remove relations to in and out port */
+	ea_endpoint->free_portlist(portlist);
+	ea_endpoint->free_portlist(remote);
 
 out:
 	/* destroy endpoint */

@@ -109,7 +109,7 @@ Endpoint::~Endpoint(void)
 	portlist = ep_portlist;
 	while(portlist) {
 		if (portlist->port_id) {
-			PERROR("warning: still relation to port (portlist list)\n");
+			PERROR("Endpoint(%d) warning: still relation to port %d (portlist list)\n", ep_serial, portlist->port_id);
 		}
 		mtemp = portlist;
 		portlist = portlist->next;
@@ -147,7 +147,7 @@ struct port_list *Endpoint::portlist_new(unsigned int port_id, int port_type, in
 	/* portlist structure */
 	portlist = (struct port_list *)MALLOC(sizeof(struct port_list));
 	ememuse++;
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocating port_list.\n", ep_serial);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) allocating port_list, attaching to port %d\n", ep_serial, port_id);
 
 	/* add port_list to chain */
 	portlist->next = NULL;
@@ -186,7 +186,7 @@ void Endpoint::free_portlist(struct port_list *portlist)
 	*tempp=portlist->next;
 
 	/* free */
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removed port_list from endpoint\n", ep_serial);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) removed port %d from port_list of endpoint\n", ep_serial, portlist->port_id);
 	FREE(portlist, sizeof(struct port_list));
 	ememuse--;
 }
