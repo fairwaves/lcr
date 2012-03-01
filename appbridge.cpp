@@ -152,9 +152,9 @@ fail:
 	} else
 #endif
 	{
+		char *ifname = interface_out->name;
 #ifdef WITH_MISDN
 		struct mISDNport *mISDNport;
-		char *ifname = interface_out->name;
 		int channel = 0;
 		struct admin_list *admin;
 		int earlyb;
@@ -199,7 +199,7 @@ fail:
 		add_trace("interface", NULL, "%s", ifname);
 		end_trace();
 		cause = 31;
-		goto fail
+		goto fail;
 #endif
 	}
 	if (!port)
