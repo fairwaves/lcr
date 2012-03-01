@@ -1841,6 +1841,10 @@ void close_socket(void)
 {
 	struct admin_list *admin, *temp;
 
+	/* socket not created */
+	if (lcr_sock < 0)
+		return;
+
 	unregister_fd(&socket_fd);
 
 	/* flush pending messages */
@@ -1853,8 +1857,7 @@ void close_socket(void)
 	admin_first = NULL;
 
 	/* close socket */
-	if (lcr_sock >= 0)
-		close(lcr_sock);
+	close(lcr_sock);
 	lcr_sock = -1;
 	global_change = 1;
 }
