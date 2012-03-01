@@ -693,8 +693,13 @@ static void send_setup_to_lcr(struct chan_call *call)
 #warning DISABLED DUE TO DOUBLE LOCKING PROBLEM
 //	tmp = pbx_builtin_getvar_helper(ast, "LCR_TRANSFERCAPABILITY");
 //	if (tmp && *tmp)
+#if ASTERISK_VERSION_NUM < 110000
 //		ast->transfercapability = atoi(tmp);
 	newparam.setup.capainfo.bearer_capa = ast->transfercapability;
+#else
+//		ast_channel_transfercapability_set(ast, atoi(tmp));
+	newparam.setup.capainfo.bearer_capa = ast_channel_transfercapability(ast);
+#endif
 	newparam.setup.capainfo.bearer_mode = INFO_BMODE_CIRCUIT;
 	if (call->hdlc)
 		newparam.setup.capainfo.source_mode = B_MODE_HDLC;
@@ -871,7 +876,11 @@ CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at 
 	send_release_and_import(call, cause, LOCATION_PRIVATE_LOCAL);
 	call->ref = 0;
 	/* release asterisk */
+#if ASTERISK_VERSION_NUM < 110000
 	ast->hangupcause = call->cause;
+#else
+	ast_channel_hangupcause_set(ast, call->cause);
+#endif
 	/* change to release state */
 	call->state = CHAN_LCR_STATE_RELEASE;
 	ast_hangup(ast); // call will be destroyed here
@@ -928,8 +937,13 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	}
 	/* link together */
 	call->ast = ast;
+#if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = call;
 	ast->tech = &lcr_tech;
+#else
+	ast_channel_tech_pvt_set(ast, call);
+	ast_channel_tech_set(ast, &lcr_tech);
+#endif
 	ast->fds[0] = call->pipe[0];
 
 	/* fill setup information */
@@ -1113,7 +1127,11 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	}
 #endif
 
+#if ASTERISK_VERSION_NUM < 110000
 	ast->transfercapability = param->setup.capainfo.bearer_capa;
+#else
+	ast_channel_transfercapability_set(ast, param->setup.capainfo.bearer_capa);
+#endif
 	/* enable hdlc if transcap is data */
 	if (param->setup.capainfo.source_mode == B_MODE_HDLC)
 		call->hdlc = 1;
@@ -1125,14 +1143,27 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	ast->readformat = ast->rawreadformat = ast->nativeformats;
 	ast->writeformat = ast->rawwriteformat =  ast->nativeformats;
 #else
+#if ASTERISK_VERSION_NUM < 110000
 	ast_format_set(&ast->rawwriteformat ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
 	ast_format_copy(&ast->rawreadformat, &ast->rawwriteformat);
 	ast_format_cap_set(ast->nativeformats, &ast->rawwriteformat);
 	ast_set_write_format(ast, &ast->rawwriteformat);
 	ast_set_read_format(ast, &ast->rawreadformat);
+#else
+	ast_format_set(ast_channel_rawwriteformat(ast) ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+	ast_format_copy(ast_channel_rawreadformat(ast), ast_channel_rawwriteformat(ast));
+	ast_format_cap_set(ast_channel_nativeformats(ast), ast_channel_rawwriteformat(ast));
+	ast_set_write_format(ast, ast_channel_rawwriteformat(ast));
+	ast_set_read_format(ast, ast_channel_rawreadformat(ast));
 #endif
+#endif
+#if ASTERISK_VERSION_NUM < 110000
 	ast->priority = 1;
 	ast->hangupcause = 0;
+#else
+	ast_channel_priority_set(ast, 1);
+	ast_channel_hangupcause_set(ast, 0);
+#endif
 
 	/* change state */
 	call->state = CHAN_LCR_STATE_IN_SETUP;
@@ -1259,7 +1290,11 @@ static void lcr_in_disconnect(struct chan_call *call, int message_type, union pa
 	call->state = CHAN_LCR_STATE_RELEASE;
 	/* queue release asterisk */
 	if (ast) {
+#if ASTERISK_VERSION_NUM < 110000
 		ast->hangupcause = call->cause;
+#else
+		ast_channel_hangupcause_set(ast, call->cause);
+#endif
 		if (call->pbx_started) {
 			if (!wake_global) {
 				wake_global = 1;
@@ -1293,7 +1328,11 @@ static void lcr_in_release(struct chan_call *call, int message_type, union param
 	}
 	/* if we have an asterisk instance, queue hangup, else we are done */
 	if (ast) {
+#if ASTERISK_VERSION_NUM < 110000
 		ast->hangupcause = call->cause;
+#else
+		ast_channel_hangupcause_set(ast, call->cause);
+#endif
 		if (call->pbx_started) {
 			if (!wake_global) {
 				wake_global = 1;
@@ -2064,26 +2103,54 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 		ast_mutex_unlock(&chan_lock);
 		return NULL;
 	}
+#if ASTERISK_VERSION_NUM < 110000
 	ast->tech = &lcr_tech;
 	ast->tech_pvt = (void *)1L; // set pointer or asterisk will not call
+#else
+	ast_channel_tech_set(ast, &lcr_tech);
+	ast_channel_tech_pvt_set(ast, (void *)1L); // set pointer or asterisk will not call
+#endif
 	/* configure channel */
 #if ASTERISK_VERSION_NUM < 100000
+#if ASTERISK_VERSION_NUM < 110000
 	ast->nativeformats = (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW;
 	ast->readformat = ast->rawreadformat = ast->nativeformats;
 	ast->writeformat = ast->rawwriteformat =  ast->nativeformats;
 #else
+	ast_channel_nativeformats_set(ast, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
+	ast->readformat = ast->rawreadformat = ast_channel_nativeformats(ast);
+	ast->writeformat = ast->rawwriteformat =  ast_channel_nativeformats(ast);
+#endif
+#else
+#if ASTERISK_VERSION_NUM < 110000
 	ast_format_set(&ast->rawwriteformat ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
 	ast_format_copy(&ast->rawreadformat, &ast->rawwriteformat);
 	ast_format_cap_set(ast->nativeformats, &ast->rawwriteformat);
 	ast_set_write_format(ast, &ast->rawwriteformat);
 	ast_set_read_format(ast, &ast->rawreadformat);
+#else
+	ast_format_set(ast_channel_rawwriteformat(ast) ,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+	ast_format_copy(ast_channel_rawreadformat(ast), ast_channel_rawwriteformat(ast));
+	ast_format_cap_set(ast_channel_nativeformats(ast), ast_channel_rawwriteformat(ast));
+	ast_set_write_format(ast, ast_channel_rawwriteformat(ast));
+	ast_set_read_format(ast, ast_channel_rawreadformat(ast));
 #endif
+#endif
+#if ASTERISK_VERSION_NUM < 110000
 	ast->priority = 1;
 	ast->hangupcause = 0;
+#else
+	ast_channel_priority_set(ast, 1);
+	ast_channel_hangupcause_set(ast, 0);
+#endif
 
 	/* link together */
 	call->ast = ast;
+#if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = call;
+#else
+	ast_channel_tech_pvt_set(ast, call);
+#endif
 	ast->fds[0] = call->pipe[0];
 	call->pbx_started = 0;
 	/* set state */
@@ -2346,9 +2413,16 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 {
 	union parameter newparam;
 	struct chan_call *call;
+#if ASTERISK_VERSION_NUM >= 110000
+	int transfercapability;
+#endif
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 
 	#ifdef LCR_FOR_CALLWEAVER
 	ast->type = "LCR";
@@ -2372,17 +2446,33 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 		newparam.newref.mode = 1;
 	send_message(MESSAGE_NEWREF, 0, &newparam);
 
+#ifdef AVN11
+	transfercapability=ast_channel_transfercapability(ast);
+#endif
 	/* set hdlc if capability requires hdlc */
+#if ASTERISK_VERSION_NUM < 110000
 	if (ast->transfercapability == INFO_BC_DATAUNRESTRICTED
 	 || ast->transfercapability == INFO_BC_DATARESTRICTED
 	 || ast->transfercapability == INFO_BC_VIDEO)
+#else
+	if (transfercapability == INFO_BC_DATAUNRESTRICTED
+	 || transfercapability == INFO_BC_DATARESTRICTED
+	 || transfercapability == INFO_BC_VIDEO)
+#endif
 		call->hdlc = 1;
 	/* if hdlc is forced by option, we change transcap to data */
 	if (call->hdlc
+#if ASTERISK_VERSION_NUM < 110000
 	 && ast->transfercapability != INFO_BC_DATAUNRESTRICTED
 	 && ast->transfercapability != INFO_BC_DATARESTRICTED
 	 && ast->transfercapability != INFO_BC_VIDEO)
 		ast->transfercapability = INFO_BC_DATAUNRESTRICTED;
+#else
+	 && transfercapability != INFO_BC_DATAUNRESTRICTED
+	 && transfercapability != INFO_BC_DATARESTRICTED
+	 && transfercapability != INFO_BC_VIDEO)
+		transfercapability = INFO_BC_DATAUNRESTRICTED;
+#endif
 
 #ifndef AST_1_8_OR_HIGHER
 	call->cid_num[0] = 0;
@@ -2461,7 +2551,11 @@ static int lcr_digit(struct ast_channel *ast, char digit)
 		return 0;
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received digit from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -2504,7 +2598,11 @@ static int lcr_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 
 	ast_mutex_lock(&chan_lock);
 
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 
 	if (!call) {
 		CERROR(NULL, ast,
@@ -2536,7 +2634,11 @@ static int lcr_answer(struct ast_channel *ast)
 	struct chan_call *call;
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received answer from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -2579,7 +2681,11 @@ static int lcr_hangup(struct ast_channel *ast)
 	if (!pthread_equal(tid, chan_tid)) {
 		ast_mutex_lock(&chan_lock);
 	}
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received hangup from Asterisk, but no call instance exists.\n");
 		if (!pthread_equal(tid, chan_tid)) {
@@ -2594,13 +2700,22 @@ static int lcr_hangup(struct ast_channel *ast)
 		CDEBUG(call, ast, "Received hangup from LCR thread.\n");
 
 	/* disconnect asterisk, maybe not required */
+#if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = NULL;
+#else
+	ast_channel_tech_pvt_set(ast, NULL);
+#endif
 	ast->fds[0] = -1;
 	if (call->ref) {
 		/* release */
 		CDEBUG(call, ast, "Releasing ref and freeing call instance.\n");
+#if ASTERISK_VERSION_NUM < 110000
 		if (ast->hangupcause > 0)
 			send_release_and_import(call, ast->hangupcause, LOCATION_PRIVATE_LOCAL);
+#else
+		if (ast_channel_hangupcause(ast) > 0)
+			send_release_and_import(call, ast_channel_hangupcause(ast), LOCATION_PRIVATE_LOCAL);
+#endif
 		else
 			send_release_and_import(call, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL);
 		/* remove call */
@@ -2643,12 +2758,24 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 #endif
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
+#if ASTERISK_VERSION_NUM < 110000
 	if (!(f->subclass.codec & ast->nativeformats)) {
 #else
-	if (!ast_format_cap_iscompatible(ast->nativeformats, &f->subclass.format)) {
+	if (!(f->subclass.codec & ast_channel_nativeformats(ast))) {
 #endif
 #else
+#if ASTERISK_VERSION_NUM < 110000
+	if (!ast_format_cap_iscompatible(ast->nativeformats, &f->subclass.format)) {
+#else
+	if (!ast_format_cap_iscompatible(ast_channel_nativeformats(ast), &f->subclass.format)) {
+#endif
+#endif
+#else
+#if ASTERISK_VERSION_NUM < 110000
 	if (!(f->subclass & ast->nativeformats)) {
+#else
+	if (!(f->subclass & ast_channel_nativeformats(ast))) {
+#endif
 #endif
 		CDEBUG(NULL, ast,
 	        	       "Unexpected format. "
@@ -2663,12 +2790,21 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 #else
 		ast_set_write_format(ast, f->subclass);
 #endif
+#if ASTERISK_VERSION_NUM < 110000
 		f = (ast->writetrans) ? ast_translate(
 			ast->writetrans, fr, 0) : fr;
+#else
+		f = (ast_channel_writetrans(ast)) ? ast_translate(
+			ast_channel_writetrans(ast), fr, 0) : fr;
+#endif
 	}
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		ast_mutex_unlock(&chan_lock);
 		if (f != fr) {
@@ -2692,7 +2828,11 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	int len = 0;
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		ast_mutex_unlock(&chan_lock);
 		return NULL;
@@ -2735,13 +2875,25 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	call->read_fr.frametype = AST_FRAME_VOICE;
 #ifdef AST_1_8_OR_HIGHER
 #if ASTERISK_VERSION_NUM < 100000
+#if ASTERISK_VERSION_NUM < 110000
 	call->read_fr.subclass.codec = ast->nativeformats;
 #else
+	call->read_fr.subclass.codec = ast_channel_nativeformats(ast);
+#endif
+#else
+#if ASTERISK_VERSION_NUM < 110000
 	ast_best_codec(ast->nativeformats, &call->read_fr.subclass.format);
+#else
+	ast_best_codec(ast_channel_nativeformats(ast), &call->read_fr.subclass.format);
+#endif
 	call->read_fr.subclass.integer = call->read_fr.subclass.format.id;
 #endif
 #else
+#if ASTERISK_VERSION_NUM < 110000
 	call->read_fr.subclass = ast->nativeformats;
+#else
+	call->read_fr.subclass = ast_channel_nativeformats(ast);
+#endif
 #endif
 	if (call->rebuffer) {
 		call->read_fr.datalen = call->framepos;
@@ -2766,7 +2918,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 	const struct tone_zone_sound *ts = NULL;
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received indicate from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -2787,22 +2943,38 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				call->state = CHAN_LCR_STATE_OUT_DISCONNECT;
 			} else {
 				CDEBUG(call, ast, "Using Asterisk 'busy' indication\n");
+#if ASTERISK_VERSION_NUM < 110000
 				ts = ast_get_indication_tone(ast->zone, "busy");
+#else
+				ts = ast_get_indication_tone(ast_channel_zone(ast), "busy");
+#endif
 			}
 			break;
 		case AST_CONTROL_CONGESTION:
+#if ASTERISK_VERSION_NUM < 110000
 			CDEBUG(call, ast, "Received indicate AST_CONTROL_CONGESTION from Asterisk. (cause %d)\n", ast->hangupcause);
+#else
+			CDEBUG(call, ast, "Received indicate AST_CONTROL_CONGESTION from Asterisk. (cause %d)\n", ast_channel_hangupcause(ast));
+#endif
 			if (call->state != CHAN_LCR_STATE_OUT_DISCONNECT) {
 				/* send message to lcr */
 				memset(&newparam, 0, sizeof(union parameter));
+#if ASTERISK_VERSION_NUM < 110000
 				newparam.disconnectinfo.cause = ast->hangupcause;
+#else
+				newparam.disconnectinfo.cause = ast_channel_hangupcause(ast);
+#endif
 				newparam.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 				send_message(MESSAGE_DISCONNECT, call->ref, &newparam);
 				/* change state */
 				call->state = CHAN_LCR_STATE_OUT_DISCONNECT;
 			} else {
 				CDEBUG(call, ast, "Using Asterisk 'congestion' indication\n");
+#if ASTERISK_VERSION_NUM < 110000
 				ts = ast_get_indication_tone(ast->zone, "congestion");
+#else
+				ts = ast_get_indication_tone(ast_channel_zone(ast), "congestion");
+#endif
 			}
 			break;
 		case AST_CONTROL_PROCEEDING:
@@ -2829,7 +3001,11 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 				call->state = CHAN_LCR_STATE_IN_ALERTING;
 			} else {
 				CDEBUG(call, ast, "Using Asterisk 'ring' indication\n");
+#if ASTERISK_VERSION_NUM < 110000
 				ts = ast_get_indication_tone(ast->zone, "ring");
+#else
+				ts = ast_get_indication_tone(ast_channel_zone(ast), "ring");
+#endif
 			}
 			break;
 		case AST_CONTROL_PROGRESS:
@@ -2919,7 +3095,11 @@ static int lcr_fixup(struct ast_channel *oldast, struct ast_channel *ast)
 	}
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received fixup from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -2941,7 +3121,11 @@ static int lcr_send_text(struct ast_channel *ast, const char *text)
 	union parameter newparam;
 
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call = ast->tech_pvt;
+#else
+	call = ast_channel_tech_pvt(ast);
+#endif
 	if (!call) {
 		CERROR(NULL, ast, "Received send_text from Asterisk, but no call instance exists.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -2978,8 +3162,13 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 
 	/* join via dsp (if the channels are currently open) */
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
+#else
+	call1 = ast_channel_tech_pvt(ast1);
+	call2 = ast_channel_tech_pvt(ast2);
+#endif
 	if (!call1 || !call2) {
 		CDEBUG(NULL, NULL, "Bridge, but we don't have two call instances, exitting.\n");
 		ast_mutex_unlock(&chan_lock);
@@ -3093,8 +3282,13 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 
 	/* split channels */
 	ast_mutex_lock(&chan_lock);
+#if ASTERISK_VERSION_NUM < 110000
 	call1 = ast1->tech_pvt;
 	call2 = ast2->tech_pvt;
+#else
+	call1 = ast_channel_tech_pvt(ast1);
+	call2 = ast_channel_tech_pvt(ast2);
+#endif
 	if (call1 && call1->bridge_id) {
 		call1->bridge_id = 0;
 		if (call1->bchannel)
