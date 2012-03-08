@@ -342,7 +342,7 @@ int message_ms(struct lcr_gsm *gsm_ms, int msg_type, void *arg)
 	}
 
 	if (msg_type == GSM_TCHF_FRAME
-	 || msg_type == GSM_TCHF_BAD_FRAME) {
+	 || msg_type == GSM_BAD_FRAME) {
 		if (port)
 			pgsm_ms->frame_receive(arg);
 		return 0;

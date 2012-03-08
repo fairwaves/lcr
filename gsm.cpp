@@ -139,10 +139,10 @@ void Pgsm::send_mncc_rtp_connect(void)
 		nrtp->payload_msg_type = GSM_TCHF_FRAME_EFR;
 		break;
 	case MEDIA_TYPE_AMR:
-		nrtp->payload_msg_type = GSM_TCHF_FRAME_AMR;
+		nrtp->payload_msg_type = GSM_TCH_FRAME_AMR;
 		break;
 	case MEDIA_TYPE_GSM_HR:
-		nrtp->payload_msg_type = GSM_TCHF_FRAME_HR;
+		nrtp->payload_msg_type = GSM_TCHH_FRAME;
 		break;
 	}
 	nrtp->payload_type = p_g_payload_type;
@@ -229,7 +229,7 @@ void Pgsm::frame_receive(void *arg)
 	if (!p_g_decoder)
 		return;
 
-	if (frame->msg_type != GSM_TCHF_BAD_FRAME) {
+	if (frame->msg_type != GSM_BAD_FRAME) {
 		if ((frame->data[0]>>4) != 0xd)
 			PERROR("received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
 	
@@ -375,12 +375,8 @@ void Pgsm::modify_lchan(int media_type)
 		add_trace("speech", "version", "AMR given");
 		mode->lchan_mode = 0x41; /* GSM V3 */
 		break;
-	case MEDIA_TYPE_GSM_HR:
-		add_trace("speech", "version", "Half Rate given");
-		mode->lchan_mode = 0x05; /* GSM V1 HR */
-		break;
 	default:
-		add_trace("speech", "version", "Full Rate given");
+		add_trace("speech", "version", "Full/Half Rate given");
 		mode->lchan_mode = 0x01; /* GSM V1 */
 	}
 	mode->lchan_type = 0x02; /* FIXME: unused */

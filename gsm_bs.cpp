@@ -322,6 +322,11 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 				media_type = MEDIA_TYPE_GSM_HR;
 				payload_type = dynamic_type++;
 				break;
+			case 5:
+				add_trace("speech", "version", "AMR Half Rate given");
+				media_type = MEDIA_TYPE_AMR;
+				payload_type = dynamic_type++;
+				break;
 			default:
 				add_trace("speech", "version", "%d given", mncc->bearer_cap.speech_ver[i]);
 				media_type = 0;
@@ -583,7 +588,7 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 	}
 
 	if (msg_type == GSM_TCHF_FRAME
-	 || msg_type == GSM_TCHF_BAD_FRAME) {
+	 || msg_type == GSM_BAD_FRAME) {
 		if (port) {
 			/* inject DTMF, if enabled */
 			if (pgsm_bs->p_g_dtmf) {
