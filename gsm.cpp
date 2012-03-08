@@ -20,7 +20,6 @@ extern "C" {
 #include "gsm_audio.h"
 }
 
-#include <mISDN/mISDNcompat.h>
 #include <assert.h>
 
 #define SOCKET_RETRY_TIMER	5
