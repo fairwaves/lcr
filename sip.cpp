@@ -256,6 +256,11 @@ we only support alaw and ulaw!
 	n = payload_len;
 	from = payload;
 	to = payload;
+	if (psip->p_echotest) {
+		/* echo rtp data we just received */
+		psip->rtp_send_frame(from, n, (options.law=='a')?PAYLOAD_TYPE_ALAW:PAYLOAD_TYPE_ULAW);
+		return 0;
+	}
 	while(n--)
 		*to++ = flip[*from++];
 	psip->bridge_tx(payload, payload_len);
