@@ -943,7 +943,7 @@ static int inter_gsm_ms(struct interface *interface, char *filename, int line, c
 	/* check if name is used multiple times */
 	searchif = interface_newlist;
 	while(searchif) {
-		if (!strcmp(searchif->gsm_ms_name, interface->gsm_ms_name)) {
+		if (searchif != interface && !strcmp(searchif->gsm_ms_name, interface->gsm_ms_name)) {
 			SPRINT(interface_error, "Error in %s (line %d): mobile '%s' already uses the given MS name '%s', choose a different one.\n", filename, line, interface->gsm_ms_name, searchif->gsm_ms_name);
 			return(-1);
 		}
