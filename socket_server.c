@@ -1261,12 +1261,7 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 		if (len < 0) {
 			brokenpipe:
 			PDEBUG(DEBUG_LOG, "Broken pipe on socket %d. (errno=%d).\n", admin->sock, errno);
-			free_connection(admin);
-			return 0;
-		}
-		if (len == 0) {
 			end:
-
 			/*release endpoint if exists */
 			if (admin->epointid) {
 				epoint = find_epoint_id(admin->epointid);
@@ -1279,16 +1274,16 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 			free_connection(admin);
 			return 0;
 		}
+		if (len == 0)
+			goto end;
 		if (len != sizeof(msg)) {
 			PERROR("Short/long read on socket %d. (len=%d != size=%d).\n", admin->sock, len, sizeof(msg));
-			free_connection(admin);
-			return 0;
+			goto end;
 		}
 		/* process socket command */
 		if (admin->response && msg.message != ADMIN_MESSAGE) {
 			PERROR("Data from socket %d while sending response.\n", admin->sock);
-			free_connection(admin);
-			return 0;
+			goto end;
 		}
 		switch (msg.message) {
 			case ADMIN_REQUEST_CMD_INTERFACE:
@@ -1358,15 +1353,13 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 			if (admin_call(admin, &msg) < 0) {
 				PERROR("Failed to create call for socket %d.\n", admin->sock);
 				response_error:
-				free_connection(admin);
-				return 0;
+				goto end;
 			}
 			break;
 
 			default:
 			PERROR("Invalid message %d from socket %d.\n", msg.message, admin->sock);
-			free_connection(admin);
-			return 0;
+			goto end;
 		}
 	}
 
