@@ -282,7 +282,17 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	/* send call proceeding */
 	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);
 	proceeding = create_mncc(MNCC_CALL_CONF_REQ, p_g_callref);
-	// FIXME: bearer
+	/* bearer capability (mandatory, if not present in setup message) */
+	if (!(mncc->fields & MNCC_F_BEARER_CAP)) {
+		proceeding->fields |= MNCC_F_BEARER_CAP;
+		proceeding->bearer_cap.coding = 0;
+		proceeding->bearer_cap.radio = 1;
+		proceeding->bearer_cap.speech_ctm = 0;
+		proceeding->bearer_cap.speech_ver[0] = 0;
+		proceeding->bearer_cap.speech_ver[1] = -1; /* end of list */
+		proceeding->bearer_cap.transfer = 0;
+		proceeding->bearer_cap.mode = 0;
+	}
 	/* DTMF supported */
 	proceeding->fields |= MNCC_F_CCCAP;
 	proceeding->cccap.dtmf = 1;
