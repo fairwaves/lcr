@@ -753,7 +753,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
-#ifdef WITH_GSM_MS
+#ifdef WITH_SIP
 			if (interface->sip) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);
@@ -1021,7 +1021,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 				earlyb = (interface->is_earlyb == IS_YES);
 			} else
 #endif
-#ifdef WITH_GSM_MS
+#ifdef WITH_SIP
 			if (interface->sip) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
 				port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface);

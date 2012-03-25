@@ -148,7 +148,7 @@ fail:
 #endif
 #ifdef WITH_GSM_MS
 	if (interface_out->gsm_ms) {
-		port = new Pgsm_bs(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface_out);
+		port = new Pgsm_ms(PORT_TYPE_GSM_MS_OUT, portname, &port_settings, interface_out);
 	} else
 #endif
 	{

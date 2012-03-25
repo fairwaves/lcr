@@ -192,12 +192,12 @@ struct gsm_data_frame {
 };
 
 struct gsm_mncc_rtp {
-	uint32_t        msg_type;
-	uint32_t        callref;
-	uint32_t        ip;
-	uint16_t        port;
-	uint32_t        payload_type;
-	uint32_t        payload_msg_type;
+	u_int32_t	msg_type;
+	u_int32_t	callref;
+	u_int32_t	ip;
+	u_int16_t	port;
+	u_int32_t	payload_type;
+	u_int32_t	payload_msg_type;
 };
 
 
