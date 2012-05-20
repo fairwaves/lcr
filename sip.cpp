@@ -62,6 +62,8 @@ Psip::Psip(int type, char *portname, struct port_settings *settings, struct inte
 	p_s_rtp_tx_action = 0;
 
 	PDEBUG(DEBUG_SIP, "Created new Psip(%s).\n", portname);
+	if (!p_s_sip_inst)
+		FATAL("No SIP instance for interface\n");
 }
 
 

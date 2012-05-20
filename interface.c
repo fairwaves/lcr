@@ -1583,16 +1583,15 @@ void relink_interfaces(void)
 	struct mISDNport *mISDNport;
 	struct interface_port *ifport;
 #endif
-	struct interface *interface, *temp;
-	int found;
+	struct interface *interface, *temp, *found;
 
 	interface = interface_first;
 	while(interface) {
-		found = 0;
+		found = NULL;
 		temp = interface_newlist;
 		while(temp) {
 			if (!strcmp(temp->name, interface->name))
-				found = 1;
+				found = temp;
 			temp = temp->next;
 		}
 		if (!found) {
@@ -1608,17 +1607,26 @@ void relink_interfaces(void)
 			if (interface->sip)
 				sip_exit_inst(interface);
 #endif
+		} else {
+#ifdef WITH_SIP
+			if (interface->sip) {
+				/* move sip instance, if we keep interface */
+				found->sip_inst = interface->sip_inst;
+				interface->sip_inst = NULL;
+			}
+#endif
+			;
 		}
 		interface = interface->next;
 	}
 
 	interface = interface_newlist;
 	while(interface) {
-		found = 0;
+		found = NULL;
 		temp = interface_first;
 		while(temp) {
 			if (!strcmp(temp->name, interface->name))
-				found = 1;
+				found = temp;
 			temp = temp->next;
 		}
 		if (!found) {
