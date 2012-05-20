@@ -1826,6 +1826,7 @@ void Psip::rtp_shutdown(void)
 int sip_init_inst(struct interface *interface)
 {
 	struct sip_inst *inst = (struct sip_inst *) MALLOC(sizeof(*inst));
+	char local[64];
 
 	interface->sip_inst = inst;
 	SCPY(inst->interface_name, interface->name);
@@ -1840,7 +1841,10 @@ int sip_init_inst(struct interface *interface)
 		return -EINVAL;
 	}
 
-	inst->nua = nua_create(inst->root, sip_callback, inst, TAG_NULL());
+	SPRINT(local, "sip:%s",inst->local_peer);
+	if (!strchr(inst->local_peer, ':'))
+		SCAT(local, ":5060");
+	inst->nua = nua_create(inst->root, sip_callback, inst, NUTAG_URL(local), TAG_END());
 	if (!inst->nua) {
 		PERROR("Failed to create SIP stack object\n");
 		sip_exit_inst(interface);
