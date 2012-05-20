@@ -285,7 +285,8 @@ static int rtp_sock_callback(struct lcr_fd *fd, unsigned int what, void *instanc
 //			psip->rtp_shutdown();
 			return len;
 		}
-		rc = rtp_decode(psip, buffer, len);
+		if (psip->p_s_rtp_is_connected)
+			rc = rtp_decode(psip, buffer, len);
 	}
 
 	return rc;
