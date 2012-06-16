@@ -1973,6 +1973,7 @@ void Pdss1::message_setup(unsigned int epoint_id, int message_id, union paramete
 	/* screen outgoing caller id */
 	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_m_mISDNport->ifport->interface->name);
 	do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_m_mISDNport->ifport->interface->name);
+	do_screen(1, p_redirinfo.id, sizeof(p_redirinfo.id), &p_redirinfo.ntype, &p_redirinfo.present, p_m_mISDNport->ifport->interface->name);
 
 	/* only display at connect state: this case happens if endpoint is in connected mode */
 	if (p_state==PORT_STATE_CONNECT) {
