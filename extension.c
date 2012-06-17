@@ -967,7 +967,7 @@ int write_extension(struct extension *ext, char *number)
 	fprintf(fp,"own_cause       %s\n\n",ext_yesno[ext->own_cause]);
 
 	fprintf(fp,"# Allow facility information to be transfered to the telephone.\n");
-	fprintf(fp,"# This is equired to receive advice of charge.\n");
+	fprintf(fp,"# This is required to receive advice of charge.\n");
 	fprintf(fp,"facility        %s\n\n",ext_yesno[ext->facility]);
 
 	fprintf(fp,"# Display clear causes using display messages (Q.850)\n# This must be one of the following:\n");
