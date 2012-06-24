@@ -161,8 +161,9 @@ it is called from ast_channel process which has already locked ast_channel.
 #include <asterisk/app.h>
 #include <asterisk/features.h>
 #include <asterisk/sched.h>
+#if ASTERISK_VERSION_NUM < 110000
 #include <asterisk/version.h>
-
+#endif
 #include "extension.h"
 #include "message.h"
 #include "callerid.h"
@@ -959,11 +960,12 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 #if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = call;
 	ast->tech = &lcr_tech;
+	ast->fds[0] = call->pipe[0];
 #else
 	ast_channel_tech_pvt_set(ast, call);
 	ast_channel_tech_set(ast, &lcr_tech);
+	ast_channel_set_fd(ast, 0, call->pipe[0]);
 #endif
-	ast->fds[0] = call->pipe[0];
 
 	/* fill setup information */
 	if (param->setup.dialinginfo.id)
@@ -2179,10 +2181,11 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	call->ast = ast;
 #if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = call;
+	ast->fds[0] = call->pipe[0];
 #else
 	ast_channel_tech_pvt_set(ast, call);
+	ast_channel_set_fd(ast, 0, call->pipe[0]);
 #endif
-	ast->fds[0] = call->pipe[0];
 	call->pbx_started = 0;
 	/* set state */
 	call->state = CHAN_LCR_STATE_OUT_PREPARE;
@@ -2731,10 +2734,11 @@ static int lcr_hangup(struct ast_channel *ast)
 	/* disconnect asterisk, maybe not required */
 #if ASTERISK_VERSION_NUM < 110000
 	ast->tech_pvt = NULL;
+	ast->fds[0] = -1;
 #else
 	ast_channel_tech_pvt_set(ast, NULL);
+	ast_channel_set_fd(ast, 0, -1);
 #endif
-	ast->fds[0] = -1;
 	if (call->ref) {
 		/* release */
 		CDEBUG(call, ast, "Releasing ref and freeing call instance.\n");
