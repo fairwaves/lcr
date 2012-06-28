@@ -332,11 +332,13 @@ int main(int argc, char *argv[])
 		nooutput = 1;
 
 		/* write pid file */
-		pidfile = fopen("/var/run/lcr.pid","w");
+		SPRINT(lock, "%s/lcr.pid", options.lock);
+		pidfile = fopen(lock,"w");
 		if (pidfile) {
 			fprintf(pidfile, "%d\n", getpid());
 			fclose(pidfile);
-		}
+		} else
+			fprintf(stderr, "Failed to create PID file: %s\n", lock);
 	} else
 	/* if not start */
 	if (!!strcasecmp(argv[1],"start")) {
