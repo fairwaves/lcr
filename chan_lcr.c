@@ -2948,7 +2948,7 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 	union parameter newparam;
 	int res = 0;
 	struct chan_call *call;
-	const struct tone_zone_sound *ts = NULL;
+	const struct ast_tone_zone_sound *ts = NULL;
 
 	ast_mutex_lock(&chan_lock);
 #if ASTERISK_VERSION_NUM < 110000
