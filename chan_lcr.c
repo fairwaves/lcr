@@ -136,6 +136,13 @@ it is called from ast_channel process which has already locked ast_channel.
 #ifdef LCR_FOR_ASTERISK
 #include <asterisk/buildopts.h>
 #endif
+
+/*
+ * Fwd declare struct ast_channel to get rid of gcc warning about
+ * incompatible pointer type passed to ast_register_application2.
+ */
+struct ast_channel;
+
 #include <asterisk/module.h>
 #include <asterisk/channel.h>
 #include <asterisk/config.h>
