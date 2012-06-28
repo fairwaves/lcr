@@ -38,6 +38,7 @@ AM_INIT_AUTOMAKE(lcr,1.12)
 
 
 # Checks for programs.
+AC_PROG_GREP
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_CC

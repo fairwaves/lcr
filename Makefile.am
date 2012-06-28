@@ -157,49 +157,37 @@ genextension_SOURCES = genext.c options.c extension.c
 
 # Special install function to preserve existing configs.
 # Optimization with equivalen results are welcome
+CONFIGFILES = options.conf interface.conf routing.conf directory.list
+TONEDIRS = tones_american tones_efi tones_german vbox_english vbox_german
 
 install-data-hook:
-	@sh -c 'grep -n strcpy *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strcpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncpy *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncpy, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strcat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strcat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n strncat *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use strncat, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n sprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use sprintf, use makro instead." ; exit -1 ; fi'
-	@sh -c 'grep -n snprintf *.c* --exclude chan_lcr.c --exclude bchannel.c --exclude callerid.c ; if test $$''? = 0 ; then echo "dont use snprintf, use makro instead." ; exit -1 ; fi'
+	@fns='strcpy strncpy strcat strncat sprintf snprintf' ; \
+	files=$$( find . -type f -name "*.c*" \
+	  | $(GREP) -v -e chan_lcr.c -e bchannel.c -e callerid.c ) ; \
+	test -z "$$files" || { for fn in $$fns ; do \
+	  $(GREP) -n $$fn $$files ; if test $$? = 0 ; then \
+	    ( echo "dont use $$fn, use makro instead." ; exit -1 ) ; \
+	  fi ; \
+	done ; }
 	mkdir -p $(CONFIGdir)
 	mkdir -p $(SHAREdir)
 	mkdir -p $(LOGdir)
 	mkdir -p $(EXTENSIONdir)
-	@if test -a $(CONFIGdir)/options.conf ; then \
-		echo "NOTE: options.conf already exists, not changed." ; else \
-		cp -v default/options.conf $(CONFIGdir) ; fi
-	@if test -a $(CONFIGdir)/interface.conf ; then \
-		echo "NOTE: interface.conf already exists, not changed." ; else \
-		cp -v default/interface.conf $(CONFIGdir) ; fi
-	@if test -a $(CONFIGdir)/routing.conf ; then \
-		echo "NOTE: routing.conf already exists, not changed." ; else \
-		cp -v default/routing.conf $(CONFIGdir) ; fi
-	@if test -a $(CONFIGdir)/numbering_int.conf ; then \
+	@fs='$(CONFIGFILES)' ; for f in $$fs ; do \
+	  if test -a "$(CONFIGdir)/$$f" ; then \
+	    echo "NOTE: $$f already exists, not changed." ; \
+	  else $(INSTALL) -m 644 default/$$f "$(CONFIGdir)/" ; fi ; \
+	done
+	@if test -a "$(CONFIGdir)/numbering_int.conf" ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
-	@if test -a $(CONFIGdir)/numbering_ext.conf ; then \
+	@if test -a "$(CONFIGdir)/numbering_ext.conf" ; then \
 		echo "NOTE: numbering_ext.conf is obsolete, please use routing." ; fi
-	@if test -a $(CONFIGdir)/directory.list ; then \
-		echo "NOTE: directory.list already exists, not changed." ; else \
-		cp -v default/directory.list $(CONFIGdir) ; fi
-	@if test -a $(SHAREdir)/tones_american ; then \
-		echo "NOTE: american tones already exists, not overwritten." ; else \
-		cp -a tones_american $(SHAREdir) ; fi
-	@if test -a $(SHAREdir)/tones_german ; then \
-		echo "NOTE: german tones already exists, not overwritten." ; else \
-		cp -a tones_german $(SHAREdir) ; fi
-	@if test -a $(SHAREdir)/vbox_german ; then \
-		echo "NOTE: german vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_german $(SHAREdir) ; fi
-	@if test -a $(SHAREdir)/vbox_english ; then \
-		echo "NOTE: english vbox tones already exists, not overwritten." ; else \
-		cp -a vbox_english $(SHAREdir) ; fi
-	@if test -a $(SHAREdir)/tones_efi ; then \
-		echo "NOTE: special efi tones already exists, not overwritten." ; else \
-		cp -a tones_efi $(SHAREdir) ; fi
+	@ds='$(TONEDIRS)' ; for d in $$ds ; do \
+	  destdir="$(SHAREdir)/$$d" ; \
+	  if test -a "$$destdir" ; then \
+	    echo "NOTE: $$d already exists, not overwritten." ; \
+	  else mkdir -p "$$destdir" ; cp -a $$d/* "$$destdir/" ; fi ; \
+	done
 
 clean-generic:
 	rm -f *.po
