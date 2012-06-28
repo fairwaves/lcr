@@ -2088,7 +2088,7 @@ static
 #if ASTERISK_VERSION_NUM < 100000
 struct ast_channel *lcr_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 #else
-struct ast_channel *lcr_request(const char *type, struct ast_format_cap *format, struct ast_channel *requestor, void *data, int *cause)
+struct ast_channel *lcr_request(const char *type, struct ast_format_cap *format, const struct ast_channel *requestor, void *data, int *cause)
 #endif
 #else
 struct ast_channel *lcr_request(const char *type, int format, void *data, int *cause)
@@ -2097,8 +2097,8 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	char exten[256], *dial, *interface, *opt;
 	struct ast_channel *ast;
 	struct chan_call *call;
-	struct ast_party_redirecting *req_redir;
-	struct ast_party_caller *req_caller;
+	const struct ast_party_redirecting *req_redir;
+	const struct ast_party_caller *req_caller;
 
 	ast_mutex_lock(&chan_lock);
 	CDEBUG(NULL, NULL, "Received request from Asterisk. (data=%s)\n", (char *)data);
