@@ -119,19 +119,19 @@ chan_lcr_so_LDFLAGS = -shared
 chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
-	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c chan_lcr.c -o chan_lcr.po
+	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c $< -o $@
 
 bchannel.po: bchannel.c bchannel.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c bchannel.c -o bchannel.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 callerid.po: callerid.c callerid.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c callerid.c -o callerid.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 options.po: options.c options.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c options.c -o options.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 select.po: select.c select.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c select.c -o select.po
+	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 install-exec-hook:
 	$(INSTALL) -d '$(DESTDIR)$(astmoddir)'
@@ -161,7 +161,7 @@ TONEDIRS = tones_american tones_efi tones_german vbox_english vbox_german
 
 install-data-hook:
 	@fns='strcpy strncpy strcat strncat sprintf snprintf' ; \
-	files=$$( find . -type f -name "*.c*" \
+	files=$$( find $(srcdir) -type f -name "*.c*" \
 	  | $(GREP) -v -e chan_lcr.c -e bchannel.c -e callerid.c ) ; \
 	test -z "$$files" || { for fn in $$fns ; do \
 	  $(GREP) -n $$fn $$files ; if test $$? = 0 ; then \
@@ -175,7 +175,7 @@ install-data-hook:
 	@fs='$(CONFIGFILES)' ; for f in $$fs ; do \
 	  if test -a "$(DESTDIR)$(CONFIGdir)/$$f" ; then \
 	    echo "NOTE: $$f already exists, not changed." ; \
-	  else $(INSTALL) -m 644 default/$$f "$(DESTDIR)$(CONFIGdir)/" ; fi ; \
+	  else $(INSTALL) -m 644 $(srcdir)/default/$$f "$(DESTDIR)$(CONFIGdir)/" ; fi ; \
 	done
 	@if test -a "$(DESTDIR)$(CONFIGdir)/numbering_int.conf" ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
@@ -185,7 +185,7 @@ install-data-hook:
 	  destdir="$(DESTDIR)$(SHAREdir)/$$d" ; \
 	  if test -a "$$destdir" ; then \
 	    echo "NOTE: $$d already exists, not overwritten." ; \
-	  else mkdir -p "$$destdir" ; cp -a $$d/* "$$destdir/" ; fi ; \
+	  else mkdir -p "$$destdir" ; cp -a $(srcdir)/$$d/* "$$destdir/" ; fi ; \
 	done
 
 clean-generic:
