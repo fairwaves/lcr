@@ -118,6 +118,10 @@ chan_lcr_so_SOURCES =
 chan_lcr_so_LDFLAGS = -shared
 chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
 
+# List chan_lcr specific sources for make dist
+EXTRA_chan_lcr_so_SOURCES = chan_lcr.c chan_lcr.h bchannel.c bchannel.h
+
+
 chan_lcr.po: chan_lcr.c chan_lcr.h
 	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c $< -o $@
 
@@ -133,9 +137,12 @@ options.po: options.c options.h
 select.po: select.c select.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
-install-exec-hook:
+install-exec-hook: chan_lcr.so
 	$(INSTALL) -d '$(DESTDIR)$(astmoddir)'
 	$(INSTALL) chan_lcr.so '$(DESTDIR)$(astmoddir)'
+
+uninstall-hook:
+	cd '$(DESTDIR)$(astmoddir)' && rm -f chan_lcr.so
 endif
 
 INCLUDES = $(all_includes) $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
@@ -154,10 +161,25 @@ lcr_LDADD = $(LIBCRYPTO) $(MISDN_LIB) -lpthread $(GSM_LIB) $(SIP_LIB)
 lcradmin_SOURCES = lcradmin.c cause.c options.c
 genextension_SOURCES = genext.c options.c extension.c
 
+
+# List all headers for make dist
+noinst_HEADERS = \
+	main.h macro.h select.h trace.h options.h tones.h alawulaw.h cause.h interface.h \
+	message.h callerid.h socket_server.h port.h vbox.h endpoint.h endpointapp.h \
+	appbridge.h apppbx.h route.h extension.h join.h joinpbx.h lcrsocket.h
+
+noinst_HEADERS += myisdn.h mISDN.h dss1.h loop.h crypt.h remote.h joinremote.h
+noinst_HEADERS += ss5.h ss5_encode.h ss5_decode.h
+noinst_HEADERS += mncc.h gsm.h gsm_audio.h gsm_bs.h gsm_ms.h
+noinst_HEADERS += ie.cpp sip.h
+
+
 # Special install function to preserve existing configs.
 # Optimization with equivalen results are welcome
 CONFIGFILES = options.conf interface.conf routing.conf directory.list
 TONEDIRS = tones_american tones_efi tones_german vbox_english vbox_german
+
+EXTRA_DIST = default debian $(TONEDIRS)
 
 install-data-hook:
 	@fns='strcpy strncpy strcat strncat sprintf snprintf' ; \
@@ -187,6 +209,18 @@ install-data-hook:
 	    echo "NOTE: $$d already exists, not overwritten." ; \
 	  else mkdir -p "$$destdir" ; cp -a $(srcdir)/$$d/* "$$destdir/" ; fi ; \
 	done
+
+
+# Because distuninstallcheck expects relative filenames, we cannot
+# replace './' with $(prefix) in _listfiles. Therefore we do it the
+# other way around to filter out configuration files and tones.
+distcheck_CONFIGdir = echo $(CONFIGdir) | sed 's|^$(prefix)/|./|'
+distcheck_SHAREdir  = echo $(SHAREdir)  | sed 's|^$(prefix)/|./|'
+
+distuninstallcheck_listfiles = find . -type f -print \
+	| $(GREP) -v "$$( $(distcheck_CONFIGdir) )" \
+	| $(GREP) -v "$$( $(distcheck_SHAREdir) )"
+
 
 clean-generic:
 	rm -f *.po
