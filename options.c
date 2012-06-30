@@ -21,7 +21,7 @@
 #include <pwd.h>
 
 struct options options = {
-	"/usr/local/lcr/log",		/* log file */
+	LOG_DIR "/log",		        /* log file */
 	0x0000,				/* debug mode */
 	'a',				/* a-law */
 	"0",				/* national prefix */
@@ -31,7 +31,7 @@ struct options options = {
 	"",				/* dummy caller id */
 	0,				/* by default use priority 0 */
 	"lcr@your.machine",		/* source mail adress */
-	"/var/tmp",			/* path of lock files */
+	"/var/run",			/* path of lock files */
 	0700,				/* rights of lcr admin socket */
 	-1,                             /* socket user (-1= no change) */
 	-1,                             /* socket group (-1= no change) */

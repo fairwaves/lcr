@@ -20,22 +20,22 @@
 ##    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 ##    Boston, MA 02110-1301, USA.
 
-INSTALLdir = $(DESTDIR)/usr/local/lcr
+#INSTALLdir = $(DESTDIR)/usr/local/lcr
 
 pkglogdir=$(localstatedir)/log/@PACKAGE@
 pkgsysconfdir=$(sysconfdir)/@PACKAGE@
 
-#CONFIGdir=$(DESTDIR)$(pkgsysconfdir)
-#SHAREdir=$(DESTDIR)$(pkgdatadir)
-#LOGdir=$(DESTDIR)$(pkglogdir)
-#EXTENSIONdir=$(DESTDIR)$(localstatedir)/lib/lcr
+CONFIGdir=$(pkgsysconfdir)
+SHAREdir=$(pkgdatadir)
+LOGdir=$(pkglogdir)
+EXTENSIONdir=$(localstatedir)/lib/@PACKAGE@/extensions
 
-CONFIGdir=$(INSTALLdir)
-SHAREdir=$(INSTALLdir)
-LOGdir=$(INSTALLdir)
-EXTENSIONdir=$(INSTALLdir)/extensions
+#CONFIGdir=$(INSTALLdir)
+#SHAREdir=$(INSTALLdir)
+#LOGdir=$(INSTALLdir)
+#EXTENSIONdir=$(INSTALLdir)/extensions
 
-astmoddir = $(DESTDIR)/usr/lib/asterisk/modules
+astmoddir = $(libdir)/asterisk/modules
 
 INSTALLATION_DEFINES = \
  -DCONFIG_DATA="\"$(CONFIGdir)\"" \
@@ -134,9 +134,8 @@ select.po: select.c select.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c select.c -o select.po
 
 install-exec-hook:
-	mkdir -p $(astmoddir)
-	$(INSTALL) -d $(astmoddir)
-	$(INSTALL) chan_lcr.so $(astmoddir)
+	$(INSTALL) -d '$(DESTDIR)$(astmoddir)'
+	$(INSTALL) chan_lcr.so '$(DESTDIR)$(astmoddir)'
 endif
 
 INCLUDES = $(all_includes) $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
@@ -169,21 +168,21 @@ install-data-hook:
 	    ( echo "dont use $$fn, use makro instead." ; exit -1 ) ; \
 	  fi ; \
 	done ; }
-	mkdir -p $(CONFIGdir)
-	mkdir -p $(SHAREdir)
-	mkdir -p $(LOGdir)
-	mkdir -p $(EXTENSIONdir)
+	mkdir -p '$(DESTDIR)$(CONFIGdir)'
+	mkdir -p '$(DESTDIR)$(SHAREdir)'
+	mkdir -p '$(DESTDIR)$(LOGdir)'
+	mkdir -p '$(DESTDIR)$(EXTENSIONdir)'
 	@fs='$(CONFIGFILES)' ; for f in $$fs ; do \
-	  if test -a "$(CONFIGdir)/$$f" ; then \
+	  if test -a "$(DESTDIR)$(CONFIGdir)/$$f" ; then \
 	    echo "NOTE: $$f already exists, not changed." ; \
-	  else $(INSTALL) -m 644 default/$$f "$(CONFIGdir)/" ; fi ; \
+	  else $(INSTALL) -m 644 default/$$f "$(DESTDIR)$(CONFIGdir)/" ; fi ; \
 	done
-	@if test -a "$(CONFIGdir)/numbering_int.conf" ; then \
+	@if test -a "$(DESTDIR)$(CONFIGdir)/numbering_int.conf" ; then \
 		echo "NOTE: numbering_int.conf is obsolete, please use routing." ; fi
-	@if test -a "$(CONFIGdir)/numbering_ext.conf" ; then \
+	@if test -a "$(DESTDIR)$(CONFIGdir)/numbering_ext.conf" ; then \
 		echo "NOTE: numbering_ext.conf is obsolete, please use routing." ; fi
 	@ds='$(TONEDIRS)' ; for d in $$ds ; do \
-	  destdir="$(SHAREdir)/$$d" ; \
+	  destdir="$(DESTDIR)$(SHAREdir)/$$d" ; \
 	  if test -a "$$destdir" ; then \
 	    echo "NOTE: $$d already exists, not overwritten." ; \
 	  else mkdir -p "$$destdir" ; cp -a $$d/* "$$destdir/" ; fi ; \
