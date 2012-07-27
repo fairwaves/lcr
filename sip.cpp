@@ -79,7 +79,7 @@ Psip::~Psip()
 	rtp_close();
 }
 
-const char *media_type2name(uint8_t media_type) {
+static const char *media_type2name(uint8_t media_type) {
 	switch (media_type) {
 	case MEDIA_TYPE_ULAW:
 		return "PCMU";

@@ -64,6 +64,25 @@ Pgsm_bs::~Pgsm_bs()
 	PDEBUG(DEBUG_GSM, "Destroyed GSM BS process(%s).\n", p_name);
 }
 
+static const char *media_type2name(unsigned char media_type) {
+	switch (media_type) {
+	case MEDIA_TYPE_ULAW:
+		return "PCMU";
+	case MEDIA_TYPE_ALAW:
+		return "PCMA";
+	case MEDIA_TYPE_GSM:
+		return "GSM";
+	case MEDIA_TYPE_GSM_HR:
+		return "GSM-HR";
+	case MEDIA_TYPE_GSM_EFR:
+		return "GSM-EFR";
+	case MEDIA_TYPE_AMR:
+		return "AMR";
+	}
+
+	return "UKN";
+}
+
 /* PROCEEDING INDICATION (from MS) */
 void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
@@ -296,7 +315,7 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 	if ((mncc->fields & MNCC_F_BEARER_CAP)) {
 		/* select preferred payload type from list */
 		int i;
-		uint8_t dynamic_type = 96;
+		unsigned char dynamic_type = 96;
 
 		add_trace("bearer", "capa", "given by MS");
 		for (i = 0; mncc->bearer_cap.speech_ver[i] >= 0; i++) {
