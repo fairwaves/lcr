@@ -46,7 +46,7 @@ INSTALLATION_DEFINES = \
 if ENABLE_MISDN
 
 MISDN_INCLUDE = -DWITH_MISDN -DWITH_CRYPT
-MISDN_SOURCE = mISDN.cpp dss1.cpp loop.c crypt.cpp remote.cpp joinremote.cpp
+MISDN_SOURCE = mISDN.cpp dss1.cpp crypt.cpp
 MISDN_LIB = -lmisdn
 
 endif
@@ -116,17 +116,14 @@ if ENABLE_ASTERISK_CHANNEL_DRIVER
 noinst_PROGRAMS = chan_lcr.so
 chan_lcr_so_SOURCES =
 chan_lcr_so_LDFLAGS = -shared
-chan_lcr_so_LDADD = chan_lcr.po bchannel.po options.po callerid.po select.po
+chan_lcr_so_LDADD = chan_lcr.po options.po callerid.po select.po
 
 # List chan_lcr specific sources for make dist
-EXTRA_chan_lcr_so_SOURCES = chan_lcr.c chan_lcr.h bchannel.c bchannel.h
+EXTRA_chan_lcr_so_SOURCES = chan_lcr.c chan_lcr.h
 
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
 	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c $< -o $@
-
-bchannel.po: bchannel.c bchannel.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 callerid.po: callerid.c callerid.h
 	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
@@ -149,7 +146,7 @@ INCLUDES = $(all_includes) $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_
 
 lcr_SOURCES = \
 	main.c select.c trace.c options.c tones.c alawulaw.c cause.c interface.c message.c callerid.c socket_server.c \
-	port.cpp vbox.cpp \
+	port.cpp vbox.cpp remote.cpp \
 	$(MISDN_SOURCE) $(GSM_SOURCE) $(SS5_SOURCE) $(SIP_SOURCE) \
 	endpoint.cpp endpointapp.cpp \
 	appbridge.cpp apppbx.cpp route.c action.cpp action_efi.cpp action_vbox.cpp extension.c mail.c \
@@ -168,7 +165,7 @@ noinst_HEADERS = \
 	message.h callerid.h socket_server.h port.h vbox.h endpoint.h endpointapp.h \
 	appbridge.h apppbx.h route.h extension.h join.h joinpbx.h lcrsocket.h
 
-noinst_HEADERS += myisdn.h mISDN.h dss1.h loop.h crypt.h remote.h joinremote.h
+noinst_HEADERS += myisdn.h mISDN.h dss1.h crypt.h remote.h
 noinst_HEADERS += ss5.h ss5_encode.h ss5_decode.h
 noinst_HEADERS += mncc.h gsm.h gsm_audio.h gsm_bs.h gsm_ms.h
 noinst_HEADERS += ie.cpp sip.h
@@ -184,7 +181,7 @@ EXTRA_DIST = default debian $(TONEDIRS)
 install-data-hook:
 	@fns='strcpy strncpy strcat strncat sprintf snprintf' ; \
 	files=$$( find $(srcdir) -type f -name "*.c*" \
-	  | $(GREP) -v -e chan_lcr.c -e bchannel.c -e callerid.c ) ; \
+	  | $(GREP) -v -e chan_lcr.c -e callerid.c ) ; \
 	test -z "$$files" || { for fn in $$fns ; do \
 	  $(GREP) -n $$fn $$files ; if test $$? = 0 ; then \
 	    ( echo "dont use $$fn, use makro instead." ; exit -1 ) ; \

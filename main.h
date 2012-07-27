@@ -149,11 +149,10 @@ void debug(const char *file, const char *function, int line, const char *prefix,
 #include "callerid.h"
 #include "route.h"
 #include "port.h"
+#include "remote.h"
 #ifdef WITH_MISDN
 #include "mISDN.h"
 #include "dss1.h"
-#include "loop.h"
-#include "remote.h"
 #endif
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 #include "gsm.h"
@@ -175,7 +174,6 @@ void debug(const char *file, const char *function, int line, const char *prefix,
 #include "vbox.h"
 #include "join.h"
 #include "joinpbx.h"
-#include "joinremote.h"
 #include "cause.h"
 #include "alawulaw.h"
 #include "tones.h"

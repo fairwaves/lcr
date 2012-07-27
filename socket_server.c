@@ -76,23 +76,17 @@ int admin_init(void)
 
 /*
  * free connection
- * also releases all remote joins
  */
 void free_connection(struct admin_list *admin)
 {
 	struct admin_queue *response;
 	void *temp;
-#ifdef WITH_MISDN
 	union parameter param;
-	class Join *join, *joinnext;
-	struct mISDNport *mISDNport;
-	int i, ii;
 	class Port *port, *portnext;
 	class Premote *remote;
-#endif
 	struct admin_list **adminp;
 
-	/* free remote joins */
+	/* free remote ports */
 	if (admin->remote_name[0]) {
 		start_trace(-1,
 			NULL,
@@ -104,45 +98,13 @@ void free_connection(struct admin_list *admin)
 			"REMOTE APP release");
 		add_trace("app", "name", "%s", admin->remote_name);
 		end_trace();
-#ifdef WITH_MISDN
-		/* release all exported channels */
-		mISDNport = mISDNport_first;
-		while(mISDNport) {
-			i = 0;
-			ii = mISDNport->b_num;
-			while(i < ii) {
-				if (mISDNport->b_remote_id[i] == admin->sock) {
-					mISDNport->b_state[i] = B_STATE_IDLE;
-					unsched_timer(&mISDNport->b_timer[i]);
-					mISDNport->b_remote_id[i] = 0;
-					mISDNport->b_remote_ref[i] = 0;
-				}
-				i++;
-			}
-			mISDNport = mISDNport->next;
-		}
-#endif
-#ifdef WITH_MISDN
-		/* release join */
-		join = join_first;
-		while(join) {
-			joinnext = join->next;
-			if (join->j_type==JOIN_TYPE_REMOTE) if (((class JoinRemote *)join)->j_remote_id == admin->sock) {
-				memset(&param, 0, sizeof(param));
-				param.disconnectinfo.cause = CAUSE_OUTOFORDER;
-				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				((class JoinRemote *)join)->message_remote(MESSAGE_RELEASE, &param);
-				/* join is now destroyed, so we go to next join */
-			}
-			join = joinnext;
-		}
 		/* release remote port */
 		port = port_first;
 		while(port) {
 			portnext = port->next;
 			if ((port->p_type & PORT_CLASS_MASK) == PORT_CLASS_REMOTE) {
 				remote = (class Premote *) port;
-				if (remote->p_m_r_remote_id == admin->sock) {
+				if (remote->p_r_remote_id == admin->sock) {
 					memset(&param, 0, sizeof(param));
 					param.disconnectinfo.cause = CAUSE_OUTOFORDER;
 					param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
@@ -152,7 +114,6 @@ void free_connection(struct admin_list *admin)
 			}
 			port = portnext;
 		}
-#endif
 	}
 
 	if (admin->sock >= 0) {
@@ -289,9 +250,6 @@ int admin_route(struct admin_queue **responsep)
 				break;
 				case ACTION_EXTERNAL:
 				apppbx->e_action = &action_external;
-				break;
-				case ACTION_REMOTE:
-				apppbx->e_action = &action_remote;
 				break;
 				case ACTION_VBOX_RECORD:
 				apppbx->e_action = &action_vbox;
@@ -617,13 +575,9 @@ void admin_call_response(int adminid, int message, const char *connected, int ca
  */
 int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 {
-#ifdef WITH_MISDN
-	struct mISDNport		*mISDNport;
 	class Port			*port;
 	class Premote			*remote = NULL; /* make GCC happy */
-	class Join			*join;
-	class JoinRemote		*joinremote = NULL; /* make GCC happy */
-#endif
+	struct interface		*interface;
 	struct admin_list		*temp;
 
 	/* hello message */
@@ -664,89 +618,37 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		return(-1);
 	}
 
-#ifdef WITH_MISDN
 	/* new join. the reply (NEWREF assignment) is sent from constructor */
 	if (msg->type == MESSAGE_NEWREF) {
-		if (msg->param.newref.mode) {
-			char name[32];
-			/* find remote port */
-			mISDNport = mISDNport_first;
-			while(mISDNport) {
-				if (mISDNport->ifport->remote && !strcmp(mISDNport->ifport->remote_app, admin->remote_name))
-					break;
-				mISDNport = mISDNport->next;
-			}
-			if (!mISDNport) {
-				union parameter param;
-
-				/* create new join instance */
-				join = joinremote = new JoinRemote(0, admin->remote_name, admin->sock); // must have no serial, because no endpoint is connected
-				if (!join) {
-					FATAL("No memory for remote join instance\n");
-					return(-1);
-				}
-				memset(&param, 0, sizeof(union parameter));
-				param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-				param.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
-				admin_message_from_lcr(joinremote->j_remote_id, joinremote->j_remote_ref, MESSAGE_RELEASE, &param);
-				return 0;
-			}
-			/* creating port object, transparent until setup with hdlc */
-			SPRINT(name, "%s-%s-in", mISDNport->ifport->interface->name, mISDNport->ifport->remote_app);
-			if (!(remote = new Premote(PORT_TYPE_REMOTE_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT, admin->sock)))
-
-				FATAL("Cannot create Port instance.\n");
-		} else {
-			/* create new join instance */
-			join = new JoinRemote(0, admin->remote_name, admin->sock); // must have no serial, because no endpoint is connected
-			if (!join) {
-				FATAL("No memory for remote join instance\n");
-				return(-1);
-			}
+		char name[32];
+		/* find remote port */
+		interface = interface_first;
+		while(interface) {
+			if (interface->remote && !strcmp(interface->remote_app, admin->remote_name))
+				break;
+			interface = interface->next;
 		}
-		return(0);
-	}
-#endif
+		if (!interface) {
+			union parameter param;
 
-#ifdef WITH_MISDN
-	/* bchannel message
-	 * no ref given for *_ack */
-	if (msg->type == MESSAGE_BCHANNEL)
-	if (msg->param.bchannel.type == BCHANNEL_ASSIGN_ACK
-	 || msg->param.bchannel.type == BCHANNEL_REMOVE_ACK
-	 || msg->param.bchannel.type == BCHANNEL_RELEASE) {
-		/* no ref, but address */
-		message_bchannel_from_remote(NULL, msg->param.bchannel.type, msg->param.bchannel.handle);
+			memset(&param, 0, sizeof(union parameter));
+			param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+			param.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
+			admin_message_from_lcr(admin->sock, 0, MESSAGE_RELEASE, &param);
+			return 0;
+		}
+		/* creating port object, transparent until setup with hdlc */
+		SPRINT(name, "%s-%s-in", interface->name, interface->remote_app);
+		if (!(remote = new Premote(PORT_TYPE_REMOTE_IN, name, NULL, interface, admin->sock)))
+
+			FATAL("Cannot create Port instance.\n");
 		return(0);
 	}
-#endif
-	
+
 	/* check for ref */
 	if (!msg->ref) {
 		PERROR("Remote application did not send us a valid ref with a message.\n");
 		return(-1);
-	}
-
-#ifdef WITH_MISDN
-	/* find join instance */
-	join = join_first;
-	while(join) {
-		if (join->j_type == JOIN_TYPE_REMOTE) {
-			joinremote = (class JoinRemote *)join;
-			if (joinremote->j_remote_ref == msg->ref)
-				break;
-		}
-		join = join->next;
-	}
-	if (join) {
-		if (admin->sock != joinremote->j_remote_id) {
-			PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, joinremote->j_remote_name, admin->remote_name);
-			return(-1);
-		}
-		/* send message */
-		joinremote->message_remote(msg->type, &msg->param);
-
-		return(0);
 	}
 
 	/* find port instance */
@@ -754,14 +656,14 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 	while(port) {
 		if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_REMOTE) {
 			remote = (class Premote *) port;
-			if (remote->p_m_r_ref == msg->ref)
+			if (remote->p_r_ref == msg->ref)
 				break;
 		}
 		port = port->next;
 	}
 	if (port) {
-		if (admin->sock != remote->p_m_r_remote_id) {
-			PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, remote->p_m_r_remote_app, admin->remote_name);
+		if (admin->sock != remote->p_r_remote_id) {
+			PERROR("Ref %d belongs to remote application %s, but not to sending application %s.\n", msg->ref, remote->p_r_remote_app, admin->remote_name);
 			return(-1);
 		}
 
@@ -770,7 +672,6 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 
 		return(0);
 	}
-#endif
 
 	PDEBUG(DEBUG_LOG, "No remote instance found with ref %d. (May have been already released.)\n", msg->ref);
 	return(0);
@@ -1058,9 +959,6 @@ int admin_state(struct admin_queue **responsep)
 		/* partyline */
 		if (join->j_type == JOIN_TYPE_PBX)
 			response->am[num].u.j.partyline = ((class JoinPBX *)join)->j_partyline;
-		/* remote application */
-		if (join->j_type == JOIN_TYPE_REMOTE)
-			SCPY(response->am[num].u.j.remote, ((class JoinRemote *)join)->j_remote_name);
 		/* */
 		join = join->next;
 		num++;
@@ -1386,26 +1284,5 @@ int admin_handle_con(struct lcr_fd *fd, unsigned int what, void *instance, int i
 	}
 
 	return 0;
-}
-
-void message_bchannel_to_remote(unsigned int remote_id, unsigned int ref, int type, unsigned int handle, int tx_gain, int rx_gain, char *pipeline, unsigned char *crypt, int crypt_len, int crypt_type, int isloopback)
-{
-	union parameter param;
-
-	memset(&param, 0, sizeof(union parameter));
-	param.bchannel.isloopback = isloopback;
-	param.bchannel.type = type;
-	param.bchannel.handle = handle;
-	param.bchannel.tx_gain = tx_gain;
-	param.bchannel.rx_gain = rx_gain;
-	if (pipeline)
-		SCPY(param.bchannel.pipeline, pipeline);
-	if (crypt_len)
-		memcpy(param.bchannel.crypt, crypt, crypt_len);
-	param.bchannel.crypt_type = crypt_type;
-	if (admin_message_from_lcr(remote_id, ref, MESSAGE_BCHANNEL, &param)<0) {
-		PERROR("No socket with remote id %d found, this happens, if the socket is closed before all bchannels are imported.\n", remote_id);
-		return;		
-	}
 }
 

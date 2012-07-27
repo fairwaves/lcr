@@ -52,8 +52,6 @@ struct interface_port {
 	int			l1hold; /* hold layer 1 (1=on, 0=off) */
 	int			l2hold; /* hold layer 2 (1=force, -1=disable, 0=default) */
 	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
-	int			remote; /* interface is a remote app interface */
-	char			remote_app[32]; /* name of remote application */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
 	struct select_channel	*out_channel; /* list of channels to select */
@@ -106,6 +104,9 @@ struct interface {
 	char			pipeline[256]; /* filter pipeline */
 	unsigned char		bf_key[56]; /* filter blowfish */
 	int			bf_len; /* filter length of blowfish */
+	int			remote; /* interface is a remote app interface */
+	char			remote_app[32]; /* name of remote application */
+	char			remote_context[128]; /* context feld to use for remote application */
 #ifdef WITH_GSM_BS
 	int			gsm_bs; /* interface is an GSM BS interface */
 #if 0

@@ -18,15 +18,11 @@ extern int mISDNdevice;
 extern int mISDNsocket;
 
 enum {
-	B_EVENT_USE,		/* activate/export bchannel */
-	B_EVENT_EXPORTREQUEST,	/* remote app requests bchannel */
-	B_EVENT_IMPORTREQUEST,	/* remote app releases bchannel */
+	B_EVENT_USE,		/* activate bchannel */
 	B_EVENT_ACTIVATED,	/* DL_ESTABLISH received */
-	B_EVENT_DROP,		/* deactivate/re-import bchannel */
+	B_EVENT_DROP,		/* deactivate bchannel */
 	B_EVENT_DEACTIVATED,	/* DL_RELEASE received */
-	B_EVENT_EXPORTED,	/* BCHANNEL_ASSIGN received */
-	B_EVENT_IMPORTED,	/* BCHANNEL_REMOVE received */
-	B_EVENT_TIMEOUT,	/* timeout for bchannel state */
+	B_EVENT_TIMEOUT,	/* timeout happed during (de)activation */
 };
 
 /* mISDN port structure list */
@@ -59,13 +55,8 @@ struct mISDNport {
 	int b_mode[128]; /* B_MODE_* */
 	int b_state[128]; /* statemachine, 0 = IDLE */
 	struct lcr_timer b_timer[128]; /* timer for bchannel state machine */
-	int b_remote_id[128]; /* the socket currently exported (0=none) */
-	unsigned int b_remote_ref[128]; /* the ref currently exported */
 	int locally; /* local causes are sent as local causes not remote */
 	int los, ais, rdi, slip_rx, slip_tx;
-
-	int lcr_sock; /* socket of loopback on LCR side */
-	int isloopback; /* will be set on open, in case it is a loopback if */
 
 	/* ss5 */
 	unsigned int ss5; /* set, if SS5 signalling enabled, also holds feature bits */
@@ -103,7 +94,6 @@ void ph_control_block(struct mISDNport *mISDNport, unsigned int handle, unsigned
 void chan_trace_header(struct mISDNport *mISDNport, class PmISDN *port, const char *msgtext, int direction);
 void l1l2l3_trace_header(struct mISDNport *mISDNport, class PmISDN *port, unsigned int prim, int direction);
 void bchannel_event(struct mISDNport *mISDNport, int i, int event);
-void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned int handle);
 
 
 /* mISDN port classes */
@@ -164,8 +154,6 @@ class PmISDN : public Port
 	int p_m_b_mode;				/* bchannel mode */
 	int p_m_hold;				/* if port is on hold */
 	struct lcr_timer p_m_timeout;		/* timeout of timers */
-	unsigned int p_m_remote_ref;		/* join to export bchannel to */
-	int p_m_remote_id;			/* sock to export bchannel to */
 
 	int p_m_inband_send_on;			/* triggers optional send function */
 	int p_m_inband_receive_on;		/* triggers optional receive function */

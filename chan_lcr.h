@@ -9,8 +9,6 @@
 **                                                                           **
 \*****************************************************************************/
 
-/* structure for all calls */
-struct bchannel;
 struct chan_call {
 	struct chan_call	*next;	/* link to next call instance */
 	int			state;	/* current call state CHAN_LCR_STATE */
@@ -19,8 +17,6 @@ struct chan_call {
 	void			*ast;	/* current asterisk channel */
 	int			pbx_started;
 					/* indicates if pbx que is available */
-	struct bchannel		*bchannel;
-					/* reference to bchannel, if set */
 	int			audiopath;
 					/* audio is available */
 	int			cause, location;

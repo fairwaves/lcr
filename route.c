@@ -251,7 +251,7 @@ struct param_defs param_defs[] = {
 struct action_defs action_defs[] = {
 	{ ACTION_EXTERNAL,
 	  "extern",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_KEYPAD | PARAM_TIMEOUT,
+	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_KEYPAD | PARAM_CONTEXT | PARAM_TIMEOUT,
 	  "Call is routed to extern number as dialed."},
 	{ ACTION_INTERNAL,
 	  "intern",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_internal, &EndpointAppPBX::action_hangup_call,
@@ -261,10 +261,6 @@ struct action_defs action_defs[] = {
 	  "outdial",	&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_external, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_PREFIX | PARAM_COMPLETE | PARAM_TYPE | PARAM_CAPA | PARAM_BMODE | PARAM_INFO1 | PARAM_HLC | PARAM_EXTHLC | PARAM_PRESENT | PARAM_INTERFACES | PARAM_CALLERID | PARAM_CALLERIDTYPE | PARAM_KEYPAD | PARAM_TIMEOUT,
 	  "Same as 'extern'"},
-	{ ACTION_REMOTE,
-	  "remote",	&EndpointAppPBX::action_init_remote, &EndpointAppPBX::action_dialing_remote, &EndpointAppPBX::action_hangup_call,
-	  PARAM_CONNECT | PARAM_APPLICATION | PARAM_CONTEXT | PARAM_EXTEN | PARAM_TIMEOUT,
-	  "Call is routed to Remote application, like Asterisk."},
 	{ ACTION_VBOX_RECORD,
 	  "vbox-record",&EndpointAppPBX::action_init_call, &EndpointAppPBX::action_dialing_vbox_record, &EndpointAppPBX::action_hangup_call,
 	  PARAM_CONNECT | PARAM_EXTENSION | PARAM_ANNOUNCEMENT | PARAM_TIMEOUT,
@@ -2405,14 +2401,6 @@ struct route_action action_internal = {
 	NULL,
 	NULL,
 	ACTION_INTERNAL,
-	0,
-	0,
-};
-
-struct route_action action_remote = {
-	NULL,
-	NULL,
-	ACTION_REMOTE,
 	0,
 	0,
 };

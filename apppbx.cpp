@@ -615,8 +615,8 @@ void EndpointAppPBX::out_setup(int cfnr)
 	struct port_settings	port_settings;
 #ifdef WITH_MISDN
 	int			channel = 0;
-	struct admin_list	*admin;
 #endif
+	struct admin_list	*admin;
 	int			earlyb;
 	int			mode = B_MODE_TRANSPARENT;
 
@@ -741,6 +741,23 @@ void EndpointAppPBX::out_setup(int cfnr)
 			}
 			/* found interface */
 			PDEBUG(DEBUG_EPOINT, "EPOINT(%d) calling to interface %s\n", ea_endpoint->ep_serial, ifname);
+			if (interface->remote) {
+				admin = admin_first;
+				while(admin) {
+					if (admin->remote_name[0] && !strcmp(admin->remote_name, interface->remote_app))
+						break;
+					admin = admin->next;
+				}
+				if (!admin) {
+					trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+					add_trace("application", NULL, "%s", interface->remote_app);
+					end_trace();
+					continue;
+				}
+				SPRINT(portname, "%s-%d-out", interface->name, 0);
+				port = new Premote(PORT_TYPE_REMOTE_OUT, portname, &port_settings, interface, admin->sock);
+				earlyb = (interface->is_earlyb == IS_YES);
+			} else
 #ifdef WITH_GSM_BS
 			if (interface->gsm_bs) {
 				SPRINT(portname, "%s-%d-out", interface->name, 0);
@@ -779,22 +796,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 					port = ss5_hunt_line(mISDNport);
 				else
 #endif
-				if (mISDNport->ifport->remote) {
-					admin = admin_first;
-					while(admin) {
-						if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
-							break;
-						admin = admin->next;
-					}
-					if (!admin) {
-						trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
-						add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
-						end_trace();
-						continue;
-					}
-					port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
-				} else
-					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 				earlyb = mISDNport->earlyb;
 #else
 			trace_header("INTERFACE (has no function)", DIRECTION_NONE);
@@ -1021,6 +1023,23 @@ void EndpointAppPBX::out_setup(int cfnr)
 					continue;
 				}
 				/* found interface */
+				if (interface->remote) {
+					admin = admin_first;
+					while(admin) {
+						if (admin->remote_name[0] && !strcmp(admin->remote_name, interface->remote_app))
+							break;
+						admin = admin->next;
+					}
+					if (!admin) {
+						trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+						add_trace("application", NULL, "%s", interface->remote_app);
+						end_trace();
+						continue;
+					}
+					SPRINT(portname, "%s-%d-out", interface->name, 0);
+					port = new Premote(PORT_TYPE_REMOTE_OUT, portname, &port_settings, interface, admin->sock);
+					earlyb = (interface->is_earlyb == IS_YES);
+				} else
 #ifdef WITH_GSM_BS
 				if (interface->gsm_bs) {
 					SPRINT(portname, "%s-%d-out", interface->name, 0);
@@ -1060,22 +1079,7 @@ void EndpointAppPBX::out_setup(int cfnr)
 						port = ss5_hunt_line(mISDNport);
 					else
 #endif
-					if (mISDNport->ifport->remote) {
-						admin = admin_first;
-						while(admin) {
-							if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
-								break;
-							admin = admin->next;
-						}
-						if (!admin) {
-							trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
-							add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
-							end_trace();
-							continue;
-						}
-						port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
-					} else
-						port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 					earlyb = mISDNport->earlyb;
 #else
 					trace_header("INTERFACE (has no function)", DIRECTION_NONE);
@@ -1568,8 +1572,7 @@ void EndpointAppPBX::port_information(struct port_list *portlist, int message_ty
 	}
 	if (e_action)
 	if (e_action->index==ACTION_OUTDIAL
-	 || e_action->index==ACTION_EXTERNAL
-	 || e_action->index==ACTION_REMOTE) {
+	 || e_action->index==ACTION_EXTERNAL) {
 		if (!e_extdialing)
 			set_tone(portlist, "dialing");
 		else if (!e_extdialing[0])

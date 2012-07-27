@@ -30,8 +30,6 @@ struct options {
 	int     socketuser;             /* socket chown to this user */
 	int     socketgroup;            /* socket chgrp to this group */
 	int	polling;
-	char loopback_ext[64];		/* loopback interface GSM side */
-	char loopback_lcr[64];		/* loopback interface LCR side */
 };	
 
 extern struct options options;

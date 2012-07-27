@@ -136,6 +136,24 @@ fail:
 	/* create port for interface */
 	SPRINT(portname, "%s-%d-out", interface_out->name, 0);
 	memset(&port_settings, 0, sizeof(port_settings));
+#ifdef WITH_MISDN
+	if (interface_out->remote) {
+		struct admin_list	*admin;
+		admin = admin_first;
+		while(admin) {
+			if (admin->remote_name[0] && !strcmp(admin->remote_name, interface_out->remote_app))
+				break;
+			admin = admin->next;
+		}
+		if (!admin) {
+			trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
+			add_trace("application", NULL, "%s", interface_out->remote_app);
+			end_trace();
+			goto fail;
+		}
+		port = new Premote(PORT_TYPE_REMOTE_OUT, portname, &port_settings, interface_out, admin->sock);
+	} else
+#endif
 #ifdef WITH_SIP
 	if (interface_out->sip) {
 		port = new Psip(PORT_TYPE_SIP_OUT, portname, &port_settings, interface_out);
@@ -156,7 +174,6 @@ fail:
 #ifdef WITH_MISDN
 		struct mISDNport *mISDNport;
 		int channel = 0;
-		struct admin_list *admin;
 		int earlyb;
 		int mode = B_MODE_TRANSPARENT;
 
@@ -176,23 +193,7 @@ fail:
 			port = ss5_hunt_line(mISDNport);
 		else
 #endif
-		if (mISDNport->ifport->remote) {
-			admin = admin_first;
-			while(admin) {
-				if (admin->remote_name[0] && !strcmp(admin->remote_name, mISDNport->ifport->remote_app))
-					break;
-				admin = admin->next;
-			}
-			if (!admin) {
-				trace_header("INTERFACE (remote not connected)", DIRECTION_NONE);
-				add_trace("application", NULL, "%s", mISDNport->ifport->remote_app);
-				end_trace();
-				cause = 27;
-				goto fail;
-			}
-			port = new Premote(PORT_TYPE_REMOTE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode, admin->sock);
-		} else
-			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+		port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
 		earlyb = mISDNport->earlyb;
 #else
 		trace_header("INTERFACE (has no function)", DIRECTION_NONE);

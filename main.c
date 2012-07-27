@@ -627,12 +627,6 @@ exit is done when interface is down
 	sip_exit();
 #endif
 
-#ifdef WITH_MISDN
-	/* close loopback, if used by GSM or remote */
-	if (mISDNloop.sock > -1)
-		mISDNloop_close();
-#endif
-
 	/* display memory leak */
 #define MEMCHECK(a, b) \
 	if (b) { \

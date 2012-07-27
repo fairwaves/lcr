@@ -743,18 +743,6 @@ const char *admin_state(int sock, char *argv[])
 								color(yellow);
 								addstr("dact'ing");
 								break;
-								case B_STATE_EXPORTING:
-								color(yellow);
-								addstr("exp'ing ");
-								break;
-								case B_STATE_REMOTE:
-								color(green);
-								addstr("remote  ");
-								break;
-								case B_STATE_IMPORTING:
-								color(yellow);
-								addstr("imp'ing ");
-								break;
 							}
 							if (m[i].u.i.port[j]) {
 								/* search for port */

@@ -327,7 +327,6 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 	return(-1);
 #else
 	struct interface_port *ifport, **ifportp;
-	struct interface *searchif;
 
 	/* goto end of chain */
 	ifport = interface->ifport;
@@ -336,22 +335,6 @@ static int inter_portname(struct interface *interface, char *filename, int line,
 			ifport = ifport->next;
 	}
 
-	/* check for port already assigned, but not for shared loop interface */
-	searchif = interface_newlist;
-	if (!!strcmp(value, options.loopback_lcr))
-	{
-		while(searchif) {
-			ifport = searchif->ifport;
-			while(ifport) {
-				if (!strcasecmp(ifport->portname, value)) {
-					SPRINT(interface_error, "Error in %s (line %d): port '%s' already used above.\n", filename, line, value);
-					return(-1);
-				}
-				ifport = ifport->next;
-			}
-			searchif = searchif->next;
-		}
-	}
 	/* alloc port substructure */
 	ifport = (struct interface_port *)MALLOC(sizeof(struct interface_port));
 	memuse++;
@@ -1096,7 +1079,6 @@ static int inter_ss5(struct interface *interface, char *filename, int line, char
 #endif
 static int inter_remote(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
-	struct interface_port *ifport;
 	struct interface *searchif;
 
 	if (!value[0]) {
@@ -1105,27 +1087,26 @@ static int inter_remote(struct interface *interface, char *filename, int line, c
 	}
 	searchif = interface_newlist;
 	while(searchif) {
-		ifport = searchif->ifport;
-		while(ifport) {
-			if (ifport->remote && !strcmp(ifport->remote_app, value)) {
-				SPRINT(interface_error, "Error in %s (line %d): port '%s' already uses remote application '%s'.\n", filename, line, ifport->portname, value);
-				return(-1);
-			}
-			ifport = ifport->next;
+		if (interface->remote && !strcmp(interface->remote_app, value)) {
+			SPRINT(interface_error, "Error in %s (line %d): interface '%s' already uses remote application '%s'.\n", filename, line, interface->name, value);
+			return(-1);
 		}
 		searchif = searchif->next;
 	}
 
-	/* set portname */
-	if (inter_portname(interface, filename, line, (char *)"portname", options.loopback_lcr))
-		return(-1);
-
 	/* goto end of chain again to set application name */
-	ifport = interface->ifport;
-	while(ifport->next)
-		ifport = ifport->next;
-	ifport->remote = 1;
-	SCPY(ifport->remote_app, value);
+	interface->remote = 1;
+	SCPY(interface->remote_app, value);
+
+	return(0);
+}
+static int inter_context(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	if (!value[0]) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects application context as value.\n", filename, line, parameter);
+		return(-1);
+	}
+	SCPY(interface->remote_context, value);
 
 	return(0);
 }
@@ -1325,6 +1306,8 @@ struct interface_param interface_param[] = {
 	{"remote", &inter_remote, "<application>",
 	"Sets up an interface that communicates with the remote application.\n"
 	"Use \"asterisk\" to use chan_lcr as remote application."},
+	{"context", &inter_context, "<context>",
+	"Give context for calls to application."},
 
 	{"shutdown", &inter_shutdown, "",
 	"Interface will not be loaded when processing interface.conf"},

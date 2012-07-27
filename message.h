@@ -126,23 +126,13 @@ enum { /* isdnsignal */
 	mISDNSIGNAL_DELAY,		/* use delay or adaptive jitter */
 };
 
-enum { /* bchannel assignment */
-	BCHANNEL_REQUEST,		/* application requests bchannel */
-	BCHANNEL_RELEASE,		/* application releases bchannel */
-	BCHANNEL_ASSIGN,		/* bchannel assigned by LCR */
-	BCHANNEL_ASSIGN_ACK,		/* application acknowledges */
-	BCHANNEL_REMOVE,		/* bchannel removed by LCR */
-	BCHANNEL_REMOVE_ACK,		/* application acknowledges */
-};
 enum {
 	B_STATE_IDLE,		/* not open */
 	B_STATE_ACTIVATING,	/* DL_ESTABLISH sent */
 	B_STATE_ACTIVE,		/* channel active */
 	B_STATE_DEACTIVATING,	/* DL_RELEASE sent */
-	B_STATE_EXPORTING,	/* BCHANNEL_ASSIGN sent */
-	B_STATE_REMOTE,		/* bchannel assigned to remote application */
-	B_STATE_IMPORTING,	/* BCHANNEL_REMOVE sent */
 };
+
 enum {
 	B_MODE_TRANSPARENT,	/* normal transparent audio */
 	B_MODE_HDLC,		/* hdlc data mode */
@@ -194,6 +184,7 @@ struct dialing_info {
 	int sending_complete;		/* end of dialing */
 	char display[84];		/* display information */
 	char keypad[33];		/* send keypad facility */
+	char context[32];		/* asterisk context */
 };
 
 /* call-info structure CONNECT */
@@ -288,7 +279,6 @@ struct message_setup {
 	struct useruser_info useruser;		/* user-user */
 	struct progress_info progress;		/* info on call progress */
 	struct rtp_info	rtpinfo;		/* info about RTP peer */
-	char context[128];			/* asterisk context */
 };
 
 /* call-info structure PARK */
@@ -346,7 +336,11 @@ struct param_bchannel {
 
 struct param_newref {
         int direction; /* who requests a refe? */
-	int mode; /* 0 = direct-mode, 1 = PBX mode */
+};
+
+struct param_traffic {
+	int len;	/* how much data */
+	unsigned char data[160];	/* 20ms */
 };
 
 /* structure of message parameter */
@@ -374,6 +368,7 @@ union parameter {
 	struct param_bchannel bchannel; /* MESSAGE_BCHANNEL */
 	struct param_newref newref; /* MESSAGE_NEWREF */
 	unsigned int bridge_id; /* MESSAGE_BRIDGE */
+	struct param_traffic traffic; /* MESSAGE_TRAFFIC */
 };
 
 enum { /* message flow */
@@ -427,6 +422,7 @@ enum { /* messages between entities */
 	MESSAGE_HELLO,		/* hello message for remote application */
 	MESSAGE_NEWREF,		/* special message to create and inform ref */
 	MESSAGE_BRIDGE,		/* control port bridge */
+	MESSAGE_TRAFFIC,	/* exchange bchannel traffic */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -462,6 +458,7 @@ enum { /* messages between entities */
 	"MESSAGE_HELLO", \
 	"MESSAGE_NEWREF", \
 	"MESSAGE_BRIDGE", \
+	"MESSAGE_TRAFFIC", \
 };
 
 

@@ -16,24 +16,25 @@ unsigned int new_remote = 1000;
 /*
  * constructor
  */
-Premote::Premote(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode, int remote_id) : PmISDN(type, mISDNport, portname, settings, channel, exclusive, mode)
+Premote::Premote(int type, char *portname, struct port_settings *settings, struct interface *interface, int remote_id) : Port(type, portname, settings)
 {
 	union parameter param;
 
-	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
-	p_m_r_ref = new_remote++;
-	SCPY(p_m_r_remote_app, mISDNport->ifport->remote_app);
-	p_m_r_handle = 0;
+	p_callerinfo.itype = (interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
+	p_r_ref = new_remote++;
+	SCPY(p_r_remote_app, interface->remote_app);
+	SCPY(p_r_interface_name, interface->name);
+	p_r_tones = (interface->is_tones == IS_YES);
 
 	/* send new ref to remote socket */
 	memset(&param, 0, sizeof(union parameter));
 	if (type == PORT_TYPE_REMOTE_OUT)
 		param.newref.direction = 1; /* new ref from lcr */
-	p_m_r_remote_id = remote_id;
-	if (admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, MESSAGE_NEWREF, &param) < 0)
-		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", mISDNport->ifport->remote_app);
+	p_r_remote_id = remote_id;
+	if (admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_NEWREF, &param) < 0)
+		FATAL("No socket with remote application '%s' found, this shall not happen. because we already created one.\n", p_r_remote_app);
 
-	PDEBUG(DEBUG_GSM, "Created new RemotePort(%s).\n", portname);
+	PDEBUG(DEBUG_PORT, "Created new RemotePort(%s).\n", portname);
 
 }
 
@@ -42,17 +43,7 @@ Premote::Premote(int type, struct mISDNport *mISDNport, char *portname, struct p
  */
 Premote::~Premote()
 {
-	/* need to remote (import) external channel from remote application */
-	if (p_m_r_handle) {
-		message_bchannel_to_remote(p_m_r_remote_id, p_m_r_ref, BCHANNEL_REMOVE, p_m_r_handle, 0, 0, 0, 0, 0, 0, 1);
-		chan_trace_header(p_m_mISDNport, this, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-		add_trace("type", NULL, "remove");
-		add_trace("channel", NULL, "%d.%d", p_m_r_handle>>8, p_m_r_handle&0xff);
-		end_trace();
-	}
-
-	PDEBUG(DEBUG_GSM, "Destroyed Remote process(%s).\n", p_name);
-
+	PDEBUG(DEBUG_PORT, "Destroyed Remote process(%s).\n", p_name);
 }
 
 /*
@@ -60,32 +51,18 @@ Premote::~Premote()
  */
 int Premote::message_epoint(unsigned int epoint_id, int message_type, union parameter *param)
 {
-	struct lcr_msg *message;
-	int channel;
-	int ret;
 	struct epoint_list *epointlist;
 
-	if (PmISDN::message_epoint(epoint_id, message_type, param))
+	if (Port::message_epoint(epoint_id, message_type, param))
 		return 1;
 
 	if (message_type == MESSAGE_SETUP) {
-		ret = channel = hunt_bchannel();
-		if (ret < 0)
-			goto no_channel;
-		/* open channel */
-		ret = seize_bchannel(channel, 1);
-		if (ret < 0) {
-			no_channel:
-			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = 34;
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-			message_put(message);
-			new_state(PORT_STATE_RELEASE);
-			delete this;
+		struct interface *interface;
+		interface = getinterfacebyname(p_r_interface_name);
+		if (!interface) {
+			PERROR("Cannot find interface %s.\n", p_r_interface_name);
 			return 0;
 		}
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
-
 		/* attach only if not already */
 		epointlist = p_epointlist;
 		while(epointlist) {
@@ -97,23 +74,34 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 			epointlist_new(epoint_id);
 
 		/* set context to pbx */
-		SCPY(param->setup.context, "pbx");
+		if (!param->setup.dialinginfo.context[0]) {
+			if (interface->remote_context[0])
+				SCPY(param->setup.dialinginfo.context, interface->remote_context);
+			else
+				SCPY(param->setup.dialinginfo.context, "lcr");
+		}
+
 	}
 
 	/* look for Remote's interface */
-	if (admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, message_type, param)<0) {
-		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all remote ports.\n", p_m_mISDNport->ifport->remote_app);
+	if (admin_message_from_lcr(p_r_remote_id, p_r_ref, message_type, param)<0) {
+		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all remote ports.\n", p_r_remote_app);
 		return 0;		
 	}
 
+#if 0
 	/* enable audio path */
 	if (message_type == MESSAGE_SETUP) {
 		union parameter newparam;
 		memset(&newparam, 0, sizeof(union parameter));
-		admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, MESSAGE_PATTERN, &newparam);
+		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_PATTERN, &newparam);
 		newparam.audiopath = 1;
-		admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, MESSAGE_AUDIOPATH, &newparam);
+		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_AUDIOPATH, &newparam);
 	}
+#endif
+
+	if (message_type == MESSAGE_CONNECT)
+		new_state(PORT_STATE_CONNECT);
 
 	if (message_type == MESSAGE_RELEASE) {
 		new_state(PORT_STATE_RELEASE);
@@ -128,93 +116,81 @@ void Premote::message_remote(int message_type, union parameter *param)
 {
 	class Endpoint *epoint;
 	struct lcr_msg *message;
-	int channel;
-	int ret;
+	struct interface *interface;
 
-	if (message_type == MESSAGE_SETUP) {
+	switch (message_type) {
+	case MESSAGE_TRAFFIC:
+		bridge_tx(param->traffic.data, param->traffic.len);
+		break;
+
+	case MESSAGE_SETUP:
+		interface = getinterfacebyname(p_r_interface_name);
+		if (!interface) {
+			PERROR("Cannot find interface %s.\n", p_r_interface_name);
+			return;
+		}
+
 		/* enable audio path */
-		union parameter newparam;
-		memset(&newparam, 0, sizeof(union parameter));
-		admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, MESSAGE_PATTERN, &newparam);
-		newparam.audiopath = 1;
-		admin_message_from_lcr(p_m_r_remote_id, p_m_r_ref, MESSAGE_AUDIOPATH, &newparam);
+		if (interface->is_tones == IS_YES) {
+			union parameter newparam;
+			memset(&newparam, 0, sizeof(union parameter));
+			admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_PATTERN, &newparam);
+			newparam.audiopath = 1;
+			admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_AUDIOPATH, &newparam);
+		}
 
 		/* set source interface */
 		param->setup.callerinfo.itype = p_callerinfo.itype;
-		param->setup.callerinfo.isdn_port = p_m_portnum;
-		SCPY(param->setup.callerinfo.interface, p_m_mISDNport->ifport->interface->name);
+		SCPY(param->setup.callerinfo.interface, interface->name);
 		
-		ret = channel = hunt_bchannel();
-		if (ret < 0)
-			goto no_channel;
-
-		/* open channel */
-		ret = seize_bchannel(channel, 1);
-		if (ret < 0) {
-			no_channel:
-			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RELEASE);
-			message->param.disconnectinfo.cause = 34;
-			message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
-			message_put(message);
-			new_state(PORT_STATE_RELEASE);
-			delete this;
-			return;
-		}
-		bchannel_event(p_m_mISDNport, p_m_b_index, B_EVENT_USE);
-
 		/* create endpoint */
 		if (p_epointlist)
 			FATAL("Incoming call but already got an endpoint.\n");
 		if (!(epoint = new Endpoint(p_serial, 0)))
 			FATAL("No memory for Endpoint instance\n");
-		epoint->ep_app = new_endpointapp(epoint, 0, p_m_mISDNport->ifport->interface->app); //incoming
+		epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 
 		epointlist_new(epoint->ep_serial);
-	}
+		/* FALL THROUGH: */
+	default:
+		if (message_type == MESSAGE_CONNECT)
+			new_state(PORT_STATE_CONNECT);
+		/* cannot just forward, because param is not of container "struct lcr_msg" */
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, message_type);
+		memcpy(&message->param, param, sizeof(message->param));
+		message_put(message);
 
-	/* set serial on bchannel message
-	 * also ref is given, so we send message with ref */
-	if (message_type == MESSAGE_BCHANNEL) {
-		int i = p_m_b_index;
-		unsigned int portid = (mISDNloop.port<<8) + i+1+(i>=15);
-		switch (param->bchannel.type) {
-		case BCHANNEL_REQUEST:
-			p_m_r_handle = portid;
-			message_bchannel_to_remote(p_m_r_remote_id, p_m_r_ref, BCHANNEL_ASSIGN, portid, 0, 0, 0, 0, 0, 0, 1);
-			chan_trace_header(p_m_mISDNport, this, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "assign");
-			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-			end_trace();
-			break;
-		case BCHANNEL_RELEASE:
-			p_m_r_handle = 0;
-			message_bchannel_to_remote(p_m_r_remote_id, p_m_r_ref, BCHANNEL_REMOVE, portid, 0, 0, 0, 0, 0, 0, 1);
-			chan_trace_header(p_m_mISDNport, this, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "remove");
-			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-			end_trace();
-			break;
+		if (message_type == MESSAGE_RELEASE) {
+			new_state(PORT_STATE_RELEASE);
+			delete this;
+			return;
 		}
-		return;
-	}
-	
-	/* cannot just forward, because param is not of container "struct lcr_msg" */
-	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, message_type);
-	memcpy(&message->param, param, sizeof(message->param));
-	message_put(message);
-
-	if (message_type == MESSAGE_RELEASE) {
-		new_state(PORT_STATE_RELEASE);
-		delete this;
-		return;
 	}
 }
 
-/* select free bchannel from loopback interface */
-int Premote::hunt_bchannel(void)
+/* receive from remote Port instance */
+int Premote::bridge_rx(unsigned char *data, int len)
 {
-	return loop_hunt_bchannel(this, p_m_mISDNport);
-}
+	union parameter newparam;
+	int l;
 
+	/* don't send tones, if not enabled or not connected */
+	if (!p_r_tones
+	 && p_state != PORT_STATE_CONNECT)
+	 	return 0;
+
+	memset(&newparam, 0, sizeof(union parameter));
+	/* split, if exeeds data size */
+	while(len) {
+		l = (len > (int)sizeof(newparam.traffic.data)) ? sizeof(newparam.traffic.data) : len;
+		newparam.traffic.len = l;
+		len -= l;
+		memcpy(newparam.traffic.data, data, l);
+		data += l;
+		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_TRAFFIC, &newparam);
+	}
+
+	return 0;
+}
 
 

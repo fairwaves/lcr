@@ -499,9 +499,6 @@ int joinpbx_countrelations(unsigned int join_id)
 	if (!join)
 		return(0);
 
-	if (join->j_type == JOIN_TYPE_REMOTE)
-		return(2);
-
 	if (join->j_type != JOIN_TYPE_PBX)
 		return(0);
 	joinpbx = (class JoinPBX *)join;

@@ -147,8 +147,6 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_dtmf = !mISDNport->ifport->nodtmf;
 	memset(&p_m_timeout, 0, sizeof(p_m_timeout));
 	add_timer(&p_m_timeout, mISDN_timeout, this, 0);
-	p_m_remote_ref = 0; /* channel shall be exported to given remote */
-	p_m_remote_id = 0; /* remote admin socket */
 	SCPY(p_m_pipeline, mISDNport->ifport->interface->pipeline);
 	
 	/* audio */
@@ -568,22 +566,6 @@ It may be linked to a Port class, that likes to reactivate it.
 See above.
 After deactivating bchannel, and if not used, the bchannel becomes idle again.
 
-Also the bchannel may be exported, but only if the state is or becomes idle:
-
-- B_STATE_EXPORTING
-The bchannel assignment has been sent to the remove application.
-
-- B_STATE_REMOTE
-The bchannel assignment is acknowledged by the remote application.
-
-- B_STATE_IMPORTING
-The bchannel is re-imported by mISDN port object.
-
-- B_STATE_IDLE
-See above.
-After re-importing bchannel, and if not used, the bchannel becomes idle again.
-
-
 A bchannel can have the following events:
 
 - B_EVENT_USE
@@ -598,32 +580,7 @@ The bchannel is not required by Port class anymore
 - B_EVENT_DEACTIVATED
 The bchannel becomes inactive.
 
-- B_EVENT_EXPORTED
-The bchannel is now used by remote application.
-
-- B_EVENT_IMPORTED
-The bchannel is not used by remote application.
-
-- B_EVENT_EXPORTREQUEST
-The bchannel shall be exported to the remote application.
-
-- B_EVENT_IMPORTREQUEST
-The bchannel is released from the remote application.
-
 All actions taken on these events depend on the current bchannel's state and if it is linked to a Port class.
-
-if an export request is receive by remote application, p_m_remote_* is set.
-the b_remote_*[index] indicates if and where the channel is exported to. (set from the point on, where export is initiated, until imported is acknowledged.)
-- set on export request from remote application (if port is assigned)
-- set on channel use, if requested by remote application (p_m_remote_*)
-- cleared on drop request
-
-the bchannel will be exported with ref and stack given. remote application uses the ref to link bchannel to the call.
-the bchannel will be imported with stack given only. remote application must store stack id with the bchannel process.
-the bchannel import/export is acknowledged with stack given.
-
-if exporting, b_remote_*[index] is set to the remote socket id.
-if importing has been acknowledged. b_remote_*[index] is cleared.
 
 */
 
@@ -639,19 +596,14 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 	class PmISDN *b_port = mISDNport->b_port[i];
 	int state = mISDNport->b_state[i];
 	int timer = -1; // no change
-	unsigned int p_m_remote_ref = 0;
-	unsigned int p_m_remote_id = 0;
 	int p_m_tx_gain = 0;
 	int p_m_rx_gain = 0;
 	char *p_m_pipeline = NULL;
 	unsigned char *p_m_crypt_key = NULL;
 	int p_m_crypt_key_len = 0;
 	int p_m_crypt_key_type = 0;
-	unsigned int portid = (mISDNport->portnum<<8) + i+1+(i>=15);
 
 	if (b_port) {
-		p_m_remote_id = b_port->p_m_remote_id;
-		p_m_remote_ref = b_port->p_m_remote_ref;
 		p_m_tx_gain = b_port->p_m_tx_gain;
 		p_m_rx_gain = b_port->p_m_rx_gain;
 		p_m_pipeline = b_port->p_m_pipeline;
@@ -667,168 +619,41 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			FATAL("bchannel must be linked to a Port class\n");
 		switch(state) {
 			case B_STATE_IDLE:
-			if (p_m_remote_ref) {
-				/* export bchannel */
-				message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
-				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-				add_trace("type", NULL, "assign");
-				add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-				end_trace();
-				state = B_STATE_EXPORTING;
-				mISDNport->b_remote_id[i] = p_m_remote_id;
-				mISDNport->b_remote_ref[i] = p_m_remote_ref;
-			} else {
-				/* create stack and send activation request */
-				if (_bchannel_create(mISDNport, i)) {
-					_bchannel_activate(mISDNport, i, 1, 0);
-					state = B_STATE_ACTIVATING;
-					timer = B_TIMER_ACTIVATING;
-				}
+			/* create stack and send activation request */
+			if (_bchannel_create(mISDNport, i)) {
+				_bchannel_activate(mISDNport, i, 1, 0);
+				state = B_STATE_ACTIVATING;
+				timer = B_TIMER_ACTIVATING;
 			}
 			break;
 
 			case B_STATE_ACTIVATING:
-			case B_STATE_EXPORTING:
 			/* do nothing, because it is already activating */
-			break;
-
-			case B_STATE_DEACTIVATING:
-			case B_STATE_IMPORTING:
-			/* do nothing, because we must wait until we can reactivate */
 			break;
 
 			default:
 			/* problems that might ocurr:
 			 * B_EVENT_USE is received when channel already in use.
-			 * bchannel exported, but not freed by other port
 			 */
 			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
 		}
 		break;
 
-		case B_EVENT_EXPORTREQUEST:
-		/* special case where the bchannel is requested by remote */
-		if (!p_m_remote_ref) {
-			PERROR("export request without remote channel set, please correct.\n");
-			break;
-		}
-		switch(state) {
-			case B_STATE_IDLE:
-			/* in case, the bchannel is exported right after seize_bchannel */
-			/* export bchannel */
-			/* p_m_remote_id is set, when this event happens. */
-			message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
-			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "assign");
-			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-			end_trace();
-			state = B_STATE_EXPORTING;
-			mISDNport->b_remote_id[i] = p_m_remote_id;
-			mISDNport->b_remote_ref[i] = p_m_remote_ref;
-			break;
-
-			case B_STATE_ACTIVATING:
-			case B_STATE_EXPORTING:
-			/* do nothing, because it is already activating */
-			break;
-
-			case B_STATE_DEACTIVATING:
-			case B_STATE_IMPORTING:
-			/* do nothing, because we must wait until we can reactivate */
-			break;
-
-			case B_STATE_ACTIVE:
-			/* bchannel is active, so we deactivate */
-			_bchannel_activate(mISDNport, i, 0, 0);
-			state = B_STATE_DEACTIVATING;
-			timer = B_TIMER_DEACTIVATING;
-			break;
-
-			default:
-			/* problems that might ocurr:
-			 * ... when channel already in use.
-			 * bchannel exported, but not freed by other port
-			 */
-			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
-		}
-		break;
-
-		case B_EVENT_IMPORTREQUEST:
-		/* special case where the bchannel is released by remote */
-		if (p_m_remote_ref) {
-			PERROR("import request with remote channel set, please correct.\n");
-			break;
-		}
-		switch(state) {
-			case B_STATE_IDLE:
-			case B_STATE_ACTIVE:
-			/* bchannel is not exported */
-			break;
-
-			case B_STATE_ACTIVATING:
-			case B_STATE_EXPORTING:
-			/* do nothing because we must wait until bchanenl is active before deactivating */
-			break;
-
-			case B_STATE_REMOTE:
-			/* bchannel is exported, so we re-import */
-			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
-			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "remove");
-			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-			end_trace();
-			state = B_STATE_IMPORTING;
-			break;
-
-			case B_STATE_DEACTIVATING:
-			case B_STATE_IMPORTING:
-			/* we may have taken an already deactivating bchannel, but do not require it anymore, so we do nothing */
-			break;
-
-			default:
-			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
-		}
-		break;
 
 		case B_EVENT_ACTIVATED:
 		timer = 0;
 		switch(state) {
 			case B_STATE_ACTIVATING:
-			if (b_port && !p_m_remote_id) {
+			if (b_port) {
 				/* bchannel is active and used by Port class, so we configure bchannel */
 				_bchannel_configure(mISDNport, i);
 				state = B_STATE_ACTIVE;
 				b_port->p_m_load = 0;
 			} else {
-				/* bchannel is active, but exported OR not used anymore (or has wrong stack config), so we deactivate */
+				/* bchannel is active, but not used anymore (or has wrong stack config), so we deactivate */
 				_bchannel_activate(mISDNport, i, 0, 0);
 				state = B_STATE_DEACTIVATING;
 				timer = B_TIMER_DEACTIVATING;
-			}
-			break;
-
-			default:
-			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
-		}
-		break;
-
-		case B_EVENT_EXPORTED:
-		switch(state) {
-			case B_STATE_EXPORTING:
-			if (b_port && p_m_remote_ref && p_m_remote_ref==mISDNport->b_remote_ref[i]) {
-				/* remote export done */
-				state = B_STATE_REMOTE;
-			} else {
-				/* bchannel is now exported, but we need bchannel back
-				 * OR bchannel is not used anymore
-				 * OR bchannel has been exported to an obsolete ref,
-				 * so reimport, to later export to new remote */
-				message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
-				chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-				add_trace("type", NULL, "remove");
-				add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-				end_trace();
-				state = B_STATE_IMPORTING;
 			}
 			break;
 
@@ -846,7 +671,6 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			break;
 
 			case B_STATE_ACTIVATING:
-			case B_STATE_EXPORTING:
 			/* do nothing because we must wait until bchanenl is active before deactivating */
 			break;
 
@@ -857,18 +681,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			timer = B_TIMER_DEACTIVATING;
 			break;
 
-			case B_STATE_REMOTE:
-			/* bchannel is exported, so we re-import */
-			message_bchannel_to_remote(mISDNport->b_remote_id[i], 0, BCHANNEL_REMOVE, portid, 0,0,0,0,0,0, 0);
-			chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "remove");
-			add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-			end_trace();
-			state = B_STATE_IMPORTING;
-			break;
-
 			case B_STATE_DEACTIVATING:
-			case B_STATE_IMPORTING:
 			/* we may have taken an already deactivating bchannel, but do not require it anymore, so we do nothing */
 			break;
 
@@ -888,61 +701,17 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 			_bchannel_destroy(mISDNport, i);
 			state = B_STATE_IDLE;
 			if (b_port) {
-				/* bchannel is now deactivate, but is requied by Port class, so we reactivate / export */
-				if (p_m_remote_ref) {
-					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
-					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-					add_trace("type", NULL, "assign");
-					add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-					end_trace();
-					state = B_STATE_EXPORTING;
-					mISDNport->b_remote_id[i] = p_m_remote_id;
-					mISDNport->b_remote_ref[i] = p_m_remote_ref;
-				} else {
-					if (_bchannel_create(mISDNport, i)) {
-						_bchannel_activate(mISDNport, i, 1, 0);
-						state = B_STATE_ACTIVATING;
-						timer = B_TIMER_ACTIVATING;
-					}
+				/* bchannel is now deactivate, but is requied by Port class, so we reactivate */
+				if (_bchannel_create(mISDNport, i)) {
+					_bchannel_activate(mISDNport, i, 1, 0);
+					state = B_STATE_ACTIVATING;
+					timer = B_TIMER_ACTIVATING;
 				}
 			}
 			break;
 
 			default:
 			PERROR("Illegal event %d at state %d, please correct.\n", event, state);
-		}
-		break;
-
-		case B_EVENT_IMPORTED:
-		switch(state) {
-			case B_STATE_IMPORTING:
-			state = B_STATE_IDLE;
-			mISDNport->b_remote_id[i] = 0;
-			mISDNport->b_remote_ref[i] = 0;
-			if (b_port) {
-				/* bchannel is now imported, but is requied by Port class, so we reactivate / export */
-				if (p_m_remote_ref) {
-					message_bchannel_to_remote(p_m_remote_id, p_m_remote_ref, BCHANNEL_ASSIGN, portid, p_m_tx_gain, p_m_rx_gain, p_m_pipeline, p_m_crypt_key, p_m_crypt_key_len, p_m_crypt_key_type, 0);
-					chan_trace_header(mISDNport, b_port, "MESSAGE_BCHANNEL (to remote application)", DIRECTION_NONE);
-					add_trace("type", NULL, "assign");
-					add_trace("channel", NULL, "%d.%d", portid>>8, portid&0xff);
-					end_trace();
-					state = B_STATE_EXPORTING;
-					mISDNport->b_remote_id[i] = p_m_remote_id;
-					mISDNport->b_remote_ref[i] = p_m_remote_ref;
-				} else {
-					if (_bchannel_create(mISDNport, i)) {
-						_bchannel_activate(mISDNport, i, 1, 0);
-						state = B_STATE_ACTIVATING;
-						timer = B_TIMER_ACTIVATING;
-					}
-				}
-			}
-			break;
-
-			default:
-			/* ignore, because not assigned */
-			;
 		}
 		break;
 
@@ -1082,101 +851,6 @@ void PmISDN::drop_bchannel(void)
 	p_m_b_index = -1;
 	p_m_b_channel = 0;
 	p_m_b_exclusive = 0;
-}
-
-/* process bchannel export/import message from join */
-void message_bchannel_from_remote(class JoinRemote *joinremote, int type, unsigned int handle)
-{
-	class Endpoint *epoint;
-	class Port *port;
-	class PmISDN *isdnport;
-	struct mISDNport *mISDNport;
-	int i, ii;
-
-	switch(type) {
-		case BCHANNEL_REQUEST:
-		/* find the port object for the join object ref */
-		if (!(epoint = find_epoint_id(joinremote->j_epoint_id))) {
-			PDEBUG(DEBUG_BCHANNEL, "join %d has no endpoint (anymore)\n", joinremote->j_serial);
-			return;
-		}
-		if (!epoint->ep_portlist) {
-			PDEBUG(DEBUG_BCHANNEL, "join %d has no port (anymore in portlist)\n", joinremote->j_serial);
-			return;
-		}
-		if (epoint->ep_portlist->next) {
-			PERROR("join %d has enpoint %d with more than one port. this shall not happen to remote joins.\n", joinremote->j_serial, epoint->ep_serial);
-		}
-		if (!(port = find_port_id(epoint->ep_portlist->port_id))) {
-			PDEBUG(DEBUG_BCHANNEL, "join %d has no port (anymore as object)\n", joinremote->j_serial);
-			return;
-		}
-		if ((port->p_type&PORT_CLASS_MASK) != PORT_CLASS_mISDN) {
-			PERROR("join %d has port %d not of mISDN type. This shall not happen.\n", joinremote->j_serial, port->p_serial);
-		}
-		isdnport = (class PmISDN *)port;
-
-		/* assign */
-		if (isdnport->p_m_remote_id) {
-			PERROR("join %d recevied bchannel request from remote, but channel is already assinged.\n", joinremote->j_serial);
-			break;
-		}
-		mISDNport = isdnport->p_m_mISDNport;
-		i = isdnport->p_m_b_index;
-		chan_trace_header(mISDNport, isdnport, "MESSAGE_BCHANNEL (from remote application)", DIRECTION_NONE);
-		add_trace("type", NULL, "export request");
-		end_trace();
-		isdnport->p_m_remote_ref = joinremote->j_remote_ref;
-		isdnport->p_m_remote_id = joinremote->j_remote_id;
-		if (mISDNport && i>=0) {
-			bchannel_event(mISDNport, i, B_EVENT_EXPORTREQUEST);
-		}
-		break;
-
-		case BCHANNEL_RELEASE:
-		case BCHANNEL_ASSIGN_ACK:
-		case BCHANNEL_REMOVE_ACK:
-		/* find mISDNport for stack ID */
-		mISDNport = mISDNport_first;
-		while(mISDNport) {
-			i = 0;
-			ii = mISDNport->b_num;
-			while(i < ii) {
-				if ((unsigned int)(mISDNport->portnum<<8)+i+1+(i>=15) == handle)
-					break;
-				i++;
-			}
-			if (i != ii)
-				break;
-			mISDNport = mISDNport->next;
-		}
-		if (!mISDNport) {
-			PERROR("received assign/remove ack for bchannel's handle=%x, but handle does not exist in any mISDNport structure.\n", handle);
-			break;
-		}
-		
-		if (type!=BCHANNEL_RELEASE) {
-			/* ack */
-			chan_trace_header(mISDNport, mISDNport->b_port[i], "MESSAGE_BCHANNEL (from remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, (type==BCHANNEL_ASSIGN_ACK)?"assign_ack":"remove_ack");
-			end_trace();
-			bchannel_event(mISDNport, i, (type==BCHANNEL_ASSIGN_ACK)?B_EVENT_EXPORTED:B_EVENT_IMPORTED);
-		} else {
-			/* release */
-			isdnport = mISDNport->b_port[i];
-			chan_trace_header(mISDNport, isdnport, "MESSAGE_BCHANNEL (from remote application)", DIRECTION_NONE);
-			add_trace("type", NULL, "import request");
-			end_trace();
-			if (isdnport) {
-				isdnport->p_m_remote_ref = 0;
-				isdnport->p_m_remote_id = 0;
-			}
-			bchannel_event(mISDNport, i, B_EVENT_IMPORTREQUEST);
-		}
-		break;
-		default:
-		PERROR("received wrong bchannel message type %d from remote\n", type);
-	}
 }
 
 
@@ -1843,98 +1517,96 @@ static int mISDN_upqueue(struct lcr_fd *fd, unsigned int what, void *instance, i
 	mISDNport = mISDNport_first;
 	while(mISDNport) {
 		/* handle queued up-messages (d-channel) */
-		if (!mISDNport->isloopback) {
-			while ((mb = mdequeue(&mISDNport->upqueue))) {
-				l3m = &mb->l3;
-				switch(l3m->type) {
-					case MPH_ACTIVATE_IND:
-					if (mISDNport->l1link != 1) {
-						l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
-						end_trace();
-						mISDNport->l1link = 1;
-					}
-					break;
-		
-					case MPH_DEACTIVATE_IND:
-					if (mISDNport->l1link != 0) {
-						l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
-						end_trace();
-						mISDNport->l1link = 0;
-					}
-					break;
+		while ((mb = mdequeue(&mISDNport->upqueue))) {
+			l3m = &mb->l3;
+			switch(l3m->type) {
+				case MPH_ACTIVATE_IND:
+				if (mISDNport->l1link != 1) {
+					l1l2l3_trace_header(mISDNport, NULL, L1_ACTIVATE_IND, DIRECTION_IN);
+					end_trace();
+					mISDNport->l1link = 1;
+				}
+				break;
+	
+				case MPH_DEACTIVATE_IND:
+				if (mISDNport->l1link != 0) {
+					l1l2l3_trace_header(mISDNport, NULL, L1_DEACTIVATE_IND, DIRECTION_IN);
+					end_trace();
+					mISDNport->l1link = 0;
+				}
+				break;
 
-					case MPH_INFORMATION_IND:
-					PDEBUG(DEBUG_ISDN, "Received MPH_INFORMATION_IND for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
-					switch (l3m->pid) {
-						case L1_SIGNAL_LOS_ON:
-						mISDNport->los = 1;
-						break;
-						case L1_SIGNAL_LOS_OFF:
-						mISDNport->los = 0;
-						break;
-						case L1_SIGNAL_AIS_ON:
-						mISDNport->ais = 1;
-						break;
-						case L1_SIGNAL_AIS_OFF:
-						mISDNport->ais = 0;
-						break;
-						case L1_SIGNAL_RDI_ON:
-						mISDNport->rdi = 1;
-						break;
-						case L1_SIGNAL_RDI_OFF:
-						mISDNport->rdi = 0;
-						break;
-						case L1_SIGNAL_SLIP_TX:
-						mISDNport->slip_tx++;
-						break;
-						case L1_SIGNAL_SLIP_RX:
-						mISDNport->slip_rx++;
-						break;
-					}
+				case MPH_INFORMATION_IND:
+				PDEBUG(DEBUG_ISDN, "Received MPH_INFORMATION_IND for port %d (%s).\n", mISDNport->portnum, mISDNport->ifport->interface->name);
+				switch (l3m->pid) {
+					case L1_SIGNAL_LOS_ON:
+					mISDNport->los = 1;
 					break;
+					case L1_SIGNAL_LOS_OFF:
+					mISDNport->los = 0;
+					break;
+					case L1_SIGNAL_AIS_ON:
+					mISDNport->ais = 1;
+					break;
+					case L1_SIGNAL_AIS_OFF:
+					mISDNport->ais = 0;
+					break;
+					case L1_SIGNAL_RDI_ON:
+					mISDNport->rdi = 1;
+					break;
+					case L1_SIGNAL_RDI_OFF:
+					mISDNport->rdi = 0;
+					break;
+					case L1_SIGNAL_SLIP_TX:
+					mISDNport->slip_tx++;
+					break;
+					case L1_SIGNAL_SLIP_RX:
+					mISDNport->slip_rx++;
+					break;
+				}
+				break;
 
-					case MT_L2ESTABLISH:
-					l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
+				case MT_L2ESTABLISH:
+				l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_IND, DIRECTION_IN);
+				add_trace("tei", NULL, "%d", l3m->pid);
+				end_trace();
+				mISDNport->l2link = 1;
+				if (l3m->pid < 128)
+					mISDNport->l2mask[l3m->pid >> 3] |= (1 << (l3m->pid & 7));
+				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
+					if (mISDNport->l2establish.active) {
+						unsched_timer(&mISDNport->l2establish);
+						PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
+					}
+				}
+				break;
+
+				case MT_L2RELEASE:
+				if (l3m->pid < 128)
+					mISDNport->l2mask[l3m->pid >> 3] &= ~(1 << (l3m->pid & 7));
+				if (!mISDNport->l2establish.active) {
+					l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
 					add_trace("tei", NULL, "%d", l3m->pid);
 					end_trace();
-					mISDNport->l2link = 1;
-					if (l3m->pid < 128)
-						mISDNport->l2mask[l3m->pid >> 3] |= (1 << (l3m->pid & 7));
-					if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
-						if (mISDNport->l2establish.active) {
-							unsched_timer(&mISDNport->l2establish);
-							PDEBUG(DEBUG_ISDN, "the link became active before l2establish timer expiry.\n");
-						}
-					}
-					break;
-
-					case MT_L2RELEASE:
-					if (l3m->pid < 128)
-						mISDNport->l2mask[l3m->pid >> 3] &= ~(1 << (l3m->pid & 7));
-					if (!mISDNport->l2establish.active) {
-						l1l2l3_trace_header(mISDNport, NULL, L2_RELEASE_IND, DIRECTION_IN);
-						add_trace("tei", NULL, "%d", l3m->pid);
-						end_trace();
-						/* down if not nt-ptmp */ 
-						if (!mISDNport->ntmode || mISDNport->ptp)
-							mISDNport->l2link = 0;
-					}
-					if (!mISDNport->isloopback && (!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
-						if (!mISDNport->l2establish.active && mISDNport->l2hold) {
-							PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
-							schedule_timer(&mISDNport->l2establish, 5, 0);
-							mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
-						}
-					}
-					break;
-
-					default:
-					/* l3-data is sent to LCR */
-					stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
+					/* down if not nt-ptmp */ 
+					if (!mISDNport->ntmode || mISDNport->ptp)
+						mISDNport->l2link = 0;
 				}
-				/* free message */
-				free_l3_msg(l3m);
+				if ((!mISDNport->ntmode || mISDNport->ptp) && l3m->pid < 127) {
+					if (!mISDNport->l2establish.active && mISDNport->l2hold) {
+						PDEBUG(DEBUG_ISDN, "set timer and establish.\n");
+						schedule_timer(&mISDNport->l2establish, 5, 0);
+						mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
+					}
+				}
+				break;
+
+				default:
+				/* l3-data is sent to LCR */
+				stack2manager(mISDNport, l3m->type, l3m->pid, l3m);
 			}
+			/* free message */
+			free_l3_msg(l3m);
 		}
 		mISDNport = mISDNport->next;
 	}
@@ -1946,7 +1618,7 @@ static int l2establish_timeout(struct lcr_timer *timer, void *instance, int i)
 {
 	struct mISDNport *mISDNport = (struct mISDNport *)instance;
 
-	if (!mISDNport->isloopback && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 		PDEBUG(DEBUG_ISDN, "the L2 establish timer expired, we try to establish the link portnum=%d.\n", mISDNport->portnum);
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		schedule_timer(&mISDNport->l2establish, 5, 0); /* 5 seconds */
@@ -2107,7 +1779,6 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	int force_nt = ifport->nt;
 	int l1hold = ifport->l1hold;
 	int l2hold = ifport->l2hold;
-	int loop = 0;
 	int ss5 = ifport->ss5;
 	int i, cnt;
 	int pri, bri, pots;
@@ -2115,16 +1786,6 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 //	struct mlayer3 *ml3;
 	struct mISDN_devinfo devinfo;
 	unsigned int protocol, prop;
-
-	loop = 0;
-//printf("%s == %s\n", ifport->portname, options.loopback_int);
-	if (!strcmp(ifport->portname, options.loopback_lcr))
-		loop = 1;
-
-	if (loop) {
-		if (mISDNloop_open())
-			return NULL;
-	}
 
 	/* check port counts */
 	ret = ioctl(mISDNsocket, IMGETCOUNT, &cnt);
@@ -2140,10 +1801,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	if (port < 0) {
 		port = mISDN_getportbyname(mISDNsocket, cnt, ifport->portname);
 		if (port < 0) {
-			if (loop)
-				PERROR_RUNTIME("Port name '%s' not found, did you load loopback interface?.\n", ifport->portname);
-			else
-				PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", ifport->portname);
+			PERROR_RUNTIME("Port name '%s' not found, use 'misdn_info' tool to list all existing ports.\n", ifport->portname);
 			return(NULL);
 		}
 		// note: 'port' has still the port number
@@ -2257,15 +1915,14 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		mISDNportp = &((*mISDNportp)->next);
 	mISDNport = (struct mISDNport *)MALLOC(sizeof(struct mISDNport));
 	add_timer(&mISDNport->l2establish, l2establish_timeout, mISDNport, 0);
-	if (loop | ss5) {
-		/* loop/ss5 link is always active */
+	if (ss5) {
+		/* ss5 link is always active */
 		mISDNport->l1link = 1;
 		mISDNport->l2link = 1;
 	} else {
 		mISDNport->l1link = -1;
 		mISDNport->l2link = -1;
 	}
-	mISDNport->isloopback = loop;
 	pmemuse++;
 	*mISDNportp = mISDNport;
 
@@ -2307,56 +1964,23 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	if (l2hold) // supports layer 2 hold
 	       prop |= (1 << MISDN_FLG_L2_HOLD);
 	/* open layer 3 and init upqueue */
-	if (loop) {
-		unsigned long on = 1;
-		struct sockaddr_mISDN addr;
-
-		if (devinfo.nrbchan < 8) {
-			printf("loop port %d has a low number of bchannels. (only %d) remember that all interfaces that requires a loopback could run out of channels\n", port, devinfo.nrbchan);
-//			mISDNport_close(mISDNport);
-//			return(NULL);
-		}
-
-		if ((mISDNport->lcr_sock = socket(PF_ISDN, SOCK_DGRAM, (bri) ? ISDN_P_TE_S0 : ISDN_P_TE_E1)) < 0) {
-			PERROR_RUNTIME("loop port %d failed to open socket.\n", port);
-			mISDNport_close(mISDNport);
-			return(NULL);
-		}
-		/* set nonblocking io */
-		if (ioctl(mISDNport->lcr_sock, FIONBIO, &on) < 0) {
-			PERROR_RUNTIME("loop port %d failed to set socket into nonblocking io.\n", port);
-			mISDNport_close(mISDNport);
-			return(NULL);
-		}
-		/* bind socket to dchannel */
-		memset(&addr, 0, sizeof(addr));
-		addr.family = AF_ISDN;
-		addr.dev = port;
-		addr.channel = 0;
-		if (bind(mISDNport->lcr_sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-			PERROR_RUNTIME("loop port %d failed to bind socket. (errno %d)\n", port, errno);
-			mISDNport_close(mISDNport);
-			return(NULL);
-		}
-	} else {
-		/* queue must be initializes, because l3-thread may send messages during open_layer3() */
-		mqueue_init(&mISDNport->upqueue);
-		mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
-		if (!mISDNport->ml3) {
-			mqueue_purge(&mISDNport->upqueue);
-			PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
-			start_trace(port,
-				ifport->interface,
-				NULL,
-				NULL,
-				DIRECTION_NONE,
-				CATEGORY_CH,
-				0,
-				"PORT (open failed)");
-			end_trace();
-			mISDNport_close(mISDNport);
-			return(NULL);
-		}
+	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
+	mqueue_init(&mISDNport->upqueue);
+	mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
+	if (!mISDNport->ml3) {
+		mqueue_purge(&mISDNport->upqueue);
+		PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
+		start_trace(port,
+			ifport->interface,
+			NULL,
+			NULL,
+			DIRECTION_NONE,
+			CATEGORY_CH,
+			0,
+			"PORT (open failed)");
+		end_trace();
+		mISDNport_close(mISDNport);
+		return(NULL);
 	}
 
 	SCPY(mISDNport->name, devinfo.name);
@@ -2378,7 +2002,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	}
 
 	/* if ptp, pull up the link */
-	if (!mISDNport->isloopback && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		add_trace("tei", NULL, "%d", 0);
@@ -2491,18 +2115,12 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	del_timer(&mISDNport->l2establish);
 
 	/* close layer 3, if open */
-	if (!mISDNport->isloopback && mISDNport->ml3) {
+	if (mISDNport->ml3) {
 		close_layer3(mISDNport->ml3);
 	}
 
-	/* close gsm socket, if open */
-	if (mISDNport->isloopback && mISDNport->lcr_sock > -1) {
-		close(mISDNport->lcr_sock);
-	}
-
 	/* purge upqueue */
-	if (!mISDNport->isloopback)
-		mqueue_purge(&mISDNport->upqueue);
+	mqueue_purge(&mISDNport->upqueue);
 
 	/* remove from list */
 	mISDNportp = &mISDNport_first;

@@ -9,7 +9,7 @@
 **                                                                           **
 \*****************************************************************************/ 
 
-enum { JOIN_TYPE_NONE, JOIN_TYPE_PBX, JOIN_TYPE_REMOTE};
+enum { JOIN_TYPE_NONE, JOIN_TYPE_PBX};
 
 /* join
  *
