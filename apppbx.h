@@ -211,6 +211,7 @@ class EndpointAppPBX : public EndpointApp
 	void port_notify(struct port_list *portlist, int message_type, union parameter *param);
 	void port_progress(struct port_list *portlist, int message_type, union parameter *param);
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
+	void port_3pty(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);
 	void port_enablekeypad(struct port_list *portlist, int message_type, union parameter *param);
@@ -307,7 +308,7 @@ class EndpointAppPBX : public EndpointApp
 
 	/* facility function */
 	void pick_join(char *extension);
-	void join_join(void);
+	int join_join(void);
 	void encrypt_shared(void);
 	void encrypt_keyex(void);
 	void encrypt_off(void);

@@ -343,6 +343,12 @@ struct param_traffic {
 	unsigned char data[160];	/* 20ms */
 };
 
+struct param_3pty {
+	int begin, end;
+	int invoke, result, error;
+	unsigned char invoke_id;
+};
+
 /* structure of message parameter */
 union parameter {
 	struct param_tone tone; /* MESSAGE_TONE */
@@ -369,6 +375,7 @@ union parameter {
 	struct param_newref newref; /* MESSAGE_NEWREF */
 	unsigned int bridge_id; /* MESSAGE_BRIDGE */
 	struct param_traffic traffic; /* MESSAGE_TRAFFIC */
+	struct param_3pty threepty; /* MESSAGE_TRAFFIC */
 };
 
 enum { /* message flow */
@@ -423,6 +430,7 @@ enum { /* messages between entities */
 	MESSAGE_NEWREF,		/* special message to create and inform ref */
 	MESSAGE_BRIDGE,		/* control port bridge */
 	MESSAGE_TRAFFIC,	/* exchange bchannel traffic */
+	MESSAGE_3PTY,		/* 3PTY call invoke */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -459,6 +467,7 @@ enum { /* messages between entities */
 	"MESSAGE_NEWREF", \
 	"MESSAGE_BRIDGE", \
 	"MESSAGE_TRAFFIC", \
+	"MESSAGE_3PTY", \
 };
 
 

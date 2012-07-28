@@ -56,6 +56,7 @@ class Pdss1 : public PmISDN
 	void message_setup(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_notify(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_facility(unsigned int epoint_id, int message_id, union parameter *param);
+	void message_3pty(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_overlap(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_proceeding(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_alerting(unsigned int epoint_id, int message_id, union parameter *param);

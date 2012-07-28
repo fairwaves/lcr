@@ -16,6 +16,7 @@
 extern "C" {
 }
 #include <mISDN/q931.h>
+#include <mISDN/suppserv.h>
 #ifdef OLD_MT_ASSIGN
 extern unsigned int mt_assign_pid;
 #endif
@@ -1641,21 +1642,50 @@ void Pdss1::resume_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 /* CC_FACILITY INDICATION */
 void Pdss1::facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 {
-	unsigned char facil[256];
-	int facil_len;
+	unsigned char fac_ie[256];
+	struct asn1_parm fac;
+	int fac_len;
 	struct lcr_msg *message;
 
 	l1l2l3_trace_header(p_m_mISDNport, this, L3_FACILITY_IND, DIRECTION_IN);
-	dec_ie_facility(l3m, facil, &facil_len);
+	dec_ie_facility(l3m, fac_ie + 1, &fac_len);
+	fac_ie[0] = fac_len;
 	end_trace();
 
 	/* facility */
-	if (facil_len<=0)
+	if (fac_len<=0)
 		return;
 
+	decodeFac(fac_ie, &fac);
+	switch (fac.comp) {
+	case CompInvoke:
+		switch(fac.u.inv.operationValue) {
+			case Fac_Begin3PTY:
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_3PTY);
+			message->param.threepty.begin = 1;
+			message->param.threepty.invoke = 1;
+			message->param.threepty.invoke_id = fac.u.inv.invokeId;
+			message_put(message);
+			return;
+
+			case Fac_End3PTY:
+			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_3PTY);
+			message->param.threepty.end = 1;
+			message->param.threepty.invoke = 1;
+			message->param.threepty.invoke_id = fac.u.inv.invokeId;
+			message_put(message);
+			return;
+		default:
+			;
+		}
+		break;
+	default:
+		;
+	}
+
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_FACILITY);
-	message->param.facilityinfo.len = facil_len;
-	memcpy(message->param.facilityinfo.data, facil, facil_len);
+	message->param.facilityinfo.len = fac_len;
+	memcpy(message->param.facilityinfo.data, fac_ie, fac_len);
 	message_put(message);
 }
 
@@ -2284,6 +2314,40 @@ void Pdss1::message_facility(unsigned int epoint_id, int message_id, union param
 	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_FACILITY, p_m_d_l3id, l3m);
 }
 
+/* MESSAGE_3PTY */
+void Pdss1::message_3pty(unsigned int epoint_id, int message_id, union parameter *param)
+{
+	l3_msg *l3m;
+	unsigned char fac_ie[256];
+	struct asn1_parm fac;
+
+	/* encode 3PTY facility */
+	memset(&fac, 0, sizeof(fac));
+	fac.Valid = 1;
+	if (param->threepty.result) {
+		fac.comp = CompReturnResult;
+		fac.u.retResult.invokeId = param->threepty.invoke_id;
+	}
+	if (param->threepty.error) {
+		fac.comp = CompReturnError;
+		fac.u.retError.invokeId = param->threepty.invoke_id;
+		fac.u.retError.errorValue = FacError_Gen_InvalidCallState;
+	}
+	fac.u.retResult.operationValuePresent = 1;
+	if (param->threepty.begin)
+		fac.u.retResult.operationValue = Fac_Begin3PTY;
+	if (param->threepty.end)
+		fac.u.retResult.operationValue = Fac_End3PTY;
+	encodeFac(fac_ie, &fac);
+
+	/* sending facility */
+	l3m = create_l3msg();
+	l1l2l3_trace_header(p_m_mISDNport, this, L3_FACILITY_REQ, DIRECTION_OUT);
+	enc_ie_facility(l3m, fac_ie + 2, fac_ie[1]);
+	end_trace();
+	p_m_mISDNport->ml3->to_layer3(p_m_mISDNport->ml3, MT_FACILITY, p_m_d_l3id, l3m);
+}
+
 /* MESSAGE_NOTIFY */
 void Pdss1::message_notify(unsigned int epoint_id, int message_id, union parameter *param)
 {
@@ -2804,6 +2868,10 @@ int Pdss1::message_epoint(unsigned int epoint_id, int message_id, union paramete
 
 		case MESSAGE_FACILITY: /* facility message */
 		message_facility(epoint_id, message_id, param);
+		break;
+
+		case MESSAGE_3PTY: /* begin result message */
+		message_3pty(epoint_id, message_id, param);
 		break;
 
 		case MESSAGE_OVERLAP: /* more information is needed */
