@@ -368,11 +368,11 @@ void JoinPBX::bridge(void)
 
 		/*
 		 * Bridge between port instances if:
-		 * - two relations
+		 * - two or more relations
 		 * - one or all are not mISDN
 		 */
 		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_BRIDGE);
-		message->param.bridge_id = (relations==2 && !allmISDN) ? j_serial : 0;
+		message->param.bridge_id = (relations>=2 && !allmISDN) ? j_serial : 0;
 		PDEBUG(DEBUG_JOIN, "join%u EP%u requests bridge=%u\n", j_serial, relation->epoint_id, message->param.bridge_id);
 		message_put(message);
 

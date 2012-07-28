@@ -47,6 +47,9 @@ Functions:
 
 #include "main.h"
 
+/* enable to test conference mixing, even if only two members are bridged */
+//#define TEST_CONFERENCE 1
+
 #define SHORT_MIN -32768
 #define SHORT_MAX 32767
 
@@ -1172,6 +1175,8 @@ void Port::update_load(void)
  * bridge handling
  */
 
+int bridge_timeout(struct lcr_timer *timer, void *instance, int index);
+
 static void remove_bridge(struct port_bridge *bridge, class Port *port)
 {
 	struct port_bridge **temp = &p_bridge_first;
@@ -1186,6 +1191,14 @@ static void remove_bridge(struct port_bridge *bridge, class Port *port)
 					*memberp = member->next;
 					FREE(member, sizeof(struct port_bridge_member));
 					memuse--;
+#ifndef TEST_CONFERENCE
+					if (bridge->first && bridge->first->next && !bridge->first->next->next) {
+#else
+					if (bridge->first && !bridge->first->next) {
+#endif
+						PDEBUG(DEBUG_PORT, "bridge %u is no conference anymore\n", bridge->bridge_id);
+						del_timer(&bridge->timer);
+					}
 					break;
 				}
 				memberp = &((*memberp)->next);
@@ -1260,34 +1273,152 @@ void Port::bridge(unsigned int bridge_id)
 	*memberp = (struct port_bridge_member *) MALLOC(sizeof(struct port_bridge_member));
 	memuse++;
 	(*memberp)->port = this;
+	/* check if bridge becomes a conference */
+#ifndef TEST_CONFERENCE
+	if (p_bridge->first->next && p_bridge->first->next->next && !p_bridge->first->next->next->next) {
+		p_bridge->first->next->next->write_p = 0;
+		p_bridge->first->next->next->min_space = 0;
+		memset(p_bridge->first->next->next->buffer, silence, sizeof((*memberp)->buffer));
+#else
+	if (p_bridge->first->next && !p_bridge->first->next->next) {
+#endif
+		p_bridge->first->next->write_p = 0;
+		p_bridge->first->next->min_space = 0;
+		memset(p_bridge->first->next->buffer, silence, sizeof((*memberp)->buffer));
+		p_bridge->first->write_p = 0;
+		p_bridge->first->min_space = 0;
+		memset(p_bridge->first->buffer, silence, sizeof((*memberp)->buffer));
+		memset(p_bridge->sum_buffer, 0, sizeof(p_bridge->sum_buffer));
+		p_bridge->read_p = 0;
+		add_timer(&p_bridge->timer, bridge_timeout, p_bridge, 0);
+		schedule_timer(&p_bridge->timer, 0, 20000); /* 20 MS */
+		p_bridge->sample_count = 0;
+		PDEBUG(DEBUG_PORT, "bridge %u became a conference\n", p_bridge->bridge_id);
+	}
 }
 
-class Port *Port::bridge_remote(void)
-{
-	class Port *remote = NULL;
-
-	/* get remote port from bridge */
-	if (!p_bridge || !p_bridge->first || !p_bridge->first->next)
-		return NULL;
-	if (p_bridge->first->port == this)
-		remote = p_bridge->first->next->port;
-	if (p_bridge->first->next->port == this)
-		remote = p_bridge->first->port;
-
-	return remote;
-}
-
-/* send data to remote Port */
+/* send data to remote Port or add to sum buffer */
 int Port::bridge_tx(unsigned char *data, int len)
 {
-	class Port *remote = bridge_remote();
+	int write_p, space;
+	struct port_bridge_member *member;
+	signed long *sum;
+	unsigned char *buf;
 
-	if (!remote)
+	/* less than two ports, so drop */
+	if (!p_bridge || !p_bridge->first || !p_bridge->first->next)
+		return -EIO;
+#ifndef TEST_CONFERENCE
+	/* two ports, so bridge */
+	if (!p_bridge->first->next->next) {
+		if (p_bridge->first->port == this)
+			return p_bridge->first->next->port->bridge_rx(data, len);
+		if (p_bridge->first->next->port == this)
+			return p_bridge->first->port->bridge_rx(data, len);
 		return -EINVAL;
+	}
+#endif
+	/* more than two ports... */
+	member = p_bridge->first;
+	while (member) {
+		if (member->port == this)
+			break;
+		member = member->next;
+	}
+	if (!member)
+		return -EINVAL;
+	write_p = member->write_p;
+	/* calculate space, so write pointer will not overrun (or reach) read pointer in ring buffer */
+	space = (p_bridge->read_p - write_p - 1) & (BRIDGE_BUFFER - 1);
+	/* clip len, if it does not fit */
+	if (space < len)
+		len = space;
+	/* apply audio samples to sum buffer */
+	sum = p_bridge->sum_buffer;
+	buf = member->buffer;
+	while (len--) {
+		sum[write_p] += audio_law_to_s32[*data];
+		buf[write_p] = *data++;
+		write_p = (write_p + 1) & (BRIDGE_BUFFER - 1);
+	}
+	/* raise write pointer */
+	member->write_p = write_p;
 
-//	printf("Traffic: %u -> %u (bridge %u)\n", p_serial, remote->p_serial, p_bridge->bridge_id);
-	return remote->bridge_rx(data, len);
+	return 0;
 }
+
+int bridge_timeout(struct lcr_timer *timer, void *instance, int index)
+{
+	struct port_bridge *bridge = (struct port_bridge *)instance;
+	struct port_bridge_member *member = bridge->first;
+	unsigned long long timer_time;
+	signed long *sum, sample;
+	unsigned char buffer[160], *buf, *d;
+	int i, read_p, space;
+	
+	bridge->sample_count += 160;
+
+	/* schedule exactly 20ms from last schedule */
+	timer_time = timer->timeout.tv_sec * MICRO_SECONDS + timer->timeout.tv_usec;
+	timer_time += 20000; /* 20 MS */
+	timer->timeout.tv_sec = timer_time / MICRO_SECONDS;
+	timer->timeout.tv_usec = timer_time % MICRO_SECONDS;
+	timer->active = 1;
+
+	while (member) {
+		/* calculate transmit data */
+		read_p = bridge->read_p;
+		sum = bridge->sum_buffer;
+		buf = member->buffer;
+		d = buffer;
+		for (i = 0; i < 160; i++) {
+			sample = sum[read_p];
+			sample -= audio_law_to_s32[buf[read_p]];
+			buf[read_p] = silence;
+			if (sample < SHORT_MIN) sample = SHORT_MIN;
+			if (sample > SHORT_MAX) sample = SHORT_MAX;
+			*d++ = audio_s16_to_law[sample & 0xffff];
+			read_p = (read_p + 1) & (BRIDGE_BUFFER - 1);
+		}
+		/* send data */
+		member->port->bridge_rx(buffer, 160);
+	 	/* raise write pointer, if read pointer would overrun them */
+		space = ((member->write_p - bridge->read_p) & (BRIDGE_BUFFER - 1)) - 160;
+		if (space < 0) {
+			space = 0;
+			member->write_p = read_p;
+//			PDEBUG(DEBUG_PORT, "bridge %u member %d has buffer underrun\n", bridge->bridge_id, member->port->p_serial);
+		}
+		/* find minimum delay */
+		if (space < member->min_space)
+			member->min_space = space;
+		/* check if we should reduce buffer */
+		if (bridge->sample_count >= 8000*5) {
+			/* reduce buffer by minimum delay */
+//			PDEBUG(DEBUG_PORT, "bridge %u member %d has min space of %d samples\n", bridge->bridge_id, member->port->p_serial, member->min_space);
+			member->write_p = (member->write_p - member->min_space) & (BRIDGE_BUFFER - 1);
+			member->min_space = 1000000; /* infinite */
+		}
+		member = member->next;
+	}
+
+	/* clear sample data */
+	read_p = bridge->read_p;
+	sum = bridge->sum_buffer;
+	for (i = 0; i < 160; i++) {
+		sum[read_p] = 0;
+		read_p = (read_p + 1) & (BRIDGE_BUFFER - 1);
+	}
+
+	/* raise read pointer */
+	bridge->read_p = read_p;
+
+	if (bridge->sample_count >= 8000*5)
+		bridge->sample_count = 0;
+
+	return 0;
+}
+
 
 /* receive data from remote Port (dummy, needs to be inherited) */
 int Port::bridge_rx(unsigned char *data, int len)

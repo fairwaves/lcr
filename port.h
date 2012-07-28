@@ -149,9 +149,14 @@ struct port_settings {
 	int no_seconds;
 };
 
+#define BRIDGE_BUFFER 4096
+
 struct port_bridge_member {
 	struct port_bridge_member *next;
 	class Port *port;
+	unsigned char buffer[BRIDGE_BUFFER];
+	int write_p;				/* points to write position in buffer */
+	int min_space;				/* minimum space to calculate how much delay can be removed */
 };
 
 /* port bridge instance */
@@ -159,6 +164,10 @@ struct port_bridge {
 	struct port_bridge *next;		/* next bridge node */
 	unsigned int bridge_id;			/* unique ID to identify bridge */
 	struct port_bridge_member *first;	/* list of ports that are bridged */
+	signed long sum_buffer[BRIDGE_BUFFER];
+	int read_p;				/* points to read position in buffer */
+	struct lcr_timer timer;			/* clock to transmit sum data */
+	int sample_count;			/* counter of samples since last delay check */
 };
 
 extern struct port_bridge *p_bridge_first;
@@ -208,7 +217,6 @@ class Port
 	/* audio bridging */
 	struct port_bridge *p_bridge;		/* linked to a port bridge or NULL */
 	void bridge(unsigned int bridge_id);	/* join a bridge */
-	class Port *bridge_remote(void);	/* get remote port */
 	int bridge_tx(unsigned char *data, int len); /* used to transmit data to remote port */
 	virtual int bridge_rx(unsigned char *data, int len); /* function to be inherited, so data is received */
 
