@@ -1177,20 +1177,21 @@ static void remove_bridge(struct port_bridge *bridge, class Port *port)
 	struct port_bridge **temp = &p_bridge_first;
 	while (*temp) {
 		if (*temp == bridge) {
-			int remove = 0;
+			struct port_bridge_member **memberp = &bridge->first, *member;
 
-			/* Remove us from bridge. If bridge is empty, remove it completely. */
-			if (bridge->sunrise == port) {
-				bridge->sunrise = NULL;
-				if (!bridge->sunset)
-					remove = 1;
+			/* loop until we are found */
+			while(*memberp) {
+				if ((*memberp)->port == port) {
+					member = *memberp;
+					*memberp = member->next;
+					FREE(member, sizeof(struct port_bridge_member));
+					memuse--;
+					break;
+				}
+				memberp = &((*memberp)->next);
 			}
-			if (bridge->sunset == port) {
-				bridge->sunset = NULL;
-				if (!bridge->sunrise)
-					remove = 1;
-			}
-			if (remove) {
+			/* if bridge is empty, remove it */
+			if (bridge->first == NULL) {
 				PDEBUG(DEBUG_PORT, "Remove bridge %u\n", bridge->bridge_id);
 				*temp = bridge->next;
 				FREE(bridge, sizeof(struct port_bridge));
@@ -1205,6 +1206,8 @@ static void remove_bridge(struct port_bridge *bridge, class Port *port)
 
 void Port::bridge(unsigned int bridge_id)
 {
+	struct port_bridge_member **memberp;
+
 	/* Remove bridge, if we leave bridge or if we join a different bridge. */
 	if (p_bridge && bridge_id != p_bridge->bridge_id) {
 		PDEBUG(DEBUG_PORT, "Remove port %u from bridge %u, because out new bridge is %u\n", p_serial, p_bridge->bridge_id, bridge_id);
@@ -1237,7 +1240,6 @@ void Port::bridge(unsigned int bridge_id)
 		p_bridge = (struct port_bridge *) MALLOC(sizeof(struct port_bridge));
 		memuse++;
 		p_bridge->bridge_id = bridge_id;
-		p_bridge->sunrise = this;
 
 		/* attach bridge instance to list */
 		while (*temp)
@@ -1246,22 +1248,18 @@ void Port::bridge(unsigned int bridge_id)
 		PDEBUG(DEBUG_PORT, "Port %d creating not existing bridge %u.\n", p_serial, p_bridge->bridge_id);
 	}
 
-	/* already joined */
-	if (p_bridge->sunrise == this || p_bridge->sunset == this)
-		return;
-
-	/* join bridge */
-	if (!p_bridge->sunrise) {
-		p_bridge->sunrise = this;
-		return;
+	/* attach to bridge */
+	memberp = &p_bridge->first;
+	while(*memberp) {
+		if ((*memberp)->port == this) {
+			/* already joined */
+			return;
+		}
+		memberp = &((*memberp)->next);
 	}
-	if (!p_bridge->sunset) {
-		p_bridge->sunset = this;
-		return;
-	}
-	
-	PERROR("Bridge ID %u cannot be joined by port %u, because it is already occupied by ports %u and %u.\n", p_bridge->bridge_id, p_serial, p_bridge->sunrise->p_serial, p_bridge->sunset->p_serial);
-	p_bridge = NULL;
+	*memberp = (struct port_bridge_member *) MALLOC(sizeof(struct port_bridge_member));
+	memuse++;
+	(*memberp)->port = this;
 }
 
 class Port *Port::bridge_remote(void)
@@ -1269,12 +1267,12 @@ class Port *Port::bridge_remote(void)
 	class Port *remote = NULL;
 
 	/* get remote port from bridge */
-	if (!p_bridge)
+	if (!p_bridge || !p_bridge->first || !p_bridge->first->next)
 		return NULL;
-	if (p_bridge->sunrise == this)
-		remote = p_bridge->sunset;
-	if (p_bridge->sunset == this)
-		remote = p_bridge->sunrise;
+	if (p_bridge->first->port == this)
+		remote = p_bridge->first->next->port;
+	if (p_bridge->first->next->port == this)
+		remote = p_bridge->first->port;
 
 	return remote;
 }

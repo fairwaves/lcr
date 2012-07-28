@@ -149,12 +149,16 @@ struct port_settings {
 	int no_seconds;
 };
 
+struct port_bridge_member {
+	struct port_bridge_member *next;
+	class Port *port;
+};
+
 /* port bridge instance */
 struct port_bridge {
 	struct port_bridge *next;		/* next bridge node */
 	unsigned int bridge_id;			/* unique ID to identify bridge */
-	class Port *sunrise;			/* one side of the bridge */
-	class Port *sunset;			/* other side of the bridge */
+	struct port_bridge_member *first;	/* list of ports that are bridged */
 };
 
 extern struct port_bridge *p_bridge_first;
