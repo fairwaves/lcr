@@ -2169,7 +2169,7 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	if (p_m_load == 0 && ISDN_LOAD > 0) {
 		hh->prim = PH_DATA_REQ; 
 		hh->id = 0;
-		memset(buf+MISDN_HEADER_LEN, (options.law=='a')?0x2a:0xff, ISDN_LOAD);
+		memset(buf+MISDN_HEADER_LEN, silence, ISDN_LOAD);
 		ret = sendto(p_m_mISDNport->b_sock[p_m_b_index].fd, buf, MISDN_HEADER_LEN+ISDN_LOAD, 0, NULL, 0);
 		if (ret <= 0)
 			PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_sock[p_m_b_index].fd);

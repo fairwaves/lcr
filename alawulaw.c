@@ -10,6 +10,7 @@
 \*****************************************************************************/ 
 
 signed int *audio_law_to_s32;
+unsigned char silence;
 
 /* ulaw -> signed 16-bit */
 static signed int audio_ulaw_to_s32[] =
@@ -229,6 +230,7 @@ void generate_tables(char law)
 	int i, j;
 
 	if (law == 'a') {
+		silence = 0x2a;
 		audio_law_to_s32=audio_alaw_to_s32;
 		/* generating alaw-table */
 		i = j = 0;
@@ -242,6 +244,7 @@ void generate_tables(char law)
 			i++;
 		}
 	} else {
+		silence = 0xff;
 		audio_law_to_s32=audio_ulaw_to_s32;
 		/* generating ulaw-table */
 		i = j = 0;
