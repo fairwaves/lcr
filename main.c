@@ -581,8 +581,10 @@ free:
 	if (created_lock)
 		flock(lockfd, LOCK_UN);
 	if (lockfd >= 0) {
-		chmod(lock, 0700);
-		unlink(lock);
+		if (created_lock) {
+			chmod(lock, 0700);
+			unlink(lock);
+		}
 		close(lockfd);
 	}
 
