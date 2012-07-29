@@ -387,6 +387,13 @@ int debug_join(struct admin_message *msg, struct admin_message *m, int line, int
 	color(white);
 	SPRINT(buffer,"JOIN(%d)", join);
 	addstr(buffer);
+	if (m[i].u.j.threepty) {
+		color(cyan);
+		addstr(" 3PTY->");
+		color(white);
+		SPRINT(buffer, "%d\n", m[i].u.j.threepty);
+		addstr(buffer);
+	}
 	if (m[i].u.j.partyline) {
 		color(cyan);
 		addstr(" partyline=");

@@ -226,6 +226,7 @@ JoinPBX::JoinPBX(class Endpoint *epoint) : Join()
 	j_pid = getpid();
 	j_partyline = 0;
 	j_partyline_jingle = 0;
+	j_3pty = 0;
 	j_multicause = 0;
 	j_multilocation = 0;
 	memset(&j_updatebridge, 0, sizeof(j_updatebridge));
@@ -261,6 +262,19 @@ JoinPBX::~JoinPBX()
 		relation = rtemp;
 	}
 
+	/* remove 3PTY from other join */
+	if (j_3pty) {
+		class Join *join;
+		class JoinPBX *joinpbx;
+
+		join = find_join_id(j_3pty);
+		if (join && join->j_type == JOIN_TYPE_PBX) {
+			joinpbx = (class JoinPBX *)join;
+			joinpbx->j_3pty = 0;
+			trigger_work(&joinpbx->j_updatebridge);
+		}
+	}
+
 	del_work(&j_updatebridge);
 }
 
@@ -285,11 +299,20 @@ void JoinPBX::bridge(void)
 	class Endpoint *epoint;
 	struct port_list *portlist;
 	class Port *port;
+	unsigned int bridge_id;
 #ifdef DEBUG_COREBRIDGE
 	int allmISDN = 0; // never set for debug purpose
 #else
 	int allmISDN = 1; // set until a non-mISDN relation is found
 #endif
+
+	/* bridge id is the serial of join
+	 * if we have a 3pty with another join, we always use the lowest brigde id.
+	 * this way we use common ids, so both joins share same bridge */
+	if (j_3pty && j_3pty < j_serial)
+		bridge_id = j_3pty;
+	else
+		bridge_id = j_serial;
 
 	relation = j_relation;
 	while(relation) {
@@ -348,6 +371,8 @@ void JoinPBX::bridge(void)
 			numconnect ++;
 
 		/* remove unconnected parties from conference, also remove remotely disconnected parties so conference will not be disturbed. */
+
+		/* mISDN */
 		if (relation->channel_state == 1
 		 && relation->rx_state != NOTIFY_STATE_HOLD
 		 && relation->rx_state != NOTIFY_STATE_SUSPEND
@@ -355,7 +380,7 @@ void JoinPBX::bridge(void)
 		 && allmISDN) { // no conf if any member is not mISDN
 			message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_mISDNSIGNAL);
 			message->param.mISDNsignal.message = mISDNSIGNAL_CONF;
-			message->param.mISDNsignal.conf = j_serial<<16 | j_pid;
+			message->param.mISDNsignal.conf = (bridge_id << 16) | j_pid;
 			PDEBUG(DEBUG_JOIN, "join%d EP%d +on+ id: 0x%08x\n", j_serial, relation->epoint_id, message->param.mISDNsignal.conf);
 			message_put(message);
 		} else {
@@ -366,28 +391,35 @@ void JoinPBX::bridge(void)
 			message_put(message);
 		}
 
-		/*
-		 * Bridge between port instances if:
-		 * - two or more relations
-		 * - one or all are not mISDN
-		 */
-		message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_BRIDGE);
-		message->param.bridge_id = (relations>=2 && !allmISDN) ? j_serial : 0;
-		PDEBUG(DEBUG_JOIN, "join%u EP%u requests bridge=%u\n", j_serial, relation->epoint_id, message->param.bridge_id);
-		message_put(message);
+		/* core bridge */
+		if (relation->channel_state == 1
+		 && relation->rx_state != NOTIFY_STATE_HOLD
+		 && relation->rx_state != NOTIFY_STATE_SUSPEND
+		 && relations>1 // no bridge with one member
+		 && !allmISDN) { // no bridge if all members are mISDN
+			message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_BRIDGE);
+			message->param.bridge_id = bridge_id;
+			PDEBUG(DEBUG_JOIN, "join%u EP%u requests bridge=%u\n", j_serial, relation->epoint_id, bridge_id);
+			message_put(message);
+		} else {
+			message = message_create(j_serial, relation->epoint_id, JOIN_TO_EPOINT, MESSAGE_BRIDGE);
+			message->param.bridge_id = 0;
+			PDEBUG(DEBUG_JOIN, "join%u EP%u drop bridge=%u\n", j_serial, relation->epoint_id, bridge_id);
+			message_put(message);
+		}
 
 		relation = relation->next;
 	}
 
 	/* two people just exchange their states */
-	if (relations==2 && !j_partyline) {
+	if (!j_3pty && relations==2 && !j_partyline) {
 		PDEBUG(DEBUG_JOIN, "join%d 2 relations / no partyline\n", j_serial);
 		relation = j_relation;
 		relation->tx_state = notify_state_change(j_serial, relation->epoint_id, relation->tx_state, relation->next->rx_state);
 		relation->next->tx_state = notify_state_change(j_serial, relation->next->epoint_id, relation->next->tx_state, relation->rx_state);
 	} else
 	/* one member in a join, so we put her on hold */
-	if ((relations==1 || numconnect==1)/* && !j_partyline_jingle*/) {
+	if (!j_3pty && (relations==1 || numconnect==1)/* && !j_partyline_jingle*/) {
 		PDEBUG(DEBUG_JOIN, "join%d 1 member or only 1 connected, put on hold\n", j_serial);
 		relation = j_relation;
 		while(relation) {

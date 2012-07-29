@@ -95,6 +95,7 @@ struct admin_response_join {
 	unsigned int	serial; /* join serial number */
 	char		remote[32]; /* remote application name */
 	unsigned int	partyline;
+	unsigned int	threepty;
 };
 
 struct admin_response_epoint {

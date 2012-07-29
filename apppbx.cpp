@@ -2402,9 +2402,27 @@ void EndpointAppPBX::port_3pty(struct port_list *portlist, int message_type, uni
 	struct lcr_msg *message;
 	int rc;
 
-	rc = join_join();
+#if 0
+	/* bridge for real */
+	if (param->threepty.begin)
+		rc = join_join();
+	else if (param->threepty.end)
+		rc = -ENOTSUP;
+	else
+		return;
+#else
+	/* 3PTY bridge */
+	if (param->threepty.begin)
+		rc = join_3pty();
+	else if (param->threepty.end)
+		rc = split_3pty();
+	else
+		return;
+#endif
+
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_3PTY);
-	message->param.threepty.begin = 1;
+	message->param.threepty.begin = param->threepty.begin;
+	message->param.threepty.end = param->threepty.end;
 	if (rc < 0)
 		message->param.threepty.error = 1;
 	else
@@ -3564,13 +3582,14 @@ int EndpointAppPBX::join_join(void)
 {
 #ifdef WITH_MISDN
 	struct lcr_msg *message;
-	struct join_relation *our_relation, *other_relation;
-	struct join_relation **our_relation_pointer, **other_relation_pointer;
-	class Join *our_join, *other_join;
-	class JoinPBX *our_joinpbx, *other_joinpbx;
-	class EndpointAppPBX *other_eapp; class Endpoint *temp_epoint;
+	struct join_relation *add_relation, *remove_relation;
+	struct join_relation **add_relation_pointer, **remove_relation_pointer;
+	class Join *our_join, *other_join, *add_join, *remove_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx, *add_joinpbx, *remove_joinpbx;
+	class EndpointAppPBX *other_eapp, *remove_eapp;
 	class Port *our_port, *other_port;
 	class Pdss1 *our_pdss1, *other_pdss1;
+	class Endpoint *temp_epoint;
 
 	/* are we a candidate to join a join? */
 	our_join = find_join_id(ea_endpoint->ep_join_id);
@@ -3602,7 +3621,7 @@ int EndpointAppPBX::join_join(void)
 	}
 	our_pdss1 = (class Pdss1 *)our_port;
 
-	/* find an endpoint that is on hold and has the same mISDNport that we are on */
+	/* find an endpoint that has the same mISDNport/ces that we are on */
 	other_eapp = apppbx_first;
 	while(other_eapp) {
 		if (other_eapp == this) {
@@ -3658,58 +3677,75 @@ int EndpointAppPBX::join_join(void)
 		return -1;
 	}
 
+	/* now find out which is ACTIVE-IDLE and which is ACTIVE-HELD */
+	if (our_pdss1->p_m_hold && !other_pdss1->p_m_hold) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) our relation is on hold and other is active, so we move our relations to other relations\n", ea_endpoint->ep_serial);
+		remove_eapp = this;
+		remove_join = our_join;
+		remove_joinpbx = our_joinpbx;
+		add_join = other_join;
+		add_joinpbx = other_joinpbx;
+	} else {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) our relation is active or other is on hold, so we move ohter relations to our relations\n", ea_endpoint->ep_serial);
+		remove_eapp = other_eapp;
+		remove_join = other_join;
+		remove_joinpbx = other_joinpbx;
+		add_join = our_join;
+		add_joinpbx = our_joinpbx;
+	}
+
 	/* remove relation to endpoint for join on hold */
-	other_relation = other_joinpbx->j_relation;
-	other_relation_pointer = &other_joinpbx->j_relation;
-	while(other_relation) {
-		if (other_relation->epoint_id == other_eapp->ea_endpoint->ep_serial) {
-			/* detach other endpoint on hold */
-			*other_relation_pointer = other_relation->next;
-			FREE(other_relation, sizeof(struct join_relation));
+	remove_relation = remove_joinpbx->j_relation;
+	remove_relation_pointer = &remove_joinpbx->j_relation;
+	while(remove_relation) {
+		if (remove_relation->epoint_id == remove_eapp->ea_endpoint->ep_serial) {
+			/* detach other endpoint */
+			*remove_relation_pointer = remove_relation->next;
+			FREE(remove_relation, sizeof(struct join_relation));
 			cmemuse--;
-			other_relation = *other_relation_pointer;
-			other_eapp->ea_endpoint->ep_join_id = 0;
+			remove_relation = *remove_relation_pointer;
+			remove_eapp->ea_endpoint->ep_join_id = 0;
 			continue;
 		}
 
 		/* change join/hold pointer of endpoint to the new join */
-		temp_epoint = find_epoint_id(other_relation->epoint_id);
+		temp_epoint = find_epoint_id(remove_relation->epoint_id);
 		if (temp_epoint) {
-			if (temp_epoint->ep_join_id == other_join->j_serial)
-				temp_epoint->ep_join_id = our_join->j_serial;
+			if (temp_epoint->ep_join_id == remove_join->j_serial)
+				temp_epoint->ep_join_id = add_join->j_serial;
 		}
 
-		other_relation_pointer = &other_relation->next;
-		other_relation = other_relation->next;
+		remove_relation_pointer = &remove_relation->next;
+		remove_relation = remove_relation->next;
 	}
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint on hold removed, other enpoints on join relinked (to our join).\n", ea_endpoint->ep_serial);
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint removed, other enpoints on join relinked.\n", ea_endpoint->ep_serial);
 
 	/* join call relations */
-	our_relation = our_joinpbx->j_relation;
-	our_relation_pointer = &our_joinpbx->j_relation;
-	while(our_relation) {
-		our_relation_pointer = &our_relation->next;
-		our_relation = our_relation->next;
+	add_relation = add_joinpbx->j_relation;
+	add_relation_pointer = &add_joinpbx->j_relation;
+	while(add_relation) {
+		add_relation_pointer = &add_relation->next;
+		add_relation = add_relation->next;
 	}
-	*our_relation_pointer = other_joinpbx->j_relation;
-	other_joinpbx->j_relation = NULL;
+	*add_relation_pointer = remove_joinpbx->j_relation;
+	remove_joinpbx->j_relation = NULL;
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) relations joined.\n", ea_endpoint->ep_serial);
 
-	/* release endpoint on hold */
-	message = message_create(other_joinpbx->j_serial, other_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
+	/* release endpoint */
+	message = message_create(remove_joinpbx->j_serial, remove_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
 	message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal */
 	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 	message_put(message);
 	
 	/* if we are not a partyline, we get partyline state from other join */
-	our_joinpbx->j_partyline += other_joinpbx->j_partyline; 
+	add_joinpbx->j_partyline += remove_joinpbx->j_partyline; 
 
 	/* remove empty join */
-	delete other_join;
-	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)d-join completely removed!\n");
+	delete remove_join;
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)join completely removed!\n", ea_endpoint->ep_serial);
 
 	/* mixer must update */
-	trigger_work(&our_joinpbx->j_updatebridge);
+	trigger_work(&add_joinpbx->j_updatebridge);
 
 	/* we send a retrieve to that endpoint */
 	// mixer will update the hold-state of the join and send it to the endpoints is changes
@@ -3720,6 +3756,176 @@ int EndpointAppPBX::join_join(void)
 	return 0;
 }
 
+int EndpointAppPBX::join_3pty(void)
+{
+#ifdef WITH_MISDN
+	class Join *our_join, *other_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx;
+	class EndpointAppPBX *other_eapp;
+	class Port *our_port, *other_port;
+	class Pdss1 *our_pdss1, *other_pdss1;
+
+	/* are we a candidate to join a join? */
+	our_join = find_join_id(ea_endpoint->ep_join_id);
+	if (!our_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (our_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_joinpbx = (class JoinPBX *)our_join;
+	if (!ea_endpoint->ep_portlist) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we have no port.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (!e_ext.number[0]) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we are not internal extension.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_port = find_port_id(ea_endpoint->ep_portlist->port_id);
+	if (!our_port) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if ((our_port->p_type & PORT_CLASS_mISDN_MASK) != PORT_CLASS_DSS1) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port is not isdn.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_pdss1 = (class Pdss1 *)our_port;
+
+	/* find an endpoint that has the same mISDNport/ces that we are on */
+	other_eapp = apppbx_first;
+	while(other_eapp) {
+		if (other_eapp == this) {
+			other_eapp = other_eapp->next;
+			continue;
+		}
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s join=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_join_id);
+		if (other_eapp->e_ext.number[0] /* has terminal */
+		 && other_eapp->ea_endpoint->ep_portlist /* has port */
+		 && other_eapp->ea_endpoint->ep_join_id) { /* has join */
+			other_port = find_port_id(other_eapp->ea_endpoint->ep_portlist->port_id);
+			if (other_port) { /* port still exists */
+				if (other_port->p_type==PORT_TYPE_DSS1_NT_OUT
+				 || other_port->p_type==PORT_TYPE_DSS1_NT_IN) { /* port is isdn nt-mode */
+					other_pdss1 = (class Pdss1 *)other_port;
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of type isdn! comparing our portnum=%d with other's portnum=%d hold=%s ces=%d\n", ea_endpoint->ep_serial, our_pdss1->p_m_mISDNport->portnum, other_pdss1->p_m_mISDNport->portnum, (other_pdss1->p_m_hold)?"YES":"NO", other_pdss1->p_m_d_ces);
+					if (1 //other_pdss1->p_m_hold /* port is on hold */
+					 && other_pdss1->p_m_mISDNport == our_pdss1->p_m_mISDNport /* same isdn interface */
+					 && other_pdss1->p_m_d_ces == our_pdss1->p_m_d_ces) /* same tei+sapi */
+						break;
+				} else {
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of other type!\n", ea_endpoint->ep_serial);
+				}
+			} else {
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port doesn't exist enymore.\n", ea_endpoint->ep_serial);
+			}
+		}
+		other_eapp = other_eapp->next;
+	}
+	if (!other_eapp) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same isdn terminal.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port with same terminal found.\n", ea_endpoint->ep_serial);
+
+	/* if we have the same join */
+	if (other_eapp->ea_endpoint->ep_join_id == ea_endpoint->ep_join_id) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we and the other have the same join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_join = find_join_id(other_eapp->ea_endpoint->ep_join_id);
+	if (!other_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_joinpbx = (class JoinPBX *)other_join;
+	if (our_joinpbx->j_partyline && other_joinpbx->j_partyline) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both joins are partylines.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	if (our_joinpbx->j_3pty) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join already doing 3PTY.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_joinpbx->j_3pty) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join already doing 3PTY.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	/* set 3PTY bridge */
+	other_joinpbx->j_3pty = our_joinpbx->j_serial;
+	our_joinpbx->j_3pty = other_joinpbx->j_serial;
+
+	/* mixer must update */
+	trigger_work(&our_joinpbx->j_updatebridge);
+	trigger_work(&other_joinpbx->j_updatebridge);
+
+	/* we send a retrieve to that endpoint */
+	// mixer will update the hold-state of the join and send it to the endpoints is changes
+#else
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no mISDN support anyway.\n", ea_endpoint->ep_serial);
+#endif
+
+	return 0;
+}
+
+int EndpointAppPBX::split_3pty(void)
+{
+#ifdef WITH_MISDN
+	class Join *our_join, *other_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx;
+
+	/* are we a candidate to join a join? */
+	our_join = find_join_id(ea_endpoint->ep_join_id);
+	if (!our_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (our_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_joinpbx = (class JoinPBX *)our_join;
+
+	if (!our_joinpbx->j_3pty) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: we don't have a 3PTY.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	other_join = find_join_id(our_joinpbx->j_3pty);
+	if (!other_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_joinpbx = (class JoinPBX *)other_join;
+
+	our_joinpbx->j_3pty = 0;
+	other_joinpbx->j_3pty = 0;
+
+	/* mixer must update */
+	trigger_work(&our_joinpbx->j_updatebridge);
+	trigger_work(&other_joinpbx->j_updatebridge);
+
+	/* we send a retrieve to that endpoint */
+	// mixer will update the hold-state of the join and send it to the endpoints is changes
+#else
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot split: no mISDN support anyway.\n", ea_endpoint->ep_serial);
+#endif
+
+	return 0;
+}
 
 /* check if we have an external call
  * this is used to check for encryption ability

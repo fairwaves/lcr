@@ -957,8 +957,10 @@ int admin_state(struct admin_queue **responsep)
 		/* serial */
 		response->am[num].u.j.serial = join->j_serial;
 		/* partyline */
-		if (join->j_type == JOIN_TYPE_PBX)
+		if (join->j_type == JOIN_TYPE_PBX) {
 			response->am[num].u.j.partyline = ((class JoinPBX *)join)->j_partyline;
+			response->am[num].u.j.threepty = ((class JoinPBX *)join)->j_3pty;
+		}
 		/* */
 		join = join->next;
 		num++;

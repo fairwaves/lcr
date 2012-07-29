@@ -309,6 +309,8 @@ class EndpointAppPBX : public EndpointApp
 	/* facility function */
 	void pick_join(char *extension);
 	int join_join(void);
+	int join_3pty(void);
+	int split_3pty(void);
 	void encrypt_shared(void);
 	void encrypt_keyex(void);
 	void encrypt_off(void);

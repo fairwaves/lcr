@@ -65,6 +65,8 @@ class JoinPBX : public Join
 	int j_partyline;		/* if set, join is conference room */
 	int j_partyline_jingle;		/* also play jingle on join/leave */
 
+	unsigned int j_3pty;		/* other join if a 3pty-bridge is requested */
+
 	void bridge(void);
 	void remove_relation(struct join_relation *relation);
 	struct join_relation *add_relation(void);
