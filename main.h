@@ -85,11 +85,8 @@ void debug(const char *file, const char *function, int line, const char *prefix,
 
 /*
  * load transmit buffer to avoid gaps at the beginning due to jitter
- * also the maximum load that will be kept in tx-buffer
- * also the (minimum) number of data to transmit in a frame
  */
 #define ISDN_LOAD	1024 // samples
-#define ISDN_MAXLOAD	2048 // samples
 
 /* give sendmail program. if not inside $PATH, give absolute path here (e.g. "/usr/sbin/sendmail")
  */

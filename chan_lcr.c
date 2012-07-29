@@ -492,22 +492,13 @@ void apply_opt(struct chan_call *call, char *data)
 			if (!call->hdlc)
 				call->hdlc = 1;
 			break;
-		case 't':
-			if (opt[1] != '\0') {
-				CERROR(call, call->ast, "Option 't' (no_dsp) expects no parameter.\n", opt);
-				break;
-			}
-			CDEBUG(call, call->ast, "Option 't' (no dsp).\n");
-			if (!call->nodsp)
-				call->nodsp = 1;
-			break;
 		case 'q':
 			if (opt[1] == '\0') {
 				CERROR(call, call->ast, "Option 'q' (queue) expects parameter.\n", opt);
 				break;
 			}
 			CDEBUG(call, call->ast, "Option 'q' (queue).\n");
-			call->nodsp_queue = atoi(opt+1);
+			call->tx_queue = atoi(opt+1);
 			break;
 #if 0
 		case 'e':
@@ -708,6 +699,11 @@ static void send_setup_to_lcr(struct chan_call *call)
 	newparam.setup.capainfo.hlc = INFO_HLC_NONE;
 	newparam.setup.capainfo.exthlc = INFO_HLC_NONE;
 	send_message(MESSAGE_SETUP, call->ref, &newparam);
+	if (call->tx_queue) {
+		memset(&newparam, 0, sizeof(union parameter));
+		newparam.queue = call->tx_queue * 8;
+		send_message(MESSAGE_DISABLE_DEJITTER, call->ref, &newparam);
+	}
 
 	/* change to outgoing setup state */
 	call->state = CHAN_LCR_STATE_OUT_SETUP;
@@ -3122,30 +3118,24 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	/* join, if both call instances uses dsp
 	   ignore the case of fax detection here it may be benificial for ISDN fax machines or pass through.
 	*/
-	if (!call1->nodsp && !call2->nodsp) {
-		CDEBUG(NULL, NULL, "Both calls use DSP, bridging via DSP.\n");
+	CDEBUG(NULL, NULL, "Both calls use DSP, bridging via DSP.\n");
 
-		/* get bridge id and join */
-		bridge_id = new_bridge_id();
+	/* get bridge id and join */
+	bridge_id = new_bridge_id();
 
 #if 0
-		call1->bridge_id = bridge_id;
-		if (call1->bchannel)
-			bchannel_join(call1->bchannel, bridge_id);
+	call1->bridge_id = bridge_id;
+	if (call1->bchannel)
+		bchannel_join(call1->bchannel, bridge_id);
 
-		call2->bridge_id = bridge_id;
-		if (call2->bchannel)
-			bchannel_join(call2->bchannel, bridge_id);
+	call2->bridge_id = bridge_id;
+	if (call2->bchannel)
+		bchannel_join(call2->bchannel, bridge_id);
 #else
-		printf("FIXME");
-		exit(0);
+	printf("FIXME");
+	exit(0);
 #endif
 
-	} else
-	if (call1->nodsp && call2->nodsp)
-		CDEBUG(NULL, NULL, "Both calls use no DSP, bridging in channel driver.\n");
-	else
-		CDEBUG(NULL, NULL, "One call uses no DSP, bridging in channel driver.\n");
 	call1->bridge_call = call2;
 	call2->bridge_call = call1;
 
@@ -3416,6 +3406,14 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 		apply_opt(call, (char *)argv[0]);
 		#endif
 
+		/* send options */
+		if (call->tx_queue) {
+			union parameter newparam;
+
+			memset(&newparam, 0, sizeof(union parameter));
+			newparam.queue = call->tx_queue * 8;
+			send_message(MESSAGE_DISABLE_DEJITTER, call->ref, &newparam);
+		}
 	else
 		CERROR(NULL, ast, "lcr_config app not called by chan_lcr channel.\n");
 
@@ -3491,7 +3489,6 @@ int load_module(void)
 				 "    d - Send display text on called phone, text is the optarg.\n"
 				 "    n - Don't detect dtmf tones on called channel.\n"
 				 "    h - Force data call (HDLC).\n"
-				 "    t - Disable mISDN_dsp features (required for fax application).\n"
 				 "    q - Add queue to make fax stream seamless (required for fax app).\n"
 				 "        Use queue size in miliseconds for optarg. (try 250)\n"
 				 "    f - Adding fax detection. It it timeouts, mISDN_dsp is used.\n"

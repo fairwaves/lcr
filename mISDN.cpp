@@ -139,6 +139,8 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_txdata = 0;
 	p_m_delay = 0;
 	p_m_tx_dejitter = 0;
+	p_m_preload = ISDN_LOAD;
+	p_m_disable_dejitter = 0;
 	p_m_echo = 0;
 	p_m_tone = 0;
 	p_m_rxoff = 0;
@@ -879,31 +881,31 @@ times have no skew.
 
 * levels
 there are two levels:
-ISDN_LOAD will give the load that have to be kept in dsp.
-ISDN_MAXLOAD will give the maximum load before dropping.
+p_m_preload will give the load that have to be kept in dsp.
+ISDN_MAXLOAD (2*p_m_preload) will give the maximum load before dropping.
 
 * procedure for low priority data
 see txfromup() for procedure
 in short: remote data is ignored during high priority tones
 
 * procedure for high priority data
-whenever load is below ISDN_LOAD, load is filled up to ISDN_LOAD
+whenever load is below p_m_preload, load is filled up to p_m_preload
 if no more data is available, load becomes empty again.
 
 'load' variable:
-0                    ISDN_LOAD           ISDN_MAXLOAD
+0                    p_m_preload           ISDN_MAXLOAD
 +--------------------+----------------------+
 |                    |                      |
 +--------------------+----------------------+
 
-on empty load or on load below ISDN_LOAD, the load is inceased to ISDN_LOAD:
-0                    ISDN_LOAD           ISDN_MAXLOAD
+on empty load or on load below p_m_preload, the load is inceased to p_m_preload:
+0                    p_m_preload           ISDN_MAXLOAD
 +--------------------+----------------------+
 |TTTTTTTTTTTTTTTTTTTT|                      |
 +--------------------+----------------------+
 
-on empty load, remote-audio causes the load with the remote audio to be increased to ISDN_LOAD.
-0                    ISDN_LOAD           ISDN_MAXLOAD
+on empty load, remote-audio causes the load with the remote audio to be increased to p_m_preload.
+0                    p_m_preload           ISDN_MAXLOAD
 +--------------------+----------------------+
 |TTTTTTTTTTTTTTTTTTTTRRRRR                  |
 +--------------------+----------------------+
@@ -957,9 +959,9 @@ void PmISDN::load_tx(void)
 
 		/* to send data, tone must be on */
 		if ((p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on) /* what tones? */
-		 && (p_m_load < ISDN_LOAD) /* not too much load? */
+		 && (p_m_load < p_m_preload) /* not too much load? */
 		 && (p_state==PORT_STATE_CONNECT || p_m_mISDNport->tones || p_m_inband_send_on)) { /* connected or inband-tones? */
-			int tosend = ISDN_LOAD - p_m_load, length; 
+			int tosend = p_m_preload - p_m_load, length; 
 			unsigned char buf[MISDN_HEADER_LEN+tosend];
 			struct mISDNhead *frm = (struct mISDNhead *)buf;
 			unsigned char *p = buf+MISDN_HEADER_LEN;
@@ -1002,13 +1004,13 @@ void PmISDN::load_tx(void)
 			}
 
 			/* send data */
-			if (ISDN_LOAD - p_m_load - tosend > 0) {
+			if (p_m_preload - p_m_load - tosend > 0) {
 				frm->prim = PH_DATA_REQ;
 				frm->id = 0;
-				ret = sendto(p_m_mISDNport->b_sock[p_m_b_index].fd, buf, MISDN_HEADER_LEN+ISDN_LOAD-p_m_load-tosend, 0, NULL, 0);
+				ret = sendto(p_m_mISDNport->b_sock[p_m_b_index].fd, buf, MISDN_HEADER_LEN+p_m_preload-p_m_load-tosend, 0, NULL, 0);
 				if (ret <= 0)
-					PERROR("Failed to send to socket %d (samples = %d)\n", p_m_mISDNport->b_sock[p_m_b_index].fd, ISDN_LOAD-p_m_load-tosend);
-				p_m_load += ISDN_LOAD - p_m_load - tosend;
+					PERROR("Failed to send to socket %d (samples = %d)\n", p_m_mISDNport->b_sock[p_m_b_index].fd, p_m_preload-p_m_load-tosend);
+				p_m_load += p_m_preload - p_m_load - tosend;
 			}
 		}
 	}
@@ -1433,6 +1435,13 @@ int PmISDN::message_epoint(unsigned int epoint_id, int message_id, union paramet
 		PDEBUG(DEBUG_ISDN, "PmISDN(%s) received encryption command '%d'.\n", p_name, param->crypt.type);
 		message_crypt(epoint_id, message_id, param);
 		return 1;
+
+		case MESSAGE_DISABLE_DEJITTER:
+		PDEBUG(DEBUG_ISDN, "PmISDN(%s) received de-jitter disable order.\n", p_name);
+		p_m_disable_dejitter = 1;
+		p_m_preload = param->queue;
+		update_rxoff();
+		return 1;
 	}
 
 	return 0;
@@ -1487,7 +1496,7 @@ void PmISDN::update_rxoff(void)
 		}
 	}
 	/* dejitter on bridge */
-	if (p_bridge)
+	if (p_bridge && !p_m_disable_dejitter)
 		tx_dejitter = 1;
 	if (p_m_tx_dejitter != tx_dejitter) {
 		p_m_tx_dejitter = tx_dejitter;
@@ -2143,11 +2152,11 @@ void mISDNport_close(struct mISDNport *mISDNport)
 
 
 /*
- * enque data from upper buffer
+ * enque data from remote port
  */
 int PmISDN::bridge_rx(unsigned char *data, int length)
 {
-	unsigned char buf[MISDN_HEADER_LEN+((length>ISDN_LOAD)?length:ISDN_LOAD)];
+	unsigned char buf[MISDN_HEADER_LEN+((length>p_m_preload)?length:p_m_preload)];
 	struct mISDNhead *hh = (struct mISDNhead *)buf;
 	int ret;
 
@@ -2166,21 +2175,21 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	 * if transmit buffer in DSP module is empty,
 	 * preload it to DSP_LOAD to prevent jitter gaps.
 	 */
-	if (p_m_load == 0 && ISDN_LOAD > 0) {
+	if ((!p_bridge || p_m_disable_dejitter) && p_m_load == 0 && p_m_preload > 0) {
 		hh->prim = PH_DATA_REQ; 
 		hh->id = 0;
-		memset(buf+MISDN_HEADER_LEN, silence, ISDN_LOAD);
-		ret = sendto(p_m_mISDNport->b_sock[p_m_b_index].fd, buf, MISDN_HEADER_LEN+ISDN_LOAD, 0, NULL, 0);
+		memset(buf+MISDN_HEADER_LEN, silence, p_m_preload);
+		ret = sendto(p_m_mISDNport->b_sock[p_m_b_index].fd, buf, MISDN_HEADER_LEN+p_m_preload, 0, NULL, 0);
 		if (ret <= 0)
 			PERROR("Failed to send to socket %d\n", p_m_mISDNport->b_sock[p_m_b_index].fd);
-		p_m_load += ISDN_LOAD;
+		p_m_load += p_m_preload;
 		schedule_timer(&p_m_loadtimer, 0, PORT_TRANSMIT * 125);
 	}
 
 	/* drop if load would exceed ISDN_MAXLOAD
 	 * this keeps the delay not too high
 	 */
-	if (p_m_load+length > ISDN_MAXLOAD)
+	if (p_m_load+length > (p_m_preload << 1))
 		return -EINVAL;
 
 	/* make and send frame */

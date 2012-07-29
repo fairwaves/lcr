@@ -376,6 +376,7 @@ union parameter {
 	unsigned int bridge_id; /* MESSAGE_BRIDGE */
 	struct param_traffic traffic; /* MESSAGE_TRAFFIC */
 	struct param_3pty threepty; /* MESSAGE_TRAFFIC */
+	unsigned int queue; /* MESSAGE_DISABLE_DEJITTER */
 };
 
 enum { /* message flow */
@@ -431,6 +432,7 @@ enum { /* messages between entities */
 	MESSAGE_BRIDGE,		/* control port bridge */
 	MESSAGE_TRAFFIC,	/* exchange bchannel traffic */
 	MESSAGE_3PTY,		/* 3PTY call invoke */
+	MESSAGE_DISABLE_DEJITTER/* tell (mISDN) port not to dejitter */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -468,6 +470,7 @@ enum { /* messages between entities */
 	"MESSAGE_BRIDGE", \
 	"MESSAGE_TRAFFIC", \
 	"MESSAGE_3PTY", \
+	"MESSAGE_DISABLE_DEJITTER", \
 };
 
 

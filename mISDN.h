@@ -110,6 +110,8 @@ class PmISDN : public Port
 	struct mISDNport *p_m_mISDNport;	/* pointer to port */
 	int p_m_delay;				/* use delay instead of dejitter */
 	int p_m_tx_dejitter;			/* use dejitter on transmit data to DSP */
+	int p_m_disable_dejitter;		/* usefull to send fax via bridge */
+	int p_m_preload;			/* set to ISDN_LOAD, but may be changed later */
 	int p_m_tx_gain, p_m_rx_gain;		/* volume shift (0 = no change) */
 	char p_m_pipeline[256];			/* filter pipeline */
 	int p_m_echo, p_m_conf;			/* remote echo, conference number */

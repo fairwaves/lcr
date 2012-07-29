@@ -2471,6 +2471,19 @@ void EndpointAppPBX::port_enablekeypad(struct port_list *portlist, int message_t
 }
 
 
+/* port MESSAGE_DISABLE_DEJITTER */
+void EndpointAppPBX::port_disable_dejitter(struct port_list *portlist, int message_type, union parameter *param)
+{
+	struct lcr_msg *message;
+
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
+	message = message_create(ea_endpoint->ep_serial, ea_endpoint->ep_join_id, EPOINT_TO_JOIN, MESSAGE_DISABLE_DEJITTER);
+	memcpy(&message->param, param, sizeof(union parameter));
+	message_put(message);
+}
+
+
 /* port sends message to the endpoint
  */
 void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, union parameter *param)
@@ -2655,6 +2668,11 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 		case MESSAGE_ENABLEKEYPAD:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') requests DTMF/KEYPAD.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_enablekeypad(portlist, message_type, param);
+		break;
+
+		case MESSAGE_DISABLE_DEJITTER:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming disable dejitter message (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		port_disable_dejitter(portlist, message_type, param);
 		break;
 
 
@@ -3181,6 +3199,19 @@ void EndpointAppPBX::join_dtmf(struct port_list *portlist, int message_type, uni
 	}
 }
 
+/* join MESSAGE_DISABLE_DEJITTER */
+void EndpointAppPBX::join_disable_dejitter(struct port_list *portlist, int message_type, union parameter *param)
+{
+	struct lcr_msg *message;
+
+	while(portlist) {
+		message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_DISABLE_DEJITTER);
+		memcpy(&message->param, param, sizeof(union parameter));
+		message_put(message);
+		portlist = portlist->next;
+	}
+}
+
 /* JOIN sends messages to the endpoint
  */
 void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, union parameter *param)
@@ -3350,6 +3381,12 @@ void EndpointAppPBX::ea_message_join(unsigned int join_id, int message_type, uni
 		case MESSAGE_DTMF:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received dtmf.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		join_dtmf(portlist, message_type, param);
+		break;
+
+		/* JOIN sends a DISABLE_DEJITTER message */
+		case MESSAGE_DISABLE_DEJITTER:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) epoint with terminal '%s' (caller id '%s') received disable dejitter.\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		join_disable_dejitter(portlist, message_type, param);
 		break;
 
 		default:
@@ -4429,6 +4466,13 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		if (param->threepty.error)
 			add_trace("action", NULL, "error");
 		add_trace("invoke-id", NULL, "%d", param->threepty.invoke_id);
+		end_trace();
+		break;
+
+		case MESSAGE_DISABLE_DEJITTER:
+		trace_header("DISBALE_DEJITTER", dir);
+		if (param->queue)
+			add_trace("queue", NULL, "%d", param->queue);
 		end_trace();
 		break;
 
