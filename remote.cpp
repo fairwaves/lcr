@@ -56,7 +56,8 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 	if (Port::message_epoint(epoint_id, message_type, param))
 		return 1;
 
-	if (message_type == MESSAGE_SETUP) {
+	switch (message_type) {
+	case MESSAGE_SETUP:
 		struct interface *interface;
 		interface = getinterfacebyname(p_r_interface_name);
 		if (!interface) {
@@ -81,6 +82,28 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 				SCPY(param->setup.dialinginfo.context, "lcr");
 		}
 
+		new_state(PORT_STATE_OUT_SETUP);
+		break;
+
+	case MESSAGE_PROCEEDING:
+		new_state(PORT_STATE_IN_PROCEEDING);
+		break;
+
+	case MESSAGE_ALERTING:
+		new_state(PORT_STATE_IN_ALERTING);
+		break;
+
+	case MESSAGE_CONNECT:
+		new_state(PORT_STATE_CONNECT);
+		break;
+
+	case MESSAGE_DISCONNECT:
+		new_state(PORT_STATE_OUT_DISCONNECT);
+		break;
+
+	case MESSAGE_RELEASE:
+		new_state(PORT_STATE_RELEASE);
+		break;
 	}
 
 	/* look for Remote's interface */
@@ -88,20 +111,6 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 		PERROR("No socket with remote application '%s' found, this shall not happen. Closing socket shall cause release of all remote ports.\n", p_r_remote_app);
 		return 0;		
 	}
-
-#if 0
-	/* enable audio path */
-	if (message_type == MESSAGE_SETUP) {
-		union parameter newparam;
-		memset(&newparam, 0, sizeof(union parameter));
-		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_PATTERN, &newparam);
-		newparam.audiopath = 1;
-		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_AUDIOPATH, &newparam);
-	}
-#endif
-
-	if (message_type == MESSAGE_CONNECT)
-		new_state(PORT_STATE_CONNECT);
 
 	if (message_type == MESSAGE_RELEASE) {
 		new_state(PORT_STATE_RELEASE);
@@ -151,20 +160,40 @@ void Premote::message_remote(int message_type, union parameter *param)
 		epoint->ep_app = new_endpointapp(epoint, 0, interface->app); //incoming
 
 		epointlist_new(epoint->ep_serial);
-		/* FALL THROUGH: */
-	default:
-		if (message_type == MESSAGE_CONNECT)
-			new_state(PORT_STATE_CONNECT);
-		/* cannot just forward, because param is not of container "struct lcr_msg" */
-		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, message_type);
-		memcpy(&message->param, param, sizeof(message->param));
-		message_put(message);
 
-		if (message_type == MESSAGE_RELEASE) {
-			new_state(PORT_STATE_RELEASE);
-			delete this;
-			return;
-		}
+		new_state(PORT_STATE_IN_SETUP);
+		break;
+
+	case MESSAGE_PROCEEDING:
+		new_state(PORT_STATE_OUT_PROCEEDING);
+		break;
+
+	case MESSAGE_ALERTING:
+		new_state(PORT_STATE_OUT_ALERTING);
+		break;
+
+	case MESSAGE_CONNECT:
+		new_state(PORT_STATE_CONNECT);
+		break;
+
+	case MESSAGE_DISCONNECT:
+		new_state(PORT_STATE_IN_DISCONNECT);
+		break;
+
+	case MESSAGE_RELEASE:
+		new_state(PORT_STATE_RELEASE);
+		break;
+	}
+
+	/* cannot just forward, because param is not of container "struct lcr_msg" */
+	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, message_type);
+	memcpy(&message->param, param, sizeof(message->param));
+	message_put(message);
+
+	if (message_type == MESSAGE_RELEASE) {
+		new_state(PORT_STATE_RELEASE);
+		delete this;
+		return;
 	}
 }
 
