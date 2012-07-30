@@ -1216,19 +1216,25 @@ struct route_ruleset *ruleset_parse(void)
 
 				/* parse service value */
 				case COND_TYPE_CAPABILITY:
-				if (!strncasecmp("speech", p, 6))
+				if (!strncasecmp("speech", p, 6)) {
 					cond->integer_value = INFO_BC_SPEECH;
-				else if (!strncasecmp("audio", p, 5))
+					p += 6;
+				} else if (!strncasecmp("audio", p, 5)) {
 					cond->integer_value = INFO_BC_AUDIO;
-				else if (!strncasecmp("video", p, 5))
+					p += 5;
+				} else if (!strncasecmp("video", p, 5)) {
 					cond->integer_value = INFO_BC_VIDEO;
-				else if (!strncasecmp("digital-restricted", p, 18))
+					p += 5;
+				} else if (!strncasecmp("digital-restricted", p, 18)) {
 					cond->integer_value = INFO_BC_DATARESTRICTED;
-				else if (!strncasecmp("digital-unrestricted", p, 20))
+					p += 18;
+				} else if (!strncasecmp("digital-unrestricted", p, 20)) {
 					cond->integer_value = INFO_BC_DATAUNRESTRICTED;
-				else if (!strncasecmp("digital-unrestricted-tones", p, 26))
+					p += 20;
+				} else if (!strncasecmp("digital-unrestricted-tones", p, 26)) {
 					cond->integer_value = INFO_BC_DATAUNRESTRICTED_TONES;
-				else {
+					p += 26;
+				} else {
 					SPRINT(failure, "Given service type is invalid or misspelled.");
 					goto parse_error;
 				}
@@ -1237,11 +1243,13 @@ struct route_ruleset *ruleset_parse(void)
 
 				/* parse bmode value */
 				case COND_TYPE_BMODE:
-				if (!strncasecmp("transparent", p, 11))
+				if (!strncasecmp("transparent", p, 11)) {
 					cond->integer_value = INFO_BMODE_CIRCUIT;
-				else if (!strncasecmp("hdlc", p, 4))
+					p += 11;
+				} else if (!strncasecmp("hdlc", p, 4)) {
 					cond->integer_value = INFO_BMODE_PACKET;
-				else {
+					p += 4;
+				} else {
 					SPRINT(failure, "Given bchannel mode is invalid or misspelled.");
 					goto parse_error;
 				}
@@ -1250,35 +1258,49 @@ struct route_ruleset *ruleset_parse(void)
 
 				/* parse service value */
 				case COND_TYPE_HLC:
-				if (!strncasecmp("telephony", p, 9))
+				if (!strncasecmp("telephony", p, 9)) {
 					cond->integer_value = INFO_HLC_TELEPHONY;
-				else if (!strncasecmp("faxg2g3", p, 7))
+					p += 9;
+				} else if (!strncasecmp("faxg2g3", p, 7)) {
 					cond->integer_value = INFO_HLC_FAXG2G3;
-				else if (!strncasecmp("faxg4", p, 5))
+					p += 7;
+				} else if (!strncasecmp("faxg4", p, 5)) {
 					cond->integer_value = INFO_HLC_FAXG4;
-				else if (!strncasecmp("teletex1", p, 8))
+					p += 5;
+				} else if (!strncasecmp("teletex1", p, 8)) {
 					cond->integer_value = INFO_HLC_TELETEX1;
-				else if (!strncasecmp("teletex2", p, 8))
+					p += 8;
+				} else if (!strncasecmp("teletex2", p, 8)) {
 					cond->integer_value = INFO_HLC_TELETEX2;
-				else if (!strncasecmp("teletex3", p, 8))
+					p += 8;
+				} else if (!strncasecmp("teletex3", p, 8)) {
 					cond->integer_value = INFO_HLC_TELETEX3;
-				else if (!strncasecmp("videotex1", p, 9))
+					p += 8;
+				} else if (!strncasecmp("videotex1", p, 9)) {
 					cond->integer_value = INFO_HLC_VIDEOTEX1;
-				else if (!strncasecmp("videotex2", p, 9))
+					p += 9;
+				} else if (!strncasecmp("videotex2", p, 9)) {
 					cond->integer_value = INFO_HLC_VIDEOTEX2;
-				else if (!strncasecmp("telex", p, 5))
+					p += 9;
+				} else if (!strncasecmp("telex", p, 5)) {
 					cond->integer_value = INFO_HLC_TELEX;
-				else if (!strncasecmp("mhs", p, 3))
+					p += 5;
+				} else if (!strncasecmp("mhs", p, 3)) {
 					cond->integer_value = INFO_HLC_MHS;
-				else if (!strncasecmp("osi", p, 3))
+					p += 3;
+				} else if (!strncasecmp("osi", p, 3)) {
 					cond->integer_value = INFO_HLC_OSI;
-				else if (!strncasecmp("maintenance", p, 11))
+					p += 3;
+				} else if (!strncasecmp("maintenance", p, 11)) {
 					cond->integer_value = INFO_HLC_MAINTENANCE;
-				else if (!strncasecmp("management", p, 10))
+					p += 11;
+				} else if (!strncasecmp("management", p, 10)) {
 					cond->integer_value = INFO_HLC_MANAGEMENT;
-				else if (!strncasecmp("audiovisual", p, 11))
+					p += 10;
+				} else if (!strncasecmp("audiovisual", p, 11)) {
 					cond->integer_value = INFO_HLC_AUDIOVISUAL;
-				else {
+					p += 11;
+				} else {
 					SPRINT(failure, "Given HLC type is invalid or misspelled.");
 					goto parse_error;
 				}
