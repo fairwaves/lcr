@@ -919,8 +919,11 @@ CDEBUG(call, ast, "Got 'sending complete', but extension '%s' will not match at 
 static void lcr_in_setup(struct chan_call *call, int message_type, union parameter *param)
 {
 	struct ast_channel *ast;
+#ifdef AST_1_8_OR_HIGHER
 	struct ast_party_redirecting *ast_redir;
-	struct ast_party_caller *ast_caller;
+#endif
+//	struct ast_party_caller *ast_caller;
+	struct ast_callerid *ast_caller;
 #if ASTERISK_VERSION_NUM >= 110000
 	struct ast_party_redirecting s_ast_redir;
 	struct ast_party_caller s_ast_caller;
@@ -944,8 +947,9 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	#endif
 
 #if ASTERISK_VERSION_NUM < 110000
-	ast_redir = &ast->redirecting;
-	ast_caller = &ast->caller;
+//	ast_redir = &ast->redirecting;
+//	ast_caller = &ast->caller;
+	ast_caller = &ast->cid;
 #else
 	ast_redir = &s_ast_redir;
 	ast_caller = &s_ast_caller;
@@ -1996,8 +2000,10 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 	char exten[256], *dial, *interface, *opt;
 	struct ast_channel *ast;
 	struct chan_call *call;
+#ifdef AST_1_8_OR_HIGHER
 	const struct ast_party_redirecting *req_redir;
 	const struct ast_party_caller *req_caller;
+#endif
 
 	ast_mutex_lock(&chan_lock);
 	CDEBUG(NULL, NULL, "Received request from Asterisk. (data=%s)\n", (char *)data);
@@ -2041,8 +2047,10 @@ struct ast_channel *lcr_request(const char *type, int format, void *data, int *c
 #if ASTERISK_VERSION_NUM < 110000
 	ast->tech = &lcr_tech;
 	ast->tech_pvt = (void *)1L; // set pointer or asterisk will not call
+#ifdef AST_1_8_OR_HIGHER
 	req_redir = &requestor->redirecting;
 	req_caller = &requestor->caller;
+#endif
 #else
 	ast_channel_tech_set(ast, &lcr_tech);
 	ast_channel_tech_pvt_set(ast, (void *)1L); // set pointer or asterisk will not call
