@@ -921,9 +921,10 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	struct ast_channel *ast;
 #ifdef AST_1_8_OR_HIGHER
 	struct ast_party_redirecting *ast_redir;
-#endif
-//	struct ast_party_caller *ast_caller;
+	struct ast_party_caller *ast_caller;
+#else
 	struct ast_callerid *ast_caller;
+#endif
 #if ASTERISK_VERSION_NUM >= 110000
 	struct ast_party_redirecting s_ast_redir;
 	struct ast_party_caller s_ast_caller;
@@ -947,9 +948,12 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 	#endif
 
 #if ASTERISK_VERSION_NUM < 110000
-//	ast_redir = &ast->redirecting;
-//	ast_caller = &ast->caller;
+#ifdef AST_1_8_OR_HIGHER
+	ast_redir = &ast->redirecting;
+	ast_caller = &ast->caller;
+#else
 	ast_caller = &ast->cid;
+#endif
 #else
 	ast_redir = &s_ast_redir;
 	ast_caller = &s_ast_caller;
