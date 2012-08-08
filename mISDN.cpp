@@ -914,7 +914,7 @@ on empty load, remote-audio causes the load with the remote audio to be increase
 void PmISDN::update_load(void)
 {
 	/* don't trigger load event if: */
-	if (!p_tone_name[0] && !p_m_crypt_msg_loops && !p_m_inband_send_on)
+	if (!p_tone_name[0] && !p_m_crypt_msg_loops && !p_m_inband_send_on && !(p_bridge && p_m_disable_dejitter && p_m_preload > 0))
 		return;
 
 	/* don't trigger load event if event already active */
@@ -2165,6 +2165,10 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_ACTIVE)
 		return -EINVAL;
 
+	/* run load-timer when bridged and dejitter is disabled */
+	if (!p_m_loadtimer.active && p_m_disable_dejitter && p_m_preload > 0)
+		update_load();
+
 	/* check if high priority tones exist
 	 * ignore data in this case
 	 */
@@ -2174,8 +2178,11 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	/* preload procedure
 	 * if transmit buffer in DSP module is empty,
 	 * preload it to DSP_LOAD to prevent jitter gaps.
+	 * 
+	 * if load runs empty, preload again.
 	 */
-	if ((!p_bridge || p_m_disable_dejitter) && p_m_load == 0 && p_m_preload > 0) {
+	if (p_m_disable_dejitter && p_m_load == 0 && p_m_preload > 0) {
+//printf("preload=%d\n", p_m_preload);
 		hh->prim = PH_DATA_REQ; 
 		hh->id = 0;
 		memset(buf+MISDN_HEADER_LEN, silence, p_m_preload);
@@ -2189,7 +2196,8 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	/* drop if load would exceed ISDN_MAXLOAD
 	 * this keeps the delay not too high
 	 */
-	if (p_m_load+length > (p_m_preload << 1))
+//printf("load=%d len=%d 2*preload=%d\n", p_m_load, length, p_m_preload << 1);
+	if (p_m_disable_dejitter && p_m_preload > 0 && p_m_load+length > (p_m_preload << 1))
 		return -EINVAL;
 
 	/* make and send frame */
