@@ -66,7 +66,6 @@ class Psip : public Port
 	void rtp_shutdown(void);
 };
 
-const char *media_type2name(uint8_t media_type);
 int sip_init_inst(struct interface *interface);
 void sip_exit_inst(struct interface *interface);
 int sip_init(void);
