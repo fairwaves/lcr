@@ -3107,6 +3107,9 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	struct ast_frame	*f;
 	int			bridge_id;
 
+/* bridge is disabled, because there is currerntly no concept to bridge mISDN channels */
+return AST_BRIDGE_FAILED;
+
 	CDEBUG(NULL, NULL, "Received bridging request from Asterisk.\n");
 
 	carr[0] = ast1;
@@ -3135,18 +3138,11 @@ enum ast_bridge_result lcr_bridge(struct ast_channel *ast1,
 	/* get bridge id and join */
 	bridge_id = new_bridge_id();
 
-#if 0
 	call1->bridge_id = bridge_id;
-	if (call1->bchannel)
-		bchannel_join(call1->bchannel, bridge_id);
-
 	call2->bridge_id = bridge_id;
-	if (call2->bchannel)
-		bchannel_join(call2->bchannel, bridge_id);
-#else
-	printf("FIXME");
-	exit(0);
-#endif
+	// FIXME: do bridiging
+	// bchannel_join(call1->bchannel, bridge_id);
+	// bchannel_join(call2->bchannel, bridge_id);
 
 	call1->bridge_call = call2;
 	call2->bridge_call = call1;
