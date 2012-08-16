@@ -2750,7 +2750,7 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 #else
 	call = ast_channel_tech_pvt(ast);
 #endif
-	if (!call) {
+	if (!call || !call->ref) {
 		ast_mutex_unlock(&chan_lock);
 		if (f != fr) {
 			ast_frfree(f);
