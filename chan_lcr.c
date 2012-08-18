@@ -1440,8 +1440,21 @@ static void lcr_in_information(struct chan_call *call, int message_type, union p
 
 	/* use bridge to forware message not supported by asterisk */
 	if (call->state == CHAN_LCR_STATE_CONNECT) {
-		CDEBUG(call, call->ast, "Call is connected, bridging.\n");
-		bridge_message_if_bridged(call, message_type, param);
+		if (call->bridge_call) {
+			CDEBUG(call, call->ast, "Call is connected, bridging.\n");
+			bridge_message_if_bridged(call, message_type, param);
+		} else {
+			if (call->dsp_dtmf) {
+				if (!wake_global) {
+					wake_global = 1;
+					char byte = 0;
+					int rc;
+					rc = write(wake_pipe[1], &byte, 1);
+				}
+				strncat(call->queue_string, param->information.id, sizeof(call->queue_string)-1);
+			} else
+				CDEBUG(call, call->ast, "LCR's DTMF detection is disabled.\n");
+		}
 	}
 }
 
@@ -1593,6 +1606,7 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 				return 0;
 			}
 		}
+		send_message(MESSAGE_ENABLEKEYPAD, call->ref, &newparam);
 		return 0;
 	}
 
@@ -2798,7 +2812,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
 	struct chan_call *call;
 	int len = 0;
-	struct ast_frame *f;
+	struct ast_frame *f = NULL;
 
 	ast_mutex_lock(&chan_lock);
 #if ASTERISK_VERSION_NUM < 110000
@@ -2879,7 +2893,8 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	call->read_fr.delivery = ast_tv(0,0);
 	*((unsigned char **)&(call->read_fr.data)) = call->read_buff;
 
-	f = ast_dsp_process(ast, call->dsp, &call->read_fr);
+	if (call->dsp)
+		f = ast_dsp_process(ast, call->dsp, &call->read_fr);
 	if (f && f->frametype == AST_FRAME_DTMF)
 		CDEBUG(call, ast, "Asterisk detected inband DTMF: %c.\n", f->subclass.integer);
 
@@ -3521,7 +3536,7 @@ int load_module(void)
 				 "\n"
 				 "The available options are:\n"
 				 "    d - Send display text on called phone, text is the optarg.\n"
-				 "    n - Don't detect dtmf tones on called channel.\n"
+				 "    n - Don't detect dtmf tones from LCR.\n"
 				 "    h - Force data call (HDLC).\n"
 				 "    q - Add queue to make fax stream seamless (required for fax app).\n"
 				 "        Use queue size in miliseconds for optarg. (try 250)\n"
@@ -3532,7 +3547,7 @@ int load_module(void)
 				 "    e - Perform echo cancelation on this channel.\n"
 #endif
 				 "        Takes mISDN pipeline option as optarg.\n"
-				 "    s - Send Non Inband DTMF as inband.\n"
+				 "    s - Send Non Inband DTMF as inband. (disables LCR's DTMF)\n"
 				 "    r - re-buffer packets (160 bytes). Required for some SIP-phones and fax applications.\n"
 #if 0
 				 "   vr - rxgain control\n"
