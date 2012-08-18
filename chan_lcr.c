@@ -2782,11 +2782,12 @@ static int lcr_write(struct ast_channel *ast, struct ast_frame *fr)
 	call = ast_channel_tech_pvt(ast);
 #endif
 	if (!call || !call->ref) {
+		/* drop the frame, if no ref exists, but return successfull delivery, or asterisk will abort connection */
 		ast_mutex_unlock(&chan_lock);
 		if (f != fr) {
 			ast_frfree(f);
 		}
-		return -1;
+		return 0;
 	}
 	len = f->samples;
 	p = *((unsigned char **)&(f->data));
