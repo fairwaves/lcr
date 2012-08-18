@@ -513,43 +513,22 @@ void apply_opt(struct chan_call *call, char *data)
 			break;
 #endif
 		case 'f':
-			if (opt[1] == '\0') {
-				CERROR(call, call->ast, "Option 'f' (faxdetect) expects parameter.\n", opt);
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 'f' (faxdetect) expects no parameter.\n", opt);
 				break;
 			}
-			call->faxdetect=atoi(opt+1);
-			if (!call->dsp)
-				call->dsp=ast_dsp_new();
-			if (call->dsp) {
-				#ifdef LCR_FOR_CALLWEAVER
-				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_CNG_DETECT);
-				#endif
-				#ifdef LCR_FOR_ASTERISK
-				#ifdef DSP_FEATURE_DTMF_DETECT
-				ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT| DSP_FEATURE_FAX_DETECT);
-				#else
-				ast_dsp_set_features(call->dsp, DSP_FEATURE_DIGIT_DETECT| DSP_FEATURE_FAX_DETECT);
-				#endif
-
-				#endif
-				if (!call->trans) {
-					#ifdef LCR_FOR_CALLWEAVER
-					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, 8000, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW, 8000);
-					#endif
-					#ifdef LCR_FOR_ASTERISK
-					#if ASTERISK_VERSION_NUM < 100000
-					call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
-					#else
-					struct ast_format src;
-					struct ast_format dst;
-					ast_format_set(&dst, AST_FORMAT_SLINEAR, 0);
-					ast_format_set(&dst,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
-					call->trans=ast_translator_build_path(&dst, &src);
-					#endif
-					#endif
-				}
+			call->faxdetect = 1;
+			call->dsp_dtmf = 0;
+			CDEBUG(call, call->ast, "Option 'f' (faxdetect).\n");
+			break;
+		case 'a':
+			if (opt[1] != '\0') {
+				CERROR(call, call->ast, "Option 'a' (asterisk DTMF) expects no parameter.\n", opt);
+				break;
 			}
-			CDEBUG(call, call->ast, "Option 'f' (faxdetect) with config '%s'.\n", call->faxdetect);
+			call->ast_dsp = 1;
+			call->dsp_dtmf = 0;
+			CDEBUG(call, call->ast, "Option 'a' (Asterisk DTMF detection).\n");
 			break;
 		case 'r':
 			if (opt[1] != '\0') {
@@ -602,6 +581,40 @@ void apply_opt(struct chan_call *call, char *data)
 			break;
 		default:
 			CERROR(call, call->ast, "Option '%s' unknown.\n", opt);
+		}
+	}
+
+	if (call->faxdetect || call->ast_dsp) {
+		if (!call->dsp)
+			call->dsp=ast_dsp_new();
+		if (call->dsp) {
+			#ifdef LCR_FOR_CALLWEAVER
+			ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT | ((call->faxdetect) ? DSP_FEATURE_FAX_CNG_DETECT : 0));
+			#endif
+			#ifdef LCR_FOR_ASTERISK
+			#ifdef DSP_FEATURE_DTMF_DETECT
+			ast_dsp_set_features(call->dsp, DSP_FEATURE_DTMF_DETECT | ((call->faxdetect) ? DSP_FEATURE_FAX_DETECT : 0));
+			#else
+			ast_dsp_set_features(call->dsp, DSP_FEATURE_DIGIT_DETECT | ((call->faxdetect) ? DSP_FEATURE_FAX_DETECT : 0));
+			#endif
+
+			#endif
+			if (!call->trans) {
+				#ifdef LCR_FOR_CALLWEAVER
+				call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, 8000, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW, 8000);
+				#endif
+				#ifdef LCR_FOR_ASTERISK
+				#if ASTERISK_VERSION_NUM < 100000
+				call->trans=ast_translator_build_path(AST_FORMAT_SLINEAR, (options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW);
+//				#else
+//				struct ast_format src;
+//				struct ast_format dst;
+//				ast_format_set(&dst, AST_FORMAT_SLINEAR, 0);
+//				ast_format_set(&dst,(options.law=='a')?AST_FORMAT_ALAW:AST_FORMAT_ULAW , 0);
+//				call->trans=ast_translator_build_path(&dst, &src);
+				#endif
+				#endif
+			}
 		}
 	}
 }
@@ -1505,7 +1518,7 @@ void lcr_in_dtmf(struct chan_call *call, int val)
 		return;
 
 	if (!call->dsp_dtmf) {
-		CDEBUG(call, call->ast, "Recognised DTMF digit '%c', but ignoring. This is fixed in later mISDN driver.\n", val);
+		CDEBUG(call, call->ast, "Recognised DTMF digit '%c' by LCR, but ignoring. (disabled by option)\n", val);
 		return;
 	}
 
@@ -1657,6 +1670,10 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 				*p = flip_bits[*p];
 		}
 		rc = write(call->pipe[1], param->traffic.data, param->traffic.len);
+		break;
+
+		case MESSAGE_DTMF:
+		lcr_in_dtmf(call, param->dtmf);
 		break;
 
 		default:
@@ -2781,6 +2798,7 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 {
 	struct chan_call *call;
 	int len = 0;
+	struct ast_frame *f;
 
 	ast_mutex_lock(&chan_lock);
 #if ASTERISK_VERSION_NUM < 110000
@@ -2860,7 +2878,15 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	}
 	call->read_fr.delivery = ast_tv(0,0);
 	*((unsigned char **)&(call->read_fr.data)) = call->read_buff;
+
+	f = ast_dsp_process(ast, call->dsp, &call->read_fr);
+	if (f && f->frametype == AST_FRAME_DTMF)
+		CDEBUG(call, ast, "Asterisk detected inband DTMF: %c.\n", f->subclass.integer);
+
 	ast_mutex_unlock(&chan_lock);
+
+	if (f && f->frametype == AST_FRAME_DTMF)
+		return f;
 
 	return &call->read_fr;
 }
@@ -3499,8 +3525,8 @@ int load_module(void)
 				 "    h - Force data call (HDLC).\n"
 				 "    q - Add queue to make fax stream seamless (required for fax app).\n"
 				 "        Use queue size in miliseconds for optarg. (try 250)\n"
-				 "    f - Adding fax detection. It it timeouts, mISDN_dsp is used.\n"
-				 "        Use time to detect for optarg.\n"
+				 "    a - Adding DTMF detection.\n"
+				 "    f - Adding fax detection.\n"
 #if 0
 				 "    c - Make crypted outgoing call, optarg is keyindex.\n"
 				 "    e - Perform echo cancelation on this channel.\n"
