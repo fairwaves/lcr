@@ -155,7 +155,7 @@ static int delete_event(struct lcr_work *work, void *instance, int index);
 /*
  * constructor
  */
-Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct interface *interface) : Port(type, portname, settings)
+Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct interface *interface) : Port(type, portname, settings, interface)
 {
 	p_g_tones = 0;
 	if (interface->is_tones == IS_YES)
@@ -168,7 +168,6 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 		p_g_rtp_bridge = 1;
 	p_g_rtp_payloads = 0;
 	memset(&p_g_samples, 0, sizeof(p_g_samples));
-	SCPY(p_g_interface_name, interface->name); 
 	p_callerinfo.itype = (interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	memset(&p_g_delete, 0, sizeof(p_g_delete));
 	add_work(&p_g_delete, delete_event, this, 0);
@@ -364,7 +363,7 @@ void Pgsm::modify_lchan(int media_type)
 		return;
 
 	p_g_media_type = media_type;
-	gsm_trace_header(p_g_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_LCHAN_MODIFY, DIRECTION_OUT);
 	mode = create_mncc(MNCC_LCHAN_MODIFY, p_g_callref);
 	switch (media_type) {
 	case MEDIA_TYPE_GSM_EFR:
@@ -391,7 +390,7 @@ void Pgsm::call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm
 	struct lcr_msg *message;
 	struct gsm_mncc *frame;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_PROCEEDING);
@@ -400,7 +399,7 @@ void Pgsm::call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm
 	new_state(PORT_STATE_OUT_PROCEEDING);
 
 	if (p_g_earlyb && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -414,7 +413,7 @@ void Pgsm::alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	struct lcr_msg *message;
 	struct gsm_mncc *frame;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_ALERTING);
@@ -423,7 +422,7 @@ void Pgsm::alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	new_state(PORT_STATE_OUT_ALERTING);
 
 	if (p_g_earlyb && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -442,9 +441,9 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	p_connectinfo.present = INFO_PRESENT_ALLOWED;
 	p_connectinfo.screen = INFO_SCREEN_NETWORK;
 	p_connectinfo.ntype = INFO_NTYPE_UNKNOWN;
-	SCPY(p_connectinfo.interface, p_g_interface_name);
+	SCPY(p_connectinfo.interface, p_interface_name);
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	if (p_connectinfo.id[0])
 		add_trace("connect", "number", "%s", p_connectinfo.id);
 	else if (mncc->imsi[0])
@@ -454,7 +453,7 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	end_trace();
 
 	/* send resp */
-	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_COMPL_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_SETUP_COMPL_REQ, DIRECTION_OUT);
 	resp = create_mncc(MNCC_SETUP_COMPL_REQ, p_g_callref);
 	end_trace();
 	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
@@ -462,7 +461,7 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 	new_state(PORT_STATE_CONNECT);
 
 	if (!p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -502,13 +501,13 @@ void Pgsm::setup_compl_ind(unsigned int msg_type, unsigned int callref, struct g
 {
 	struct gsm_mncc *frame;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	new_state(PORT_STATE_CONNECT);
 
 	if (!p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -523,7 +522,7 @@ void Pgsm::disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 	int cause = 16, location = 0;
 	struct gsm_mncc *resp;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	if (mncc->fields & MNCC_F_CAUSE) {
 		location = mncc->cause.location;
 		cause = mncc->cause.value;
@@ -535,7 +534,7 @@ void Pgsm::disc_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc
 
 	/* send release */
 	resp = create_mncc(MNCC_REL_REQ, p_g_callref);
-	gsm_trace_header(p_g_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
 #if 0
 	resp->fields |= MNCC_F_CAUSE;
 	resp->cause.coding = 3;
@@ -567,7 +566,7 @@ void Pgsm::rel_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc 
 	int location = 0, cause = 16;
 	struct lcr_msg *message;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	if (mncc->fields & MNCC_F_CAUSE) {
 		location = mncc->cause.location;
 		cause = mncc->cause.value;
@@ -595,7 +594,7 @@ void Pgsm::notify_ind(unsigned int msg_type, unsigned int callref, struct gsm_mn
 {
 	struct lcr_msg *message;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	add_trace("notify", NULL, "%d", mncc->notify);
 	end_trace();
 
@@ -621,7 +620,7 @@ void Pgsm::message_notify(unsigned int epoint_id, int message_id, union paramete
 			memcpy(&p_g_notify_pending->param, param, sizeof(union parameter));
 		} else {
 			/* sending notification */
-			gsm_trace_header(p_g_interface_name, this, MNCC_NOTIFY_REQ, DIRECTION_OUT);
+			gsm_trace_header(p_interface_name, this, MNCC_NOTIFY_REQ, DIRECTION_OUT);
 			add_trace("notify", NULL, "%d", notify);
 			end_trace();
 			mncc = create_mncc(MNCC_NOTIFY_REQ, p_g_callref);
@@ -698,7 +697,7 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 	struct gsm_mncc *mncc;
 
 	/* send alert */
-	gsm_trace_header(p_g_interface_name, this, MNCC_ALERT_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_ALERT_REQ, DIRECTION_OUT);
 	mncc = create_mncc(MNCC_ALERT_REQ, p_g_callref);
 	if (p_g_tones) {
 		mncc->fields |= MNCC_F_PROGRESS;
@@ -715,7 +714,7 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 	new_state(PORT_STATE_IN_ALERTING);
 
 	if (p_g_tones && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		mncc = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
@@ -731,11 +730,11 @@ void Pgsm::message_connect(unsigned int epoint_id, int message_id, union paramet
 	/* copy connected information */
 	memcpy(&p_connectinfo, &param->connectinfo, sizeof(p_connectinfo));
 	/* screen outgoing caller id */
-	do_screen(1, p_connectinfo.id, sizeof(p_connectinfo.id), &p_connectinfo.ntype, &p_connectinfo.present, p_g_interface_name);
+	do_screen(1, p_connectinfo.id, sizeof(p_connectinfo.id), &p_connectinfo.ntype, &p_connectinfo.present, p_interface_name);
 
 	/* send connect */
 	mncc = create_mncc(MNCC_SETUP_RSP, p_g_callref);
-	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_RSP, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_SETUP_RSP, DIRECTION_OUT);
 	/* caller information */
 	mncc->fields |= MNCC_F_CONNECTED;
 	mncc->connected.plan = 1;
@@ -810,7 +809,7 @@ void Pgsm::message_disconnect(unsigned int epoint_id, int message_id, union para
 
 	/* send disconnect */
 	mncc = create_mncc(MNCC_DISC_REQ, p_g_callref);
-	gsm_trace_header(p_g_interface_name, this, MNCC_DISC_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_DISC_REQ, DIRECTION_OUT);
 	if (p_g_tones) {
 		mncc->fields |= MNCC_F_PROGRESS;
 		mncc->progress.coding = 3; /* GSM */
@@ -833,7 +832,7 @@ void Pgsm::message_disconnect(unsigned int epoint_id, int message_id, union para
 	new_state(PORT_STATE_OUT_DISCONNECT);
 
 	if (p_g_tones && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		mncc = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
@@ -849,7 +848,7 @@ void Pgsm::message_release(unsigned int epoint_id, int message_id, union paramet
 
 	/* send release */
 	mncc = create_mncc(MNCC_REL_REQ, p_g_callref);
-	gsm_trace_header(p_g_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
 	mncc->fields |= MNCC_F_CAUSE;
 	mncc->cause.coding = 3;
 	mncc->cause.location = param->disconnectinfo.location;

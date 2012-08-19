@@ -23,7 +23,7 @@
 class Pss5 : public PmISDN
 {
 	public:
-	Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
+	Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, struct interface *interface, int channel, int exclusive, int mode);
 	~Pss5();
 	int message_epoint(unsigned int epoint_id, int message, union parameter *param);
 	void set_tone(const char *dir, const char *name);

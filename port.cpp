@@ -148,7 +148,7 @@ struct epoint_list *Port::epointlist_new(unsigned int epoint_id)
 /*
  * port constructor
  */
-Port::Port(int type, const char *portname, struct port_settings *settings)
+Port::Port(int type, const char *portname, struct port_settings *settings, struct interface *interface)
 {
 	class Port *temp, **tempp;
 
@@ -159,6 +159,8 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 		memset(&p_settings, 0, sizeof(p_settings));
 	}
 	SCPY(p_name, portname);
+	if (interface)
+		SCPY(p_interface_name, interface->name);
 	p_tone_dir[0] = '\0';
 	p_type = type;
 	p_serial = port_serial++;
@@ -197,7 +199,7 @@ Port::Port(int type, const char *portname, struct port_settings *settings)
 
 	classuse++;
 
- 	PDEBUG(DEBUG_PORT, "new port (%d) of type 0x%x, name '%s'\n", p_serial, type, portname);
+ 	PDEBUG(DEBUG_PORT, "new port (%d) of type 0x%x, name '%s' interface '%s'\n", p_serial, type, portname, p_interface_name);
 }
 
 
@@ -209,7 +211,7 @@ Port::~Port(void)
 	class Port *temp, **tempp;
 	struct lcr_msg *message;
 
- 	PDEBUG(DEBUG_PORT, "removing port (%d) of type 0x%x, name '%s'\n", p_serial, p_type, p_name);
+ 	PDEBUG(DEBUG_PORT, "removing port (%d) of type 0x%x, name '%s' interface '%s'\n", p_serial, p_type, p_name, p_interface_name);
 
 	if (p_bridge) {
 		PDEBUG(DEBUG_PORT, "Removing us from bridge %u\n", p_bridge->bridge_id);

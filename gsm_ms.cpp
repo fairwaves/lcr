@@ -72,21 +72,21 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	struct gsm_mncc *proceeding, *frame;
 	struct interface *interface;
 
-	interface = getinterfacebyname(p_g_interface_name);
+	interface = getinterfacebyname(p_interface_name);
 	if (!interface) {
-		PERROR("Cannot find interface %s.\n", p_g_interface_name);
+		PERROR("Cannot find interface %s.\n", p_interface_name);
 		return;
 	}
 
 	/* process given callref */
-	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, 0, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", callref);
 	if (p_g_callref) {
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, callref);
-		gsm_trace_header(p_g_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->fields |= MNCC_F_CAUSE;
 		mncc->cause.coding = 3;
 		mncc->cause.location = 1;
@@ -104,7 +104,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	p_g_callref = callref;
 	end_trace();
 
-	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_IND, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, MNCC_SETUP_IND, DIRECTION_IN);
 	/* caller information */
 	p_callerinfo.ntype = INFO_NTYPE_NOTPRESENT;
 	if (mncc->fields & MNCC_F_CALLING) {
@@ -157,7 +157,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		add_trace("calling", "screen", "%d", mncc->calling.screen);
 		add_trace("calling", "number", "%s", mncc->calling.number);
 	}
-	SCPY(p_callerinfo.interface, p_g_interface_name);
+	SCPY(p_callerinfo.interface, p_interface_name);
 	/* dialing information */
 	if (mncc->fields & MNCC_F_CALLED) {
 		SCAT(p_dialinginfo.id, mncc->called.number);
@@ -280,7 +280,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	modify_lchan(RTP_PT_GSM_FULL);
 
 	/* send call proceeding */
-	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);
 	proceeding = create_mncc(MNCC_CALL_CONF_REQ, p_g_callref);
 	/* bearer capability (mandatory, if not present in setup message) */
 	if (!(mncc->fields & MNCC_F_BEARER_CAP)) {
@@ -302,7 +302,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	new_state(PORT_STATE_IN_PROCEEDING);
 
 	if (p_g_tones && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -450,7 +450,7 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 
 	/* no instance */
 	if (!p_g_lcr_gsm || p_g_lcr_gsm->mncc_lfd.fd < 0) {
-		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "MS %s instance is unavailable", p_g_ms_name);
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -464,7 +464,7 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 	
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
-		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "No dialed subscriber given.");
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -487,12 +487,12 @@ void Pgsm_ms::message_setup(unsigned int epoint_id, int message_id, union parame
 		epointlist_new(epoint_id);
 
 	/* creating l3id */
-	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, 0, DIRECTION_OUT);
 	p_g_callref = new_callref++;
 	add_trace("callref", "new", "0x%x", p_g_callref);
 	end_trace();
 
-	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 	mncc = create_mncc(MNCC_SETUP_REQ, p_g_callref);
 	if (!strncasecmp(p_dialinginfo.id, "emerg", 5)) {
 		mncc->emergency = 1;
@@ -574,7 +574,7 @@ void Pgsm_ms::dtmf_statemachine(struct gsm_mncc *mncc)
 			p_g_dtmf_state = DTMF_ST_IDLE;
 			return;
 		}
-		gsm_trace_header(p_g_interface_name, this, MNCC_START_DTMF_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_START_DTMF_REQ, DIRECTION_OUT);
 		dtmf = create_mncc(MNCC_START_DTMF_REQ, p_g_callref);
 		dtmf->keypad = p_g_dtmf[p_g_dtmf_index++];
 		p_g_dtmf_state = DTMF_ST_START;
@@ -593,7 +593,7 @@ void Pgsm_ms::dtmf_statemachine(struct gsm_mncc *mncc)
 		PDEBUG(DEBUG_GSM, "DTMF is on\n");
 		break;
 	case DTMF_ST_MARK:
-		gsm_trace_header(p_g_interface_name, this, MNCC_STOP_DTMF_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_STOP_DTMF_REQ, DIRECTION_OUT);
 		dtmf = create_mncc(MNCC_STOP_DTMF_REQ, p_g_callref);
 		p_g_dtmf_state = DTMF_ST_STOP;
 		end_trace();

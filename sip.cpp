@@ -35,7 +35,7 @@ static int delete_event(struct lcr_work *work, void *instance, int index);
 /*
  * initialize SIP port
  */
-Psip::Psip(int type, char *portname, struct port_settings *settings, struct interface *interface) : Port(type, portname, settings)
+Psip::Psip(int type, char *portname, struct port_settings *settings, struct interface *interface) : Port(type, portname, settings, interface)
 {
 	p_s_rtp_bridge = 0;
 	if (interface->rtp_bridge)

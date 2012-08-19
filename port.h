@@ -177,7 +177,7 @@ class Port
 {
 	public:
 	/* methods */
-	Port(int type, const char *portname, struct port_settings *settings);
+	Port(int type, const char *portname, struct port_settings *settings, struct interface *interface);
 	virtual ~Port();
 	class Port *next;			/* next port in list */
 	int p_type;				/* type of port */
@@ -188,6 +188,7 @@ class Port
 	virtual void update_load(void);
 
 	struct port_settings p_settings;
+	char p_interface_name[64];
 	
 	/* tone */
 	char p_tone_dir[256];			/* name of current directory */

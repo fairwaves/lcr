@@ -28,7 +28,7 @@ static int delete_event(struct lcr_work *work, void *instance, int index);
 /*
  * constructor
  */
-Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, channel, exclusive, mode)
+Pdss1::Pdss1(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, struct interface *interface, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, interface, channel, exclusive, mode)
 {
 	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_m_d_ntmode = mISDNport->ntmode;
@@ -3043,7 +3043,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		case MT_SETUP:
 		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT)))
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, mISDNport->ifport->interface, 0, 0, B_MODE_TRANSPARENT)))
 
 			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(cmd, pid, l3m);
@@ -3052,7 +3052,7 @@ int stack2manager(struct mISDNport *mISDNport, unsigned int cmd, unsigned int pi
 		case MT_RESUME:
 		/* creating port object, transparent until setup with hdlc */
 		SPRINT(name, "%s-%d-in", mISDNport->ifport->interface->name, mISDNport->portnum);
-		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, 0, 0, B_MODE_TRANSPARENT)))
+		if (!(pdss1 = new Pdss1(PORT_TYPE_DSS1_NT_IN, mISDNport, name, NULL, mISDNport->ifport->interface, 0, 0, B_MODE_TRANSPARENT)))
 			FATAL("Cannot create Port instance.\n");
 		pdss1->message_isdn(cmd, pid, l3m);
 		break;

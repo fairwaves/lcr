@@ -34,7 +34,6 @@ class Pgsm : public Port
 	Pgsm(int type, char *portname, struct port_settings *settings, struct interface *interface);
 	~Pgsm();
 
-	char p_g_interface_name[64];
 	signed short p_g_samples[160]; /* last received audi packet */
 	int p_g_tones; /* set, if tones are to be generated */
 	int p_g_earlyb; /* set, if patterns are available */

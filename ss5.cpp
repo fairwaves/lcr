@@ -252,7 +252,7 @@ void ss5_create_channel(struct mISDNport *mISDNport, int i)
 	memset(&port_settings, 0, sizeof(port_settings));
 	SCPY(port_settings.tones_dir, options.tones_dir);
 
-	ss5port = new Pss5(PORT_TYPE_SS5_IDLE, mISDNport, portname, &port_settings, i + (i>=15) + 1, 1, B_MODE_TRANSPARENT);
+	ss5port = new Pss5(PORT_TYPE_SS5_IDLE, mISDNport, portname, &port_settings, mISDNport->ifport->interface, i + (i>=15) + 1, 1, B_MODE_TRANSPARENT);
 	if (!ss5port)
 		FATAL("No memory for Pss5 class.\n");
 	if (!ss5port->p_m_b_channel)
@@ -338,7 +338,7 @@ int queue_event(struct lcr_work *work, void *instance, int index);
 /*
  * constructor
  */
-Pss5::Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, channel, exclusive, mode)
+Pss5::Pss5(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, struct interface *interface, int channel, int exclusive, int mode) : PmISDN(type, mISDNport, portname, settings, interface, channel, exclusive, mode)
 {
 	p_callerinfo.itype = (mISDNport->ifport->interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_m_s_state = SS5_STATE_IDLE;

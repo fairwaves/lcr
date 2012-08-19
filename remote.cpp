@@ -16,14 +16,13 @@ unsigned int new_remote = 1000;
 /*
  * constructor
  */
-Premote::Premote(int type, char *portname, struct port_settings *settings, struct interface *interface, int remote_id) : Port(type, portname, settings)
+Premote::Premote(int type, char *portname, struct port_settings *settings, struct interface *interface, int remote_id) : Port(type, portname, settings, interface)
 {
 	union parameter param;
 
 	p_callerinfo.itype = (interface->extension)?INFO_ITYPE_ISDN_EXTENSION:INFO_ITYPE_ISDN;
 	p_r_ref = new_remote++;
 	SCPY(p_r_remote_app, interface->remote_app);
-	SCPY(p_r_interface_name, interface->name);
 	p_r_tones = (interface->is_tones == IS_YES);
 
 	/* send new ref to remote socket */
@@ -59,9 +58,9 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 	switch (message_type) {
 	case MESSAGE_SETUP:
 		struct interface *interface;
-		interface = getinterfacebyname(p_r_interface_name);
+		interface = getinterfacebyname(p_interface_name);
 		if (!interface) {
-			PERROR("Cannot find interface %s.\n", p_r_interface_name);
+			PERROR("Cannot find interface %s.\n", p_interface_name);
 			return 0;
 		}
 		/* attach only if not already */
@@ -133,9 +132,9 @@ void Premote::message_remote(int message_type, union parameter *param)
 		break;
 
 	case MESSAGE_SETUP:
-		interface = getinterfacebyname(p_r_interface_name);
+		interface = getinterfacebyname(p_interface_name);
 		if (!interface) {
-			PERROR("Cannot find interface %s.\n", p_r_interface_name);
+			PERROR("Cannot find interface %s.\n", p_interface_name);
 			return;
 		}
 

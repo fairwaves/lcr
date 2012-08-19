@@ -100,7 +100,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event);
 class PmISDN : public Port
 {
 	public:
-	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode);
+	PmISDN(int type, struct mISDNport *mISDNport, char *portname, struct port_settings *settings, struct interface *interface, int channel, int exclusive, int mode);
 	~PmISDN();
 	void bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len);
 	void transmit(unsigned char *buffer, int length);

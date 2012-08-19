@@ -122,7 +122,7 @@ int load_timer(struct lcr_timer *timer, void *instance, int index);
 /*
  * constructor
  */
-PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_settings *settings, int channel, int exclusive, int mode) : Port(type, portname, settings)
+PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_settings *settings, struct interface *interface, int channel, int exclusive, int mode) : Port(type, portname, settings, interface)
 {
 	p_m_mISDNport = mISDNport;
 	p_m_portnum = mISDNport->portnum;

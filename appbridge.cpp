@@ -193,7 +193,7 @@ fail:
 			port = ss5_hunt_line(mISDNport);
 		else
 #endif
-		port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, channel, mISDNport->ifport->channel_force, mode);
+		port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
 		earlyb = mISDNport->earlyb;
 #else
 		trace_header("INTERFACE (has no function)", DIRECTION_NONE);

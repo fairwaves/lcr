@@ -90,7 +90,7 @@ void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct 
 	unsigned char payload_types[8];
 	int payloads = 0;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	if (mncc->fields & MNCC_F_CAUSE) {
 		add_trace("cause", "coding", "%d", mncc->cause.coding);
 		add_trace("cause", "location", "%", mncc->cause.location);
@@ -132,7 +132,7 @@ void Pgsm_bs::call_conf_ind(unsigned int msg_type, unsigned int callref, struct 
 			message_put(message);
 			/* send release */
 			mncc = create_mncc(MNCC_REL_REQ, p_g_callref);
-			gsm_trace_header(p_g_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
+			gsm_trace_header(p_interface_name, this, MNCC_REL_REQ, DIRECTION_OUT);
 			mncc->fields |= MNCC_F_CAUSE;
 			mncc->cause.coding = 3;
 			mncc->cause.location = LOCATION_PRIVATE_LOCAL;
@@ -163,14 +163,14 @@ void Pgsm_bs::start_dtmf_ind(unsigned int msg_type, unsigned int callref, struct
 {
 	struct gsm_mncc *resp;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	SPRINT(p_dialinginfo.id, "%c", mncc->keypad);
 	p_dialinginfo.ntype = INFO_NTYPE_UNKNOWN;
 
 	/* send resp */
-	gsm_trace_header(p_g_interface_name, this, MNCC_START_DTMF_RSP, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_START_DTMF_RSP, DIRECTION_OUT);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	resp = create_mncc(MNCC_START_DTMF_RSP, p_g_callref);
@@ -229,12 +229,12 @@ void Pgsm_bs::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct 
 {
 	struct gsm_mncc *resp;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 
 	/* send resp */
-	gsm_trace_header(p_g_interface_name, this, MNCC_STOP_DTMF_RSP, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_STOP_DTMF_RSP, DIRECTION_OUT);
 	add_trace("keypad", NULL, "%c", mncc->keypad);
 	end_trace();
 	resp = create_mncc(MNCC_STOP_DTMF_RSP, p_g_callref);
@@ -251,7 +251,7 @@ void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	struct lcr_msg *message;
 	struct gsm_mncc *resp, *frame;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	/* notify the hold of call */
@@ -261,14 +261,14 @@ void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message_put(message);
 
 	/* acknowledge hold */
-	gsm_trace_header(p_g_interface_name, this, MNCC_HOLD_CNF, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_HOLD_CNF, DIRECTION_OUT);
 	end_trace();
 	resp = create_mncc(MNCC_HOLD_CNF, p_g_callref);
 	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
 	/* disable audio */
 	if (p_g_tch_connected) { /* it should be true */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_DROP, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_DROP, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_DROP, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -283,7 +283,7 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	struct lcr_msg *message;
 	struct gsm_mncc *resp, *frame;
 
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
 	/* notify the retrieve of call */
@@ -293,14 +293,14 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message_put(message);
 
 	/* acknowledge retr */
-	gsm_trace_header(p_g_interface_name, this, MNCC_RETRIEVE_CNF, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_RETRIEVE_CNF, DIRECTION_OUT);
 	end_trace();
 	resp = create_mncc(MNCC_RETRIEVE_CNF, p_g_callref);
 	send_and_free_mncc(p_g_lcr_gsm, resp->msg_type, resp);
 
 	/* enable audio */
 	if (!p_g_tch_connected) { /* it should be true */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -320,7 +320,7 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 
 	*payloads = 0;
 
-	gsm_trace_header(p_g_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
+	gsm_trace_header(p_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
 	if ((mncc->fields & MNCC_F_BEARER_CAP)) {
 		/* select preferred payload type from list */
 		int i;
@@ -403,21 +403,21 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	unsigned char payload_types[8];
 	int payloads = 0;
 
-	interface = getinterfacebyname(p_g_interface_name);
+	interface = getinterfacebyname(p_interface_name);
 	if (!interface) {
-		PERROR("Cannot find interface %s.\n", p_g_interface_name);
+		PERROR("Cannot find interface %s.\n", p_interface_name);
 		return;
 	}
 
 	/* process given callref */
-	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, 0, DIRECTION_IN);
 	add_trace("callref", "new", "0x%x", callref);
 	if (p_g_callref) {
 		/* release in case the ID is already in use */
 		add_trace("error", NULL, "callref already in use");
 		end_trace();
 		mncc = create_mncc(MNCC_REJ_REQ, callref);
-		gsm_trace_header(p_g_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->fields |= MNCC_F_CAUSE;
 		mncc->cause.coding = 3;
 		mncc->cause.location = 1;
@@ -447,7 +447,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	SCPY(p_callerinfo.imsi, mncc->imsi);
 	p_callerinfo.screen = INFO_SCREEN_NETWORK;
 	p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
-	SCPY(p_callerinfo.interface, p_g_interface_name);
+	SCPY(p_callerinfo.interface, p_interface_name);
 
 	/* dialing information */
 	SCAT(p_dialinginfo.id, mncc->called.number);
@@ -490,7 +490,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	/* if no given payload type is supported, we reject the call */
 	if (!payloads) {
 		mncc = create_mncc(MNCC_REJ_REQ, callref);
-		gsm_trace_header(p_g_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_REJ_REQ, DIRECTION_OUT);
 		mncc->fields |= MNCC_F_CAUSE;
 		mncc->cause.coding = 3;
 		mncc->cause.location = 1;
@@ -510,7 +510,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	/* useruser */
 
 	/* what infos did we got ... */
-	gsm_trace_header(p_g_interface_name, this, msg_type, DIRECTION_IN);
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	if (p_callerinfo.id[0])
 		add_trace("calling", "number", "%s", p_callerinfo.id);
 	else
@@ -532,7 +532,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 		modify_lchan(media_types[0]);
 
 	/* send call proceeding */
-	gsm_trace_header(p_g_interface_name, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_CALL_PROC_REQ, DIRECTION_OUT);
 	proceeding = create_mncc(MNCC_CALL_PROC_REQ, p_g_callref);
 	if (p_g_tones) {
 		proceeding->fields |= MNCC_F_PROGRESS;
@@ -549,7 +549,7 @@ void Pgsm_bs::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	new_state(PORT_STATE_IN_PROCEEDING);
 
 	if (p_g_tones && !p_g_tch_connected) { /* only if ... */
-		gsm_trace_header(p_g_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_FRAME_RECV, DIRECTION_OUT);
 		end_trace();
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
@@ -755,7 +755,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 
 	/* no GSM MNCC connection */
 	if (p_g_lcr_gsm->mncc_lfd.fd < 0) {
-		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "No MNCC connection.");
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -769,7 +769,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 
 	/* no number */
 	if (!p_dialinginfo.id[0]) {
-		gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+		gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 		add_trace("failure", NULL, "No dialed subscriber given.");
 		end_trace();
 		message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -786,7 +786,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		int i;
 
 		p_g_rtp_payloads = 0;
-		gsm_trace_header(p_g_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
+		gsm_trace_header(p_interface_name, this, 1 /* codec negotioation */, DIRECTION_NONE);
 		for (i = 0; i < param->setup.rtpinfo.payloads; i++) {
 			switch (param->setup.rtpinfo.media_types[i]) {
 			case MEDIA_TYPE_GSM:
@@ -806,7 +806,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		}
 		end_trace();
 		if (!p_g_rtp_payloads) {
-			gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+			gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 			add_trace("failure", NULL, "No payload given that is supported by GSM");
 			end_trace();
 			message = message_create(p_serial, epoint_id, PORT_TO_EPOINT, MESSAGE_RELEASE);
@@ -821,7 +821,7 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 
 //		SCPY(&p_m_tones_dir, param->setup.ext.tones_dir);
 	/* screen outgoing caller id */
-	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_g_interface_name);
+	do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_interface_name);
 
 	/* attach only if not already */
 	epointlist = p_epointlist;
@@ -834,12 +834,12 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		epointlist_new(epoint_id);
 
 	/* creating l3id */
-	gsm_trace_header(p_g_interface_name, this, 0, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, 0, DIRECTION_OUT);
 	p_g_callref = new_callref++;
 	add_trace("callref", "new", "0x%x", p_g_callref);
 	end_trace();
 
-	gsm_trace_header(p_g_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
+	gsm_trace_header(p_interface_name, this, MNCC_SETUP_REQ, DIRECTION_OUT);
 	mncc = create_mncc(MNCC_SETUP_REQ, p_g_callref);
 	/* caller information */
 	mncc->fields |= MNCC_F_CALLING;

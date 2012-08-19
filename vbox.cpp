@@ -23,7 +23,7 @@ int record_timeout(struct lcr_timer *timer, void *instance, int index);
 /*
  * initialize vbox port
  */
-VBoxPort::VBoxPort(int type, struct port_settings *settings) : Port(type, "vbox", settings)
+VBoxPort::VBoxPort(int type, struct port_settings *settings) : Port(type, "vbox", settings, NULL)
 {
 	p_vbox_timeout = 0;
 	p_vbox_announce_fh = -1;
