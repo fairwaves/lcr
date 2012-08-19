@@ -137,6 +137,10 @@ void Premote::message_remote(int message_type, union parameter *param)
 	switch (message_type) {
 	case MESSAGE_TRAFFIC:
 		bridge_tx(param->traffic.data, param->traffic.len);
+		if (p_tone_name[0]) {
+			read_audio(param->traffic.data, param->traffic.len);
+			admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_TRAFFIC, param);
+		}
 		break;
 
 	case MESSAGE_SETUP:
@@ -214,6 +218,9 @@ int Premote::bridge_rx(unsigned char *data, int len)
 	if (!p_r_tones
 	 && p_state != PORT_STATE_CONNECT)
 	 	return 0;
+
+	if (p_tone_name[0])
+		return 0;
 
 	memset(&newparam, 0, sizeof(union parameter));
 	/* split, if exeeds data size */
