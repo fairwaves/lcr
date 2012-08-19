@@ -646,8 +646,6 @@ static void send_setup_to_lcr(struct chan_call *call)
 		strncpy(newparam.setup.dialinginfo.keypad, call->dialstring, sizeof(newparam.setup.dialinginfo.keypad)-1);
 	else
 		strncpy(newparam.setup.dialinginfo.id, call->dialstring, sizeof(newparam.setup.dialinginfo.id)-1);
-	if (!!strcmp(call->interface, "pbx"))
-		strncpy(newparam.setup.dialinginfo.interfaces, call->interface, sizeof(newparam.setup.dialinginfo.interfaces)-1);
 	newparam.setup.callerinfo.itype = INFO_ITYPE_CHAN;
 	newparam.setup.callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 	strncpy(newparam.setup.callerinfo.display, call->display, sizeof(newparam.setup.callerinfo.display)-1);
@@ -2425,6 +2423,7 @@ static int lcr_call(struct ast_channel *ast, char *dest, int timeout)
 	/* send MESSAGE_NEWREF */
 	memset(&newparam, 0, sizeof(union parameter));
 	newparam.newref.direction = 0; /* request from app */
+	strncpy(newparam.newref.interface, call->interface, sizeof(newparam.newref.interface) - 1);
 	send_message(MESSAGE_NEWREF, 0, &newparam);
 
 	/* set hdlc if capability requires hdlc */

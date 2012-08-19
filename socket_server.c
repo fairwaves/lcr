@@ -618,23 +618,42 @@ int admin_message_to_lcr(struct admin_msg *msg, struct admin_list *admin)
 		return(-1);
 	}
 
-	/* new join. the reply (NEWREF assignment) is sent from constructor */
+	/* new remote instance. the reply (NEWREF assignment) is sent from constructor */
 	if (msg->type == MESSAGE_NEWREF) {
 		char name[32];
 		/* find remote port */
 		interface = interface_first;
 		while(interface) {
-			if (interface->remote && !strcmp(interface->remote_app, admin->remote_name))
-				break;
+			/* interface must match the remote application */
+			if (interface->remote && !strcmp(interface->remote_app, admin->remote_name)) {
+				/* interface must match the name, if given */
+				if (!msg->param.newref.interface[0] || !strcmp(msg->param.newref.interface, interface->name))
+					break;
+			}
 			interface = interface->next;
 		}
 		if (!interface) {
 			union parameter param;
+			unsigned int ref = new_remote++;
 
+			start_trace(-1,
+				NULL,
+				NULL,
+				NULL,
+				DIRECTION_NONE,
+				0,
+				0,
+				"REMOTE APP illegal interface");
+			add_trace("app", "name", "%s", admin->remote_name);
+			add_trace("interface", "name", "%s", msg->param.newref.interface);
+			end_trace();
+			memset(&param, 0, sizeof(union parameter));
+			param.newref.direction = 0;
+			admin_message_from_lcr(admin->sock, ref, MESSAGE_NEWREF, &param);
 			memset(&param, 0, sizeof(union parameter));
 			param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
 			param.disconnectinfo.cause = CAUSE_RESSOURCEUNAVAIL;
-			admin_message_from_lcr(admin->sock, 0, MESSAGE_RELEASE, &param);
+			admin_message_from_lcr(admin->sock, ref, MESSAGE_RELEASE, &param);
 			return 0;
 		}
 		/* creating port object, transparent until setup with hdlc */

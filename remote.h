@@ -1,3 +1,4 @@
+extern unsigned int new_remote;
 
 /* GSM port class */
 class Premote : public Port

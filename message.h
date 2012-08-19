@@ -336,6 +336,7 @@ struct param_bchannel {
 
 struct param_newref {
         int direction; /* who requests a refe? */
+	char interface[32]; /* interface name for selecting remote interface */
 };
 
 struct param_traffic {
