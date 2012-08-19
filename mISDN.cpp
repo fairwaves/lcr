@@ -651,6 +651,7 @@ void bchannel_event(struct mISDNport *mISDNport, int i, int event)
 				_bchannel_configure(mISDNport, i);
 				state = B_STATE_ACTIVE;
 				b_port->p_m_load = 0;
+				b_port->update_load();
 			} else {
 				/* bchannel is active, but not used anymore (or has wrong stack config), so we deactivate */
 				_bchannel_activate(mISDNport, i, 0, 0);
@@ -913,10 +914,6 @@ on empty load, remote-audio causes the load with the remote audio to be increase
  */
 void PmISDN::update_load(void)
 {
-	/* don't trigger load event if: */
-	if (!p_tone_name[0] && !p_m_crypt_msg_loops && !p_m_inband_send_on && !(p_bridge && p_m_disable_dejitter && p_m_preload > 0))
-		return;
-
 	/* don't trigger load event if event already active */
 	if (p_m_loadtimer.active)
 		return;
@@ -950,7 +947,10 @@ void PmISDN::load_tx(void)
 	p_m_last_tv_msec = current_time.tv_usec/1000;
 
 	/* process only if we have samples and we are active */
-	if (elapsed && p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE) {
+	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_ACTIVE)
+		return;
+
+	if (elapsed) {
 		/* update load */
 		if (elapsed < p_m_load)
 			p_m_load -= elapsed;
@@ -1015,9 +1015,7 @@ void PmISDN::load_tx(void)
 		}
 	}
 
-	if (p_tone_name[0] || p_m_crypt_msg_loops || p_m_inband_send_on || p_m_load) {
-		schedule_timer(&p_m_loadtimer, 0, PORT_TRANSMIT * 125);
-	}
+	schedule_timer(&p_m_loadtimer, 0, PORT_TRANSMIT * 125);
 }
 
 /* handle timeouts */
@@ -1398,7 +1396,6 @@ void PmISDN::message_crypt(unsigned int epoint_id, int message_id, union paramet
 		p_m_crypt_msg_current = 0; /* reset */
 		p_m_crypt_msg_loops = 6; /* enable */
 		update_rxoff();
-		update_load();
 #if 0
 		/* disable txmix, or we get corrupt data due to audio process */
 		if (p_m_txmix && p_m_b_index>=0 && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT) {
@@ -1500,7 +1497,7 @@ void PmISDN::update_rxoff(void)
 		tx_dejitter = 1;
 	if (p_m_tx_dejitter != tx_dejitter) {
 		p_m_tx_dejitter = tx_dejitter;
-		PDEBUG(DEBUG_BCHANNEL, "we change dejitter mode to delay=%d.\n", p_m_tx_dejitter);
+		PDEBUG(DEBUG_BCHANNEL, "we change dejitter mode to %s.\n", (p_m_tx_dejitter) ? "on" : "off");
 		if (p_m_b_index > -1)
 			if (p_m_mISDNport->b_state[p_m_b_index] == B_STATE_ACTIVE && p_m_mISDNport->b_mode[p_m_b_index] == B_MODE_TRANSPARENT)
 				ph_control(p_m_mISDNport, this, p_m_mISDNport->b_sock[p_m_b_index].fd, DSP_TX_DEJITTER, p_m_tx_dejitter, "DSP-TX_DEJITTER", p_m_tx_dejitter);
@@ -2165,10 +2162,6 @@ int PmISDN::bridge_rx(unsigned char *data, int length)
 	if (p_m_mISDNport->b_state[p_m_b_index] != B_STATE_ACTIVE)
 		return -EINVAL;
 
-	/* run load-timer when bridged and dejitter is disabled */
-	if (!p_m_loadtimer.active && p_m_disable_dejitter && p_m_preload > 0)
-		update_load();
-
 	/* check if high priority tones exist
 	 * ignore data in this case
 	 */
@@ -2222,8 +2215,6 @@ void PmISDN::inband_send_on(void)
 {
 	PDEBUG(DEBUG_PORT, "turning inband signalling send on.\n");
 	p_m_inband_send_on = 1;
-	/* trigger inband transmit */
-	update_load();
 }
 
 void PmISDN::inband_send_off(void)
