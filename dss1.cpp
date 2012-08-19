@@ -2327,17 +2327,17 @@ void Pdss1::message_3pty(unsigned int epoint_id, int message_id, union parameter
 	if (param->threepty.result) {
 		fac.comp = CompReturnResult;
 		fac.u.retResult.invokeId = param->threepty.invoke_id;
+		fac.u.retResult.operationValuePresent = 1;
+		if (param->threepty.begin)
+			fac.u.retResult.operationValue = Fac_Begin3PTY;
+		if (param->threepty.end)
+			fac.u.retResult.operationValue = Fac_End3PTY;
 	}
 	if (param->threepty.error) {
 		fac.comp = CompReturnError;
 		fac.u.retError.invokeId = param->threepty.invoke_id;
 		fac.u.retError.errorValue = FacError_Gen_InvalidCallState;
 	}
-	fac.u.retResult.operationValuePresent = 1;
-	if (param->threepty.begin)
-		fac.u.retResult.operationValue = Fac_Begin3PTY;
-	if (param->threepty.end)
-		fac.u.retResult.operationValue = Fac_End3PTY;
 	encodeFac(fac_ie, &fac);
 
 	/* sending facility */
