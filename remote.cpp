@@ -80,6 +80,14 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 			else
 				SCPY(param->setup.dialinginfo.context, "lcr");
 		}
+		/* screen */
+		memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
+		memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
+		do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_interface_name);
+		do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_interface_name);
+		do_screen(1, p_redirinfo.id, sizeof(p_redirinfo.id), &p_redirinfo.ntype, &p_redirinfo.present, p_interface_name);
+		memcpy(&param->setup.callerinfo, &p_callerinfo, sizeof(p_callerinfo));
+		memcpy(&param->setup.redirinfo, &p_redirinfo, sizeof(p_redirinfo));
 
 		new_state(PORT_STATE_OUT_SETUP);
 		break;
