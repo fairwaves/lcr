@@ -4069,6 +4069,10 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 			add_trace("from", NULL, "CH(%lu)", port_id);
 		if (param->setup.callerinfo.extension[0])
 			add_trace("extension", NULL, "%s", param->setup.callerinfo.extension);
+		if (param->setup.callerinfo.interface[0])
+			add_trace("interface", "from", "%s", param->setup.callerinfo.interface);
+		if (param->setup.dialinginfo.interfaces[0])
+			add_trace("interface", "to", "%s", param->setup.dialinginfo.interfaces);
 		add_trace("caller id", "number", "%s", numberrize_callerinfo(param->setup.callerinfo.id, param->setup.callerinfo.ntype, options.national, options.international));
 		switch(param->setup.callerinfo.present) {
 		      	case INFO_PRESENT_RESTRICTED:
