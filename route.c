@@ -1969,7 +1969,7 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				if (!e_callerinfo.interface[0])
 					break;
 				string = e_callerinfo.interface;
-				goto match_string_prefix;
+				goto match_string;
 
 				case MATCH_CALLERID:
 				string = callerid;
