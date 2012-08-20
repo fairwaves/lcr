@@ -313,7 +313,8 @@ static int rtcp_sock_callback(struct lcr_fd *fd, unsigned int what, void *instan
 }
 
 #define RTP_PORT_BASE	30000
-static unsigned int next_udp_port = RTP_PORT_BASE;
+#define RTP_PORT_MAX	39998
+static unsigned short next_udp_port = RTP_PORT_BASE;
 
 static int rtp_sub_socket_bind(int fd, struct sockaddr_in *sin_local, uint32_t ip, uint16_t port)
 {
@@ -353,13 +354,14 @@ static int rtp_sub_socket_connect(int fd, struct sockaddr_in *sin_local, struct 
 
 int Psip::rtp_open(void)
 {
-	int rc;
+	int rc, rc2;
 	struct in_addr ia;
 	unsigned int ip;
+	unsigned short start_port;
 
 	/* create socket */
 	rc = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (!rc) {
+	if (rc < 0) {
 		rtp_close();
 		return -EIO;
 	}
@@ -367,7 +369,7 @@ int Psip::rtp_open(void)
 	register_fd(&p_s_rtp_fd, LCR_FD_READ, rtp_sock_callback, this, 0);
 
 	rc = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (!rc) {
+	if (rc < 0) {
 		rtp_close();
 		return -EIO;
 	}
@@ -377,15 +379,34 @@ int Psip::rtp_open(void)
 	/* bind socket */
 	ip = htonl(INADDR_ANY);
 	ia.s_addr = ip;
-	for (next_udp_port = next_udp_port % 0xffff;
-	     next_udp_port < 0xffff; next_udp_port += 2) {
+	start_port = next_udp_port;
+	while (1) {
 		rc = rtp_sub_socket_bind(p_s_rtp_fd.fd, &p_s_rtp_sin_local, ip, next_udp_port);
 		if (rc != 0)
-			continue;
+			goto try_next_port;
 
 		rc = rtp_sub_socket_bind(p_s_rtcp_fd.fd, &p_s_rtcp_sin_local, ip, next_udp_port+1);
-		if (rc == 0)
+		if (rc == 0) {
+			next_udp_port = (next_udp_port + 2 > RTP_PORT_MAX) ? RTP_PORT_BASE : next_udp_port + 2;
 			break;
+		}
+		/* reopen rtp socket and try again with next udp port */
+		unregister_fd(&p_s_rtp_fd);
+		close(p_s_rtp_fd.fd);
+		p_s_rtp_fd.fd = 0;
+		rc2 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if (rc2 < 0) {
+			rtp_close();
+			return -EIO;
+		}
+		p_s_rtp_fd.fd = rc2;
+		register_fd(&p_s_rtp_fd, LCR_FD_READ, rtp_sock_callback, this, 0);
+
+try_next_port:
+		next_udp_port = (next_udp_port + 2 > RTP_PORT_MAX) ? RTP_PORT_BASE : next_udp_port + 2;
+		if (next_udp_port == start_port)
+			break;
+		/* we must use rc2, in order to preserve rc */
 	}
 	if (rc < 0) {
 		PDEBUG(DEBUG_SIP, "failed to find port\n");
