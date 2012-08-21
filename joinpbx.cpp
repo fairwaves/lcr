@@ -695,6 +695,26 @@ void JoinPBX::message_epoint(unsigned int epoint_id, int message_type, union par
 			}
 			break;
 
+			/* track notify */
+			case MESSAGE_NOTIFY:
+			switch(param->notifyinfo.notify) {
+				case INFO_NOTIFY_USER_SUSPENDED:
+				case INFO_NOTIFY_USER_RESUMED:
+				case INFO_NOTIFY_REMOTE_HOLD:
+				case INFO_NOTIFY_REMOTE_RETRIEVAL:
+				case INFO_NOTIFY_CONFERENCE_ESTABLISHED:
+				case INFO_NOTIFY_CONFERENCE_DISCONNECTED:
+				new_state = track_notify(relation->rx_state, param->notifyinfo.notify);
+				if (new_state != relation->rx_state) {
+					relation->rx_state = new_state;
+					trigger_work(&j_updatebridge);
+					if (options.deb & DEBUG_JOIN)
+						joinpbx_debug(this, "Join::message_epoint{after setting new rx state}");
+				}
+				break;
+			}
+			break;
+
 			case MESSAGE_DISCONNECT:
 			PDEBUG(DEBUG_JOIN, "releasing after receiving disconnect, because join in partyline mode.\n");
 			message = message_create(j_serial, epoint_id, JOIN_TO_EPOINT, MESSAGE_RELEASE);
