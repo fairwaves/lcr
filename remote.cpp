@@ -80,9 +80,11 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 			else
 				SCPY(param->setup.dialinginfo.context, "lcr");
 		}
-		/* screen */
+		memcpy(&p_dialinginfo, &param->setup.dialinginfo, sizeof(p_dialinginfo));
+		memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
 		memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
 		memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
+		/* screen */
 		do_screen(1, p_callerinfo.id, sizeof(p_callerinfo.id), &p_callerinfo.ntype, &p_callerinfo.present, p_interface_name);
 		do_screen(1, p_callerinfo.id2, sizeof(p_callerinfo.id2), &p_callerinfo.ntype2, &p_callerinfo.present2, p_interface_name);
 		do_screen(1, p_redirinfo.id, sizeof(p_redirinfo.id), &p_redirinfo.ntype, &p_redirinfo.present, p_interface_name);
@@ -101,6 +103,7 @@ int Premote::message_epoint(unsigned int epoint_id, int message_type, union para
 		break;
 
 	case MESSAGE_CONNECT:
+		memcpy(&p_connectinfo, &param->connectinfo, sizeof(p_connectinfo));
 		new_state(PORT_STATE_CONNECT);
 		break;
 
@@ -172,6 +175,11 @@ void Premote::message_remote(int message_type, union parameter *param)
 
 		epointlist_new(epoint->ep_serial);
 
+		memcpy(&p_dialinginfo, &param->setup.dialinginfo, sizeof(p_dialinginfo));
+		memcpy(&p_capainfo, &param->setup.capainfo, sizeof(p_capainfo));
+		memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
+		memcpy(&p_redirinfo, &param->setup.redirinfo, sizeof(p_redirinfo));
+
 		new_state(PORT_STATE_IN_SETUP);
 		break;
 
@@ -184,6 +192,7 @@ void Premote::message_remote(int message_type, union parameter *param)
 		break;
 
 	case MESSAGE_CONNECT:
+		memcpy(&p_connectinfo, &param->connectinfo, sizeof(p_connectinfo));
 		new_state(PORT_STATE_CONNECT);
 		break;
 
