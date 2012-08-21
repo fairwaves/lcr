@@ -254,6 +254,12 @@ void Pgsm::frame_receive(void *arg)
 		}
 	}
 
+	/* record data */
+	if (p_record)
+		record(data, 160, 0); // from down
+	if (p_tap)
+		tap(data, 160, 0); // from down
+
 	/* local echo */
 	if (p_echotest)
 		bridge_rx(data, 160);
@@ -274,6 +280,12 @@ int Pgsm::bridge_rx(unsigned char *data, int len)
 int Pgsm::audio_send(unsigned char *data, int len)
 {
 	unsigned char frame[33];
+
+	/* record data */
+	if (p_record)
+		record(data, len, 1); // from up
+	if (p_tap)
+		tap(data, len, 1); // from up
 
 	/* encoder init failed */
 	if (!p_g_encoder)

@@ -179,6 +179,7 @@ Port::Port(int type, const char *portname, struct port_settings *settings, struc
 
 	/* call recording */
 	p_record = NULL;
+	p_tap = 0;
 	p_record_type = 0;
 	p_record_length = 0;
 	p_record_skip = 0;
@@ -1162,6 +1163,10 @@ different_again:
 	/* no data (maybe buffer) */
 	return;
 
+}
+
+void Port::tap(unsigned char *data, int length, int dir_fromup)
+{
 }
 
 void Port::update_rxoff(void)

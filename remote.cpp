@@ -139,9 +139,19 @@ void Premote::message_remote(int message_type, union parameter *param)
 
 	switch (message_type) {
 	case MESSAGE_TRAFFIC:
+		/* record audio */
+		if (p_record)
+			record(param->traffic.data, param->traffic.len, 0); // from down
+		if (p_tap)
+			tap(param->traffic.data, param->traffic.len, 0); // from down
 		bridge_tx(param->traffic.data, param->traffic.len);
 		if (p_tone_name[0]) {
 			read_audio(param->traffic.data, param->traffic.len);
+			/* record audio */
+			if (p_record)
+				record(param->traffic.data, param->traffic.len, 1); // from up
+			if (p_tap)
+				tap(param->traffic.data, param->traffic.len, 1); // from up
 			admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_TRAFFIC, param);
 		}
 		return;
@@ -239,6 +249,11 @@ int Premote::bridge_rx(unsigned char *data, int len)
 		len -= l;
 		memcpy(newparam.traffic.data, data, l);
 		data += l;
+		/* record audio */
+		if (p_record)
+			record(data, len, 1); // from up
+		if (p_tap)
+			tap(data, len, 1); // from up
 		admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_TRAFFIC, &newparam);
 	}
 

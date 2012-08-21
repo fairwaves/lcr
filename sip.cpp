@@ -257,6 +257,12 @@ we only support alaw and ulaw!
 		return 0;
 	}
 
+	/* record audio */
+	if (psip->p_record)
+		psip->record(payload, payload_len, 0); // from down
+	if (psip->p_tap)
+		psip->tap(payload, payload_len, 0); // from down
+
 	n = payload_len;
 	from = payload;
 	to = payload;
@@ -486,6 +492,12 @@ int Psip::rtp_send_frame(unsigned char *data, unsigned int len, uint8_t payload_
 	int payload_len;
 	int duration; /* in samples */
 	unsigned char buffer[256];
+
+	/* record audio */
+	if (p_record)
+		record(data, len, 1); // from up
+	if (p_tap)
+		tap(data, len, 1); // from up
 
 	if (!p_s_rtp_is_connected) {
 		/* drop silently */

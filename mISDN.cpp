@@ -1113,6 +1113,8 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 //		printf(".");fflush(stdout);return;
 		if (p_record)
 			record(data, len, 1); // from up
+		if (p_tap)
+			tap(data, len, 1); // from up
 		return;
 	}
 	if (hh->prim != PH_DATA_IND && hh->prim != DL_DATA_IND) {
@@ -1153,6 +1155,8 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 	/* record data */
 	if (p_record)
 		record(data, len, 0); // from down
+	if (p_tap)
+		tap(data, len, 0); // from down
 
 	/* randomize and listen to crypt message if enabled */
 	if (p_m_crypt_listen) {
@@ -1449,7 +1453,7 @@ void PmISDN::update_rxoff(void)
 	int tx_dejitter = 0;
 
 	/* call bridges in user space OR crypto OR recording */
-	if (p_bridge || p_m_crypt_msg_loops || p_m_crypt_listen || p_record || p_m_inband_receive_on) {
+	if (p_bridge || p_m_crypt_msg_loops || p_m_crypt_listen || p_record || p_tap || p_m_inband_receive_on) {
 		/* rx IS required */
 		if (p_m_rxoff) {
 			/* turn on RX */
@@ -1470,8 +1474,8 @@ void PmISDN::update_rxoff(void)
 					ph_control(p_m_mISDNport, this, p_m_mISDNport->b_sock[p_m_b_index].fd, DSP_RECEIVE_OFF, 0, "DSP-RXOFF", 1);
 		}
 	}
-	/* recording */
-	if (p_record) {
+	/* recording / tapping */
+	if (p_record || p_tap) {
 		/* txdata IS required */
 		if (!p_m_txdata) {
 			/* turn on RX */

@@ -231,11 +231,13 @@ class Port
 	struct capa_info p_capainfo;	/* info on l2,l3 capacity */
 	int p_echotest;				/* set to echo audio data FROM port back to port's mixer */
 
-	/* recording */
+	/* recording/tapping */
 	int open_record(int type, int mode, int skip, char *terminal, int anon_ignore, const char *vbox_email, int vbox_email_file);
 	void close_record(int beep, int mute);
 	void record(unsigned char *data, int length, int dir_fromup);
+	void tap(unsigned char *data, int length, int dir_fromup);
 	FILE *p_record;				/* recording fp: if not NULL, recording is enabled */
+	unsigned int p_tap;			/* enpoint to send tapping audio to */
 	int p_record_type;			/* codec to use: RECORD_MONO, RECORD_STEREO, ... */
 	int p_record_skip;			/* skip bytes before writing the sample */
 	unsigned int p_record_length;		/* size of what's written so far */
