@@ -2229,8 +2229,6 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
 
 	struct lcr_msg *message;
-	const char *logtext = "";
-	char buffer[64];
 
 	/* signal to call tool */
 	admin_call_response(e_adminid, ADMIN_CALL_NOTIFY, numberrize_callerinfo(param->notifyinfo.id,param->notifyinfo.ntype, options.national, options.international), 0, 0, param->notifyinfo.notify);
@@ -2272,86 +2270,6 @@ void EndpointAppPBX::port_notify(struct port_list *portlist, int message_type, u
 			message_put(message);
 		}
 		break;
-	}
-
-	/* get name of notify */
-	switch(param->notifyinfo.notify) {
-		case 0x00:
-		logtext = "NULL";
-		break;
-		case 0x80:
-		logtext = "USER_SUSPENDED";
-		break;
-		case 0x82:
-		logtext = "BEARER_SERVICE_CHANGED";
-		break;
-		case 0x81:
-		logtext = "USER_RESUMED";
-		break;
-		case 0xc2:
-		logtext = "CONFERENCE_ESTABLISHED";
-		break;
-		case 0xc3:
-		logtext = "CONFERENCE_DISCONNECTED";
-		break;
-		case 0xc4:
-		logtext = "OTHER_PARTY_ADDED";
-		break;
-		case 0xc5:
-		logtext = "ISOLATED";
-		break;
-		case 0xc6:
-		logtext = "REATTACHED";
-		break;
-		case 0xc7:
-		logtext = "OTHER_PARTY_ISOLATED";
-		break;
-		case 0xc8:
-		logtext = "OTHER_PARTY_REATTACHED";
-		break;
-		case 0xc9:
-		logtext = "OTHER_PARTY_SPLIT";
-		break;
-		case 0xca:
-		logtext = "OTHER_PARTY_DISCONNECTED";
-		break;
-		case 0xcb:
-		logtext = "CONFERENCE_FLOATING";
-		break;
-		case 0xcc:
-		logtext = "CONFERENCE_DISCONNECTED_PREEMTED";
-		break;
-		case 0xcf:
-		logtext = "CONFERENCE_FLOATING_SERVED_USER_PREEMTED";
-		break;
-		case 0xe0:
-		logtext = "CALL_IS_A_WAITING_CALL";
-		break;
-		case 0xe8:
-		logtext = "DIVERSION_ACTIVATED";
-		break;
-		case 0xe9:
-		logtext = "RESERVED_CT_1";
-		break;
-		case 0xea:
-		logtext = "RESERVED_CT_2";
-		break;
-		case 0xee:
-		logtext = "REVERSE_CHARGING";
-		break;
-		case 0xf9:
-		logtext = "REMOTE_HOLD";
-		break;
-		case 0xfa:
-		logtext = "REMOTE_RETRIEVAL";
-		break;
-		case 0xfb:
-		logtext = "CALL_IS_DIVERTING";
-		break;
-		default:
-		SPRINT(buffer, "%d", param->notifyinfo.notify - 0x80);
-		logtext = buffer;
-
 	}
 
 	/* notify call if available */
