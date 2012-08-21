@@ -144,7 +144,7 @@ void Premote::message_remote(int message_type, union parameter *param)
 			read_audio(param->traffic.data, param->traffic.len);
 			admin_message_from_lcr(p_r_remote_id, p_r_ref, MESSAGE_TRAFFIC, param);
 		}
-		break;
+		return;
 
 	case MESSAGE_SETUP:
 		interface = getinterfacebyname(p_interface_name);
