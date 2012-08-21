@@ -1000,8 +1000,8 @@ static void lcr_in_setup(struct chan_call *call, int message_type, union paramet
 		strncpy(ast->context, param->setup.callerinfo.interface, AST_MAX_CONTEXT-1);
 #else
 		ast_channel_exten_set(ast, param->setup.dialinginfo.id);
-	if (param->setup.context[0])
-		ast_channel_context_set(ast, param->setup.context);
+	if (param->setup.dialinginfo.context[0])
+		ast_channel_context_set(ast, param->setup.dialinginfo.context);
 	else
 		ast_channel_context_set(ast, param->setup.callerinfo.interface);
 #endif
