@@ -187,7 +187,6 @@ int main(int argc, char *argv[])
 #endif
 	char			tracetext[256], lock[128];
 	char			options_error[256];
-	int			polling = 0;
 
 #if 0
 	/* init fdset */
@@ -270,7 +269,6 @@ int main(int argc, char *argv[])
 		PERROR("%s", options_error);
 		goto free;
 	}
-	polling = options.polling;
 
 #ifdef WITH_MISDN
 	/* init mISDN */
@@ -372,7 +370,6 @@ int main(int argc, char *argv[])
 #ifdef WITH_SIP
 	/* init SIP globals */
 	sip_init();
-	polling = 1; /* must poll, because of SIP events */
 #endif
 
 #ifdef WITH_SS5
@@ -492,7 +489,11 @@ init is done when interface is up
 			usleep(10000);
 		}
 #else
+#ifdef WITH_SIP
+		if (options.polling || any_sip_interface) {
+#else
 		if (options.polling) {
+#endif
 			if (!select_main(1, NULL, NULL, NULL)) {
 #ifdef WITH_SIP
 				/* FIXME: check if work was done */

@@ -11,6 +11,8 @@
 
 #include <sofia-sip/nua.h>
 
+extern int any_sip_interface;
+
 /* SIP port class */
 class Psip : public Port
 {

@@ -19,6 +19,8 @@
 
 unsigned char flip[256];
 
+int any_sip_interface = 0;
+
 //pthread_mutex_t mutex_msg;
 su_home_t	sip_home[1];
 
@@ -1890,6 +1892,8 @@ int sip_init_inst(struct interface *interface)
 
 	PDEBUG(DEBUG_SIP, "SIP interface created (inst=%p)\n", inst);
 
+	any_sip_interface = 1;
+
 	return 0;
 }
 
@@ -1908,6 +1912,16 @@ void sip_exit_inst(struct interface *interface)
 	interface->sip_inst = NULL;
 
 	PDEBUG(DEBUG_SIP, "SIP interface removed\n");
+
+	/* check if there is any other SIP interface left */
+	interface = interface_first;
+	while (interface) {
+		if (interface->sip_inst)
+			break;
+		interface = interface->next;
+	}
+	if (!interface)
+		any_sip_interface = 0;
 }
 
 extern su_log_t su_log_default[];
