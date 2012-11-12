@@ -393,8 +393,9 @@ int Psip::rtp_open(void)
 		if (rc != 0)
 			goto try_next_port;
 
-		rc = rtp_sub_socket_bind(p_s_rtcp_fd.fd, &p_s_rtcp_sin_local, ip, next_udp_port+1);
+		rc = rtp_sub_socket_bind(p_s_rtcp_fd.fd, &p_s_rtcp_sin_local, ip, next_udp_port + 1);
 		if (rc == 0) {
+			p_s_rtp_port_local = next_udp_port;
 			next_udp_port = (next_udp_port + 2 > RTP_PORT_MAX) ? RTP_PORT_BASE : next_udp_port + 2;
 			break;
 		}
@@ -421,7 +422,6 @@ try_next_port:
 		rtp_close();
 		return rc;
 	}
-	p_s_rtp_port_local = next_udp_port;
 	p_s_rtp_ip_local = ntohl(p_s_rtp_sin_local.sin_addr.s_addr);
 	PDEBUG(DEBUG_SIP, "local ip %08x port %d\n", p_s_rtp_ip_local, p_s_rtp_port_local);
 	PDEBUG(DEBUG_SIP, "remote ip %08x port %d\n", p_s_rtp_ip_remote, p_s_rtp_port_remote);
