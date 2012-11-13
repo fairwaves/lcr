@@ -117,7 +117,7 @@ void mISDN_deinitialize(void)
 	upqueue_avail = 0;
 }
 
-int load_timer(struct lcr_timer *timer, void *instance, int index);
+static int load_timer(struct lcr_timer *timer, void *instance, int index);
 
 /*
  * constructor
@@ -921,7 +921,7 @@ void PmISDN::update_load(void)
 	schedule_timer(&p_m_loadtimer, 0, 0); /* no delay the first time */
 }
 
-int load_timer(struct lcr_timer *timer, void *instance, int index)
+static int load_timer(struct lcr_timer *timer, void *instance, int index)
 {
 	class PmISDN *isdnport = (class PmISDN *)instance;
 

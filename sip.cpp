@@ -33,6 +33,7 @@ struct sip_inst {
 };
 
 static int delete_event(struct lcr_work *work, void *instance, int index);
+static int load_timer(struct lcr_timer *timer, void *instance, int index);
 
 /*
  * initialize SIP port
@@ -63,6 +64,11 @@ Psip::Psip(int type, char *portname, struct port_settings *settings, struct inte
 	p_s_rxpos = 0;
 	p_s_rtp_tx_action = 0;
 
+	/* audio */
+	memset(&p_s_loadtimer, 0, sizeof(p_s_loadtimer));
+	add_timer(&p_s_loadtimer, load_timer, this, 0);
+	p_s_next_tv_sec = 0;
+
 	PDEBUG(DEBUG_SIP, "Created new Psip(%s).\n", portname);
 	if (!p_s_sip_inst)
 		FATAL("No SIP instance for interface\n");
@@ -76,6 +82,7 @@ Psip::~Psip()
 {
 	PDEBUG(DEBUG_SIP, "Destroyed SIP process(%s).\n", p_name);
 
+	del_timer(&p_s_loadtimer);
 	del_work(&p_s_delete);
 
 	rtp_close();
@@ -590,6 +597,10 @@ we only support alaw and ulaw!
 /* receive from remote */
 int Psip::bridge_rx(unsigned char *data, int len)
 {
+	/* don't bridge, if tones are provided */
+	if (p_tone_name[0])
+		return -EBUSY;
+
 	/* write to rx buffer */
 	while(len--) {
 		p_s_rxdata[p_s_rxpos++] = flip[*data++];
@@ -1311,6 +1322,7 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	int media_types[32];
 	uint8_t payload_types[32];
 	int payloads = 0;
+	int media_type;
 
 	interface = getinterfacebyname(inst->interface_name);
 	if (!interface) {
@@ -1461,9 +1473,6 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	}
 	message_put(message);
 
-#if 0
-issues:
-- send tones that are clocked with timer, unless data is received from bridge
 	/* send progress, if tones are available and if we don't bridge */
 	if (!p_s_rtp_bridge && interface->is_tones == IS_YES) {
 		char sdp_str[256];
@@ -1471,7 +1480,8 @@ issues:
 		unsigned char payload_type;
 
 		PDEBUG(DEBUG_SIP, "Connecting audio, since we have tones available\n");
-		payload_type = (options.law=='a') ? RTP_PT_ALAW : RTP_PT_ULAW;
+		media_type = (options.law=='a') ? MEDIA_TYPE_ALAW : MEDIA_TYPE_ULAW;
+		payload_type = (options.law=='a') ? PAYLOAD_TYPE_ALAW : PAYLOAD_TYPE_ULAW;
 		/* open local RTP peer (if not bridging) */
 		if (rtp_connect() < 0) {
 			nua_respond(nh, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
@@ -1502,23 +1512,21 @@ issues:
 			"t=0 0\n"
 			"m=audio %d RTP/AVP %d\n"
 			"a=rtpmap:%d %s/8000\n"
-			, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, payload_type, payload_type, payload_type2name(payload_type));
+			, inet_ntoa(ia), inet_ntoa(ia), p_s_rtp_port_local, payload_type, payload_type, media_type2name(media_type));
 		PDEBUG(DEBUG_SIP, "Using SDP response: %s\n", sdp_str);
 
 		nua_respond(p_s_handle, SIP_183_SESSION_PROGRESS,
 			NUTAG_MEDIA_ENABLE(0),
 			SIPTAG_CONTENT_TYPE_STR("application/sdp"),
 			SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
-		new_state(PORT_STATE_CONNECT);
 		sip_trace_header(this, "RESPOND", DIRECTION_OUT);
 		add_trace("respond", "value", "183 SESSION PROGRESS");
 		add_trace("reason", NULL, "audio available");
 		add_trace("rtp", "ip", "%s", inet_ntoa(ia));
 		add_trace("rtp", "port", "%d,%d", p_s_rtp_port_local, p_s_rtp_port_local + 1);
-		add_trace("rtp", "payload", "%d", payload_type);
+		add_trace("rtp", "payload", "%s:%d", media_type2name(media_type), payload_type);
 		end_trace();
 	}
-#endif
 }
 
 void Psip::i_bye(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tagss[])
@@ -1992,5 +2000,105 @@ static int delete_event(struct lcr_work *work, void *instance, int index)
 	delete psip;
 
 	return 0;
+}
+
+
+/*
+ * generate audio, if no data is received from bridge
+ */
+
+void Psip::set_tone(const char *dir, const char *tone)
+{
+	Port::set_tone(dir, tone);
+
+	update_load();
+}
+
+void Psip::update_load(void)
+{
+	/* don't trigger load event if event already active */
+	if (p_s_loadtimer.active)
+		return;
+
+	/* don't start timer if ... */
+	if (!p_tone_name[0])
+		return;
+
+	p_s_next_tv_sec = 0;
+	schedule_timer(&p_s_loadtimer, 0, 0); /* no delay the first time */
+}
+
+static int load_timer(struct lcr_timer *timer, void *instance, int index)
+{
+	class Psip *psip = (class Psip *)instance;
+
+	/* stop timer if ... */
+	if (!psip->p_tone_name[0])
+		return 0;
+
+	psip->load_tx();
+
+	return 0;
+}
+
+#define SEND_SIP_LEN 160
+
+void Psip::load_tx(void)
+{
+	int diff;
+	struct timeval current_time;
+	int tosend = SEND_SIP_LEN, i;
+	unsigned char buf[SEND_SIP_LEN], *p = buf;
+
+	/* get elapsed */
+	gettimeofday(&current_time, NULL);
+	if (!p_s_next_tv_sec) {
+		/* if timer expired the first time, set next expected timeout 160 samples in advance */
+		p_s_next_tv_sec = current_time.tv_sec;
+		p_s_next_tv_usec = current_time.tv_usec + SEND_SIP_LEN * 125;
+		if (p_s_next_tv_usec >= 1000000) {
+			p_s_next_tv_usec -= 1000000;
+			p_s_next_tv_sec++;
+		}
+		schedule_timer(&p_s_loadtimer, 0, SEND_SIP_LEN * 125);
+	} else {
+		diff = 1000000 * (current_time.tv_sec - p_s_next_tv_sec)
+			+ (current_time.tv_usec - p_s_next_tv_usec);
+		if (diff < -SEND_SIP_LEN * 125 || diff > SEND_SIP_LEN * 125) {
+			/* if clock drifts too much, set next timeout event to current timer + 160 */
+			diff = 0;
+			p_s_next_tv_sec = current_time.tv_sec;
+			p_s_next_tv_usec = current_time.tv_usec + SEND_SIP_LEN * 125;
+			if (p_s_next_tv_usec >= 1000000) {
+				p_s_next_tv_usec -= 1000000;
+				p_s_next_tv_sec++;
+			}
+		} else {
+			/* if diff is positive, it took too long, so next timeout will be earlier */
+			p_s_next_tv_usec += SEND_SIP_LEN * 125;
+			if (p_s_next_tv_usec >= 1000000) {
+				p_s_next_tv_usec -= 1000000;
+				p_s_next_tv_sec++;
+			}
+		}
+		schedule_timer(&p_s_loadtimer, 0, SEND_SIP_LEN * 125 - diff);
+	}
+
+	/* copy tones */
+	if (p_tone_name[0]) {
+		tosend -= read_audio(p, tosend);
+	}
+	if (tosend) {
+		PERROR("buffer is not completely filled\n");
+		return;
+	}
+
+	p = buf;
+	for (i = 0; i < SEND_SIP_LEN; i++) {
+		*p = flip[*p];
+		p++;
+	}
+	/* transmit data via rtp */
+	rtp_send_frame(buf, SEND_SIP_LEN, (options.law=='a')?PAYLOAD_TYPE_ALAW:PAYLOAD_TYPE_ULAW);
 }
 

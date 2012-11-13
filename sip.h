@@ -66,6 +66,14 @@ class Psip : public Port
 	int bridge_rx(unsigned char *data, int len);
 	int parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, uint8_t *payload_types, int *media_types, int *payloads, int max_payloads);
 	void rtp_shutdown(void);
+
+	/* audio */
+	struct lcr_timer p_s_loadtimer;		/* timer for audio transmission */
+	virtual void update_load(void);
+	void load_tx(void);
+	unsigned int p_s_next_tv_sec;		/* time stamp of next expected tx_load call, (to sync audio data) */
+	unsigned int p_s_next_tv_usec;
+	void set_tone(const char *dir, const char *name);
 };
 
 int sip_init_inst(struct interface *interface);
