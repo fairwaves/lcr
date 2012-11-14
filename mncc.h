@@ -85,6 +85,108 @@
 #define GSM_MAX_SSVERSION      128
 #define GSM_MAX_USERUSER       128
 
+/* GSM 04.08 Bearer Capability: Information Transfer Capability */
+enum gsm48_bcap_itcap {
+	GSM48_BCAP_ITCAP_SPEECH		= 0,
+	GSM48_BCAP_ITCAP_UNR_DIG_INF	= 1,
+	GSM48_BCAP_ITCAP_3k1_AUDIO	= 2,
+	GSM48_BCAP_ITCAP_FAX_G3		= 3,
+	GSM48_BCAP_ITCAP_OTHER		= 5,
+	GSM48_BCAP_ITCAP_RESERVED	= 7,
+};
+
+/* GSM 04.08 Bearer Capability: Transfer Mode */
+enum gsm48_bcap_tmod {
+	GSM48_BCAP_TMOD_CIRCUIT		= 0,
+	GSM48_BCAP_TMOD_PACKET		= 1,
+};
+
+/* GSM 04.08 Bearer Capability: Coding Standard */
+enum gsm48_bcap_coding {
+	GSM48_BCAP_CODING_GSM_STD	= 0,
+};
+
+/* GSM 04.08 Bearer Capability: Radio Channel Requirements */
+enum gsm48_bcap_rrq {
+	GSM48_BCAP_RRQ_FR_ONLY	= 1,
+	GSM48_BCAP_RRQ_DUAL_HR	= 2,
+	GSM48_BCAP_RRQ_DUAL_FR	= 3,
+};
+
+/* GSM 04.08 Bearer Capability: Rate Adaption */
+enum gsm48_bcap_ra {
+	GSM48_BCAP_RA_NONE	= 0,
+	GSM48_BCAP_RA_V110_X30	= 1,
+	GSM48_BCAP_RA_X31	= 2,
+	GSM48_BCAP_RA_OTHER	= 3,
+};
+
+/* GSM 04.08 Bearer Capability: Signalling access protocol */
+enum gsm48_bcap_sig_access {
+	GSM48_BCAP_SA_I440_I450	= 1,
+	GSM48_BCAP_SA_X21	= 2,
+	GSM48_BCAP_SA_X28_DP_IN	= 3,
+	GSM48_BCAP_SA_X28_DP_UN	= 4,
+	GSM48_BCAP_SA_X28_NDP	= 5,
+	GSM48_BCAP_SA_X32	= 6,
+};
+
+/* GSM 04.08 Bearer Capability: User Rate */
+enum gsm48_bcap_user_rate {
+	GSM48_BCAP_UR_300	= 1,
+	GSM48_BCAP_UR_1200	= 2,
+	GSM48_BCAP_UR_2400	= 3,
+	GSM48_BCAP_UR_4800	= 4,
+	GSM48_BCAP_UR_9600	= 5,
+	GSM48_BCAP_UR_12000	= 6,
+	GSM48_BCAP_UR_1200_75	= 7,
+};
+
+/* GSM 04.08 Bearer Capability: Parity */
+enum gsm48_bcap_parity {
+	GSM48_BCAP_PAR_ODD	= 0,
+	GSM48_BCAP_PAR_EVEN	= 2,
+	GSM48_BCAP_PAR_NONE	= 3,
+	GSM48_BCAP_PAR_ZERO	= 4,
+	GSM48_BCAP_PAR_ONE	= 5,
+};
+
+/* GSM 04.08 Bearer Capability: Intermediate Rate */
+enum gsm48_bcap_interm_rate {
+	GSM48_BCAP_IR_8k	= 2,
+	GSM48_BCAP_IR_16k	= 3,
+};
+
+/* GSM 04.08 Bearer Capability: Transparency */
+enum gsm48_bcap_transp {
+	GSM48_BCAP_TR_TRANSP	= 0,
+	GSM48_BCAP_TR_RLP	= 1,
+	GSM48_BCAP_TR_TR_PREF	= 2,
+	GSM48_BCAP_TR_RLP_PREF	= 3,
+};
+
+/* GSM 04.08 Bearer Capability: Modem Type */
+enum gsm48_bcap_modem_type {
+	GSM48_BCAP_MT_NONE	= 0,
+	GSM48_BCAP_MT_V21	= 1,
+	GSM48_BCAP_MT_V22	= 2,
+	GSM48_BCAP_MT_V22bis	= 3,
+	GSM48_BCAP_MT_V23	= 4,
+	GSM48_BCAP_MT_V26ter	= 5,
+	GSM48_BCAP_MT_V32	= 6,
+	GSM48_BCAP_MT_UNDEF	= 7,
+	GSM48_BCAP_MT_AUTO_1	= 8,
+};
+
+/* GSM 04.08 Bearer Capability: Speech Version Indication */
+enum gsm48_bcap_speech_ver {
+	GSM48_BCAP_SV_FR	= 0,
+	GSM48_BCAP_SV_HR	= 1,
+	GSM48_BCAP_SV_EFR	= 2,
+	GSM48_BCAP_SV_AMR_F	= 4,
+	GSM48_BCAP_SV_AMR_H	= 5,
+};
+
 /* Expanded fields from GSM TS 04.08, Table 10.5.102 */
 struct gsm_mncc_bearer_cap {
 	int		transfer;	/* Information Transfer Capability */
@@ -93,6 +195,18 @@ struct gsm_mncc_bearer_cap {
 	int		radio;		/* Radio Channel Requirement */
 	int		speech_ctm;	/* CTM text telephony indication */
 	int		speech_ver[8];	/* Speech version indication */
+	struct {
+		enum gsm48_bcap_ra		rate_adaption;
+		enum gsm48_bcap_sig_access	sig_access;
+		int				async;
+		int				nr_stop_bits;
+		int				nr_data_bits;
+		enum gsm48_bcap_user_rate	user_rate;
+		enum gsm48_bcap_parity		parity;
+		enum gsm48_bcap_interm_rate	interm_rate;
+		enum gsm48_bcap_transp		transp;
+		enum gsm48_bcap_modem_type	modem_type;
+	} data;
 };
 
 struct gsm_mncc_number {
