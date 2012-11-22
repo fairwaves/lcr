@@ -1060,7 +1060,7 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 			if (p_type == PORT_TYPE_POTS_FXS_IN && p_state == PORT_STATE_IN_OVERLAP) {
 				class Pfxs *pfxs = (class Pfxs *)this;
 				if (!pfxs->p_m_fxs_allow_dtmf) {
-					PDEBUG(DEBUG_PORT, "PmISDN(%s) DTMF for FXS not yet allowed\n", p_name);
+					PDEBUG(DEBUG_PORT, "PmISDN(%s) DTMF for FXS currently disabled\n", p_name);
 					return;
 				}
 				SCCAT(p_dialinginfo.id, cont & DTMF_TONE_MASK);

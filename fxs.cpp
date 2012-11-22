@@ -409,12 +409,13 @@ void Pfxs::keypulse_ind(unsigned int cont)
 {
 	struct lcr_msg *message;
 
+	p_m_fxs_allow_dtmf = 0; /* disable DTMF from now on */
 	chan_trace_header(p_m_mISDNport, this, "PULSE", DIRECTION_NONE);
 	add_trace("KP", NULL, "%c", cont & DTMF_TONE_MASK);
 	end_trace();
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
 	message->param.information.id[0] = cont & POTS_KP_MASK;
-	PDEBUG(DEBUG_ISDN, "Pfxs(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);
+	PDEBUG(DEBUG_ISDN, "Pfxs(%s) PH_CONTROL INDICATION  KP digit '%c'\n", p_name, message->param.information.id[0]);
 	message_put(message);
 }
 
