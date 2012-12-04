@@ -11,6 +11,7 @@ class Premote : public Port
 	int p_r_remote_id; /* remote instance (socket) */
 	char p_r_remote_app[32];
 	int p_r_tones;
+	int p_r_earlyb;
 
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 	void message_remote(int message_type, union parameter *param);

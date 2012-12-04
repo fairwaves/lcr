@@ -3012,6 +3012,15 @@ static int lcr_indicate(struct ast_channel *ast, int cond, const void *data, siz
 			break;
 		case AST_CONTROL_PROGRESS:
 			CDEBUG(call, ast, "Received indicate AST_CONTROL_PROGRESS from Asterisk.\n");
+			if (call->state == CHAN_LCR_STATE_IN_SETUP
+			 || call->state == CHAN_LCR_STATE_IN_DIALING) {
+				CDEBUG(call, ast, "Changing to proceeding state, because no more dialing possible.\n");
+				/* send message to lcr */
+				memset(&newparam, 0, sizeof(union parameter));
+				send_message(MESSAGE_PROCEEDING, call->ref, &newparam);
+				/* change state */
+				call->state = CHAN_LCR_STATE_IN_PROCEEDING;
+			}
 			/* request bchannel */
 			CDEBUG(call, ast, "Requesting audio path.\n");
 			memset(&newparam, 0, sizeof(union parameter));

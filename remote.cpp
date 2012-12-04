@@ -24,6 +24,7 @@ Premote::Premote(int type, char *portname, struct port_settings *settings, struc
 	p_r_ref = new_remote++;
 	SCPY(p_r_remote_app, interface->remote_app);
 	p_r_tones = (interface->is_tones == IS_YES);
+	p_r_earlyb = (interface->is_earlyb == IS_YES);
 
 	/* send new ref to remote socket */
 	memset(&param, 0, sizeof(union parameter));
@@ -233,9 +234,14 @@ int Premote::bridge_rx(unsigned char *data, int len)
 	union parameter newparam;
 	int l;
 
-	/* don't send tones, if not enabled or not connected */
-	if (!p_r_tones
-	 && p_state != PORT_STATE_CONNECT)
+	/* send tones, if connected, or if early audio is enabled in proceeding/alerting state */
+	if (p_state != PORT_STATE_CONNECT
+	 && !(p_r_earlyb
+	  && (p_state == PORT_STATE_OUT_PROCEEDING
+	   || p_state == PORT_STATE_OUT_ALERTING))
+	 && !(p_r_tones
+	  && (p_state == PORT_STATE_IN_PROCEEDING
+	   || p_state == PORT_STATE_IN_ALERTING)))
 	 	return 0;
 
 	if (p_tone_name[0])
