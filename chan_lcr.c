@@ -331,6 +331,10 @@ struct chan_call *alloc_call(void)
 	}
 	fcntl((*callp)->pipe[0], F_SETFL, O_NONBLOCK);
 	CDEBUG(*callp, NULL, "Call instance allocated.\n");
+
+	/* unset dtmf (default, use option 'd' to enable) */
+	(*callp)->dsp_dtmf = 0;
+
 	return *callp;
 }
 
@@ -426,13 +430,13 @@ void apply_opt(struct chan_call *call, char *data)
 				send_message(MESSAGE_NOTIFY, call->ref, &newparam);
 			}
 			break;
-		case 'n':
+		case 'D':
 			if (opt[1] != '\0') {
-				CERROR(call, call->ast, "Option 'n' (no DTMF) expects no parameter.\n", opt);
+				CERROR(call, call->ast, "Option 'D' (DTMF) expects no parameter.\n", opt);
 				break;
 			}
-			CDEBUG(call, call->ast, "Option 'n' (no DTMF).\n");
-			call->dsp_dtmf = 0;
+			CDEBUG(call, call->ast, "Option 'D' (DTMF).\n");
+			call->dsp_dtmf = 1;
 			break;
 #if 0
 		case 'c':
@@ -1574,8 +1578,6 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			/* set ref */
 			call->ref = ref;
 			call->ref_was_assigned = 1;
-			/* set dtmf (default, use option 'n' to disable */
-			call->dsp_dtmf = 1;
 			/* wait for setup (or release from asterisk) */
 		} else {
 			/* new ref, as requested from this remote application */
@@ -1589,8 +1591,6 @@ int receive_message(int message_type, unsigned int ref, union parameter *param)
 			/* store new ref */
 			call->ref = ref;
 			call->ref_was_assigned = 1;
-			/* set dtmf (default, use option 'n' to disable */
-			call->dsp_dtmf = 1;
 			/* send pending setup info */
 			if (call->state == CHAN_LCR_STATE_OUT_PREPARE)
 				send_setup_to_lcr(call);
@@ -3551,7 +3551,7 @@ int load_module(void)
 				 "\n"
 				 "The available options are:\n"
 				 "    d - Send display text on called phone, text is the optarg.\n"
-				 "    n - Don't detect dtmf tones from LCR.\n"
+				 "    D - Forward detected dtmf tones from LCR.\n"
 				 "    h - Force data call (HDLC).\n"
 				 "    q - Add queue to make fax stream seamless (required for fax app).\n"
 				 "        Use queue size in miliseconds for optarg. (try 250)\n"
