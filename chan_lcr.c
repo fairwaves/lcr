@@ -2898,7 +2898,11 @@ static struct ast_frame *lcr_read(struct ast_channel *ast)
 	if (call->dsp)
 		f = ast_dsp_process(ast, call->dsp, &call->read_fr);
 	if (f && f->frametype == AST_FRAME_DTMF)
+#ifdef AST_1_8_OR_HIGHER
 		CDEBUG(call, ast, "Asterisk detected inband DTMF: %c.\n", f->subclass.integer);
+#else
+		CDEBUG(call, ast, "Asterisk detected inband DTMF: %c.\n", f->subclass);
+#endif
 
 	ast_mutex_unlock(&chan_lock);
 
