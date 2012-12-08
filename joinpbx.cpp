@@ -300,6 +300,8 @@ void JoinPBX::bridge(void)
 	struct port_list *portlist;
 	class Port *port;
 	unsigned int bridge_id;
+	class Join *join_3pty;
+	class JoinPBX *joinpbx_3pty;
 #ifdef DEBUG_COREBRIDGE
 	int allmISDN = 0; // never set for debug purpose
 #else
@@ -356,8 +358,63 @@ void JoinPBX::bridge(void)
 			relation = relation->next;
 			continue;
 		}
-		
+
 		relation = relation->next;
+	}
+
+	/* check if 3pty members have no mISDN, so bridging via mISDN/lcr will be selected correctly */
+	join_3pty = find_join_id(j_3pty);
+	if (join_3pty && join_3pty->j_type == JOIN_TYPE_PBX) {
+		joinpbx_3pty = (class JoinPBX *)join_3pty;
+		relation = joinpbx_3pty->j_relation;
+		while(relation) {
+
+#if 0
+no need to count, because j_3pty is taken into account below when checking relations
+			/* count all relations */
+			relations++;
+#endif
+
+			/* check for relation's objects */
+			epoint = find_epoint_id(relation->epoint_id);
+			if (!epoint) {
+				PERROR("software error: relation without existing endpoints.\n");
+				relation = relation->next;
+				continue;
+			}
+			portlist = epoint->ep_portlist;
+			if (!portlist) {
+				PDEBUG(DEBUG_JOIN, "other 3pty join %d: ignoring relation without port object.\n", joinpbx_3pty->j_serial);
+//#warning testing: keep on hold until single audio stream available
+				relation->channel_state = 0;
+				relation = relation->next;
+				continue;
+			}
+			if (portlist->next) {
+				PDEBUG(DEBUG_JOIN, "other 3pty join %d: ignoring relation with ep%d due to port_list.\n", joinpbx_3pty->j_serial, epoint->ep_serial);
+//#warning testing: keep on hold until single audio stream available
+				relation->channel_state = 0;
+				relation = relation->next;
+				continue;
+			}
+			port = find_port_id(portlist->port_id);
+			if (!port) {
+				PDEBUG(DEBUG_JOIN, "other 3pty join %d: ignoring relation without existing port object.\n", joinpbx_3pty->j_serial);
+				relation = relation->next;
+				continue;
+			}
+			if ((port->p_type&PORT_CLASS_MASK)!=PORT_CLASS_mISDN) {
+				PDEBUG(DEBUG_JOIN, "other 3pty join %d: ignoring relation ep%d because it's port is not mISDN.\n", joinpbx_3pty->j_serial, epoint->ep_serial);
+				if (allmISDN) {
+					PDEBUG(DEBUG_JOIN, "other 3pty join %d: not all endpoints are mISDN.\n", joinpbx_3pty->j_serial);
+					allmISDN = 0;
+				}
+				relation = relation->next;
+				continue;
+			}
+
+			relation = relation->next;
+		}
 	}
 
 	PDEBUG(DEBUG_JOIN, "join%d members=%d %s\n", j_serial, relations, (allmISDN)?"(all are mISDN-members)":"(not all are mISDN-members)");
