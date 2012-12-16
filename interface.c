@@ -751,6 +751,22 @@ static int inter_nodtmf(struct interface *interface, char *filename, int line, c
 	ifport->nodtmf = 1;
 	return(0);
 }
+static int inter_dtmf_threshold(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+	ifport->dtmf_threshold = atoi(value);
+	return(0);
+}
 static int inter_filter(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	char *p, *q;
@@ -1292,6 +1308,10 @@ struct interface_param interface_param[] = {
 
 	{"nodtmf", &inter_nodtmf, "",
 	"Disables DTMF detection for this interface.\n"
+	"This parameter must follow a 'port' parameter."},
+
+	{"dtmf-threshold", &inter_dtmf_threshold, "",
+	"Set threshold value for minimum DTMF tone level.\n"
 	"This parameter must follow a 'port' parameter."},
 
 	{"filter", &inter_filter, "<filter> <parameters>",

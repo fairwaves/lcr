@@ -122,6 +122,7 @@ class PmISDN : public Port
 	int p_m_rxoff;				/* rx from driver is disabled */
 	int p_m_txdata;				/* get what we transmit */
 	int p_m_dtmf;				/* dtmf decoding is enabled */
+	int p_m_dtmf_threshold;			/* dtmf level threshold */
 
 	int bridge_rx(unsigned char *data, int len);
 

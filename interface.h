@@ -54,6 +54,7 @@ struct interface_port {
 	unsigned int		ss5; /* set, if SS5 signalling enabled, also holds feature bits */
 	int			channel_force; /* forces channel by protocol */
 	int			nodtmf; /* disables DTMF */
+	int			dtmf_threshold; /* DTMF level threshold */
 	struct select_channel	*out_channel; /* list of channels to select */
 	struct select_channel	*in_channel; /* the same for incoming channels */
 	int			block; /* set if interface is blocked */

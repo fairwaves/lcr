@@ -147,6 +147,7 @@ PmISDN::PmISDN(int type, mISDNport *mISDNport, char *portname, struct port_setti
 	p_m_inband_send_on = 0;
 	p_m_inband_receive_on = 0;
 	p_m_dtmf = !mISDNport->ifport->nodtmf;
+	p_m_dtmf_threshold = mISDNport->ifport->dtmf_threshold;
 	memset(&p_m_timeout, 0, sizeof(p_m_timeout));
 	add_timer(&p_m_timeout, mISDN_timeout, this, 0);
 	SCPY(p_m_pipeline, mISDNport->ifport->interface->pipeline);
@@ -348,15 +349,20 @@ void ph_control(struct mISDNport *mISDNport, class PmISDN *isdnport, int sock, u
 	struct mISDNhead *ctrl = (struct mISDNhead *)buffer;
 	unsigned int *d = (unsigned int *)(buffer+MISDN_HEADER_LEN);
 	int ret;
+	int len = 8;
 
 	if (sock < 0)
 		return;
+
+	if (c1 == DTMF_TONE_START && c2 == 0) {
+		len = 4;
+	}
 
 	ctrl->prim = PH_CONTROL_REQ;
 	ctrl->id = 0;
 	*d++ = c1;
 	*d++ = c2;
-	ret = sendto(sock, buffer, MISDN_HEADER_LEN+sizeof(int)*2, 0, NULL, 0);
+	ret = sendto(sock, buffer, MISDN_HEADER_LEN+len, 0, NULL, 0);
 	if (ret <= 0)
 		PERROR("Failed to send to socket %d\n", sock);
 	chan_trace_header(mISDNport, isdnport, "BCHANNEL control", DIRECTION_OUT);
@@ -507,7 +513,7 @@ static void _bchannel_configure(struct mISDNport *mISDNport, int i)
 //	if (port->p_m_txmix && mode == B_MODE_TRANSPARENT)
 //		ph_control(mISDNport, port, handle, DSP_MIX_ON, 0, "DSP-MIX", 1);
 	if (port->p_m_dtmf && mode == B_MODE_TRANSPARENT)
-		ph_control(mISDNport, port, handle, DTMF_TONE_START, 0, "DSP-DTMF", 1);
+		ph_control(mISDNport, port, handle, DTMF_TONE_START, port->p_m_dtmf_threshold, "DSP-DTMF", 1);
 	if (port->p_m_crypt && mode == B_MODE_TRANSPARENT)
 		ph_control_block(mISDNport, port, handle, DSP_BF_ENABLE_KEY, port->p_m_crypt_key, port->p_m_crypt_key_len, "DSP-CRYPT", port->p_m_crypt_key_len);
 }
