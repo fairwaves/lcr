@@ -67,6 +67,9 @@ struct interface_port {
 	int			dialmax; /* maximum number of digits to dial */
 	char			tones_dir[128];
 	int			nonotify; /* blocks outgoing notify messages  */
+	int			pots_flash; /* allow flash button / keypulse to hold active call */
+	int			pots_ring; /* after hangup let calls on hold ring the phone */
+	int			pots_transfer; /* after hangup, two calls are transfered */
 };
 
 struct interface_msn {

@@ -46,7 +46,7 @@ INSTALLATION_DEFINES = \
 if ENABLE_MISDN
 
 MISDN_INCLUDE = -DWITH_MISDN -DWITH_CRYPT
-MISDN_SOURCE = mISDN.cpp dss1.cpp crypt.cpp
+MISDN_SOURCE = mISDN.cpp fxs.cpp dss1.cpp crypt.cpp
 MISDN_LIB = -lmisdn
 
 endif

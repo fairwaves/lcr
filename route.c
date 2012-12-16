@@ -94,6 +94,14 @@ struct cond_defs cond_defs[] = {
 	  "remote=<application name>","Matches if remote application is running."},
 	{ "notremote",	MATCH_NOTREMOTE,COND_TYPE_STRING,
 	  "notremote=<application name>","Matches if remote application is not running."},
+	{ "pots-flash",	MATCH_POTS_FLASH,COND_TYPE_NULL,
+	  "pots-flash","When using POTS: Matches if call was invoked by flash/earth button."},
+	{ "pots-cw",	MATCH_POTS_CW,	COND_TYPE_NULL,
+	  "pots-cw","When using POTS: Matches if a call is waiting."},
+	{ "pots-calls",	MATCH_POTS_CALLS,COND_TYPE_INTEGER,
+	  "pots-calls=<total number>","When using POTS: Matches if given number of calls are held."},
+	{ "pots-last",	MATCH_POTS_LAST,COND_TYPE_INTEGER,
+	  "pots-last=<call number>","When using POTS: Matches if given call number (1=oldest) was the last active call."},
 	{ NULL, 0, 0, NULL}
 };
 
@@ -245,6 +253,9 @@ struct param_defs param_defs[] = {
 	{ PARAM_KEYPAD,
 	  "keypad",	PARAM_TYPE_NULL,
 	  "keypad", "Use 'keypad facility' for dialing, instead of 'called number'."},
+	{ PARAM_POTS_CALL,
+	  "pots-call",	PARAM_TYPE_INTEGER,
+	  "pots-call=<call #>", "Select call number. The oldest call is number 1."},
 	{ 0, NULL, 0, NULL, NULL}
 };
 
@@ -380,6 +391,30 @@ struct action_defs action_defs[] = {
 	  "efi",	&EndpointAppPBX::action_init_efi, NULL, NULL,
 	  PARAM_PROCEEDING | PARAM_ALERTING | PARAM_CONNECT,
 	  "Elektronische Fernsprecher Identifikation - announces caller ID."},
+	{ ACTION_POTS_RETRIEVE,
+	  "pots-retrieve",	&EndpointAppPBX::action_init_pots_retrieve, NULL, NULL,
+	  PARAM_POTS_CALL,
+	  "When using POTS: Select call on hold to retrieve."},
+	{ ACTION_POTS_RELEASE,
+	  "pots-release",	&EndpointAppPBX::action_init_pots_release, NULL, NULL,
+	  PARAM_POTS_CALL,
+	  "When using POTS: Select call on hold to release."},
+	{ ACTION_POTS_REJECT,
+	  "pots-reject",	&EndpointAppPBX::action_init_pots_reject, NULL, NULL,
+	  0,
+	  "When using POTS: Reject incomming waiting call."},
+	{ ACTION_POTS_ANSWER,
+	  "pots-answer",	&EndpointAppPBX::action_init_pots_answer, NULL, NULL,
+	  0,
+	  "When using POTS: Answer incomming waiting call."},
+	{ ACTION_POTS_3PTY,
+	  "pots-3pty",		&EndpointAppPBX::action_init_pots_3pty, NULL, NULL,
+	  0,
+	  "When using POTS: Invoke 3PTY call of two calls on hold"},
+	{ ACTION_POTS_TRANSFER,
+	  "pots-transfer",	&EndpointAppPBX::action_init_pots_transfer, NULL, NULL,
+	  0,
+	  "When using POTS: Interconnect two calls on hold"},
 	{ -1,
 	  NULL, NULL, NULL, NULL, 0, NULL}
 };
@@ -983,7 +1018,7 @@ struct route_ruleset *ruleset_parse(void)
 		while(*p!=':' && *p!='\0') {
 			/* read item text */
 			i = 0;
-			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9')) {
+			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9') || *p == '-') {
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
 				if (i == sizeof(key)) i--; /* limit */
@@ -1427,10 +1462,14 @@ struct route_ruleset *ruleset_parse(void)
 		while(*p != 0) {
 			/* read param text */
 			i = 0;
-			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9')) {
+			while((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || (*p>='0' && *p<='9') || *p == '-') {
 				if (*p>='A' && *p<='Z') *p = *p-'A'+'a'; /* lower case */
 				key[i++] = *p++;
 				if (i == sizeof(key)) i--; /* limit */
+			}
+			if (*p == ':') {
+				p++;
+				goto nextaction;
 			}
 			key[i] = 0;
 			if (key[0] == '\0') {
@@ -1919,6 +1958,10 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 	int			avail,
 				any;
 	int			jj;
+	class Port		*port;
+	class Pfxs		*ourfxs, *fxs;
+	int			fxs_count;
+	int			fxs_age;
 #endif
 	struct admin_list	*admin;
 	time_t			now;
@@ -2236,6 +2279,86 @@ struct route_action *EndpointAppPBX::route(struct route_ruleset *ruleset)
 				if (!admin && cond->match==MATCH_NOTREMOTE)
 					istrue = 1;
 				break;
+
+#ifdef WITH_MISDN
+				case MATCH_POTS_FLASH:
+				if (e_dialinginfo.flash)
+					istrue = 1;
+				break;
+
+				case MATCH_POTS_CW:
+				port = find_port_id(ea_endpoint->ep_portlist->port_id);
+				if (!port)
+					break;
+				if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS)
+					break;
+				ourfxs = (class Pfxs *)port;
+				port = port_first;
+				while(port) {
+					if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+						fxs = (class Pfxs *)port;
+						if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+							if (fxs->p_state == PORT_STATE_OUT_ALERTING) {
+								istrue = 1;
+								break;
+							}
+						}
+					}
+					port = port->next;
+				}
+				break;
+
+				case MATCH_POTS_CALLS:
+				port = find_port_id(ea_endpoint->ep_portlist->port_id);
+				if (!port)
+					break;
+				if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS)
+					break;
+				ourfxs = (class Pfxs *)port;
+				integer = 0;
+				port = port_first;
+				while(port) {
+					if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+						fxs = (class Pfxs *)port;
+						if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+							if (fxs->p_state == PORT_STATE_CONNECT) {
+								integer++;
+							}
+						}
+					}
+					port = port->next;
+				}
+				goto match_integer;
+
+				case MATCH_POTS_LAST:
+				port = find_port_id(ea_endpoint->ep_portlist->port_id);
+				if (!port)
+					break;
+				if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS)
+					break;
+				ourfxs = (class Pfxs *)port;
+				/* integer gets the call number that has been the least active call on hold */ 
+				fxs_age = -1;
+				fxs_count = 0;
+				integer = 0;
+				port = port_first;
+				while(port) {
+					if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+						fxs = (class Pfxs *)port;
+						if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+							if (fxs->p_state == PORT_STATE_CONNECT) {
+								fxs_count++;
+								if (fxs->p_m_fxs_age > fxs_age) {
+									fxs_age = fxs->p_m_fxs_age;
+									integer = fxs_count;
+								}
+							}
+						}
+					}
+					port = port->next;
+				}
+				goto match_integer;
+#endif
 
 				default:
 				PERROR("Software error: MATCH_* %d not parsed in function '%s'", cond->match, __FUNCTION__);

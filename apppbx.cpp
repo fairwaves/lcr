@@ -500,6 +500,7 @@ void EndpointAppPBX::notify_active(void)
  */
 void EndpointAppPBX::keypad_function(char digit)
 {
+	class Port *port;
 
 	/* we must be in a call, in order to send messages to the call */
 	if (e_ext.number[0] == '\0') {
@@ -515,7 +516,13 @@ void EndpointAppPBX::keypad_function(char digit)
 			break;
 		}
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) join call with call on hold\n", ea_endpoint->ep_serial);
-		join_join();
+		port = find_port_id(ea_endpoint->ep_portlist->port_id);
+		if (!port)
+			break;
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS)
+			join_join_fxs();
+		else if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_DSS1)
+			join_join_dss1();
 		break;
 
 #ifdef WITH_CRYPT
@@ -796,7 +803,12 @@ void EndpointAppPBX::out_setup(int cfnr)
 					port = ss5_hunt_line(mISDNport);
 				else
 #endif
-				port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
+#ifdef ISDN_P_FXS_POTS
+				if (mISDNport->pots)
+					port = new Pfxs(PORT_TYPE_POTS_FXS_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, mode);
+				else
+#endif
+					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
 				earlyb = mISDNport->earlyb;
 #else
 			trace_header("INTERFACE (has no function)", DIRECTION_NONE);
@@ -915,6 +927,11 @@ void EndpointAppPBX::out_setup(int cfnr)
 #ifdef WITH_SS5
 					if (mISDNport->ss5)
 						port = ss5_hunt_line(mISDNport);
+					else
+#endif
+#ifdef ISDN_P_FXS_POTS
+					if (mISDNport->pots)
+						port = new Pfxs(PORT_TYPE_POTS_FXS_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, mode);
 					else
 #endif
 						port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
@@ -1079,7 +1096,12 @@ void EndpointAppPBX::out_setup(int cfnr)
 						port = ss5_hunt_line(mISDNport);
 					else
 #endif
-					port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
+#ifdef ISDN_P_FXS_POTS
+					if (mISDNport->pots)
+						port = new Pfxs(PORT_TYPE_POTS_FXS_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, mode);
+					else
+#endif
+						port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
 					earlyb = mISDNport->earlyb;
 #else
 					trace_header("INTERFACE (has no function)", DIRECTION_NONE);
@@ -2320,23 +2342,13 @@ void EndpointAppPBX::port_3pty(struct port_list *portlist, int message_type, uni
 	struct lcr_msg *message;
 	int rc;
 
-#if 0
-	/* bridge for real */
-	if (param->threepty.begin)
-		rc = join_join();
-	else if (param->threepty.end)
-		rc = -ENOTSUP;
-	else
-		return;
-#else
 	/* 3PTY bridge */
 	if (param->threepty.begin)
-		rc = join_3pty();
+		rc = join_3pty_dss1();
 	else if (param->threepty.end)
 		rc = split_3pty();
 	else
 		return;
-#endif
 
 	message = message_create(ea_endpoint->ep_serial, portlist->port_id, EPOINT_TO_PORT, MESSAGE_3PTY);
 	message->param.threepty.begin = param->threepty.begin;
@@ -2348,6 +2360,22 @@ void EndpointAppPBX::port_3pty(struct port_list *portlist, int message_type, uni
 	message->param.threepty.invoke_id = param->threepty.invoke_id;
 	logmessage(message->type, &message->param, portlist->port_id, DIRECTION_OUT);
 	message_put(message);
+}
+
+/* port MESSAGE_TRANSFER */
+void EndpointAppPBX::port_transfer(struct port_list *portlist, int message_type, union parameter *param)
+{
+	logmessage(message_type, param, portlist->port_id, DIRECTION_IN);
+
+	class Port *port;
+
+	/* bridge for real */
+	if (!(port = find_port_id(portlist->port_id)))
+		return;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS)
+		join_join_fxs();
+	else if ((port->p_type & PORT_CLASS_mISDN_MASK) == PORT_CLASS_DSS1)
+		join_join_dss1();
 }
 
 /* port MESSAGE_SUSPEND */
@@ -2468,6 +2496,11 @@ void EndpointAppPBX::ea_message_port(unsigned int port_id, int message_type, uni
 		case MESSAGE_3PTY:
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming 3PTY facility (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
 		port_3pty(portlist, message_type, param);
+		break;
+
+		case MESSAGE_TRANSFER:
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) incoming TRANSFER request (terminal '%s', caller id '%s')\n", ea_endpoint->ep_serial, e_ext.number, e_callerinfo.id);
+		port_transfer(portlist, message_type, param);
 		break;
 
 		/* PORT sends DTMF message */
@@ -3533,7 +3566,7 @@ reject:
 
 /* join calls (look for a join that is on hold (same isdn interface/terminal))
  */
-int EndpointAppPBX::join_join(void)
+int EndpointAppPBX::join_join_dss1(void)
 {
 #ifdef WITH_MISDN
 	struct lcr_msg *message;
@@ -3711,7 +3744,186 @@ int EndpointAppPBX::join_join(void)
 	return 0;
 }
 
-int EndpointAppPBX::join_3pty(void)
+/* join calls (look for a join that is on hold (same fxs interface/terminal))
+ */
+int EndpointAppPBX::join_join_fxs(void)
+{
+#ifdef WITH_MISDN
+	struct lcr_msg *message;
+	struct join_relation *add_relation, *remove_relation;
+	struct join_relation **add_relation_pointer, **remove_relation_pointer;
+	class Join *our_join, *other_join, *add_join, *remove_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx, *add_joinpbx, *remove_joinpbx;
+	class EndpointAppPBX *other_eapp, *remove_eapp;
+	class Port *our_port, *other_port;
+	class Pfxs *our_fxs, *other_fxs;
+	class Endpoint *temp_epoint;
+
+	/* are we a candidate to join a join? */
+	our_join = find_join_id(ea_endpoint->ep_join_id);
+	if (!our_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (our_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_joinpbx = (class JoinPBX *)our_join;
+	if (!ea_endpoint->ep_portlist) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we have no port.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (!e_ext.number[0]) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we are not internal extension.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_port = find_port_id(ea_endpoint->ep_portlist->port_id);
+	if (!our_port) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if ((our_port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port is not fxs.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_fxs = (class Pfxs *)our_port;
+
+	/* find an endpoint that has the same mISDNport that we are on */
+	other_eapp = apppbx_first;
+	while(other_eapp) {
+		if (other_eapp == this) {
+			other_eapp = other_eapp->next;
+			continue;
+		}
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s join=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_join_id);
+		if (other_eapp->e_ext.number[0] /* has terminal */
+		 && other_eapp->ea_endpoint->ep_portlist /* has port */
+		 && other_eapp->ea_endpoint->ep_join_id) { /* has join */
+			other_port = find_port_id(other_eapp->ea_endpoint->ep_portlist->port_id);
+			if (other_port) { /* port still exists */
+				if (other_port->p_type==PORT_TYPE_POTS_FXS_OUT
+				 || other_port->p_type==PORT_TYPE_POTS_FXS_IN) { /* port is FXS */
+					other_fxs = (class Pfxs *)other_port;
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of type isdn! comparing our portnum=%d with other's portnum=%d hold=%s state=%d\n", ea_endpoint->ep_serial, our_fxs->p_m_mISDNport->portnum, other_fxs->p_m_mISDNport->portnum, (other_fxs->p_m_hold)?"YES":"NO", other_fxs->p_state);
+					if (1 //other_fxs->p_m_hold /* port is on hold */
+					 && other_fxs->p_m_mISDNport == our_fxs->p_m_mISDNport) /* same isdn interface */
+						break;
+				} else {
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of other type!\n", ea_endpoint->ep_serial);
+				}
+			} else {
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port doesn't exist enymore.\n", ea_endpoint->ep_serial);
+			}
+		}
+		other_eapp = other_eapp->next;
+	}
+	if (!other_eapp) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same FXS terminal.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port with same terminal found.\n", ea_endpoint->ep_serial);
+
+	/* if we have the same join */
+	if (other_eapp->ea_endpoint->ep_join_id == ea_endpoint->ep_join_id) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we and the other have the same join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_join = find_join_id(other_eapp->ea_endpoint->ep_join_id);
+	if (!other_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_joinpbx = (class JoinPBX *)other_join;
+	if (our_joinpbx->j_partyline && other_joinpbx->j_partyline) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both joins are partylines.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	/* now find out which is ACTIVE-IDLE and which is ACTIVE-HELD */
+	if (our_fxs->p_m_hold && !other_fxs->p_m_hold) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) our relation is on hold and other is active, so we move our relations to other relations\n", ea_endpoint->ep_serial);
+		remove_eapp = this;
+		remove_join = our_join;
+		remove_joinpbx = our_joinpbx;
+		add_join = other_join;
+		add_joinpbx = other_joinpbx;
+	} else {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) our relation is active or other is on hold, so we move ohter relations to our relations\n", ea_endpoint->ep_serial);
+		remove_eapp = other_eapp;
+		remove_join = other_join;
+		remove_joinpbx = other_joinpbx;
+		add_join = our_join;
+		add_joinpbx = our_joinpbx;
+	}
+
+	/* remove relation to endpoint for join on hold */
+	remove_relation = remove_joinpbx->j_relation;
+	remove_relation_pointer = &remove_joinpbx->j_relation;
+	while(remove_relation) {
+		if (remove_relation->epoint_id == remove_eapp->ea_endpoint->ep_serial) {
+			/* detach other endpoint */
+			*remove_relation_pointer = remove_relation->next;
+			FREE(remove_relation, sizeof(struct join_relation));
+			cmemuse--;
+			remove_relation = *remove_relation_pointer;
+			remove_eapp->ea_endpoint->ep_join_id = 0;
+			continue;
+		}
+
+		/* change join/hold pointer of endpoint to the new join */
+		temp_epoint = find_epoint_id(remove_relation->epoint_id);
+		if (temp_epoint) {
+			if (temp_epoint->ep_join_id == remove_join->j_serial)
+				temp_epoint->ep_join_id = add_join->j_serial;
+		}
+
+		remove_relation_pointer = &remove_relation->next;
+		remove_relation = remove_relation->next;
+	}
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) endpoint removed, other enpoints on join relinked.\n", ea_endpoint->ep_serial);
+
+	/* join call relations */
+	add_relation = add_joinpbx->j_relation;
+	add_relation_pointer = &add_joinpbx->j_relation;
+	while(add_relation) {
+		add_relation_pointer = &add_relation->next;
+		add_relation = add_relation->next;
+	}
+	*add_relation_pointer = remove_joinpbx->j_relation;
+	remove_joinpbx->j_relation = NULL;
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) relations joined.\n", ea_endpoint->ep_serial);
+
+	/* release endpoint */
+	message = message_create(remove_joinpbx->j_serial, remove_eapp->ea_endpoint->ep_serial, JOIN_TO_EPOINT, MESSAGE_RELEASE);
+	message->param.disconnectinfo.cause = CAUSE_NORMAL; /* normal */
+	message->param.disconnectinfo.location = LOCATION_PRIVATE_LOCAL;
+	message_put(message);
+	
+	/* if we are not a partyline, we get partyline state from other join */
+	add_joinpbx->j_partyline += remove_joinpbx->j_partyline; 
+
+	/* remove empty join */
+	delete remove_join;
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d)join completely removed!\n", ea_endpoint->ep_serial);
+
+	/* mixer must update */
+	trigger_work(&add_joinpbx->j_updatebridge);
+
+	/* we send a retrieve to that endpoint */
+	// mixer will update the hold-state of the join and send it to the endpoints is changes
+#else
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no mISDN support anyway.\n", ea_endpoint->ep_serial);
+#endif
+
+	return 0;
+}
+
+int EndpointAppPBX::join_3pty_dss1(void)
 {
 #ifdef WITH_MISDN
 	class Join *our_join, *other_join;
@@ -3782,6 +3994,126 @@ int EndpointAppPBX::join_3pty(void)
 	}
 	if (!other_eapp) {
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same isdn terminal.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port with same terminal found.\n", ea_endpoint->ep_serial);
+
+	/* if we have the same join */
+	if (other_eapp->ea_endpoint->ep_join_id == ea_endpoint->ep_join_id) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we and the other have the same join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_join = find_join_id(other_eapp->ea_endpoint->ep_join_id);
+	if (!other_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	other_joinpbx = (class JoinPBX *)other_join;
+	if (our_joinpbx->j_partyline && other_joinpbx->j_partyline) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: both joins are partylines.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	if (our_joinpbx->j_3pty) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join already doing 3PTY.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (other_joinpbx->j_3pty) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: other join already doing 3PTY.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+
+	/* set 3PTY bridge */
+	other_joinpbx->j_3pty = our_joinpbx->j_serial;
+	our_joinpbx->j_3pty = other_joinpbx->j_serial;
+
+	/* mixer must update */
+	trigger_work(&our_joinpbx->j_updatebridge);
+	trigger_work(&other_joinpbx->j_updatebridge);
+
+	/* we send a retrieve to that endpoint */
+	// mixer will update the hold-state of the join and send it to the endpoints is changes
+#else
+	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no mISDN support anyway.\n", ea_endpoint->ep_serial);
+#endif
+
+	return 0;
+}
+
+int EndpointAppPBX::join_3pty_fxs(void)
+{
+#ifdef WITH_MISDN
+	class Join *our_join, *other_join;
+	class JoinPBX *our_joinpbx, *other_joinpbx;
+	class EndpointAppPBX *other_eapp;
+	class Port *our_port, *other_port;
+	class Pfxs *our_fxs, *other_fxs;
+
+	/* are we a candidate to join a join? */
+	our_join = find_join_id(ea_endpoint->ep_join_id);
+	if (!our_join) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our join doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (our_join->j_type != JOIN_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: join is not a pbx join.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_joinpbx = (class JoinPBX *)our_join;
+	if (!ea_endpoint->ep_portlist) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we have no port.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if (!e_ext.number[0]) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: we are not internal extension.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_port = find_port_id(ea_endpoint->ep_portlist->port_id);
+	if (!our_port) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port doesn't exist anymore.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	if ((our_port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: our port is not FXS pots.\n", ea_endpoint->ep_serial);
+		return -1;
+	}
+	our_fxs = (class Pfxs *)our_port;
+
+	/* find an endpoint that has the same mISDNport that we are on */
+	other_eapp = apppbx_first;
+	while(other_eapp) {
+		if (other_eapp == this) {
+			other_eapp = other_eapp->next;
+			continue;
+		}
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint candiate: (ep%d) terminal='%s' port=%s join=%d.\n", ea_endpoint->ep_serial, other_eapp->ea_endpoint->ep_serial, other_eapp->e_ext.number, (other_eapp->ea_endpoint->ep_portlist)?"YES":"NO", other_eapp->ea_endpoint->ep_join_id);
+		if (other_eapp->e_ext.number[0] /* has terminal */
+		 && other_eapp->ea_endpoint->ep_portlist /* has port */
+		 && other_eapp->ea_endpoint->ep_join_id) { /* has join */
+			other_port = find_port_id(other_eapp->ea_endpoint->ep_portlist->port_id);
+			if (other_port) { /* port still exists */
+				if (other_port->p_type==PORT_TYPE_POTS_FXS_OUT
+				 || other_port->p_type==PORT_TYPE_POTS_FXS_IN) { /* port is isdn nt-mode */
+					other_fxs = (class Pfxs *)other_port;
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of type FXS! comparing our portnum=%d with other's portnum=%d hold=%s state=%d\n", ea_endpoint->ep_serial, our_fxs->p_m_mISDNport->portnum, other_fxs->p_m_mISDNport->portnum, (other_fxs->p_m_hold)?"YES":"NO", other_fxs->p_state);
+					if (1 //other_fxs->p_m_hold /* port is on hold */
+					 && other_fxs->p_m_mISDNport == our_fxs->p_m_mISDNport) /* same pots interface */
+						break;
+				} else {
+					PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port is of other type!\n", ea_endpoint->ep_serial);
+				}
+			} else {
+				PDEBUG(DEBUG_EPOINT, "EPOINT(%d) comparing other endpoint's port doesn't exist enymore.\n", ea_endpoint->ep_serial);
+			}
+		}
+		other_eapp = other_eapp->next;
+	}
+	if (!other_eapp) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) cannot join: no other endpoint on same FXS terminal.\n", ea_endpoint->ep_serial);
 		return -1;
 	}
 	PDEBUG(DEBUG_EPOINT, "EPOINT(%d) port with same terminal found.\n", ea_endpoint->ep_serial);
@@ -4388,6 +4720,11 @@ void EndpointAppPBX::logmessage(int message_type, union parameter *param, unsign
 		if (param->threepty.error)
 			add_trace("action", NULL, "error");
 		add_trace("invoke-id", NULL, "%d", param->threepty.invoke_id);
+		end_trace();
+		break;
+
+		case MESSAGE_TRANSFER:
+		trace_header("TRANSFER", dir);
 		end_trace();
 		break;
 

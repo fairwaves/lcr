@@ -1110,6 +1110,57 @@ static int inter_context(struct interface *interface, char *filename, int line, 
 
 	return(0);
 }
+static int inter_pots_flash(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+
+	ifport->pots_flash = 1;
+	return(0);
+}
+static int inter_pots_ring(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+
+	ifport->pots_ring = 1;
+	return(0);
+}
+static int inter_pots_transfer(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+	struct interface_port *ifport;
+
+	/* port in chain ? */
+	if (!interface->ifport) {
+		SPRINT(interface_error, "Error in %s (line %d): parameter '%s' expects previous 'port' definition.\n", filename, line, parameter);
+		return(-1);
+	}
+	/* goto end of chain */
+	ifport = interface->ifport;
+	while(ifport->next)
+		ifport = ifport->next;
+
+	ifport->pots_transfer = 1;
+	return(0);
+}
 static int inter_shutdown(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 	interface->shutdown = 1;
@@ -1308,6 +1359,21 @@ struct interface_param interface_param[] = {
 	"Use \"asterisk\" to use chan_lcr as remote application."},
 	{"context", &inter_context, "<context>",
 	"Give context for calls to application."},
+
+	{"pots-flash", &inter_pots_flash, "",
+	"Allow flash button to hold an active call and setup a new call.\n"
+	"Ihis parameter only appies to POTS type of interfaces\n"
+	"This parameter must follow a 'port' parameter.\n"},
+	{"pots-ring-after-hangup", &inter_pots_ring, "",
+	"Allow ringing of last hold call after hangup. Other calls on hold will not be\n"
+	"released.\n"
+	"Ihis parameter only appies to POTS type of interfaces\n"
+	"This parameter must follow a 'port' parameter.\n"},
+	{"pots-transfer-after-hangup", &inter_pots_transfer, "",
+	"If two calls on hold, both are connected after hangup.\n"
+	"If one call is on hold and another one alerting, call on hold is tranfered.\n"
+	"Ihis parameter only appies to POTS type of interfaces\n"
+	"This parameter must follow a 'port' parameter.\n"},
 
 	{"shutdown", &inter_shutdown, "",
 	"Interface will not be loaded when processing interface.conf"},

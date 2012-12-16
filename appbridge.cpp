@@ -193,8 +193,13 @@ fail:
 			port = ss5_hunt_line(mISDNport);
 		else
 #endif
-		port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
 		earlyb = mISDNport->earlyb;
+#ifdef ISDN_P_FXS_POTS
+		if (mISDNport->pots)
+			port = new Pfxs(PORT_TYPE_POTS_FXS_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, mode);
+		else
+#endif
+			port = new Pdss1((mISDNport->ntmode)?PORT_TYPE_DSS1_NT_OUT:PORT_TYPE_DSS1_TE_OUT, mISDNport, portname, &port_settings, mISDNport->ifport->interface, channel, mISDNport->ifport->channel_force, mode);
 #else
 		trace_header("INTERFACE (has no function)", DIRECTION_NONE);
 		add_trace("interface", NULL, "%s", ifname);

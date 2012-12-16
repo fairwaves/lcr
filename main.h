@@ -150,6 +150,7 @@ void debug(const char *file, const char *function, int line, const char *prefix,
 #ifdef WITH_MISDN
 #include "mISDN.h"
 #include "dss1.h"
+#include "fxs.h"
 #endif
 #if defined WITH_GSM_BS || defined WITH_GSM_MS
 #include "gsm.h"

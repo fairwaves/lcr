@@ -212,6 +212,7 @@ class EndpointAppPBX : public EndpointApp
 	void port_progress(struct port_list *portlist, int message_type, union parameter *param);
 	void port_facility(struct port_list *portlist, int message_type, union parameter *param);
 	void port_3pty(struct port_list *portlist, int message_type, union parameter *param);
+	void port_transfer(struct port_list *portlist, int message_type, union parameter *param);
 	void port_suspend(struct port_list *portlist, int message_type, union parameter *param);
 	void port_resume(struct port_list *portlist, int message_type, union parameter *param);
 	void port_enablekeypad(struct port_list *portlist, int message_type, union parameter *param);
@@ -287,6 +288,12 @@ class EndpointAppPBX : public EndpointApp
 	void action_init_play(void);
 	void action_init_vbox_play(void);
 	void action_init_efi(void);
+	void action_init_pots_retrieve(void);
+	void action_init_pots_release(void);
+	void action_init_pots_reject(void);
+	void action_init_pots_answer(void);
+	void action_init_pots_3pty(void);
+	void action_init_pots_transfer(void);
 	void action_dialing_vbox_play(void);
 	void action_dialing_calculator(void);
 	void action_dialing_timer(void);
@@ -310,8 +317,10 @@ class EndpointAppPBX : public EndpointApp
 
 	/* facility function */
 	void pick_join(char *extension);
-	int join_join(void);
-	int join_3pty(void);
+	int join_join_dss1(void);
+	int join_join_fxs(void);
+	int join_3pty_dss1(void);
+	int join_3pty_fxs(void);
 	int split_3pty(void);
 	void encrypt_shared(void);
 	void encrypt_keyex(void);

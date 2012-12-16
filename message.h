@@ -185,6 +185,7 @@ struct dialing_info {
 	char display[84];		/* display information */
 	char keypad[33];		/* send keypad facility */
 	char context[32];		/* asterisk context */
+	int flash;			/* flash key caused setup of call */
 };
 
 /* call-info structure CONNECT */
@@ -433,6 +434,7 @@ enum { /* messages between entities */
 	MESSAGE_BRIDGE,		/* control port bridge */
 	MESSAGE_TRAFFIC,	/* exchange bchannel traffic */
 	MESSAGE_3PTY,		/* 3PTY call invoke */
+	MESSAGE_TRANSFER,	/* call transfer invoke */
 	MESSAGE_DISABLE_DEJITTER/* tell (mISDN) port not to dejitter */
 };
 
@@ -471,6 +473,7 @@ enum { /* messages between entities */
 	"MESSAGE_BRIDGE", \
 	"MESSAGE_TRAFFIC", \
 	"MESSAGE_3PTY", \
+	"MESSAGE_TRANSFER", \
 	"MESSAGE_DISABLE_DEJITTER", \
 };
 

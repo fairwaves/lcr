@@ -45,6 +45,8 @@ struct mISDNport {
 	int ntmode; /* is TRUE if port is NT mode */
 	int tespecial; /* is TRUE if port uses special TE mode */
 	int pri; /* is TRUE if port is a primary rate interface */
+	int pots; /* is TRUE if port is of type POTS */
+	struct lcr_fd pots_sock; /* socket for L1 */
 	int tones; /* TRUE if tones are sent outside connect state */
 	int earlyb; /* TRUE if tones are received outside connect state */
 	int b_num; /* number of bchannels */

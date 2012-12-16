@@ -1057,10 +1057,23 @@ void PmISDN::bchannel_receive(struct mISDNhead *hh, unsigned char *data, int len
 			end_trace();
 			if (!p_m_dtmf)
 				return;
-			message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
-			message->param.dtmf = cont & DTMF_TONE_MASK;
-			PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);
-			message_put(message);
+			if (p_type == PORT_TYPE_POTS_FXS_IN && p_state == PORT_STATE_IN_OVERLAP) {
+				class Pfxs *pfxs = (class Pfxs *)this;
+				if (!pfxs->p_m_fxs_allow_dtmf) {
+					PDEBUG(DEBUG_PORT, "PmISDN(%s) DTMF for FXS not yet allowed\n", p_name);
+					return;
+				}
+				SCCAT(p_dialinginfo.id, cont & DTMF_TONE_MASK);
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_INFORMATION);
+				message->param.information.id[0] = cont & DTMF_TONE_MASK;
+				PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  INFORMATION digit '%s'\n", p_name, message->param.information.id);
+				message_put(message);
+			} else {
+				message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_DTMF);
+				message->param.dtmf = cont & DTMF_TONE_MASK;
+				PDEBUG(DEBUG_PORT, "PmISDN(%s) PH_CONTROL INDICATION  DTMF digit '%c'\n", p_name, message->param.dtmf);
+				message_put(message);
+			}
 			return;
 		}
 		switch(cont) {
@@ -1777,6 +1790,43 @@ int mISDN_getportbyname(int sock, int cnt, char *portname)
 	return (port);
 }
 
+/* handle frames from pots */
+static int pots_sock_callback(struct lcr_fd *fd, unsigned int what, void *instance, int i)
+{
+	struct mISDNport *mISDNport = (struct mISDNport *)instance;
+	unsigned char buffer[2048+MISDN_HEADER_LEN];
+	struct mISDNhead *hh = (struct mISDNhead *)buffer;
+	unsigned int cont;
+	int ret;
+
+	ret = recv(fd->fd, buffer, sizeof(buffer), 0);
+	if (ret < 0) {
+		PERROR("read error frame, errno %d\n", errno);
+		return 0;
+	}
+	if (ret < (int)MISDN_HEADER_LEN) {
+		PERROR("read short frame, got %d, expected %d\n", ret, (int)MISDN_HEADER_LEN);
+		return 0;
+	}
+	switch(hh->prim) {
+	case PH_CONTROL_IND:
+		cont = *((unsigned int *)(buffer + MISDN_HEADER_LEN));
+		/* l1-control is sent to LCR */
+		if (mISDNport->ntmode)
+			stack2manager_fxs(mISDNport, cont);
+		else
+			PERROR("FXO not supported!\n");
+		break;
+	case PH_ACTIVATE_REQ:
+		break;
+
+	default:
+		PERROR("child message not handled: prim(0x%x) socket(%d) msg->len(%d)\n", hh->prim, fd->fd, ret-MISDN_HEADER_LEN);
+	}
+
+	return 0;
+}
+
 /*
  * global function to add a new card (port)
  */
@@ -1845,32 +1895,29 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		pri = 1;
 		nt = 1;
 	}
-#ifdef ISDN_P_FXS
-	if (devinfo.Dprotocols & (1 << ISDN_P_FXS)) {
+#ifdef ISDN_P_FXS_POTS
+	if (devinfo.Dprotocols & (1 << ISDN_P_FXO_POTS)) {
 		pots = 1;
 		te = 1;
 	}
-#endif
-#ifdef ISDN_P_FXO
-	if (devinfo.Dprotocols & (1 << ISDN_P_FXO)) {
+	if (devinfo.Dprotocols & (1 << ISDN_P_FXS_POTS)) {
 		pots = 1;
 		nt = 1;
 	}
 #endif
 	if (force_nt && !nt) {
-		PERROR_RUNTIME("Port %d does not support NT-mode\n", port);
+		if (!pots)
+			PERROR_RUNTIME("Port %d does not support NT-mode\n", port);
+		else
+			PERROR_RUNTIME("Port %d does not support FXS-mode\n", port);
 		return(NULL);
 	}
 	if (bri && pri) {
 		PERROR_RUNTIME("Port %d supports BRI and PRI?? What kind of controller is that?. (Can't use this!)\n", port);
 		return(NULL);
 	}
-	if (pots && !bri && !pri) {
-		PERROR_RUNTIME("Port %d supports POTS, LCR does not!\n", port);
-		return(NULL);
-	}
-	if (!bri && !pri) {
-		PERROR_RUNTIME("Port %d does not support BRI nor PRI!\n", port);
+	if (!bri && !pri && !pots) {
+		PERROR_RUNTIME("Port %d does not support BRI nor PRI nor POTS!\n", port);
 		return(NULL);
 	}
 	if (!nt && !te) {
@@ -1883,6 +1930,10 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	/* if TE an NT is supported (and not forced to NT), turn off NT */
 	if (te && nt)
 		nt = 0;
+	if (pots && te) {
+		PERROR_RUNTIME("Port %d uses FXO-mode, but not supported by LCR!\n", port);
+		return(NULL);
+	}
 
 	/* check for double use of port */
 	if (nt) {
@@ -1963,40 +2014,85 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	}
 		
 	/* allocate ressources of port */
-	protocol = (nt)?L3_PROTOCOL_DSS1_NET:L3_PROTOCOL_DSS1_USER;
-	prop = (1 << MISDN_FLG_L2_CLEAN);
-	if (ptp) // ptp forced
-	       prop |= (1 << MISDN_FLG_PTP);
-	if (nt) // supports hold/retrieve on nt-mode
-	       prop |= (1 << MISDN_FLG_NET_HOLD);
-	if (l1hold) // supports layer 1 hold
-	       prop |= (1 << MISDN_FLG_L1_HOLD);
-	if (l2hold) // supports layer 2 hold
-	       prop |= (1 << MISDN_FLG_L2_HOLD);
-	/* open layer 3 and init upqueue */
-	/* queue must be initializes, because l3-thread may send messages during open_layer3() */
-	mqueue_init(&mISDNport->upqueue);
-	mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
-	if (!mISDNport->ml3) {
-		mqueue_purge(&mISDNport->upqueue);
-		PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
-		start_trace(port,
-			ifport->interface,
-			NULL,
-			NULL,
-			DIRECTION_NONE,
-			CATEGORY_CH,
-			0,
-			"PORT (open failed)");
-		end_trace();
-		mISDNport_close(mISDNport);
-		return(NULL);
+	if (!pots) {
+		/* ISDN */
+		protocol = (nt)?L3_PROTOCOL_DSS1_NET:L3_PROTOCOL_DSS1_USER;
+		prop = (1 << MISDN_FLG_L2_CLEAN);
+		if (ptp) // ptp forced
+		       prop |= (1 << MISDN_FLG_PTP);
+		if (nt) // supports hold/retrieve on nt-mode
+		       prop |= (1 << MISDN_FLG_NET_HOLD);
+		if (l1hold) // supports layer 1 hold
+		       prop |= (1 << MISDN_FLG_L1_HOLD);
+		if (l2hold) // supports layer 2 hold
+		       prop |= (1 << MISDN_FLG_L2_HOLD);
+		/* open layer 3 and init upqueue */
+		/* queue must be initializes, because l3-thread may send messages during open_layer3() */
+		mqueue_init(&mISDNport->upqueue);
+		mISDNport->ml3 = open_layer3(port, protocol, prop , do_layer3, mISDNport);
+		if (!mISDNport->ml3) {
+			mqueue_purge(&mISDNport->upqueue);
+			PERROR_RUNTIME("open_layer3() failed for port %d\n", port);
+			start_trace(port,
+				ifport->interface,
+				NULL,
+				NULL,
+				DIRECTION_NONE,
+				CATEGORY_CH,
+				0,
+				"PORT (open failed)");
+			end_trace();
+			mISDNport_close(mISDNport);
+			return(NULL);
+		}
+	} else {
+#ifdef ISDN_P_FXS_POTS
+		/* POTS */
+		int sock, ret;
+		struct sockaddr_mISDN addr;
+		struct mISDNhead act;
+
+		/* open socket */
+		/* queue must be initializes, because even pots interfaces are checked at mISDN_upqueue loop */
+		mqueue_init(&mISDNport->upqueue);
+		sock = socket(PF_ISDN, SOCK_DGRAM, (nt) ? ISDN_P_FXS_POTS : ISDN_P_FXO_POTS);
+		if (sock < 0) {
+			PERROR_RUNTIME("Cannot open mISDN due to '%s'.\n", strerror(errno));
+			return NULL;
+		}
+		/* bind socket to dchannel */
+		addr.family = AF_ISDN;
+		addr.dev = port;
+		addr.channel = 0;
+		ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
+		if (ret < 0) {
+			PERROR_RUNTIME("Error: Failed to bind pots control channel\n");
+			start_trace(port,
+				ifport->interface,
+				NULL,
+				NULL,
+				DIRECTION_NONE,
+				CATEGORY_CH,
+				0,
+				"PORT (open failed)");
+			end_trace();
+			return(NULL);
+		}
+		act.prim = PH_ACTIVATE_REQ; 
+		act.id = 0;
+		ret = sendto(sock, &act, MISDN_HEADER_LEN, 0, NULL, 0);
+		if (ret <= 0)
+			PERROR("Failed to send to socket %d\n", sock);
+		mISDNport->pots_sock.fd = sock;
+		register_fd(&mISDNport->pots_sock, LCR_FD_READ, pots_sock_callback, mISDNport, i);
+#endif
 	}
 
 	SCPY(mISDNport->name, devinfo.name);
 	mISDNport->b_num = devinfo.nrbchan;
 	mISDNport->portnum = port;
 	mISDNport->ntmode = nt;
+	mISDNport->pots = pots;
 	mISDNport->tespecial = ifport->tespecial;
 	mISDNport->pri = pri;
 	mISDNport->ptp = ptp;
@@ -2012,7 +2108,7 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 	}
 
 	/* if ptp, pull up the link */
-	if (mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
+	if (!pots && mISDNport->l2hold && (mISDNport->ptp || !mISDNport->ntmode)) {
 		mISDNport->ml3->to_layer3(mISDNport->ml3, MT_L2ESTABLISH, 0, NULL);
 		l1l2l3_trace_header(mISDNport, NULL, L2_ESTABLISH_REQ, DIRECTION_OUT);
 		add_trace("tei", NULL, "%d", 0);
@@ -2020,8 +2116,8 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		schedule_timer(&mISDNport->l2establish, 5, 0); /* 5 seconds */
 	}
 
-	/* for nt-mode ptmp the link is always up */
-	if (mISDNport->ntmode && !mISDNport->ptp)
+	/* for POTS or nt-mode ptmp the link is always up */
+	if (pots || (mISDNport->ntmode && !mISDNport->ptp))
 		mISDNport->l2link = 1;
 
 	PDEBUG(DEBUG_BCHANNEL, "using 'mISDN_dsp.o' module\n");
@@ -2034,7 +2130,10 @@ struct mISDNport *mISDNport_open(struct interface_port *ifport)
 		    CATEGORY_CH,
 		    0,
 		    "PORT (open)");
-	add_trace("mode", NULL, (mISDNport->ntmode)?"network":"terminal");
+	if (!pots)
+		add_trace("mode", NULL, (mISDNport->ntmode)?"network":"terminal");
+	else
+		add_trace("mode", NULL, (mISDNport->ntmode)?"FXS":"FXO");
 	add_trace("channels", NULL, "%d", mISDNport->b_num);
 	if (mISDNport->ss5)
 		add_trace("ccitt#5", NULL, "enabled");
@@ -2127,6 +2226,12 @@ void mISDNport_close(struct mISDNport *mISDNport)
 	/* close layer 3, if open */
 	if (mISDNport->ml3) {
 		close_layer3(mISDNport->ml3);
+	}
+
+	/* close layer 1, if open */
+	if (mISDNport->pots_sock.fd) {
+		unregister_fd(&mISDNport->pots_sock);
+		close(mISDNport->pots_sock.fd);
 	}
 
 	/* purge upqueue */

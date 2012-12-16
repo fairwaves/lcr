@@ -76,6 +76,10 @@ enum { /* what to check during runtime */
 	MATCH_IDLE,
 	MATCH_REMOTE,
 	MATCH_NOTREMOTE,
+	MATCH_POTS_FLASH,
+	MATCH_POTS_CW,
+	MATCH_POTS_CALLS,
+	MATCH_POTS_LAST,
 };
 
 enum { /* how to parse text file during startup */
@@ -149,6 +153,7 @@ enum { /* defines when a statement should be executed */
 #define PARAM_EXTEN		(1LL<<46)
 #define PARAM_ON		(1LL<<47)
 #define PARAM_KEYPAD		(1LL<<48)
+#define PARAM_POTS_CALL		(1LL<<49)
 
 /* action index
  * NOTE: The given index is the actual entry number of action_defs[], so add/remove both lists!!!
@@ -185,6 +190,12 @@ enum { /* defines when a statement should be executed */
 #define	ACTION_PASSWORD_WRITE	29
 #define	ACTION_NOTHING		30
 #define	ACTION_EFI		31
+#define	ACTION_POTS_RETRIEVE	32
+#define	ACTION_POTS_RELEASE	33
+#define	ACTION_POTS_REJECT	34
+#define	ACTION_POTS_ANSWER	35
+#define	ACTION_POTS_3PTY	36
+#define	ACTION_POTS_TRANSFER	37
 
 struct route_cond { /* an item */
 	struct route_cond	*next;			/* next entry */

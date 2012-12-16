@@ -2049,6 +2049,398 @@ void EndpointAppPBX::action_dialing_password_wr(void)
 }
 
 
+/* process pots-retrieve
+ */
+void EndpointAppPBX::action_init_pots_retrieve(void)
+{
+	struct route_param *rparam;
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs;
+	int count = 0;
+	class Endpoint *epoint;
+
+	/* check given call */
+	if (!(rparam = routeparam(e_action, PARAM_POTS_CALL))) {
+		trace_header("ACTION pots-retrieve (no call given)", DIRECTION_NONE);
+		end_trace();
+
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-retrieve (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				count++;
+				if (count == rparam->integer_value)
+					break;
+			}
+		}
+		port = port->next;
+	}
+	if (!port) {
+		trace_header("ACTION pots-retrieve (call # does not exist)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#ifdef ISDN_P_FXS_POTS
+	/* release our call */
+	ourfxs->hangup_ind(0);
+
+	/* retrieve selected call */
+	fxs->retrieve_ind(0);
+#endif
+
+	/* split if selected call is member of a 3pty */
+	epoint = find_epoint_id(ACTIVE_EPOINT(fxs->p_epointlist));
+	if (epoint && epoint->ep_app_type == EAPP_TYPE_PBX) {
+		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) try spliting 3pty. this may fail because we don't have a 3pty.\n", epoint->ep_serial);
+		((class EndpointAppPBX *)epoint->ep_app)->split_3pty();
+	}
+}
+
+
+/* process pots-release
+ */
+void EndpointAppPBX::action_init_pots_release(void)
+{
+	struct route_param *rparam;
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs;
+	int count = 0;
+
+	/* check given call */
+	if (!(rparam = routeparam(e_action, PARAM_POTS_CALL))) {
+		trace_header("ACTION pots-release (no call given)", DIRECTION_NONE);
+		end_trace();
+
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-release (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				count++;
+				if (count == rparam->integer_value)
+					break;
+			}
+		}
+		port = port->next;
+	}
+	if (!port) {
+		trace_header("ACTION pots-release (call # does not exist)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#if 0
+	/* disconnect our call */
+	new_state(EPOINT_STATE_OUT_DISCONNECT);
+	message_disconnect_port(portlist, CAUSE_NORMAL, LOCATION_PRIVATE_LOCAL, "");
+	set_tone(portlist, "hangup");
+	e_action = NULL;
+#endif
+
+#ifdef ISDN_P_FXS_POTS
+	/* release selected call */
+	fxs->hangup_ind(0);
+#endif
+
+	/* indicate timeout, so next action will be processed */
+	process_dialing(1);
+}
+
+
+/* process pots-reject
+ */
+void EndpointAppPBX::action_init_pots_reject(void)
+{
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs;
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-reject (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				if (fxs->p_state == PORT_STATE_OUT_ALERTING)
+					break;
+			}
+		}
+		port = port->next;
+	}
+	if (!port) {
+		trace_header("ACTION pots-reject (no call waiting)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#ifdef ISDN_P_FXS_POTS
+	/* reject alerting call */
+	fxs->reject_ind(0);
+#endif
+
+	/* indicate timeout, so next action will be processed */
+	process_dialing(1);
+}
+
+
+/* process pots-answer
+ */
+void EndpointAppPBX::action_init_pots_answer(void)
+{
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs;
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-answer (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				if (fxs->p_state == PORT_STATE_OUT_ALERTING)
+					break;
+			}
+		}
+		port = port->next;
+	}
+	if (!port) {
+		trace_header("ACTION pots-answer (no call waiting)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#ifdef ISDN_P_FXS_POTS
+	/* release our call */
+	ourfxs->hangup_ind(0);
+
+	/* answer alerting call */
+	fxs->answer_ind(0);
+#endif
+}
+
+
+/* process pots-3pty
+ */
+void EndpointAppPBX::action_init_pots_3pty(void)
+{
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs, *fxs1 = NULL, *fxs2 = NULL;
+	class Endpoint *epoint;
+	int count = 0;
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-3pty (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				if (count == 0)
+					fxs1 = fxs;
+				if (count == 1)
+					fxs2 = fxs;
+				count++;
+			}
+		}
+		port = port->next;
+	}
+	if (count != 2) {
+		trace_header("ACTION pots-3pty (exactly two calls don't exist)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#ifdef ISDN_P_FXS_POTS
+	/* release our call */
+	ourfxs->hangup_ind(0);
+#endif
+
+#ifdef ISDN_P_FXS_POTS
+	/* retrieve latest active call */
+	if (fxs2->p_m_fxs_age > fxs1->p_m_fxs_age) {
+		fxs2->retrieve_ind(0);
+		epoint = find_epoint_id(ACTIVE_EPOINT(fxs2->p_epointlist));
+	} else {
+		fxs1->retrieve_ind(0);
+		epoint = find_epoint_id(ACTIVE_EPOINT(fxs2->p_epointlist));
+	}
+#else
+	epoint = NULL;
+#endif
+
+	if (!epoint) {
+		trace_header("ACTION pots-3pty (interal error: no endpoint)", DIRECTION_NONE);
+		end_trace();
+		return;
+	}
+
+	if (epoint->ep_app_type != EAPP_TYPE_PBX) {
+		trace_header("ACTION pots-3pty (interal error: endpoint not PBX type)", DIRECTION_NONE);
+		end_trace();
+		return;
+	}
+
+	/* bridge calls */
+	if (((class EndpointAppPBX *)epoint->ep_app)->join_3pty_fxs()) {
+		trace_header("ACTION pots-3pty (interal error: join_3pty_fsx failed)", DIRECTION_NONE);
+		end_trace();
+		return;
+	}
+}
+
+/* process pots-transfer
+ */
+void EndpointAppPBX::action_init_pots_transfer(void)
+{
+	struct route_param *rparam;
+	struct port_list *portlist = ea_endpoint->ep_portlist;
+	class Port *port;
+	class Pfxs *ourfxs, *fxs, *fxs1 = NULL, *fxs2 = NULL;
+	int count = 0;
+
+	/* check given call */
+	if (!(rparam = routeparam(e_action, PARAM_POTS_CALL))) {
+		trace_header("ACTION pots-transfer (no call given)", DIRECTION_NONE);
+		end_trace();
+
+		disconnect:
+		new_state(EPOINT_STATE_OUT_DISCONNECT);
+		message_disconnect_port(portlist, CAUSE_UNSPECIFIED, LOCATION_PRIVATE_LOCAL, "");
+		set_tone(portlist, "cause_3f");
+		e_action = NULL;
+		return;
+	}
+
+	/* find call */
+	port = find_port_id(portlist->port_id);
+	if (!port)
+		goto disconnect;
+	if ((port->p_type & PORT_CLASS_POTS_MASK) != PORT_CLASS_POTS_FXS) {
+		trace_header("ACTION pots-transfer (call not of FXS type)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+	ourfxs = (class Pfxs *)port;
+
+	port = port_first;
+	while(port) {
+		if ((port->p_type & PORT_CLASS_POTS_MASK) == PORT_CLASS_POTS_FXS) {
+			fxs = (class Pfxs *)port;
+			if (fxs->p_m_mISDNport == ourfxs->p_m_mISDNport && fxs != ourfxs) {
+				if (count == 0)
+					fxs1 = fxs;
+				if (count == 1)
+					fxs2 = fxs;
+				count++;
+			}
+		}
+		port = port->next;
+	}
+	if (count != 2) {
+		trace_header("ACTION pots-transfer (exactly two calls don't exist)", DIRECTION_NONE);
+		end_trace();
+		goto disconnect;
+	}
+
+#ifdef ISDN_P_FXS_POTS
+	/* retrieve call */
+	if (fxs2->p_m_fxs_age > fxs1->p_m_fxs_age)
+		fxs2->retrieve_ind(0);
+	else
+		fxs1->retrieve_ind(0);
+#endif
+	/* bridge calls */
+	join_join_fxs();
+}
+
+
 /* general process dialing of incoming call
  * depending on the detected prefix, subfunctions above (action_*) will be
  * calles.
