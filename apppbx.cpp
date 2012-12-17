@@ -1389,8 +1389,8 @@ void EndpointAppPBX::port_setup(struct port_list *portlist, int message_type, un
 	/* screen incoming caller id */
 	if (e_callerinfo.interface[0]) {
 		do_screen(0, e_callerinfo.id, sizeof(e_callerinfo.id), &e_callerinfo.ntype, &e_callerinfo.present, e_callerinfo.interface);
-		do_screen(0, e_callerinfo.id2, sizeof(e_callerinfo.id2), &e_callerinfo.ntype2, &e_callerinfo.present2, e_callerinfo.interface);
-		do_screen(0, e_redirinfo.id, sizeof(e_redirinfo.id), &e_redirinfo.ntype, &e_redirinfo.present, e_callerinfo.interface);
+		if (e_callerinfo.id2[0]) do_screen(0, e_callerinfo.id2, sizeof(e_callerinfo.id2), &e_callerinfo.ntype2, &e_callerinfo.present2, e_callerinfo.interface);
+		if (e_redirinfo.id[0]) do_screen(0, e_redirinfo.id, sizeof(e_redirinfo.id), &e_redirinfo.ntype, &e_redirinfo.present, e_callerinfo.interface);
 	}
 
 	/* process extension */
