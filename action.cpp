@@ -2053,6 +2053,7 @@ void EndpointAppPBX::action_dialing_password_wr(void)
  */
 void EndpointAppPBX::action_init_pots_retrieve(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct route_param *rparam;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
@@ -2102,13 +2103,11 @@ void EndpointAppPBX::action_init_pots_retrieve(void)
 		goto disconnect;
 	}
 
-#ifdef ISDN_P_FXS_POTS
 	/* release our call */
 	ourfxs->hangup_ind(0);
 
 	/* retrieve selected call */
 	fxs->retrieve_ind(0);
-#endif
 
 	/* split if selected call is member of a 3pty */
 	epoint = find_epoint_id(ACTIVE_EPOINT(fxs->p_epointlist));
@@ -2116,6 +2115,7 @@ void EndpointAppPBX::action_init_pots_retrieve(void)
 		PDEBUG(DEBUG_EPOINT, "EPOINT(%d) try spliting 3pty. this may fail because we don't have a 3pty.\n", epoint->ep_serial);
 		((class EndpointAppPBX *)epoint->ep_app)->split_3pty();
 	}
+#endif
 }
 
 
@@ -2123,6 +2123,7 @@ void EndpointAppPBX::action_init_pots_retrieve(void)
  */
 void EndpointAppPBX::action_init_pots_release(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct route_param *rparam;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
@@ -2179,13 +2180,12 @@ void EndpointAppPBX::action_init_pots_release(void)
 	e_action = NULL;
 #endif
 
-#ifdef ISDN_P_FXS_POTS
 	/* release selected call */
 	fxs->hangup_ind(0);
-#endif
 
 	/* indicate timeout, so next action will be processed */
 	process_dialing(1);
+#endif
 }
 
 
@@ -2193,6 +2193,7 @@ void EndpointAppPBX::action_init_pots_release(void)
  */
 void EndpointAppPBX::action_init_pots_reject(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
 	class Pfxs *ourfxs, *fxs;
@@ -2230,13 +2231,12 @@ void EndpointAppPBX::action_init_pots_reject(void)
 		goto disconnect;
 	}
 
-#ifdef ISDN_P_FXS_POTS
 	/* reject alerting call */
 	fxs->reject_ind(0);
-#endif
 
 	/* indicate timeout, so next action will be processed */
 	process_dialing(1);
+#endif
 }
 
 
@@ -2244,6 +2244,7 @@ void EndpointAppPBX::action_init_pots_reject(void)
  */
 void EndpointAppPBX::action_init_pots_answer(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
 	class Pfxs *ourfxs, *fxs;
@@ -2281,7 +2282,6 @@ void EndpointAppPBX::action_init_pots_answer(void)
 		goto disconnect;
 	}
 
-#ifdef ISDN_P_FXS_POTS
 	/* release our call */
 	ourfxs->hangup_ind(0);
 
@@ -2295,6 +2295,7 @@ void EndpointAppPBX::action_init_pots_answer(void)
  */
 void EndpointAppPBX::action_init_pots_3pty(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
 	class Pfxs *ourfxs, *fxs, *fxs1 = NULL, *fxs2 = NULL;
@@ -2337,12 +2338,9 @@ void EndpointAppPBX::action_init_pots_3pty(void)
 		goto disconnect;
 	}
 
-#ifdef ISDN_P_FXS_POTS
 	/* release our call */
 	ourfxs->hangup_ind(0);
-#endif
 
-#ifdef ISDN_P_FXS_POTS
 	/* retrieve latest active call */
 	if (fxs2->p_m_fxs_age > fxs1->p_m_fxs_age) {
 		fxs2->retrieve_ind(0);
@@ -2351,9 +2349,6 @@ void EndpointAppPBX::action_init_pots_3pty(void)
 		fxs1->retrieve_ind(0);
 		epoint = find_epoint_id(ACTIVE_EPOINT(fxs2->p_epointlist));
 	}
-#else
-	epoint = NULL;
-#endif
 
 	if (!epoint) {
 		trace_header("ACTION pots-3pty (interal error: no endpoint)", DIRECTION_NONE);
@@ -2373,12 +2368,14 @@ void EndpointAppPBX::action_init_pots_3pty(void)
 		end_trace();
 		return;
 	}
+#endif
 }
 
 /* process pots-transfer
  */
 void EndpointAppPBX::action_init_pots_transfer(void)
 {
+#ifdef ISDN_P_FXS_POTS
 	struct route_param *rparam;
 	struct port_list *portlist = ea_endpoint->ep_portlist;
 	class Port *port;
@@ -2429,15 +2426,14 @@ void EndpointAppPBX::action_init_pots_transfer(void)
 		goto disconnect;
 	}
 
-#ifdef ISDN_P_FXS_POTS
 	/* retrieve call */
 	if (fxs2->p_m_fxs_age > fxs1->p_m_fxs_age)
 		fxs2->retrieve_ind(0);
 	else
 		fxs1->retrieve_ind(0);
-#endif
 	/* bridge calls */
 	join_join_fxs();
+#endif
 }
 
 
