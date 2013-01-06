@@ -1314,7 +1314,8 @@ int Psip::parse_sdp(sip_t const *sip, unsigned int *ip, unsigned short *port, ui
 void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tagss[])
 {
 	struct sip_inst *inst = (struct sip_inst *) p_s_sip_inst;
-	const char *from = "", *to = "";
+	const char *from = "", *to = "", *name = "";
+	char imsi[16] = "";
 	int ret;
 	class Endpoint *epoint;
 	struct lcr_msg *message;
@@ -1330,10 +1331,22 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		return;
 	}
 
-	if (sip->sip_from && sip->sip_from->a_url)
-		from = sip->sip_from->a_url->url_user;
-	if (sip->sip_to && sip->sip_to->a_url)
-		to = sip->sip_to->a_url->url_user;
+	if (sip->sip_from) {
+		if (sip->sip_from->a_url)
+			from = sip->sip_from->a_url->url_user;
+		if (sip->sip_from->a_display) {
+			name = sip->sip_from->a_display;
+			if (!strncmp(name, "\"IMSI", 5)) {
+				strncpy(imsi, name + 5, 15);
+				imsi[15] = '\0';
+				name = "";
+			}
+		}
+	}
+	if (sip->sip_to) {
+		if (sip->sip_to->a_url)
+			to = sip->sip_to->a_url->url_user;
+	}
 	PDEBUG(DEBUG_SIP, "invite received (%s->%s)\n", from, to);
 
 	sip_trace_header(this, "Payload received", DIRECTION_NONE);
@@ -1408,6 +1421,12 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
 		SCPY(p_callerinfo.id, from);
 		add_trace("calling", "number", "%s", from);
+		SCPY(p_callerinfo.name, name);
+		if (name[0])
+			add_trace("calling", "name", "%s", name);
+		SCPY(p_callerinfo.imsi, imsi);
+		if (imsi[0])
+			add_trace("calling", "imsi", "%s", imsi);
 	}
 	SCPY(p_callerinfo.interface, inst->interface_name);
 	/* dialing information */
