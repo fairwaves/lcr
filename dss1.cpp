@@ -1685,7 +1685,7 @@ void Pdss1::facility_ind(unsigned int cmd, unsigned int pid, struct l3_msg *l3m)
 
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_FACILITY);
 	message->param.facilityinfo.len = fac_len;
-	memcpy(message->param.facilityinfo.data, fac_ie, fac_len);
+	memcpy(message->param.facilityinfo.data, fac_ie + 1, fac_len);
 	message_put(message);
 }
 
