@@ -180,12 +180,20 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	p_g_notify_pending = NULL;
 	p_g_setup_pending = NULL;
 	p_g_connect_pending = NULL;
-	p_g_decoder = gsm_audio_create();
-	p_g_encoder = gsm_audio_create();
-	if (!p_g_encoder || !p_g_decoder) {
-		PERROR("Failed to create GSM audio codec instance\n");
+	p_g_fr_decoder = NULL;
+	p_g_fr_encoder = NULL;
+	p_g_hr_decoder = NULL;
+	p_g_hr_encoder = NULL;
+	p_g_amr_decoder = NULL;
+	p_g_amr_encoder = NULL;
+#ifdef WITH_GSMFR
+	p_g_fr_decoder = gsm_fr_create();
+	p_g_fr_encoder = gsm_fr_create();
+	if (!p_g_fr_encoder || !p_g_fr_decoder) {
+		PERROR("Failed to create GSM FR codec instance\n");
 		trigger_work(&p_g_delete);
 	}
+#endif
 	p_g_rxpos = 0;
 	p_g_tch_connected = 0;
 	p_g_media_type = 0;
@@ -210,11 +218,13 @@ Pgsm::~Pgsm()
 	if (p_g_connect_pending)
 		message_free(p_g_connect_pending);
 
+//#ifdef WITH_GSMFR
 	/* close codec */
-	if (p_g_encoder)
-		gsm_audio_destroy(p_g_encoder);
-	if (p_g_decoder)
-		gsm_audio_destroy(p_g_decoder);
+	if (p_g_fr_encoder)
+		gsm_fr_destroy(p_g_fr_encoder);
+	if (p_g_fr_decoder)
+		gsm_fr_destroy(p_g_fr_decoder);
+//#endif
 }
 
 
@@ -225,32 +235,41 @@ void Pgsm::frame_receive(void *arg)
 	unsigned char data[160];
 	int i;
 
-	if (!p_g_decoder)
+	if (!p_g_fr_decoder)
 		return;
 
-	if (frame->msg_type != GSM_BAD_FRAME) {
-		if ((frame->data[0]>>4) != 0xd)
-			PERROR("received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
-	
+	switch (frame->msg_type) {
+	case GSM_TCHF_FRAME:
+		if ((frame->data[0]>>4) != 0xd) {
+			PDEBUG(DEBUG_GSM, "received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
+			goto bfi;
+		}
+#ifdef WITH_GSMFR
 		/* decode */
-		gsm_audio_decode(p_g_decoder, frame->data, p_g_samples);
+		gsm_fr_decode(p_g_fr_decoder, frame->data, p_g_samples);
 		for (i = 0; i < 160; i++) {
 			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
 		}
-	} else if (p_echotest) {
-		/* beep on bad frame */
-		for (i = 0; i < 160; i++) {
-			if ((i & 3) > 2)
-				p_g_samples[i] = 15000;
-			else
-				p_g_samples[i] = -15000;
-			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
-		}
-	} else {
-		/* repeat on bad frame */
-		for (i = 0; i < 160; i++) {
-			p_g_samples[i] = (p_g_samples[i] * 14) >> 4;
-			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+#endif
+		break;
+	case GSM_BAD_FRAME:
+	default:
+bfi:
+		if (p_echotest) {
+			/* beep on bad frame */
+			for (i = 0; i < 160; i++) {
+				if ((i & 3) > 2)
+					p_g_samples[i] = 15000;
+				else
+					p_g_samples[i] = -15000;
+				data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+			}
+		} else {
+			/* repeat on bad frame */
+			for (i = 0; i < 160; i++) {
+				p_g_samples[i] = (p_g_samples[i] * 14) >> 4;
+				data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+			}
 		}
 	}
 
@@ -288,7 +307,7 @@ int Pgsm::audio_send(unsigned char *data, int len)
 		tap(data, len, 1); // from up
 
 	/* encoder init failed */
-	if (!p_g_encoder)
+	if (!p_g_fr_encoder)
 		return -EINVAL;
 
 	/* (currently) not connected, so don't flood tch! */
@@ -301,9 +320,11 @@ int Pgsm::audio_send(unsigned char *data, int len)
 		if (p_g_rxpos == 160) {
 			p_g_rxpos = 0;
 
+#ifdef WITH_GSMFR
 			/* encode data */
-			gsm_audio_encode(p_g_encoder, p_g_rxdata, frame);
+			gsm_fr_encode(p_g_fr_encoder, p_g_rxdata, frame);
 			frame_send(frame);
+#endif
 		}
 	}
 

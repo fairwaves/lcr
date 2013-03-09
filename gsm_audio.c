@@ -10,11 +10,11 @@
 \*****************************************************************************/ 
 
 extern "C" {
-#include "/usr/include/gsm/gsm.h"
+#include "libgsmfr/inc/gsm.h"
 
 
 /* create gsm instance */
-void *gsm_audio_create(void)
+void *gsm_fr_create(void)
 {
 	int value = 1;
 	gsm handle;
@@ -27,13 +27,13 @@ void *gsm_audio_create(void)
 }
 
 /* free gsm instance */
-void gsm_audio_destroy(void *arg)
+void gsm_fr_destroy(void *arg)
 {
 	gsm_destroy((gsm)arg);
 }
 
 /* decode frame into samples, return error */
-int gsm_audio_decode(void *arg, unsigned char *frame, signed short *samples)
+int gsm_fr_decode(void *arg, unsigned char *frame, signed short *samples)
 {
 //	int value = 0;
 
@@ -42,7 +42,7 @@ int gsm_audio_decode(void *arg, unsigned char *frame, signed short *samples)
 }
 
 /* encode samples into frame */
-void gsm_audio_encode(void *arg, signed short *samples, unsigned char *frame)
+void gsm_fr_encode(void *arg, signed short *samples, unsigned char *frame)
 {
 //	int value = 0;
 	

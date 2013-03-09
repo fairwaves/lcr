@@ -51,22 +51,25 @@ MISDN_LIB = -lmisdn
 
 endif
 
+SUBDIRS =
+
 GSM_INCLUDE =
 GSM_SOURCE =
 GSM_LIB =
 
 if ENABLE_GSM
 
-GSM_INCLUDE +=
+#if ENABLE_GSMHR
+
+GSM_INCLUDE += -DWITH_GSMFR
+
+GSM_LIB += libgsmfr/lib/libgsm.a
+
+SUBDIRS += libgsmfr
+
+#endif
 
 GSM_SOURCE += gsm_audio.c gsm.cpp
-  
-GSM_LIB += /usr/lib/libgsm.a
-
-#gsm_audio.po: gsm_audio.c gsm_audio.h
-#	$(CC) -D_GNU_SOURCE -fPIC -c gsm_audio.c -o gsm_audio.po
-
-endif
 
 if ENABLE_GSM_BS
 
@@ -83,6 +86,8 @@ GSM_INCLUDE += -DWITH_GSM_MS
 GSM_SOURCE += gsm_ms.cpp
 
 endif
+endif
+
 
 if ENABLE_SS5
 

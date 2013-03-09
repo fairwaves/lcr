@@ -48,7 +48,9 @@ class Pgsm : public Port
 	struct lcr_msg *p_g_notify_pending;	/* queue for NOTIFY if not connected */
 	struct lcr_msg *p_g_setup_pending;	/* queue SETUP until RTP is created */
 	struct lcr_msg *p_g_connect_pending;	/* queue CONNECT until RTP is created and connected */
-	void *p_g_encoder, *p_g_decoder;	/* gsm handle */
+	void *p_g_fr_encoder, *p_g_fr_decoder;	/* gsm handle */
+	void *p_g_hr_encoder, *p_g_hr_decoder;	/* gsm handle */
+	void *p_g_amr_encoder, *p_g_amr_decoder;/* gsm handle */
 	signed short p_g_rxdata[160]; /* receive audio buffer */
 	int p_g_rxpos; /* position in audio buffer 0..159 */
 	int p_g_tch_connected; /* indicates if audio is connected */

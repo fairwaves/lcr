@@ -7,7 +7,9 @@ core
 conf*.dir
 stamp-h1
 .deps/
-Makefile
+include/Makefile
+libgsmfr/bin/
+libgsmfr/lib/
 config.h
 config.log
 config.status
