@@ -277,7 +277,7 @@ void Pgsm_ms::setup_ind(unsigned int msg_type, unsigned int callref, struct gsm_
 	epointlist_new(epoint->ep_serial);
 
 	/* modify lchan to GSM codec V1 */
-	modify_lchan(RTP_PT_GSM_FULL);
+	modify_lchan(MEDIA_TYPE_GSM);
 
 	/* send call proceeding */
 	gsm_trace_header(p_interface_name, this, MNCC_CALL_CONF_REQ, DIRECTION_OUT);

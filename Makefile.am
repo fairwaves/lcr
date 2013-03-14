@@ -69,6 +69,14 @@ SUBDIRS += libgsmfr
 
 #endif
 
+if ENABLE_GSMAMR
+
+GSM_INCLUDE += -DWITH_GSMAMR
+
+GSM_LIB += -lopencore-amrnb
+
+endif
+
 GSM_SOURCE += gsm_audio.c gsm.cpp
 
 if ENABLE_GSM_BS
@@ -86,6 +94,7 @@ GSM_INCLUDE += -DWITH_GSM_MS
 GSM_SOURCE += gsm_ms.cpp
 
 endif
+
 endif
 
 

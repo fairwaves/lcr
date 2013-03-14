@@ -64,7 +64,7 @@ class Pgsm : public Port
 	int p_g_rtp_media_types[8];
 	unsigned char p_g_rtp_payload_types[8];
 
-	void frame_send(void *_frame);
+	void frame_send(void *_frame, int len, int msg_type);
 	void frame_receive(void *_frame);
 	int audio_send(unsigned char *data, int len);
 	int bridge_rx(unsigned char *data, int len);

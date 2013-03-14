@@ -194,6 +194,14 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 		trigger_work(&p_g_delete);
 	}
 #endif
+#ifdef WITH_GSMAMR
+	p_g_amr_decoder = gsm_amr_create();
+	p_g_amr_encoder = gsm_amr_create();
+	if (!p_g_amr_encoder || !p_g_amr_decoder) {
+		PERROR("Failed to create GSM AMR codec instance\n");
+		trigger_work(&p_g_delete);
+	}
+#endif
 	p_g_rxpos = 0;
 	p_g_tch_connected = 0;
 	p_g_media_type = 0;
@@ -225,6 +233,13 @@ Pgsm::~Pgsm()
 	if (p_g_fr_decoder)
 		gsm_fr_destroy(p_g_fr_decoder);
 //#endif
+#ifdef WITH_GSMAMR
+	/* close codec */
+	if (p_g_amr_encoder)
+		gsm_amr_destroy(p_g_amr_encoder);
+	if (p_g_amr_decoder)
+		gsm_amr_destroy(p_g_amr_decoder);
+#endif
 }
 
 
@@ -240,6 +255,14 @@ void Pgsm::frame_receive(void *arg)
 
 	switch (frame->msg_type) {
 	case GSM_TCHF_FRAME:
+		if (p_g_media_type != MEDIA_TYPE_GSM) {
+			PERROR("FR frame, but current media type mismatches.\n");
+			return;
+		}
+		if (!p_g_fr_decoder) {
+			PERROR("FR frame, but decoder not created.\n");
+			return;
+		}
 		if ((frame->data[0]>>4) != 0xd) {
 			PDEBUG(DEBUG_GSM, "received GSM frame with wrong magig 0x%x\n", frame->data[0]>>4);
 			goto bfi;
@@ -247,6 +270,25 @@ void Pgsm::frame_receive(void *arg)
 #ifdef WITH_GSMFR
 		/* decode */
 		gsm_fr_decode(p_g_fr_decoder, frame->data, p_g_samples);
+		for (i = 0; i < 160; i++) {
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
+#endif
+		break;
+	case GSM_TCHF_FRAME_EFR:
+		if (p_g_media_type != MEDIA_TYPE_GSM_EFR) {
+			PERROR("EFR frame, but current media type mismatches.\n");
+			return;
+		}
+		if (!p_g_amr_decoder) {
+			PERROR("EFR frame, but decoder not created.\n");
+			return;
+		}
+		if ((frame->data[0]>>4) != 0xc)
+			goto bfi;
+#ifdef WITH_GSMAMR
+		/* decode */
+		gsm_efr_decode(p_g_amr_decoder, frame->data, p_g_samples);
 		for (i = 0; i < 160; i++) {
 			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
 		}
@@ -317,28 +359,47 @@ int Pgsm::audio_send(unsigned char *data, int len)
 	/* write to rx buffer */
 	while(len--) {
 		p_g_rxdata[p_g_rxpos++] = audio_law_to_s32[*data++];
-		if (p_g_rxpos == 160) {
-			p_g_rxpos = 0;
+		if (p_g_rxpos != 160)
+			continue;
+		p_g_rxpos = 0;
 
+		switch (p_g_media_type) {
+		case MEDIA_TYPE_GSM:
+			if (!p_g_fr_encoder) {
+				PERROR("FR frame, but encoder not created.\n");
+				break;
+			}
 #ifdef WITH_GSMFR
 			/* encode data */
 			gsm_fr_encode(p_g_fr_encoder, p_g_rxdata, frame);
-			frame_send(frame);
+			frame_send(frame, 33, GSM_TCHF_FRAME);
 #endif
+			break;
+		case MEDIA_TYPE_GSM_EFR:
+			if (!p_g_amr_encoder) {
+				PERROR("EFR frame, but encoder not created.\n");
+				break;
+			}
+#ifdef WITH_GSMAMR
+			/* encode data */
+			gsm_efr_encode(p_g_amr_encoder, p_g_rxdata, frame);
+			frame_send(frame, 31, GSM_TCHF_FRAME_EFR);
+#endif
+			break;
 		}
 	}
 
 	return 0;
 }
 
-void Pgsm::frame_send(void *_frame)
+void Pgsm::frame_send(void *_frame, int len, int msg_type)
 {
-	unsigned char buffer[sizeof(struct gsm_data_frame) + 33];
+	unsigned char buffer[sizeof(struct gsm_data_frame) + len];
 	struct gsm_data_frame *frame = (struct gsm_data_frame *)buffer;
 	
-	frame->msg_type = GSM_TCHF_FRAME;
+	frame->msg_type = msg_type;
 	frame->callref = p_g_callref;
-	memcpy(frame->data, _frame, 33);
+	memcpy(frame->data, _frame, len);
 
 	if (p_g_lcr_gsm) {
 		mncc_send(p_g_lcr_gsm, frame->msg_type, frame);
@@ -391,7 +452,7 @@ void Pgsm::modify_lchan(int media_type)
 {
 	struct gsm_mncc *mode;
 
-	/* already modified to that payload type */
+	/* already modified to that media type */
 	if (p_g_media_type == media_type)
 		return;
 
@@ -438,6 +499,9 @@ void Pgsm::call_proc_ind(unsigned int msg_type, unsigned int callref, struct gsm
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
 		p_g_tch_connected = 1;
 	}
+
+	/* modify to GSM FR (this is GSM user side only, so there is FR supported only) */
+	modify_lchan(MEDIA_TYPE_GSM);
 }
 
 /* ALERTING INDICATION */
@@ -460,6 +524,11 @@ void Pgsm::alert_ind(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
 		p_g_tch_connected = 1;
+	}
+
+	/* modify to GSM FR, if not already */
+	if (!p_g_media_type) {
+		modify_lchan(MEDIA_TYPE_GSM);
 	}
 }
 
@@ -516,7 +585,13 @@ void Pgsm::setup_cnf(unsigned int msg_type, unsigned int callref, struct gsm_mnc
 		message->param.connectinfo.rtpinfo.media_types[0] = p_g_media_type;
 		message->param.connectinfo.rtpinfo.payload_types[0] = p_g_payload_type;
 		message->param.connectinfo.rtpinfo.payloads = 1;
+	} else {
+		/* modify to GSM FR, if not already
+		* for network side, this should have been already happened */
+		if (!p_g_media_type)
+			modify_lchan(MEDIA_TYPE_GSM);
 	}
+
 
 	if (p_g_rtp_bridge) {
 		struct gsm_mncc_rtp *rtp;

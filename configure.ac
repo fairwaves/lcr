@@ -183,6 +183,14 @@ AM_CONDITIONAL(ENABLE_GSM_MS, test "x$with_gsm_ms" == "xyes" )
 
 AM_CONDITIONAL(ENABLE_GSM, test "x$with_gsm_bs" == "xyes" -o "x$with_gsm_ms" == "xyes")
 
+# check for opencore-amrnb for AMR and EFR decoding
+found_opencore_amrnb=yes
+PKG_CHECK_MODULES(OPENCORE_AMRNB, opencore-amrnb >= 0.1.0, , found_opencore_amrnb=no)
+AM_CONDITIONAL(ENABLE_GSMAMR, test "$found_opencore_amrnb" = "yes")
+if test "$found_opencore_amrnb" = yes; then
+	AC_DEFINE(HAVE_OPENCORE_AMRNB, 1, [Define to 1 if OpenCore AMR-NB library is available])
+fi
+
 # check for ss5
 AC_ARG_WITH([ss5],
 	[AS_HELP_STRING([--with-ss5],
@@ -247,6 +255,7 @@ AC_OUTPUT
 AS_IF([test "x$with_misdn" == xyes],[AC_MSG_NOTICE( Compiled with mISDN support )],[AC_MSG_NOTICE( Not compiled with mISDN support)])
 AS_IF([test "x$with_gsm_bs" == xyes],[AC_MSG_NOTICE( Compiled with GSM network side support )],[AC_MSG_NOTICE( Not compiled with GSM network side support)])
 AS_IF([test "x$with_gsm_ms" == xyes],[AC_MSG_NOTICE( Compiled with GSM mobile side support )],[AC_MSG_NOTICE( Not compiled with GSM mobile side support)])
+AS_IF([test "x$found_opencore_amrnb" == xyes],[AC_MSG_NOTICE( Compiled with GSM AMR codec support )],[AC_MSG_NOTICE( Not compiled with GSM AMR codec support)])
 AS_IF([test "x$with_asterisk" == xyes],[AC_MSG_NOTICE( Compiled with Asterisk channel driver support )],[AC_MSG_NOTICE( Not compiled with Asterisk channel driver support)])
 AS_IF([test "x$with_ss5" == xyes],[AC_MSG_NOTICE( Compiled with CCITT No.5 support )],[AC_MSG_NOTICE( Not compiled with CCITT No.5 support)])
 AS_IF([test "x$with_sip" == xyes],[AC_MSG_NOTICE( Compiled with SIP support )],[AC_MSG_NOTICE( Not compiled with SIP support)])
