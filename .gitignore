@@ -10,7 +10,6 @@ stamp-h1
 include/Makefile
 libgsmfr/bin/
 libgsmfr/lib/
-config.h
 config.log
 config.status
 config.guess
