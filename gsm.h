@@ -51,6 +51,7 @@ class Pgsm : public Port
 	void *p_g_fr_encoder, *p_g_fr_decoder;	/* gsm handle */
 	void *p_g_hr_encoder, *p_g_hr_decoder;	/* gsm handle */
 	void *p_g_amr_encoder, *p_g_amr_decoder;/* gsm handle */
+	int p_g_amr_cmr, p_g_amr_cmr_valid;
 	signed short p_g_rxdata[160]; /* receive audio buffer */
 	int p_g_rxpos; /* position in audio buffer 0..159 */
 	int p_g_tch_connected; /* indicates if audio is connected */

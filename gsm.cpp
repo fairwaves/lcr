@@ -186,6 +186,8 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 	p_g_hr_encoder = NULL;
 	p_g_amr_decoder = NULL;
 	p_g_amr_encoder = NULL;
+	p_g_amr_cmr = 0;
+	p_g_amr_cmr_valid = 0;
 #ifdef WITH_GSMFR
 	p_g_fr_decoder = gsm_fr_create();
 	p_g_fr_encoder = gsm_fr_create();
@@ -248,7 +250,7 @@ void Pgsm::frame_receive(void *arg)
 {
 	struct gsm_data_frame *frame = (struct gsm_data_frame *)arg;
 	unsigned char data[160];
-	int i;
+	int i, cmr;
 
 	if (!p_g_fr_decoder)
 		return;
@@ -289,6 +291,30 @@ void Pgsm::frame_receive(void *arg)
 #ifdef WITH_GSMAMR
 		/* decode */
 		gsm_efr_decode(p_g_amr_decoder, frame->data, p_g_samples);
+		for (i = 0; i < 160; i++) {
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
+#endif
+		break;
+	case GSM_TCH_FRAME_AMR:
+		if (p_g_media_type != MEDIA_TYPE_AMR) {
+			PERROR("AMR frame, but current media type mismatches.\n");
+			return;
+		}
+		if (!p_g_amr_decoder) {
+			PERROR("AMR frame, but decoder not created.\n");
+			return;
+		}
+		cmr = (frame->data[1] >> 4);
+		if (cmr <= 7) {
+			p_g_amr_cmr = cmr;
+			p_g_amr_cmr_valid = 1;
+		}
+		if (!(frame->data[2] & 0x04))
+			goto bfi;
+#ifdef WITH_GSMAMR
+		/* decode (skip length byte in front) */
+		gsm_amr_decode(p_g_amr_decoder, frame->data + 1, p_g_samples);
 		for (i = 0; i < 160; i++) {
 			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
 		}
@@ -341,6 +367,7 @@ int Pgsm::bridge_rx(unsigned char *data, int len)
 int Pgsm::audio_send(unsigned char *data, int len)
 {
 	unsigned char frame[33];
+	int ret;
 
 	/* record data */
 	if (p_record)
@@ -384,6 +411,22 @@ int Pgsm::audio_send(unsigned char *data, int len)
 			/* encode data */
 			gsm_efr_encode(p_g_amr_encoder, p_g_rxdata, frame);
 			frame_send(frame, 31, GSM_TCHF_FRAME_EFR);
+#endif
+			break;
+		case MEDIA_TYPE_AMR:
+			if (!p_g_amr_encoder) {
+				PERROR("AMR frame, but encoder not created.\n");
+				break;
+			}
+			if (!p_g_amr_cmr_valid) {
+				PDEBUG(DEBUG_GSM, "no valid CMR yet.\n");
+				break;
+			}
+#ifdef WITH_GSMAMR
+			/* encode data (prefix a length byte) */
+			ret = gsm_amr_encode(p_g_amr_encoder, p_g_rxdata, frame + 1, p_g_amr_cmr);
+			frame[0] = ret;
+			frame_send(frame, ret + 1, GSM_TCH_FRAME_AMR);
 #endif
 			break;
 		}

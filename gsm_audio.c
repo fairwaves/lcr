@@ -132,7 +132,7 @@ int gsm_amr_encode(void *arg, signed short *samples, unsigned char *frame, int m
 
 	frame[0] = 0xf0; /* no request */
 
-	return rv;
+	return rv + 1;
 }
 
 const unsigned short gsm690_12_2_bitorder[244] = {
