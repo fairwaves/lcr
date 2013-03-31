@@ -82,20 +82,31 @@ static const struct _value_string {
 	{ MNCC_STOP_DTMF_REQ,	"MNCC_STOP_DTMF_REQ" },
 	{ MNCC_HOLD_REQ,	"MNCC_HOLD_REQ " },
 	{ MNCC_RETRIEVE_REQ,	"MNCC_RETRIEVE_REQ" },
+
 	{ MNCC_LCHAN_MODIFY,	"MNCC_LCHAN_MODIFY" },
+
+	{ MNCC_BRIDGE,		"MNCC_BRIDGE" },
+	{ MNCC_FRAME_RECV,	"MNCC_FRAME_RECV" },
+	{ MNCC_FRAME_DROP,	"MNCC_FRAME_DROP" },
+	{ MNCC_RTP_CREATE,	"MNCC_RTP_CREATE" },
+	{ MNCC_RTP_CONNECT,	"MNCC_RTP_CONNECT" },
+	{ MNCC_RTP_FREE,	"MNCC_RTP_FREE" },
+
 	{ 0,			NULL }
 };
 
 const char *mncc_name(int value)
 {
 	int i = 0;
+	static char ukn[32];
 
 	while (mncc_names[i].name) {
 		if (mncc_names[i].msg_type == value)
 			return mncc_names[i].name;
 		i++;
 	}
-	return "unknown";
+	SPRINT(ukn, "unknown(0x%x)", value);
+	return ukn;
 }
 
 static int mncc_send(struct lcr_gsm *lcr_gsm, int msg_type, void *data);
@@ -157,6 +168,11 @@ static int delete_event(struct lcr_work *work, void *instance, int index);
  */
 Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct interface *interface) : Port(type, portname, settings, interface)
 {
+#ifdef WITH_GSMHR
+	signed short homing[160];
+	int i;
+#endif
+
 	p_g_tones = 0;
 	if (interface->is_tones == IS_YES)
 		p_g_tones = 1;
@@ -195,6 +211,18 @@ Pgsm::Pgsm(int type, char *portname, struct port_settings *settings, struct inte
 		PERROR("Failed to create GSM FR codec instance\n");
 		trigger_work(&p_g_delete);
 	}
+#endif
+#ifdef WITH_GSMHR
+	p_g_hr_decoder = gsm_hr_create();
+	p_g_hr_encoder = gsm_hr_create();
+	if (!p_g_hr_encoder || !p_g_hr_decoder) {
+		PERROR("Failed to create GSM HR codec instance\n");
+		trigger_work(&p_g_delete);
+	}
+	/* Homing */
+	for (i = 0; i < 160; i++)
+		homing[i] = 0x0008;
+	gsm_hr_encode(p_g_hr_encoder, homing, NULL);
 #endif
 #ifdef WITH_GSMAMR
 	p_g_amr_decoder = gsm_amr_create();
@@ -235,6 +263,12 @@ Pgsm::~Pgsm()
 	if (p_g_fr_decoder)
 		gsm_fr_destroy(p_g_fr_decoder);
 //#endif
+#ifdef WITH_GSMHR
+	if (p_g_hr_encoder)
+		gsm_hr_destroy(p_g_hr_encoder);
+	if (p_g_hr_decoder)
+		gsm_hr_destroy(p_g_hr_decoder);
+#endif
 #ifdef WITH_GSMAMR
 	/* close codec */
 	if (p_g_amr_encoder)
@@ -272,6 +306,26 @@ void Pgsm::frame_receive(void *arg)
 #ifdef WITH_GSMFR
 		/* decode */
 		gsm_fr_decode(p_g_fr_decoder, frame->data, p_g_samples);
+		for (i = 0; i < 160; i++) {
+			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
+		}
+#endif
+		break;
+	case GSM_TCHH_FRAME:
+		if (p_g_media_type != MEDIA_TYPE_GSM_HR) {
+			PERROR("HR frame, but current media type mismatches.\n");
+			return;
+		}
+		if (!p_g_hr_decoder) {
+			PERROR("HR frame, but decoder not created.\n");
+			return;
+		}
+		if ((frame->data[0]>>4) != 0x0)
+			goto bfi;
+#ifdef WITH_GSMHR
+		/* decode */
+		if (gsm_hr_decode(p_g_hr_decoder, frame->data, p_g_samples))
+			goto bfi;
 		for (i = 0; i < 160; i++) {
 			data[i] = audio_s16_to_law[p_g_samples[i] & 0xffff];
 		}
@@ -400,6 +454,17 @@ int Pgsm::audio_send(unsigned char *data, int len)
 			/* encode data */
 			gsm_fr_encode(p_g_fr_encoder, p_g_rxdata, frame);
 			frame_send(frame, 33, GSM_TCHF_FRAME);
+#endif
+			break;
+		case MEDIA_TYPE_GSM_HR:
+			if (!p_g_hr_encoder) {
+				PERROR("HR frame, but encoder not created.\n");
+				break;
+			}
+#ifdef WITH_GSMHR
+			/* encode data */
+			gsm_hr_encode(p_g_hr_encoder, p_g_rxdata, frame);
+			frame_send(frame, 15, GSM_TCHH_FRAME);
 #endif
 			break;
 		case MEDIA_TYPE_GSM_EFR:
@@ -664,6 +729,11 @@ void Pgsm::setup_compl_ind(unsigned int msg_type, unsigned int callref, struct g
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
 		p_g_tch_connected = 1;
 	}
+
+	/* modify to GSM FR, if not already */
+	if (!p_g_media_type) {
+		modify_lchan(MEDIA_TYPE_GSM);
+	}
 }
 
 /* DISCONNECT INDICATION */
@@ -870,6 +940,11 @@ void Pgsm::message_alerting(unsigned int epoint_id, int message_id, union parame
 		mncc = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, mncc->msg_type, mncc);
 		p_g_tch_connected = 1;
+	}
+
+	/* modify to GSM FR, if not already */
+	if (!p_g_media_type) {
+		modify_lchan(MEDIA_TYPE_GSM);
 	}
 }
 

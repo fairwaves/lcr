@@ -15,3 +15,9 @@ int gsm_efr_decode(void *arg, unsigned char *frame, signed short *samples);
 int gsm_efr_encode(void *arg, signed short *samples, unsigned char *frame);
 #endif
 
+#ifdef WITH_GSMHR
+void *gsm_hr_create(void);
+void gsm_hr_destroy(void *arg);
+int gsm_hr_decode(void *arg, unsigned char *frame, signed short *samples);
+void gsm_hr_encode(void *arg, signed short *samples, unsigned char *frame);
+#endif

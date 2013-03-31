@@ -221,5 +221,125 @@ int gsm_efr_encode(void *arg, signed short *samples, unsigned char *frame)
 
 #endif
 
+#ifdef WITH_GSMHR
+
+#include <gsmhr/gsmhr.h>
+
+/* create gsm instance */
+void *gsm_hr_create(void)
+{
+	struct gsmhr *state;
+	
+	state = gsmhr_init();
+	
+	return state;
+}
+
+/* free gsm instance */
+void gsm_hr_destroy(void *arg)
+{
+	gsmhr_exit((struct gsmhr *)arg);
+}
+
+#include <string.h>
+/* decode frame into samples, return error */
+int gsm_hr_decode(void *arg, unsigned char *frame, signed short *samples)
+{
+	int16_t w[22];
+	int rc;
+
+	w[0] = frame[1] >> 3;
+	w[1] = ((frame[1] & 0x07) << 8) | frame[2];
+	w[2] = (frame[3] << 1) | (frame[4] >> 7);
+	w[3] = ((frame[4] & 0x7f) << 1) | (frame[5] >> 7);
+	w[4] = (frame[5] & 0x7f) >> 6;
+	w[5] = (frame[5] & 0x3f) >> 4;
+	if (w[5]) {
+		/* voiced */
+		w[6] = ((frame[5] & 0x0f) << 4) | (frame[6] >> 4);
+		w[7] = ((frame[6] & 0x0f) << 5) | (frame[7] >> 3);
+		w[8] = ((frame[7] & 0x07) << 2) | (frame[8] >> 6);
+		w[9] = (frame[8] & 0x3f) >> 2;
+		w[10] = ((frame[8] & 0x03) << 7) | (frame[9] >> 1);
+		w[11] = ((frame[9] & 0x01) << 4) | (frame[10] >> 4);
+		w[12] = frame[10] & 0x0f;
+		w[13] = (frame[11] << 1) | (frame[12] >> 7);
+		w[14] = (frame[12] & 0x7f) >> 2;
+		w[15] = ((frame[12] & 0x03) << 2) | (frame[13] >> 6);
+		w[16] = ((frame[13] & 0x3f) << 3) | (frame[14] >> 5);
+		w[17] = frame[14] & 0x1f;
+	} else {
+		/* unvoiced */
+		w[6] = ((frame[5] & 0x0f) << 3) | (frame[6] >> 5);
+		w[7] = ((frame[6] & 0x1f) << 2) | (frame[7] >> 6);
+		w[8] = (frame[7] & 0x3f) >> 1;
+		w[9] = ((frame[7] & 0x01) << 6) | (frame[8] >> 2);
+		w[10] = ((frame[8] & 0x03) << 5) | (frame[9] >> 3);
+		w[11] = ((frame[9] & 0x07) << 2) | (frame[10] >> 6);
+		w[12] = ((frame[10] & 0x3f) << 1) | (frame[11] >> 7);
+		w[13] = frame[11] & 0x7f;
+		w[14] = frame[12] >> 3;
+		w[15] = ((frame[12] & 0x07) << 4) | (frame[13] >> 4);
+		w[16] = ((frame[13] & 0x1f) << 3) | (frame[14] >> 5);
+		w[17] = frame[14] & 0x1f;
+	}
+	w[18] = 0;		/* BFI : 1 bit */
+	w[19] = 0;		/* UFI : 1 bit */
+	w[20] = 0;		/* SID : 2 bit */
+	w[21] = 0;		/* TAF : 1 bit */
+
+	rc = gsmhr_decode((struct gsmhr *)arg, samples, w);
+
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+/* encode samples into frame */
+void gsm_hr_encode(void *arg, signed short *samples, unsigned char *frame)
+{
+	int16_t w[22];
+
+	gsmhr_encode((struct gsmhr *)arg, w, samples);
+
+	if (!frame)
+		return;
+
+	frame[0] = 0x00;
+	frame[1] = (w[0] << 3) | (w[1] >> 8);
+	frame[2] = w[1];
+	frame[3] = (w[2] >> 1);
+	frame[4] = (w[2] << 7) | (w[3] >> 1);
+	frame[5] = (w[3] << 7) | (w[4] << 6) | (w[5] << 4);
+	if (w[5]) {
+		/* voiced */
+		frame[5] |= (w[6] >> 4);
+		frame[6] = (w[6] << 4) | (w[7] >> 5);
+		frame[7] = (w[7] << 3) | (w[8] >> 2);
+		frame[8] = (w[8] << 6) | (w[9] << 2) | (w[10] >> 7);
+		frame[9] = (w[10] << 1) | (w[11] >> 4);
+		frame[10] = (w[11] << 4) | w[12];
+		frame[11] = (w[13] >> 1);
+		frame[12] = (w[13] << 7) | (w[14] << 2) | (w[15] >> 2);
+		frame[13] = (w[15] << 6) | (w[16] >> 3);
+		frame[14] = (w[16] << 5) | w[17];
+	} else {
+		/* unvoiced */
+		frame[5] |= (w[6] >> 3);
+		frame[6] = (w[6] << 5) | (w[7] >> 2);
+		frame[7] = (w[7] << 6) | (w[8] << 1) | (w[9] >> 6);
+		frame[8] = (w[9] << 2) | (w[10] >> 5);
+		frame[9] = (w[10] << 3) | (w[11] >> 2);
+		frame[10] = (w[11] << 6) | (w[12] >> 1);
+		frame[11] = (w[12] << 7) | w[13];
+		frame[12] = (w[14] << 3) | (w[15] >> 4);
+		frame[13] = (w[15] << 4) | (w[16] >> 3);
+		frame[14] = (w[16] << 5) | w[17];
+	}
+}
+
+#endif
+
 } /* extern "C" */
 

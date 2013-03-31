@@ -45,10 +45,6 @@ INSTALLATION_DEFINES = \
 
 SUBDIRS = include
 
-if ENABLE_GSMHR
-SUBDIRS += libgsmhr
-endif
-
 if ENABLE_MISDN
 
 MISDN_INCLUDE = -DWITH_MISDN -DWITH_CRYPT
@@ -79,7 +75,7 @@ if ENABLE_GSMHR
 
 GSM_INCLUDE += -DWITH_GSMHR
 
-GSM_LIB += libgsmhr/libgsmhr.a
+GSM_LIB += libgsmhr/libgsmhr.la
 
 SUBDIRS += libgsmhr
 
@@ -172,7 +168,7 @@ uninstall-hook:
 	cd '$(DESTDIR)$(astmoddir)' && rm -f chan_lcr.so
 endif
 
-INCLUDES = $(all_includes) $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
+INCLUDES = $(all_includes) -I$(top_srcdir)/include $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
 lcr_SOURCES = \
 	main.c select.c trace.c options.c tones.c alawulaw.c cause.c interface.c message.c callerid.c socket_server.c \

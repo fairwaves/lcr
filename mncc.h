@@ -262,6 +262,17 @@ enum {
 	GSM_MNCC_BCAP_RESERVED	= 7,
 };
 
+enum {
+	GSM_LCHAN_NONE,
+	GSM_LCHAN_SDCCH,
+	GSM_LCHAN_TCH_F,
+	GSM_LCHAN_TCH_H,
+	GSM_LCHAN_UNKNOWN,
+	GSM_LCHAN_CCCH,
+	GSM_LCHAN_PDTCH,
+	_GSM_LCHAN_MAX
+};
+
 struct gsm_mncc {
 	/* context based information */
 	u_int32_t	msg_type;
