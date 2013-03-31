@@ -113,6 +113,7 @@ struct interface {
 	char			remote_context[128]; /* context feld to use for remote application */
 #ifdef WITH_GSM_BS
 	int			gsm_bs; /* interface is an GSM BS interface */
+	int			gsm_bs_hr; /* prefer half rate for MOT calls */
 #if 0
 	int			gsm_bs_payloads;
 	unsigned char		gsm_bs_payload_types[8];

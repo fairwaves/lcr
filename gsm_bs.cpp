@@ -807,6 +807,13 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 	struct lcr_msg *message;
 	struct epoint_list *epointlist;
 	struct gsm_mncc *mncc;
+	struct interface *interface;
+
+	interface = getinterfacebyname(p_interface_name);
+	if (!interface) {
+		PERROR("Cannot find interface %s.\n", p_interface_name);
+		return;
+	}
 
 	/* copy setup infos to port */
 	memcpy(&p_callerinfo, &param->setup.callerinfo, sizeof(p_callerinfo));
@@ -1008,6 +1015,14 @@ void Pgsm_bs::message_setup(unsigned int epoint_id, int message_id, union parame
 		add_trace("redir", "present", "%d", mncc->redirecting.present);
 		add_trace("redir", "screen", "%d", mncc->redirecting.screen);
 		add_trace("redir", "number", "%s", mncc->redirecting.number);
+	}
+
+	if (interface->gsm_bs_hr) {
+		add_trace("lchan", "type", "TCH/H or TCH/F");
+		mncc->lchan_type = GSM_LCHAN_TCH_H;
+	} else {
+		add_trace("lchan", "type", "TCH/F");
+		mncc->lchan_type = GSM_LCHAN_TCH_F;
 	}
 
 	end_trace();

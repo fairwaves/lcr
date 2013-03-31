@@ -922,6 +922,17 @@ static int inter_gsm_bs(struct interface *interface, char *filename, int line, c
 	return(0);
 #endif
 }
+static int inter_gsm_bs_hr(struct interface *interface, char *filename, int line, char *parameter, char *value)
+{
+#ifndef WITH_GSM_BS
+	SPRINT(interface_error, "Error in %s (line %d): GSM BS side not compiled in.\n", filename, line);
+	return(-1);
+#else
+	interface->gsm_bs_hr = 1;
+
+	return(0);
+#endif
+}
 static int inter_gsm_ms(struct interface *interface, char *filename, int line, char *parameter, char *value)
 {
 #ifndef WITH_GSM_MS
@@ -1331,6 +1342,8 @@ struct interface_param interface_param[] = {
 	""},
 	{"gsm-bs", &inter_gsm_bs, "",
 	"Sets up GSM base station interface for using OpenBSC."},
+	{"hr", &inter_gsm_bs_hr, "",
+	"Enable and prefer half rate for mobile terminating calls."},
 	{"gsm-ms", &inter_gsm_ms, "<socket>",
 	"Sets up GSM mobile station interface for using Osmocom-BB.\n"
 	"The name of the MS folows the interface name.\n"
