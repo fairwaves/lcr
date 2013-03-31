@@ -43,6 +43,12 @@ INSTALLATION_DEFINES = \
  -DLOG_DIR="\"$(LOGdir)\"" \
  -DEXTENSION_DATA="\"$(EXTENSIONdir)\""
 
+SUBDIRS = include
+
+if ENABLE_GSMHR
+SUBDIRS += libgsmhr
+endif
+
 if ENABLE_MISDN
 
 MISDN_INCLUDE = -DWITH_MISDN -DWITH_CRYPT
@@ -59,7 +65,7 @@ GSM_LIB =
 
 if ENABLE_GSM
 
-#if ENABLE_GSMHR
+#if ENABLE_GSMFR
 
 GSM_INCLUDE += -DWITH_GSMFR
 
@@ -68,6 +74,16 @@ GSM_LIB += libgsmfr/lib/libgsm.a
 SUBDIRS += libgsmfr
 
 #endif
+
+if ENABLE_GSMHR
+
+GSM_INCLUDE += -DWITH_GSMHR
+
+GSM_LIB += libgsmhr/libgsmhr.a
+
+SUBDIRS += libgsmhr
+
+endif
 
 if ENABLE_GSMAMR
 

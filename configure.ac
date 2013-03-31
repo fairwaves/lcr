@@ -44,6 +44,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AC_PROG_LIBTOOL
 dnl required, if per binary CFLAGS are used
 dnl AM_PROG_CC_C_O
 
@@ -191,6 +192,19 @@ if test "$found_opencore_amrnb" = yes; then
 	AC_DEFINE(HAVE_OPENCORE_AMRNB, 1, [Define to 1 if OpenCore AMR-NB library is available])
 fi
 
+# check for HR codec
+AC_ARG_ENABLE(gsmhr,
+	[AS_HELP_STRING(
+		[--enable-gsmhr],
+		[Enable support for GSM HR codec using reference code]
+	)],
+	[enable_gsmhr=1], [enable_gsmhr=0])
+AM_CONDITIONAL(ENABLE_GSMHR, test "x$enable_gsmhr" = "x1")
+if test "x$enable_gsmhr" = "x1"; then
+	AM_PATH_PYTHON([2.4])
+	AC_DEFINE(HAVE_LIBGSMHR, 1, [Define to 1 if libgsmhr is available])
+fi
+
 # check for ss5
 AC_ARG_WITH([ss5],
 	[AS_HELP_STRING([--with-ss5],
@@ -248,13 +262,14 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([gettimeofday memmove memset mkdir socket strcasecmp strchr strerror strncasecmp strstr strtol strtoul])
 
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile include/Makefile include/gsmhr/Makefile libgsmhr/Makefile])
 AC_OUTPUT
 
 
 AS_IF([test "x$with_misdn" == xyes],[AC_MSG_NOTICE( Compiled with mISDN support )],[AC_MSG_NOTICE( Not compiled with mISDN support)])
 AS_IF([test "x$with_gsm_bs" == xyes],[AC_MSG_NOTICE( Compiled with GSM network side support )],[AC_MSG_NOTICE( Not compiled with GSM network side support)])
 AS_IF([test "x$with_gsm_ms" == xyes],[AC_MSG_NOTICE( Compiled with GSM mobile side support )],[AC_MSG_NOTICE( Not compiled with GSM mobile side support)])
+AS_IF([test "x$enable_gsmhr" == x1],[AC_MSG_NOTICE( Compiled with GSM half rate codec support )],[AC_MSG_NOTICE( Not compiled with GSM half rate codec support)])
 AS_IF([test "x$found_opencore_amrnb" == xyes],[AC_MSG_NOTICE( Compiled with GSM AMR codec support )],[AC_MSG_NOTICE( Not compiled with GSM AMR codec support)])
 AS_IF([test "x$with_asterisk" == xyes],[AC_MSG_NOTICE( Compiled with Asterisk channel driver support )],[AC_MSG_NOTICE( Not compiled with Asterisk channel driver support)])
 AS_IF([test "x$with_ss5" == xyes],[AC_MSG_NOTICE( Compiled with CCITT No.5 support )],[AC_MSG_NOTICE( Not compiled with CCITT No.5 support)])

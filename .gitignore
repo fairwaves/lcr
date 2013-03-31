@@ -1,4 +1,5 @@
 core
+*.swp
 *.o
 *.po
 *.so
@@ -27,3 +28,6 @@ gentones
 genwave
 lcr
 lcradmin
+libtool
+libgsmhr/refsrc
+ltmain.sh
