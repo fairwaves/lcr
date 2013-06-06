@@ -141,7 +141,7 @@ sbin_PROGRAMS = lcr genrc genextension
 if ENABLE_ASTERISK_CHANNEL_DRIVER
 noinst_PROGRAMS = chan_lcr.so
 chan_lcr_so_SOURCES =
-chan_lcr_so_LDFLAGS = -shared
+chan_lcr_so_LDFLAGS = --shared
 chan_lcr_so_LDADD = chan_lcr.po options.po callerid.po select.po
 
 # List chan_lcr specific sources for make dist
