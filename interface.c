@@ -1005,6 +1005,12 @@ static int inter_rtp_bridge(struct interface *interface, char *filename, int lin
 		SPRINT(interface_error, "Error in %s (line %d): Interface does not support RTP\n", filename, line);
 		return(-1);
 	}
+
+	if (interface->app != EAPP_TYPE_BRIDGE) {
+		SPRINT(interface_error, "Error in %s (line %d): '%s' requires previous 'bridge' parameter.\n", filename, line, parameter);
+		return(-1);
+	}
+
 	interface->rtp_bridge = 1;
 
 	return(0);
@@ -1354,7 +1360,8 @@ struct interface_param interface_param[] = {
 	"Give SIP configuration file."},
 	{"rtp-bridge", &inter_rtp_bridge, "",
 	"Enables RTP bridging directly from this interface.\n"
-	"This only works, if both ends support RTP. (like gsm-bs and sip)"},
+	"This only works if both bridged interfaces use RTP, e.g. between gsm-bs and sip.\n"
+	"This parameter must follow a 'bridge' parameter.\n"},
 #if 0
 	not needed, since ms defines what is supports and remote (sip) tells what is selected
 	{"rtp-payload", &inter_rtp_payload, "<codec>",
