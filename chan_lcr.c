@@ -238,6 +238,8 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 	char ast_text[128] = "NULL";
 	va_list args;
 
+	if (!option_debug) return;
+
 	ast_mutex_lock(&log_lock);
 
 	va_start(args,fmt);
@@ -255,8 +257,8 @@ void chan_lcr_log(int type, const char *file, int line, const char *function, st
 #endif
 	ast_text[sizeof(ast_text)-1] = '\0';
 
-//	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
-	printf("[call=%s ast=%s line=%d] %s", call_text, ast_text, line, buffer);
+	ast_log(type, file, line, function, "[call=%s ast=%s] %s", call_text, ast_text, buffer);
+//	printf("[call=%s ast=%s line=%d] %s", call_text, ast_text, line, buffer);
 
 	ast_mutex_unlock(&log_lock);
 }
