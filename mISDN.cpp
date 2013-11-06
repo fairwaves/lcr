@@ -1818,10 +1818,12 @@ static int pots_sock_callback(struct lcr_fd *fd, unsigned int what, void *instan
 	case PH_CONTROL_IND:
 		cont = *((unsigned int *)(buffer + MISDN_HEADER_LEN));
 		/* l1-control is sent to LCR */
+#ifdef ISDN_P_FXS_POTS
 		if (mISDNport->ntmode)
 			stack2manager_fxs(mISDNport, cont);
 		else
 			PERROR("FXO not supported!\n");
+#endif
 		break;
 	case PH_ACTIVATE_REQ:
 		break;
