@@ -3462,7 +3462,7 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 			break;
 		call = call->next;
 	}
-	if (call)
+	if (call) {
 
 		#ifdef LCR_FOR_ASTERISK
 		apply_opt(call, (char *)data);
@@ -3480,7 +3480,7 @@ static int lcr_config_exec(struct ast_channel *ast, void *data, char **argv)
 			newparam.queue = call->tx_queue * 8;
 			send_message(MESSAGE_DISABLE_DEJITTER, call->ref, &newparam);
 		}
-	else
+	} else
 		CERROR(NULL, ast, "lcr_config app not called by chan_lcr channel.\n");
 
 	ast_mutex_unlock(&chan_lock);
