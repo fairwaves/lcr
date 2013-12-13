@@ -11,7 +11,7 @@ except:
 	import StringIO
 
 
-SRC = "http://ftp.3gpp.org/Specs/2001-06/Ph2/06_series/0606-421/0606_421.zip"
+SRC = "http://www.3gpp.org/ftp/Specs/archive/06_series/06.06/0606-421.zip"
 
 
 def get_zipfile(data):
