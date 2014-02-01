@@ -330,7 +330,7 @@ struct gsm_mncc_rtp {
 };
 
 
-#define MNCC_SOCK_VERSION	2
+#define MNCC_SOCK_VERSION	5
 struct gsm_mncc_hello {
 	uint32_t	msg_type;
 	uint32_t	version;
