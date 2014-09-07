@@ -28,12 +28,12 @@ dnl 1st + 2nd argument is used for distribution package name
 AC_INIT(lcr, 1.14, andreas@eversberg.eu)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR([main.c])
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER([config.h])
 
 # fix warnings from autoconf + automake
 AC_GNU_SOURCE
-# AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE(lcr,1.14)
+dnl AC_USE_SYSTEM_EXTENSIONS
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 
 

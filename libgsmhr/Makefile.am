@@ -1,4 +1,4 @@
-INCLUDES = $(all_includes) -I$(top_srcdir)/include -I$(top_builddir)
+AM_CPPFLAGS = $(all_includes) -I$(top_srcdir)/include -I$(top_builddir)
 AM_CFLAGS = -fPIC -Wall ${SYMBOL_VISIBILITY}
 
 LIBVERSION=0:0:0

@@ -149,16 +149,16 @@ EXTRA_chan_lcr_so_SOURCES = chan_lcr.c chan_lcr.h
 
 
 chan_lcr.po: chan_lcr.c chan_lcr.h
-	$(CC) $(INCLUDES) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c $< -o $@
+	$(CC) $(AM_CPPFLAGS) $(AST_CFLAGS) $(CPPFLAGS) $(CFLAGS) -D_GNU_SOURCE -fPIC -c $< -o $@
 
 callerid.po: callerid.c callerid.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(AM_CPPFLAGS) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 options.po: options.c options.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(AM_CPPFLAGS) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 select.po: select.c select.h
-	$(CC) $(INCLUDES) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(AM_CPPFLAGS) -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 install-exec-hook: chan_lcr.so
 	$(INSTALL) -d '$(DESTDIR)$(astmoddir)'
@@ -168,7 +168,7 @@ uninstall-hook:
 	cd '$(DESTDIR)$(astmoddir)' && rm -f chan_lcr.so
 endif
 
-INCLUDES = $(all_includes) -I$(top_srcdir)/include $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
+AM_CPPFLAGS = $(all_includes) -I$(top_srcdir)/include $(MISDN_INCLUDE) $(GSM_INCLUDE) $(SS5_INCLUDE) $(SIP_INCLUDE) -Wall $(INSTALLATION_DEFINES)
 
 lcr_SOURCES = \
 	main.c select.c trace.c options.c tones.c alawulaw.c cause.c interface.c message.c callerid.c socket_server.c \
