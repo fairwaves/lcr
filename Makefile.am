@@ -53,8 +53,6 @@ MISDN_LIB = -lmisdn
 
 endif
 
-SUBDIRS =
-
 GSM_INCLUDE =
 GSM_SOURCE =
 GSM_LIB =
