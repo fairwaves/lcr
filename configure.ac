@@ -27,6 +27,7 @@ dnl Change the 2nd argument if the version increases
 dnl 1st + 2nd argument is used for distribution package name
 AC_INIT(lcr, 1.14, andreas@eversberg.eu)
 AC_PREREQ(2.59)
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([main.c])
 AC_CONFIG_HEADER([config.h])
 
