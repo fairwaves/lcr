@@ -1,5 +1,0 @@
-version=3
-# only using the date part of the debian version.
-# How can I use the match of the directory?
-opts="dversionmangle=s/([\d.]+)~//" \
-	http://isdn.eversberg.eu/download/lcr-([\d.]+)/lcr_([\d]+)\.tar\.gz debian uupdate

@@ -1,8 +1,5 @@
-This package was debianized by Joerg Dorchain <joerg@dorchain.net> on
-Fri, 26 Dec 2008 11:46:23 +0100.
-
-It is now maintained by the Debian VoIP Team
-<pkg-voip-maintainers@lists.alioth.debian.org>
+This package was debianized by Ivan Kluchnikov <kluchnikovi@gmail.com> on
+Mon, 31 Mar 2014 13:54:24 +0200.
 
 It was downloaded from http://isdn.eversberg.eu/download/lcr-1.3/
 
@@ -31,7 +28,4 @@ License:
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
     On Debian systems, you find a copy at '/usr/share/common-licenses/GPL-2'
-
-The Debian packaging is (C) 2008, Joerg Dorchain <joerg@dorchain.net> and
-is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
 

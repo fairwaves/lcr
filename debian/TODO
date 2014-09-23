@@ -1,8 +1,0 @@
-* Add manpages for:
-  - usr/sbin/genextension ( first draft already done debian/genextension.8 )
-  - usr/bin/gentones ( debian/gentones.1 )
-  - usr/bin/genwave
-  - usr/sbin/lcr
-  - usr/bin/lcradmin ( debian.lcradmin.1)
-
-* Check udev rules for permissions of /dev/mISDNtimer
