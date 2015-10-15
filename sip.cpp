@@ -1028,8 +1028,11 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	PDEBUG(DEBUG_SIP, "Using SDP for invite: %s\n", sdp_str);
 
 	SPRINT(from, "sip:%s@%s", param->setup.callerinfo.id, local);
-	SPRINT(to, "sip:%s@%s", param->setup.dialinginfo.id, remote);
-
+	if (param->setup.dialinginfo.ntype == INFO_NTYPE_INTERNATIONAL) {
+		SPRINT(to, "sip:+%s@%s", param->setup.dialinginfo.id, remote);
+	} else {
+		SPRINT(to, "sip:%s@%s", param->setup.dialinginfo.id, remote);
+	}
 	sip_trace_header(this, "INVITE", DIRECTION_OUT);
 	add_trace("from", "uri", "%s", from);
 	add_trace("to", "uri", "%s", to);
