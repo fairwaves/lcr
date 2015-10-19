@@ -1327,6 +1327,7 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 	uint8_t payload_types[32];
 	int payloads = 0;
 	int media_type;
+	int shift = 0;
 
 	interface = getinterfacebyname(inst->interface_name);
 	if (!interface) {
@@ -1421,9 +1422,14 @@ void Psip::i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *mag
 		p_callerinfo.present = INFO_PRESENT_ALLOWED;
 		add_trace("calling", "present", "allowed");
 		p_callerinfo.screen = INFO_SCREEN_NETWORK;
-		p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
-		SCPY(p_callerinfo.id, from);
-		add_trace("calling", "number", "%s", from);
+		if (from[0] == '+') {
+			p_callerinfo.ntype = INFO_NTYPE_INTERNATIONAL;
+			shift = 1;
+		} else {
+			p_callerinfo.ntype = INFO_NTYPE_UNKNOWN;
+		}
+		SCPY(p_callerinfo.id, from + shift);
+		add_trace("calling", "number", "%s", from + shift);
 		SCPY(p_callerinfo.name, name);
 		if (name[0])
 			add_trace("calling", "name", "%s", name);
