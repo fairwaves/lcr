@@ -1,3 +1,9 @@
+lcr (1.3.6-1) trusty; urgency=low
+
+  * sip: add "+" before international numbers
+
+ -- Ivan Kluchnikov  <Ivan.Kluchnikov@fairwaves.ru>  Mon, 31 Mar 2014 13:54:24 +0200
+
 lcr (1.3.6) precise; urgency=low
 
   * Initial release
