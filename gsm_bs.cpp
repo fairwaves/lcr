@@ -15,6 +15,9 @@
 struct lcr_gsm *gsm_bs = NULL;
 
 #define PAYLOAD_TYPE_GSM 3
+#define PAYLOAD_TYPE_GSM_HALF 96
+#define PAYLOAD_TYPE_GSM_EFR  97
+#define PAYLOAD_TYPE_AMR      98
 
 /*
  * DTMF stuff
@@ -351,7 +354,6 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 	if ((mncc->fields & MNCC_F_BEARER_CAP)) {
 		/* select preferred payload type from list */
 		int i;
-		unsigned char dynamic_type = 96;
 
 		add_trace("bearer", "capa", "given by MS");
 		for (i = 0; mncc->bearer_cap.speech_ver[i] >= 0; i++) {
@@ -368,21 +370,21 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 			case 2:
 				add_trace("speech", "version", "EFR given");
 				media_type = MEDIA_TYPE_GSM_EFR;
-				payload_type = dynamic_type++;
+				payload_type = PAYLOAD_TYPE_GSM_EFR;
 				encoder = p_g_amr_encoder;
 				decoder = p_g_amr_decoder;
 				break;
 			case 4:
 				add_trace("speech", "version", "AMR given");
 				media_type = MEDIA_TYPE_AMR;
-				payload_type = dynamic_type++;
+				payload_type = PAYLOAD_TYPE_AMR;
 				encoder = p_g_amr_encoder;
 				decoder = p_g_amr_decoder;
 				break;
 			case 1:
 				add_trace("speech", "version", "Half Rate given");
 				media_type = MEDIA_TYPE_GSM_HR;
-				payload_type = dynamic_type++;
+				payload_type = PAYLOAD_TYPE_GSM_HALF;
 				encoder = p_g_hr_encoder;
 				decoder = p_g_hr_decoder;
 				half = 1;
@@ -390,7 +392,7 @@ void Pgsm_bs::select_payload_type(struct gsm_mncc *mncc, unsigned char *payload_
 			case 5:
 				add_trace("speech", "version", "AMR Half Rate given");
 				media_type = MEDIA_TYPE_AMR;
-				payload_type = dynamic_type++;
+				payload_type = PAYLOAD_TYPE_AMR;
 				encoder = p_g_amr_encoder;
 				decoder = p_g_amr_decoder;
 				half = 1;
