@@ -1080,11 +1080,33 @@ int Psip::message_setup(unsigned int epoint_id, int message_id, union parameter 
 	
 int Psip::message_notify(unsigned int epoint_id, int message_id, union parameter *param)
 {
-//	char sdp_str[256];
-//	struct in_addr ia;
+	char sdp_str[256];
+	struct in_addr ia;
+	ia.s_addr = htonl(p_s_rtp_ip_local);
 
 	switch (param->notifyinfo.notify) {
 	case INFO_NOTIFY_REMOTE_HOLD:
+		SPRINT(sdp_str,
+			"v=0\n"
+			"o=LCR-Sofia-SIP 0 1 IN IP4 %s\n"
+			"s=SIP Call\n"
+			"c=IN IP4 %s\n"
+			"t=0 0\n"
+			"m=audio %d RTP/AVP %d\n"
+			"a=rtpmap:%d %s/8000\n"
+			"a=sendonly\n",
+			inet_ntoa(ia), inet_ntoa(ia),
+			p_s_rtp_port_local, param->notifyinfo.payload_type,
+			param->notifyinfo.payload_type,
+			media_type2name(param->notifyinfo.media_type));
+
+		PDEBUG(DEBUG_SIP, "Using SDP for hold: %s\n", sdp_str);
+
+		nua_invite(p_s_handle,
+			NUTAG_MEDIA_ENABLE(0),
+			SIPTAG_CONTENT_TYPE_STR("application/sdp"),
+			SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
+
 #if 0
 		SPRINT(sdp_str,
 			"v=0\n"
@@ -1104,6 +1126,28 @@ int Psip::message_notify(unsigned int epoint_id, int message_id, union parameter
 #endif
 		break;
 	case INFO_NOTIFY_REMOTE_RETRIEVAL:
+		SPRINT(sdp_str,
+			"v=0\n"
+			"o=LCR-Sofia-SIP 0 1 IN IP4 %s\n"
+			"s=SIP Call\n"
+			"c=IN IP4 %s\n"
+			"t=0 0\n"
+			"m=audio %d RTP/AVP %d\n"
+			"a=rtpmap:%d %s/8000\n",
+			inet_ntoa(ia), inet_ntoa(ia),
+			p_s_rtp_port_local, param->notifyinfo.payload_type,
+			param->notifyinfo.payload_type,
+			media_type2name(param->notifyinfo.media_type));
+
+		PDEBUG(DEBUG_SIP, "Using SDP for hold: %s\n", sdp_str);
+
+		nua_invite(p_s_handle,
+			NUTAG_MEDIA_ENABLE(0),
+			SIPTAG_CONTENT_TYPE_STR("application/sdp"),
+			SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
+
+
+
 #if 0
 		ia.s_addr = htonl(p_s_rtp_ip_local);
 		SPRINT(sdp_str,

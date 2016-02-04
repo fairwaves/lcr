@@ -286,6 +286,8 @@ void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
 	message->param.notifyinfo.notify = INFO_NOTIFY_REMOTE_HOLD;
 	message->param.notifyinfo.local = 1; /* call is held by supplementary service */
+	message->param.notifyinfo.media_type = p_g_media_type; /* current media type or 0 if not set */
+	message->param.notifyinfo.payload_type = p_g_payload_type; /* current payload type */
 	message_put(message);
 
 	/* acknowledge hold */
@@ -318,6 +320,8 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_NOTIFY);
 	message->param.notifyinfo.notify = INFO_NOTIFY_REMOTE_RETRIEVAL;
 	message->param.notifyinfo.local = 1; /* call is retrieved by supplementary service */
+	message->param.notifyinfo.media_type = p_g_media_type; /* current media type or 0 if not set */
+	message->param.notifyinfo.payload_type = p_g_payload_type; /* current payload type */
 	message_put(message);
 
 	/* acknowledge retr */

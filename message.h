@@ -245,6 +245,8 @@ struct notify_info {
 	int present;			/* redirection presentation */
 	char display[84];		/* display information */
 	int local;			/* if set, endpoints gets information about audio channel (open/close) */
+	int media_type;		/* current media type or 0 if not set */
+	int payload_type;	/* current payload type */
 };
 
 /* call-info structure PROGRESS */
