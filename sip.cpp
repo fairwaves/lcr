@@ -1213,6 +1213,38 @@ int Psip::message_information(unsigned int epoint_id, int message_id, union para
 	return 0;
 }
 
+int Psip::message_rtp_modify(unsigned int epoint_id, int message_id, union parameter *param)
+{
+	char sdp_str[256];
+	struct in_addr ia;
+	p_s_rtp_ip_local = param->rtpinfo.ip;
+	p_s_rtp_port_local = param->rtpinfo.port;
+	ia.s_addr = htonl(p_s_rtp_ip_local);
+
+	SPRINT(sdp_str,
+		"v=0\n"
+		"o=LCR-Sofia-SIP 0 0 IN IP4 %s\n"
+		"s=SIP Call\n"
+		"c=IN IP4 %s\n"
+		"t=0 0\n"
+		"m=audio %d RTP/AVP %d\n"
+		"a=rtpmap:%d %s/8000\n",
+		inet_ntoa(ia), inet_ntoa(ia),
+		p_s_rtp_port_local,
+		param->rtpinfo.payload_types[0], param->rtpinfo.payload_types[0],
+		media_type2name(param->rtpinfo.media_types[0]));
+
+	PDEBUG(DEBUG_SIP, "Using SDP for reinvite: %s\n", sdp_str);
+
+	nua_invite(p_s_handle,
+		NUTAG_MEDIA_ENABLE(0),
+		SIPTAG_CONTENT_TYPE_STR("application/sdp"),
+		SIPTAG_PAYLOAD_STR(sdp_str), TAG_END());
+
+	return 0;
+}
+
+
 int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter *param)
 {
 	if (Port::message_epoint(epoint_id, message_id, param))
@@ -1259,6 +1291,9 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 		case MESSAGE_NOTIFY: /* notification about remote hold/retrieve */
 		if (p_state == PORT_STATE_CONNECT)
 			message_notify(epoint_id, message_id, param);
+		case MESSAGE_RTP_MODIFY:
+		if (p_state == PORT_STATE_CONNECT)
+			message_rtp_modify(epoint_id, message_id, param);
 		return(1);
 
 		default:

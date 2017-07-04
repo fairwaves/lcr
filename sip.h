@@ -26,6 +26,7 @@ class Psip : public Port
 	int message_notify(unsigned int epoint_id, int message, union parameter *param);
 	int message_information(unsigned int epoint_id, int message, union parameter *param);
 	int message_dtmf(unsigned int epoint_id, int message, union parameter *param);
+	int message_rtp_modify(unsigned int epoint_id, int message_id, union parameter *param);
 	void i_invite(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tags[]);
 	void i_bye(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tags[]);
 	void i_cancel(int status, char const *phrase, nua_t *nua, nua_magic_t *magic, nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip, tagi_t tags[]);

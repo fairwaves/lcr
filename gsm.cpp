@@ -91,6 +91,7 @@ static const struct _value_string {
 	{ MNCC_RTP_CREATE,	"MNCC_RTP_CREATE" },
 	{ MNCC_RTP_CONNECT,	"MNCC_RTP_CONNECT" },
 	{ MNCC_RTP_FREE,	"MNCC_RTP_FREE" },
+	{ MNCC_RTP_MODIFY,	"MNCC_RTP_MODIFY" },
 
 	{ 0,			NULL }
 };

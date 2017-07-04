@@ -273,6 +273,23 @@ void Pgsm_bs::stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct 
 	p_g_dtmf = NULL;
 }
 
+void Pgsm_bs::rtp_modify(unsigned int msg_type, unsigned int callref, struct gsm_mncc_rtp *mncc)
+{
+	struct lcr_msg *message;
+	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
+	end_trace();
+
+	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RTP_MODIFY);
+
+	message->param.rtpinfo.payloads = 1;
+	message->param.rtpinfo.payload_types[0] = p_g_payload_type;
+	message->param.rtpinfo.media_types[0] = p_g_media_type;
+	message->param.rtpinfo.ip = mncc->ip;
+	message->param.rtpinfo.port = mncc->port;
+
+	message_put(message);
+}
+
 /* HOLD INDICATION */
 void Pgsm_bs::hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc)
 {
@@ -677,6 +694,10 @@ int message_bsc(struct lcr_gsm *lcr_gsm, int msg_type, void *arg)
 			}
 		}
 		port = port->next;
+	}
+
+	if (msg_type == MNCC_RTP_MODIFY) {
+		pgsm_bs->rtp_modify(msg_type, callref, (struct gsm_mncc_rtp *)arg);
 	}
 
 	if (msg_type == GSM_TCHF_FRAME

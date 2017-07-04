@@ -16,6 +16,7 @@ class Pgsm_bs : public Pgsm
 	void stop_dtmf_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void hold_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
 	void retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_mncc *mncc);
+	void rtp_modify(unsigned int msg_type, unsigned int callref, struct gsm_mncc_rtp *mncc);
 	void message_setup(unsigned int epoint_id, int message_id, union parameter *param);
 	int message_epoint(unsigned int epoint_id, int message_id, union parameter *param);
 };

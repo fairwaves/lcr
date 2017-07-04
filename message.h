@@ -381,6 +381,7 @@ union parameter {
 	struct param_traffic traffic; /* MESSAGE_TRAFFIC */
 	struct param_3pty threepty; /* MESSAGE_TRAFFIC */
 	unsigned int queue; /* MESSAGE_DISABLE_DEJITTER */
+	struct rtp_info rtpinfo; /* rtp-info */
 };
 
 enum { /* message flow */
@@ -437,7 +438,8 @@ enum { /* messages between entities */
 	MESSAGE_TRAFFIC,	/* exchange bchannel traffic */
 	MESSAGE_3PTY,		/* 3PTY call invoke */
 	MESSAGE_TRANSFER,	/* call transfer invoke */
-	MESSAGE_DISABLE_DEJITTER/* tell (mISDN) port not to dejitter */
+	MESSAGE_DISABLE_DEJITTER, /* tell (mISDN) port not to dejitter */
+	MESSAGE_RTP_MODIFY /* modify rtp info */
 };
 
 #define MESSAGES static const char *messages_txt[] = { \
@@ -477,6 +479,7 @@ enum { /* messages between entities */
 	"MESSAGE_3PTY", \
 	"MESSAGE_TRANSFER", \
 	"MESSAGE_DISABLE_DEJITTER", \
+	"MESSAGE_RTP_MODIFY", \
 };
 
 
