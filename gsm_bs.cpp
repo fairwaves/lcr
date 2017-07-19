@@ -354,6 +354,8 @@ void Pgsm_bs::retr_ind(unsigned int msg_type, unsigned int callref, struct gsm_m
 		frame = create_mncc(MNCC_FRAME_RECV, p_g_callref);
 		send_and_free_mncc(p_g_lcr_gsm, frame->msg_type, frame);
 		p_g_tch_connected = 1;
+		/* connect RTP */
+		send_mncc_rtp_connect();
 	}
 }
 
