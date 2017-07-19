@@ -1291,6 +1291,8 @@ int Psip::message_epoint(unsigned int epoint_id, int message_id, union parameter
 		case MESSAGE_NOTIFY: /* notification about remote hold/retrieve */
 		if (p_state == PORT_STATE_CONNECT)
 			message_notify(epoint_id, message_id, param);
+		return 1;
+
 		case MESSAGE_RTP_MODIFY:
 		if (p_state == PORT_STATE_CONNECT)
 			message_rtp_modify(epoint_id, message_id, param);
