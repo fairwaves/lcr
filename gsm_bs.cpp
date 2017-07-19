@@ -279,15 +279,15 @@ void Pgsm_bs::rtp_modify(unsigned int msg_type, unsigned int callref, struct gsm
 	gsm_trace_header(p_interface_name, this, msg_type, DIRECTION_IN);
 	end_trace();
 
-	message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RTP_MODIFY);
-
-	message->param.rtpinfo.payloads = 1;
-	message->param.rtpinfo.payload_types[0] = p_g_payload_type;
-	message->param.rtpinfo.media_types[0] = p_g_media_type;
-	message->param.rtpinfo.ip = mncc->ip;
-	message->param.rtpinfo.port = mncc->port;
-
-	message_put(message);
+	if (p_g_tch_connected) {
+		message = message_create(p_serial, ACTIVE_EPOINT(p_epointlist), PORT_TO_EPOINT, MESSAGE_RTP_MODIFY);
+		message->param.rtpinfo.payloads = 1;
+		message->param.rtpinfo.payload_types[0] = p_g_payload_type;
+		message->param.rtpinfo.media_types[0] = p_g_media_type;
+		message->param.rtpinfo.ip = mncc->ip;
+		message->param.rtpinfo.port = mncc->port;
+		message_put(message);
+	}
 }
 
 /* HOLD INDICATION */
